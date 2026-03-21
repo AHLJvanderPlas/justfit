@@ -105,7 +105,7 @@ function emailShell(content) {
 
 // ─── HANDLERS ─────────────────────────────────────────────────────────────────
 
-async function handleSignup({ email, password }, env, secret, ctx) {
+async function handleSignup({ email, password }, env, secret) {
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
   if (password.length < 6) return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
@@ -130,11 +130,11 @@ async function handleSignup({ email, password }, env, secret, ctx) {
   ]);
 
   if (env.RESEND_API_KEY) {
-    ctx.waitUntil(sendEmail(emailLower, 'Welcome to JustFit.cc — Consistency starts today', emailShell(`
+    await sendEmail(emailLower, 'Welcome to JustFit.cc — Consistency starts today', emailShell(`
       <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 12px;">You're in.</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Your first plan is ready. Check in daily — even 10 minutes counts.</p>
       <a href="https://justfit.cc" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Open JustFit →</a>
-    `), env.RESEND_API_KEY));
+    `), env.RESEND_API_KEY).catch(() => {});
   }
 
   const token = await createJWT({ userId, email: emailLower }, secret);
@@ -163,7 +163,7 @@ async function handleLogin({ email, password }, env, secret) {
 }
 
 // ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
-async function handleForgotPassword({ email }, env, secret, ctx) {
+async function handleForgotPassword({ email }, env, secret) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
 
@@ -179,12 +179,12 @@ async function handleForgotPassword({ email }, env, secret, ctx) {
     ).bind(token, user.id, emailLower, now + RESET_EXPIRY_MS, now).run();
 
     const resetUrl = `https://justfit.cc/reset-password.html?token=${token}`;
-    ctx.waitUntil(sendEmail(emailLower, 'Reset your JustFit password', emailShell(`
+    await sendEmail(emailLower, 'Reset your JustFit password', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Reset your password</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to set a new password. This link expires in 1 hour.</p>
       <a href="${resetUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Reset Password →</a>
       <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
-    `), env.RESEND_API_KEY));
+    `), env.RESEND_API_KEY).catch(() => {});
   }
 
   // Always return 200 — never reveal whether the email exists
@@ -224,7 +224,7 @@ async function handleResetPassword({ reset_token, new_password }, env, secret) {
 }
 
 // ─── MAGIC LINK: SEND ─────────────────────────────────────────────────────────
-async function handleMagicLink({ email }, env, ctx) {
+async function handleMagicLink({ email }, env) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
 
@@ -240,12 +240,12 @@ async function handleMagicLink({ email }, env, ctx) {
     ).bind(token, user?.id ?? null, emailLower, now + MAGIC_EXPIRY_MS, now).run();
 
     const magicUrl = `https://justfit.cc/magic.html?token=${token}`;
-    ctx.waitUntil(sendEmail(emailLower, 'Your JustFit login link ⚡', emailShell(`
+    await sendEmail(emailLower, 'Your JustFit login link ⚡', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Here's your login link</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to log in instantly. This link expires in 15 minutes and can only be used once.</p>
       <a href="${magicUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Log in to JustFit →</a>
       <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
-    `), env.RESEND_API_KEY));
+    `), env.RESEND_API_KEY).catch(() => {});
   }
 
   return Response.json({ ok: true });
@@ -453,18 +453,18 @@ async function getSessionUser(request, secret) {
 }
 
 // ─── EXPORTED HANDLERS ────────────────────────────────────────────────────────
-export async function onRequestPost({ request, env, ctx }) {
+export async function onRequestPost({ request, env }) {
   try {
     const secret = env.JWT_SECRET;
     if (!secret) return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
 
     const body = await request.json();
     switch (body.action) {
-      case 'signup':                    return handleSignup(body, env, secret, ctx);
+      case 'signup':                    return handleSignup(body, env, secret);
       case 'login':                     return handleLogin(body, env, secret);
-      case 'forgot_password':           return handleForgotPassword(body, env, secret, ctx);
+      case 'forgot_password':           return handleForgotPassword(body, env, secret);
       case 'reset_password':            return handleResetPassword(body, env, secret);
-      case 'magic_link':                return handleMagicLink(body, env, ctx);
+      case 'magic_link':                return handleMagicLink(body, env);
       case 'passkey_begin_register':    return handlePasskeyBeginRegister(request, env, secret);
       case 'passkey_complete_register': return handlePasskeyCompleteRegister(request, body, env, secret);
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
