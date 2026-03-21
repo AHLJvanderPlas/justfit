@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JustFit.cc — Login</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 28px;
+      padding: 40px;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .logo-mark {
+      width: 42px; height: 42px;
+      background: #10b981;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 15px; color: #fff;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+    }
+    .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+    .logo-text span { color: #10b981; }
+    h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 32px; }
+    .tabs {
+      display: flex; gap: 4px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; padding: 4px;
+      margin-bottom: 28px;
+    }
+    .tab {
+      flex: 1; padding: 10px;
+      border: none; border-radius: 10px;
+      font-size: 13px; font-weight: 800;
+      letter-spacing: 0.04em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.15s;
+      background: transparent; color: #64748b;
+    }
+    .tab.active {
+      background: #10b981; color: #fff;
+      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+    }
+    .field { margin-bottom: 16px; }
+    label {
+      display: block;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: 0.1em; text-transform: uppercase;
+      color: #64748b; margin-bottom: 8px;
+    }
+    input {
+      width: 100%; padding: 14px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 14px; color: #f8fafc;
+      font-size: 15px; font-family: inherit;
+      outline: none; transition: border-color 0.15s;
+    }
+    input:focus { border-color: rgba(16,185,129,0.5); }
+    .btn {
+      width: 100%; padding: 16px;
+      background: #10b981; border: none;
+      border-radius: 16px; color: #fff;
+      font-size: 15px; font-weight: 900;
+      letter-spacing: -0.01em; cursor: pointer;
+      margin-top: 8px;
+      box-shadow: 0 8px 30px rgba(16,185,129,0.3);
+      transition: all 0.15s;
+    }
+    .btn:hover { background: #0ea572; }
+    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .error {
+      background: rgba(226,76,74,0.1);
+      border: 1px solid rgba(226,76,74,0.3);
+      border-radius: 12px; padding: 12px 16px;
+      font-size: 13px; color: #f87171;
+      margin-bottom: 16px; display: none;
+    }
+    .divider {
+      text-align: center;
+      font-size: 11px; color: #334155;
+      font-weight: 700; letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin: 28px 0 20px;
+    }
+    .tagline {
+      text-align: center;
+      font-size: 12px; color: #334155;
+      font-weight: 500; margin-top: 28px;
+      line-height: 1.6;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-mark">JF</div>
+      <div class="logo-text">JustFit<span>.cc</span></div>
+    </div>
+
+    <h1>Welcome back.</h1>
+    <p class="subtitle">Consistency is your superpower.</p>
+
+    <div class="tabs">
+      <button class="tab active" onclick="setTab('login')">Login</button>
+      <button class="tab" onclick="setTab('signup')">Sign Up</button>
+    </div>
+
+    <div id="error" class="error"></div>
+
+    <div class="field">
+      <label>Email</label>
+      <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+    </div>
+    <div class="field">
+      <label>Password</label>
+      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+    </div>
+
+    <button class="btn" id="submit-btn" onclick="handleSubmit()">
+      Login
+    </button>
+
+    <p class="tagline">Privacy-first · No social feed · Just you vs yesterday.</p>
+  </div>
+
+  <script>
+    let mode = 'login';
+
+    function setTab(tab) {
+      mode = tab;
+      document.querySelectorAll('.tab').forEach((t, i) => {
+        t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'signup'));
+      });
+      document.getElementById('submit-btn').textContent = tab === 'login' ? 'Login' : 'Create Account';
+      document.getElementById('error').style.display = 'none';
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error');
+      el.textContent = msg;
+      el.style.display = 'block';
+    }
+
+    async function handleSubmit() {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const btn = document.getElementById('submit-btn');
+
+      if (!email || !password) { showError('Please enter your email and password.'); return; }
+      if (password.length < 6) { showError('Password must be at least 6 characters.'); return; }
+
+      btn.disabled = true;
+      btn.textContent = mode === 'login' ? 'Logging in...' : 'Creating account...';
+      document.getElementById('error').style.display = 'none';
+
+      try {
+        const res = await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: mode, email, password })
+        });
+        const data = await res.json();
+
+        if (!data.ok) {
+          showError(data.error || 'Something went wrong.');
+          btn.disabled = false;
+          btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
+          return;
+        }
+
+        // Store token and userId
+        localStorage.setItem('jf_token', data.token);
+        localStorage.setItem('jf_user_id', data.userId);
+
+        // Redirect to app
+        window.location.href = '/';
+      } catch (e) {
+        showError('Network error. Please try again.');
+        btn.disabled = false;
+        btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
+      }
+    }
+
+    // Allow Enter key
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Enter') handleSubmit();
+    });
+
+    // If already logged in, redirect to app
+    if (localStorage.getItem('jf_token')) {
+      window.location.href = '/';
+    }
+  </script>
+</body>
+</html>
