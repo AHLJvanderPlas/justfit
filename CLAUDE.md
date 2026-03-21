@@ -286,8 +286,9 @@ Calculated server-side from executions table:
 | Pages Functions API | ✅ Live at /api/* |
 | Planner engine R510-R516 | ✅ Live |
 | Frontend wired to API | ✅ Live |
-| Auth (login/signup) | ⚠️ Partial — auth.js exists, login.html needed |
-| execution 500 error | 🐛 Bug — needs D1 batch API fix |
+| Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx |
+| Sign Out button in Settings | ✅ Live |
+| execution_steps D1 batch insert | ✅ Fixed — no more 500s |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Weekly plan view | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
@@ -301,13 +302,7 @@ Calculated server-side from executions table:
 
 ## Known Bugs to Fix
 
-1. **execution endpoint 500** — sequential `await DB.prepare()` in loop fails.
-   Fix: use `env.DB.batch([...stmts])` for execution_steps inserts.
-
-2. **No auth guard** — App.jsx redirects to /login.html if no token but login.html
-   doesn't exist yet. Need to create public/login.html.
-
-3. **JWT_SECRET hardcoded** — move to Cloudflare environment variable:
+1. **JWT_SECRET hardcoded** — move to Cloudflare environment variable:
    ```bash
    npx wrangler pages secret put JWT_SECRET
    ```
