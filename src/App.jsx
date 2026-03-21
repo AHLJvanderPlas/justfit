@@ -2084,7 +2084,90 @@ function AwardsView({ history, score, isPro }) {
 }
 
 // ─── SETTINGS VIEW ────────────────────────────────────────────────────────────
+// ─── WEBAUTHN HELPERS (client-side) ───────────────────────────────────────────
+const b64url = (buf) =>
+  btoa(String.fromCharCode(...new Uint8Array(buf)))
+    .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+
+const fromB64url = (str) => {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  while (str.length % 4) str += "=";
+  return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
+};
+
 function SettingsView({ prefs, onUpdate, userId }) {
+  const token = getToken();
+  const [passkeySupported, setPasskeySupported] = useState(false);
+  const [addingPasskey, setAddingPasskey]       = useState(false);
+  const [passkeyMsg, setPasskeyMsg]             = useState("");
+
+  useEffect(() => {
+    if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
+      window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+        .then(setPasskeySupported);
+    }
+  }, []);
+
+  const handleAddPasskey = async () => {
+    setAddingPasskey(true);
+    setPasskeyMsg("");
+    try {
+      const beginRes = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ action: "passkey_begin_register" }),
+      }).then((r) => r.json());
+
+      if (!beginRes.challengeToken) throw new Error(beginRes.error || "Failed to begin");
+
+      const credential = await navigator.credentials.create({
+        publicKey: {
+          challenge: fromB64url(beginRes.challenge),
+          rp: { name: "JustFit.cc", id: "justfit.cc" },
+          user: {
+            id: fromB64url(beginRes.userId),
+            name: prefs.email || userId,
+            displayName: "JustFit User",
+          },
+          pubKeyCredParams: [{ type: "public-key", alg: -7 }],
+          authenticatorSelection: {
+            authenticatorAttachment: "platform",
+            requireResidentKey: true,
+            residentKey: "required",
+            userVerification: "preferred",
+          },
+          timeout: 60000,
+          attestation: "none",
+        },
+      });
+
+      const pubKey   = credential.response.getPublicKey();
+      const pubKeyB64 = btoa(String.fromCharCode(...new Uint8Array(pubKey)));
+
+      const completeRes = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          action: "passkey_complete_register",
+          challengeToken: beginRes.challengeToken,
+          credentialId: b64url(credential.rawId),
+          publicKey: pubKeyB64,
+          algorithm: credential.response.getPublicKeyAlgorithm(),
+        }),
+      }).then((r) => r.json());
+
+      if (!completeRes.ok) throw new Error(completeRes.error || "Registration failed");
+      setPasskeyMsg("✓ Passkey registered — you can now use Face ID / Touch ID to log in.");
+    } catch (e) {
+      if (e.name === "NotAllowedError") {
+        setPasskeyMsg("Cancelled — try again when ready.");
+      } else {
+        setPasskeyMsg(`Failed: ${e.message}`);
+      }
+    }
+    setAddingPasskey(false);
+  };
+
   return (
     <div style={{ maxWidth: 480 }}>
       <div style={{ marginBottom: 36 }}>
@@ -2192,6 +2275,45 @@ function SettingsView({ prefs, onUpdate, userId }) {
       </div>
 
       <div>
+        {/* Security — Passkey */}
+        {passkeySupported && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+              Security
+            </div>
+            <Glass style={{ padding: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Face ID / Touch ID</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
+                Register a passkey so you can log in with biometrics — no password needed.
+              </div>
+              {passkeyMsg && (
+                <div style={{
+                  fontSize: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 14,
+                  background: passkeyMsg.startsWith("✓") ? "rgba(16,185,129,0.1)" : "rgba(226,76,74,0.1)",
+                  border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(16,185,129,0.3)" : "rgba(226,76,74,0.3)"}`,
+                  color: passkeyMsg.startsWith("✓") ? C.emerald : "#f87171",
+                }}>
+                  {passkeyMsg}
+                </div>
+              )}
+              <button
+                onClick={handleAddPasskey}
+                disabled={addingPasskey}
+                style={{
+                  width: "100%", padding: "11px 16px", borderRadius: 12,
+                  background: addingPasskey ? "rgba(255,255,255,0.03)" : C.emeraldDim,
+                  border: `1px solid ${C.emeraldBorder}`,
+                  color: C.emerald, fontWeight: 800, fontSize: 13,
+                  cursor: addingPasskey ? "not-allowed" : "pointer",
+                  opacity: addingPasskey ? 0.6 : 1,
+                }}
+              >
+                {addingPasskey ? "Follow your device prompt…" : "Add Face ID / Touch ID"}
+              </button>
+            </Glass>
+          </div>
+        )}
+
         <div
           style={{
             fontSize: 10,

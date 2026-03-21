@@ -5,12 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JustFit.cc — Login</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       min-height: 100vh;
       background: #020617;
       color: #f8fafc;
       font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -23,12 +24,13 @@
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 28px;
       padding: 40px;
+      box-shadow: 0 40px 100px rgba(0,0,0,0.4);
     }
     .logo {
       display: flex;
       align-items: center;
       gap: 12px;
-      margin-bottom: 36px;
+      margin-bottom: 32px;
     }
     .logo-mark {
       width: 42px; height: 42px;
@@ -40,16 +42,16 @@
     }
     .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
     .logo-text span { color: #10b981; }
-    h1 { font-size: 28px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 8px; }
-    .subtitle { font-size: 14px; color: #64748b; margin-bottom: 32px; }
-    .tabs {
+
+    /* Outer tabs: Login | Sign Up */
+    .mode-tabs {
       display: flex; gap: 4px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
       border-radius: 14px; padding: 4px;
       margin-bottom: 28px;
     }
-    .tab {
+    .mode-tab {
       flex: 1; padding: 10px;
       border: none; border-radius: 10px;
       font-size: 13px; font-weight: 800;
@@ -57,10 +59,29 @@
       cursor: pointer; transition: all 0.15s;
       background: transparent; color: #64748b;
     }
-    .tab.active {
-      background: #10b981; color: #fff;
-      box-shadow: 0 4px 16px rgba(16,185,129,0.3);
+    .mode-tab.active { background: #10b981; color: #fff; box-shadow: 0 4px 16px rgba(16,185,129,0.3); }
+
+    /* Inner method switcher: Password | Magic Link */
+    .method-tabs {
+      display: flex; gap: 6px;
+      margin-bottom: 24px;
     }
+    .method-tab {
+      flex: 1; padding: 9px 0;
+      border-radius: 12px;
+      font-size: 12px; font-weight: 800;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      cursor: pointer; transition: all 0.15s;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #64748b;
+    }
+    .method-tab.active {
+      background: rgba(16,185,129,0.12);
+      border-color: rgba(16,185,129,0.3);
+      color: #10b981;
+    }
+
     .field { margin-bottom: 16px; }
     label {
       display: block;
@@ -68,7 +89,7 @@
       letter-spacing: 0.1em; text-transform: uppercase;
       color: #64748b; margin-bottom: 8px;
     }
-    input {
+    input[type="email"], input[type="password"] {
       width: 100%; padding: 14px 16px;
       background: rgba(255,255,255,0.04);
       border: 1px solid rgba(255,255,255,0.08);
@@ -77,37 +98,82 @@
       outline: none; transition: border-color 0.15s;
     }
     input:focus { border-color: rgba(16,185,129,0.5); }
-    .btn {
+
+    .btn-primary {
       width: 100%; padding: 16px;
       background: #10b981; border: none;
       border-radius: 16px; color: #fff;
       font-size: 15px; font-weight: 900;
-      letter-spacing: -0.01em; cursor: pointer;
-      margin-top: 8px;
+      cursor: pointer; margin-top: 4px;
       box-shadow: 0 8px 30px rgba(16,185,129,0.3);
-      transition: all 0.15s;
+      transition: opacity 0.15s;
     }
-    .btn:hover { background: #0ea572; }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-    .error {
-      background: rgba(226,76,74,0.1);
-      border: 1px solid rgba(226,76,74,0.3);
-      border-radius: 12px; padding: 12px 16px;
-      font-size: 13px; color: #f87171;
-      margin-bottom: 16px; display: none;
+    .btn-primary:hover   { opacity: 0.9; }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .btn-passkey {
+      width: 100%; padding: 15px 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: 16px; color: #f8fafc;
+      font-size: 14px; font-weight: 800;
+      cursor: pointer; transition: all 0.15s;
+      display: flex; align-items: center; justify-content: center; gap: 10px;
     }
+    .btn-passkey:hover { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.06); }
+    .btn-passkey:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .alert {
+      padding: 13px 16px;
+      border-radius: 12px;
+      font-size: 13px;
+      margin-bottom: 16px;
+      line-height: 1.5;
+      display: none;
+    }
+    .alert-error   { background: rgba(226,76,74,0.1);   border: 1px solid rgba(226,76,74,0.3);   color: #f87171; }
+    .alert-success { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.3);  color: #6ee7b7; }
+
     .divider {
-      text-align: center;
+      display: flex; align-items: center; gap: 12px;
+      margin: 22px 0;
       font-size: 11px; color: #334155;
-      font-weight: 700; letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin: 28px 0 20px;
+      font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
     }
+    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+
+    .forgot-link {
+      display: block; text-align: right;
+      font-size: 12px; color: #64748b;
+      text-decoration: none; margin-top: -8px; margin-bottom: 18px;
+      cursor: pointer;
+    }
+    .forgot-link:hover { color: #10b981; }
+
+    .back-link {
+      display: block; text-align: center;
+      font-size: 12px; color: #64748b;
+      text-decoration: none; margin-top: 14px;
+      cursor: pointer;
+    }
+    .back-link:hover { color: #10b981; }
+
     .tagline {
       text-align: center;
-      font-size: 12px; color: #334155;
+      font-size: 11px; color: #334155;
       font-weight: 500; margin-top: 28px;
       line-height: 1.6;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
     }
   </style>
 </head>
@@ -118,99 +184,366 @@
       <div class="logo-text">JustFit<span>.cc</span></div>
     </div>
 
-    <h1>Welcome back.</h1>
-    <p class="subtitle">Consistency is your superpower.</p>
-
-    <div class="tabs">
-      <button class="tab active" onclick="setTab('login')">Login</button>
-      <button class="tab" onclick="setTab('signup')">Sign Up</button>
+    <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
+    <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
+      <div style="font-size:36px;margin-bottom:16px;">✉️</div>
+      <div id="magic-title" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
+      <div id="magic-sub" style="font-size:14px;color:#64748b;">Verifying your link.</div>
     </div>
 
-    <div id="error" class="error"></div>
-
-    <div class="field">
-      <label>Email</label>
-      <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+    <!-- FORGOT PASSWORD VIEW -->
+    <div id="forgot-view" style="display:none;">
+      <h1 style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
+      <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 15 minutes.</p>
+      <div id="forgot-alert" class="alert"></div>
+      <div class="field">
+        <label>Email</label>
+        <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+      </div>
+      <button class="btn-primary" id="forgot-btn" onclick="handleForgot()">Send Reset Link</button>
+      <a class="back-link" onclick="showMain()">← Back to login</a>
     </div>
-    <div class="field">
-      <label>Password</label>
-      <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
-    </div>
 
-    <button class="btn" id="submit-btn" onclick="handleSubmit()">
-      Login
-    </button>
+    <!-- MAIN AUTH VIEW -->
+    <div id="main-view">
+      <div class="mode-tabs">
+        <button class="mode-tab active" id="tab-login"  onclick="setMode('login')">Login</button>
+        <button class="mode-tab"        id="tab-signup" onclick="setMode('signup')">Sign Up</button>
+      </div>
+
+      <div id="main-alert" class="alert"></div>
+
+      <!-- Login method switcher (only shown in login mode) -->
+      <div id="method-switcher" class="method-tabs">
+        <button class="method-tab active" id="mt-password" onclick="setMethod('password')">Password</button>
+        <button class="method-tab"        id="mt-magic"    onclick="setMethod('magic')">Magic Link</button>
+      </div>
+
+      <!-- Password form -->
+      <div id="password-form">
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <div class="field" id="password-field">
+          <label>Password</label>
+          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <a id="forgot-link" class="forgot-link" onclick="showForgot()">Forgot password?</a>
+        <button class="btn-primary" id="submit-btn" onclick="handleSubmit()">Login</button>
+      </div>
+
+      <!-- Magic link form -->
+      <div id="magic-form" style="display:none;">
+        <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
+        <div class="field">
+          <label>Email</label>
+          <input type="email" id="magic-email" placeholder="you@example.com" autocomplete="email" />
+        </div>
+        <button class="btn-primary" id="magic-btn" onclick="handleMagicLink()">Send Login Link</button>
+      </div>
+
+      <!-- Passkey button (shown if platform authenticator available) -->
+      <div id="passkey-section" style="display:none;">
+        <div class="divider">or</div>
+        <button class="btn-passkey" id="passkey-btn" onclick="handlePasskeyLogin()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+            <circle cx="12" cy="9" r="2.5"/>
+          </svg>
+          <span id="passkey-label">Use Face ID / Touch ID</span>
+        </button>
+      </div>
+    </div>
 
     <p class="tagline">Privacy-first · No social feed · Just you vs yesterday.</p>
   </div>
 
   <script>
-    let mode = 'login';
+    // ─── STATE ───────────────────────────────────────────────────────────────
+    let mode   = 'login';   // 'login' | 'signup'
+    let method = 'password'; // 'password' | 'magic'
 
-    function setTab(tab) {
-      mode = tab;
-      document.querySelectorAll('.tab').forEach((t, i) => {
-        t.classList.toggle('active', (i === 0 && tab === 'login') || (i === 1 && tab === 'signup'));
-      });
-      document.getElementById('submit-btn').textContent = tab === 'login' ? 'Login' : 'Create Account';
-      document.getElementById('error').style.display = 'none';
-    }
+    // ─── BASE64URL HELPERS ───────────────────────────────────────────────────
+    const b64url = buf =>
+      btoa(String.fromCharCode(...new Uint8Array(buf)))
+        .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
-    function showError(msg) {
-      const el = document.getElementById('error');
+    const fromB64url = str => {
+      str = str.replace(/-/g, '+').replace(/_/g, '/');
+      while (str.length % 4) str += '=';
+      return Uint8Array.from(atob(str), c => c.charCodeAt(0));
+    };
+
+    // ─── ALERT HELPERS ───────────────────────────────────────────────────────
+    function showAlert(id, msg, type = 'error') {
+      const el = document.getElementById(id);
+      el.className = `alert alert-${type}`;
       el.textContent = msg;
       el.style.display = 'block';
     }
+    function hideAlert(id) { document.getElementById(id).style.display = 'none'; }
 
+    // ─── VIEW SWITCHING ──────────────────────────────────────────────────────
+    function setMode(m) {
+      mode = m;
+      document.getElementById('tab-login').classList.toggle('active',  m === 'login');
+      document.getElementById('tab-signup').classList.toggle('active', m === 'signup');
+      document.getElementById('method-switcher').style.display = m === 'login' ? 'flex' : 'none';
+      document.getElementById('passkey-section').style.display = m === 'login' && passkeyAvailable ? 'block' : 'none';
+      // Sign-up always uses password form
+      if (m === 'signup') { setMethod('password', false); }
+      const pwdField = document.getElementById('password-field');
+      const forgotLink = document.getElementById('forgot-link');
+      if (m === 'signup') {
+        pwdField.style.display = 'block';
+        forgotLink.style.display = 'none';
+        document.getElementById('submit-btn').textContent = 'Create Account';
+        document.getElementById('password').autocomplete = 'new-password';
+      } else {
+        pwdField.style.display = 'block';
+        forgotLink.style.display = method === 'password' ? 'block' : 'none';
+        document.getElementById('submit-btn').textContent = 'Login';
+        document.getElementById('password').autocomplete = 'current-password';
+      }
+      hideAlert('main-alert');
+    }
+
+    function setMethod(m, updateUI = true) {
+      method = m;
+      if (!updateUI) return;
+      document.getElementById('mt-password').classList.toggle('active', m === 'password');
+      document.getElementById('mt-magic').classList.toggle('active',    m === 'magic');
+      document.getElementById('password-form').style.display = m === 'password' ? 'block' : 'none';
+      document.getElementById('magic-form').style.display    = m === 'magic'    ? 'block' : 'none';
+      document.getElementById('forgot-link').style.display   = m === 'password' ? 'block' : 'none';
+      hideAlert('main-alert');
+    }
+
+    function showForgot() {
+      document.getElementById('main-view').style.display   = 'none';
+      document.getElementById('forgot-view').style.display = 'block';
+      hideAlert('forgot-alert');
+    }
+
+    function showMain() {
+      document.getElementById('forgot-view').style.display = 'none';
+      document.getElementById('main-view').style.display   = 'block';
+    }
+
+    // ─── HANDLERS ────────────────────────────────────────────────────────────
     async function handleSubmit() {
-      const email = document.getElementById('email').value.trim();
+      const email    = document.getElementById('email').value.trim();
       const password = document.getElementById('password').value;
-      const btn = document.getElementById('submit-btn');
+      const btn      = document.getElementById('submit-btn');
 
-      if (!email || !password) { showError('Please enter your email and password.'); return; }
-      if (password.length < 6) { showError('Password must be at least 6 characters.'); return; }
+      if (!email)             { showAlert('main-alert', 'Please enter your email.'); return; }
+      if (!password)          { showAlert('main-alert', 'Please enter your password.'); return; }
+      if (password.length < 6){ showAlert('main-alert', 'Password must be at least 6 characters.'); return; }
 
       btn.disabled = true;
-      btn.textContent = mode === 'login' ? 'Logging in...' : 'Creating account...';
-      document.getElementById('error').style.display = 'none';
+      btn.innerHTML = '<span class="spinner"></span>';
+      hideAlert('main-alert');
 
       try {
-        const res = await fetch('/api/auth', {
-          method: 'POST',
+        const res  = await fetch('/api/auth', {
+          method:  'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ action: mode, email, password })
+          body:    JSON.stringify({ action: mode === 'login' ? 'login' : 'signup', email, password }),
         });
         const data = await res.json();
 
         if (!data.ok) {
-          showError(data.error || 'Something went wrong.');
+          showAlert('main-alert', data.error || 'Something went wrong.');
           btn.disabled = false;
           btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
           return;
         }
 
-        // Store token and userId
-        localStorage.setItem('jf_token', data.token);
+        localStorage.setItem('jf_token',   data.token);
         localStorage.setItem('jf_user_id', data.userId);
-
-        // Redirect to app
         window.location.href = '/';
-      } catch (e) {
-        showError('Network error. Please try again.');
+      } catch {
+        showAlert('main-alert', 'Network error. Please try again.');
         btn.disabled = false;
         btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
       }
     }
 
-    // Allow Enter key
-    document.addEventListener('keydown', e => {
-      if (e.key === 'Enter') handleSubmit();
-    });
+    async function handleMagicLink() {
+      const email = document.getElementById('magic-email').value.trim();
+      const btn   = document.getElementById('magic-btn');
 
-    // If already logged in, redirect to app
-    if (localStorage.getItem('jf_token')) {
-      window.location.href = '/';
+      if (!email) { showAlert('main-alert', 'Please enter your email.'); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      hideAlert('main-alert');
+
+      try {
+        await fetch('/api/auth', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'magic_link', email }),
+        });
+        showAlert('main-alert', 'If this email is registered, a login link has been sent. Check your inbox.', 'success');
+      } catch {
+        showAlert('main-alert', 'Network error. Please try again.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Send Login Link';
     }
+
+    async function handleForgot() {
+      const email = document.getElementById('forgot-email').value.trim();
+      const btn   = document.getElementById('forgot-btn');
+
+      if (!email) { showAlert('forgot-alert', 'Please enter your email.'); return; }
+
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span>';
+      hideAlert('forgot-alert');
+
+      try {
+        await fetch('/api/auth', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'forgot_password', email }),
+        });
+        showAlert('forgot-alert', 'If this email is registered, a reset link has been sent. Check your inbox.', 'success');
+      } catch {
+        showAlert('forgot-alert', 'Network error. Please try again.');
+      }
+
+      btn.disabled = false;
+      btn.textContent = 'Send Reset Link';
+    }
+
+    // ─── PASSKEY LOGIN ───────────────────────────────────────────────────────
+    let passkeyAvailable = false;
+
+    async function handlePasskeyLogin() {
+      const btn = document.getElementById('passkey-btn');
+      btn.disabled = true;
+      document.getElementById('passkey-label').textContent = 'Waiting for biometrics…';
+      hideAlert('main-alert');
+
+      try {
+        // 1. Begin auth (discoverable — no email needed)
+        const beginRes = await fetch('/api/auth', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({ action: 'passkey_begin_auth' }),
+        }).then(r => r.json());
+
+        if (!beginRes.challengeToken) throw new Error(beginRes.error || 'Failed to begin passkey auth');
+
+        // 2. WebAuthn get — discoverable (empty allowCredentials)
+        const assertion = await navigator.credentials.get({
+          publicKey: {
+            challenge:        fromB64url(beginRes.challenge),
+            allowCredentials: beginRes.credentialIds.map(id => ({
+              type: 'public-key',
+              id:   fromB64url(id),
+            })),
+            userVerification: 'preferred',
+            rpId:             'justfit.cc',
+            timeout:          60000,
+          },
+        });
+
+        // 3. Complete auth
+        const completeRes = await fetch('/api/auth', {
+          method:  'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body:    JSON.stringify({
+            action:            'passkey_complete_auth',
+            challengeToken:    beginRes.challengeToken,
+            credentialId:      b64url(assertion.rawId),
+            clientDataJSON:    b64url(assertion.response.clientDataJSON),
+            authenticatorData: b64url(assertion.response.authenticatorData),
+            signature:         b64url(assertion.response.signature),
+            userHandle:        assertion.response.userHandle ? b64url(assertion.response.userHandle) : null,
+          }),
+        }).then(r => r.json());
+
+        if (!completeRes.ok) throw new Error(completeRes.error || 'Passkey authentication failed');
+
+        localStorage.setItem('jf_token',   completeRes.token);
+        localStorage.setItem('jf_user_id', completeRes.userId);
+        window.location.href = '/';
+      } catch (e) {
+        if (e.name === 'NotAllowedError') {
+          // User cancelled or no passkey registered
+          showAlert('main-alert', 'Passkey sign-in was cancelled or no passkey found. Use password or magic link instead.');
+        } else {
+          showAlert('main-alert', e.message || 'Passkey sign-in failed.');
+        }
+        btn.disabled = false;
+        document.getElementById('passkey-label').textContent = 'Use Face ID / Touch ID';
+      }
+    }
+
+    // ─── MAGIC LINK AUTO-VERIFY ──────────────────────────────────────────────
+    async function verifyMagicLink(token) {
+      document.getElementById('main-view').style.display  = 'none';
+      document.getElementById('magic-view').style.display = 'block';
+
+      try {
+        const res  = await fetch(`/api/auth?magic=${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        if (!data.ok) throw new Error(data.error || 'Invalid or expired link');
+
+        localStorage.setItem('jf_token',   data.token);
+        localStorage.setItem('jf_user_id', data.userId);
+
+        document.getElementById('magic-title').textContent = 'Signed in!';
+        document.getElementById('magic-sub').textContent   = 'Redirecting…';
+        setTimeout(() => { window.location.href = '/'; }, 600);
+      } catch (e) {
+        document.getElementById('magic-title').textContent = 'Link expired';
+        document.getElementById('magic-sub').innerHTML     =
+          `${e.message}<br/><a href="/login.html" style="color:#10b981;text-decoration:none;font-weight:700;margin-top:12px;display:inline-block;">Back to login →</a>`;
+      }
+    }
+
+    // ─── INIT ─────────────────────────────────────────────────────────────────
+    (async () => {
+      // Already logged in?
+      if (localStorage.getItem('jf_token')) { window.location.href = '/'; return; }
+
+      // Magic link in URL?
+      const params = new URLSearchParams(window.location.search);
+      const magic  = params.get('magic');
+      if (magic) { verifyMagicLink(magic); return; }
+
+      // Signup hash?
+      if (window.location.hash === '#signup') setMode('signup');
+
+      // Passkey availability
+      if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
+        passkeyAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
+        if (passkeyAvailable) {
+          document.getElementById('passkey-section').style.display = 'block';
+          // Update label based on platform
+          const ua = navigator.userAgent;
+          let label = 'Use Face ID / Touch ID';
+          if (/Windows/i.test(ua))  label = 'Use Windows Hello';
+          if (/Android/i.test(ua))  label = 'Use Fingerprint / Face Unlock';
+          document.getElementById('passkey-label').textContent = label;
+        }
+      }
+    })();
+
+    // Enter key support
+    document.addEventListener('keydown', e => {
+      if (e.key !== 'Enter') return;
+      if (document.getElementById('forgot-view').style.display !== 'none') { handleForgot(); return; }
+      if (method === 'magic') { handleMagicLink(); return; }
+      handleSubmit();
+    });
   </script>
 </body>
 </html>
