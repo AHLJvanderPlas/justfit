@@ -1,19 +1,17 @@
-const SALT_ROUNDS = 10;
-const JWT_SECRET = 'justfit-secret-change-in-production';
 const JWT_EXPIRY = 60 * 60 * 24 * 7; // 7 days in seconds
 
 // Simple JWT implementation (no external libs in edge functions)
-async function createJWT(payload) {
+async function createJWT(payload, secret) {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body = btoa(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY }));
-  const signature = await hmacSign(`${header}.${body}`, JWT_SECRET);
+  const signature = await hmacSign(`${header}.${body}`, secret);
   return `${header}.${body}.${signature}`;
 }
 
-async function verifyJWT(token) {
+async function verifyJWT(token, secret) {
   try {
     const [header, body, signature] = token.split('.');
-    const expectedSig = await hmacSign(`${header}.${body}`, JWT_SECRET);
+    const expectedSig = await hmacSign(`${header}.${body}`, secret);
     if (signature !== expectedSig) return null;
     const payload = JSON.parse(atob(body));
     if (payload.exp < Math.floor(Date.now() / 1000)) return null;
@@ -32,14 +30,17 @@ async function hmacSign(data, secret) {
 }
 
 // Simple password hashing using SHA-256 + salt (edge-compatible)
-async function hashPassword(password, salt) {
-  const data = new TextEncoder().encode(salt + password + JWT_SECRET);
+async function hashPassword(password, salt, secret) {
+  const data = new TextEncoder().encode(salt + password + secret);
   const hash = await crypto.subtle.digest('SHA-256', data);
   return btoa(String.fromCharCode(...new Uint8Array(hash)));
 }
 
 export async function onRequestPost({ request, env }) {
   try {
+    const secret = env.JWT_SECRET;
+    if (!secret) return Response.json({ error: 'Server misconfiguration' }, { status: 500 });
+
     const { action, email, password } = await request.json();
 
     if (!email || !password) {
@@ -61,7 +62,7 @@ export async function onRequestPost({ request, env }) {
       // Create user
       const userId = crypto.randomUUID();
       const salt = crypto.randomUUID();
-      const passwordHash = await hashPassword(password, salt);
+      const passwordHash = await hashPassword(password, salt, secret);
       const now = Date.now();
 
       await env.DB.batch([
@@ -81,7 +82,7 @@ export async function onRequestPost({ request, env }) {
         `).bind(crypto.randomUUID(), userId, now, now, now),
       ]);
 
-      const token = await createJWT({ userId, email: emailLower });
+      const token = await createJWT({ userId, email: emailLower }, secret);
       return Response.json({ ok: true, token, userId });
 
     } else if (action === 'login') {
@@ -98,7 +99,7 @@ export async function onRequestPost({ request, env }) {
 
       // Verify password
       const [salt, storedHash] = authUser.password_hash.split(':');
-      const inputHash = await hashPassword(password, salt);
+      const inputHash = await hashPassword(password, salt, secret);
 
       if (inputHash !== storedHash) {
         return Response.json({ error: 'Invalid email or password' }, { status: 401 });
@@ -109,7 +110,7 @@ export async function onRequestPost({ request, env }) {
         `UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`
       ).bind(Date.now(), authUser.id).run();
 
-      const token = await createJWT({ userId: authUser.user_id, email: emailLower });
+      const token = await createJWT({ userId: authUser.user_id, email: emailLower }, secret);
       return Response.json({ ok: true, token, userId: authUser.user_id });
 
     } else {
@@ -124,10 +125,12 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request, env }) {
   // Verify token endpoint
   try {
+    const secret = env.JWT_SECRET;
+    if (!secret) return Response.json({ valid: false }, { status: 500 });
     const auth = request.headers.get('Authorization') ?? '';
     const token = auth.replace('Bearer ', '');
     if (!token) return Response.json({ valid: false }, { status: 401 });
-    const payload = await verifyJWT(token);
+    const payload = await verifyJWT(token, secret);
     if (!payload) return Response.json({ valid: false }, { status: 401 });
     return Response.json({ valid: true, userId: payload.userId, email: payload.email });
   } catch (e) {

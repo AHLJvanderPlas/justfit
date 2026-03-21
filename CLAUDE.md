@@ -286,7 +286,7 @@ Calculated server-side from executions table:
 | Pages Functions API | ✅ Live at /api/* |
 | Planner engine R510-R516 | ✅ Live |
 | Frontend wired to API | ✅ Live |
-| Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx |
+| Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
 | Sign Out button in Settings | ✅ Live |
 | execution_steps D1 batch insert | ✅ Fixed — no more 500s |
 | Offline / IndexedDB sync | ⬜ Not started |
@@ -302,10 +302,7 @@ Calculated server-side from executions table:
 
 ## Known Bugs to Fix
 
-1. **JWT_SECRET hardcoded** — move to Cloudflare environment variable:
-   ```bash
-   npx wrangler pages secret put JWT_SECRET
-   ```
+None currently. 🟢
 
 ---
 
