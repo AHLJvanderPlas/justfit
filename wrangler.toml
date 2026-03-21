@@ -1,3 +1,8 @@
 name = "justfit"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "justfit-db"
+database_id = "4c6fedf0-b9e2-4441-aa98-71c1420136c1"
