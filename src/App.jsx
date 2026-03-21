@@ -78,6 +78,25 @@ const api = {
     const data = await res.json();
     return data.executions ?? [];
   },
+
+  async getProfile(token) {
+    const res = await fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async saveProfile(token, profile) {
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(profile),
+    });
+    return res.json();
+  },
 };
 
 // ─── GHOST COUNTER ────────────────────────────────────────────────────────────
@@ -267,6 +286,367 @@ const ScaleInput = ({ label, value, onChange }) => (
     </div>
   </div>
 );
+
+// ─── EU WAIVER MODAL ──────────────────────────────────────────────────────────
+function EUWaiverModal({ onAccept }) {
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 200,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(2,6,23,0.95)",
+        backdropFilter: "blur(16px)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: "#0a1628",
+          border: `1px solid ${C.border}`,
+          borderRadius: 28,
+          padding: 32,
+          boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
+        }}
+      >
+        <div
+          style={{
+            width: 52,
+            height: 52,
+            borderRadius: 16,
+            background: C.emeraldDim,
+            border: `1px solid ${C.emeraldBorder}`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            marginBottom: 20,
+          }}
+        >
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+        </div>
+        <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 8 }}>
+          Health &amp; Safety Notice
+        </div>
+        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 24 }}>
+          JustFit.cc provides general fitness guidance for healthy adults. By using this app you confirm that:
+        </div>
+        <ul style={{ listStyle: "none", marginBottom: 24, display: "flex", flexDirection: "column", gap: 10 }}>
+          {[
+            "You are 18 years or older",
+            "You have no medical conditions that prevent exercise",
+            "JustFit.cc is not a medical app and does not provide medical advice",
+            "You accept full responsibility for your own physical safety",
+            "You will consult a doctor before starting any new exercise program if in doubt",
+          ].map((item, i) => (
+            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+              <span style={{ color: C.emerald, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>
+              <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
+            </li>
+          ))}
+        </ul>
+        <p style={{ fontSize: 11, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
+          This app stores only the data you provide. Your fitness data is not sold or shared. By continuing, you agree to these terms (EU/GDPR compliant).
+        </p>
+        <button
+          onClick={onAccept}
+          style={{
+            width: "100%",
+            padding: 16,
+            borderRadius: 16,
+            background: C.emerald,
+            border: "none",
+            color: "#fff",
+            fontWeight: 900,
+            fontSize: 15,
+            letterSpacing: "0.04em",
+            cursor: "pointer",
+            boxShadow: "0 8px 32px rgba(16,185,129,0.35)",
+          }}
+        >
+          I Understand — Continue
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── ONBOARDING MODAL ─────────────────────────────────────────────────────────
+const GOALS = [
+  { value: "health", label: "General Health", icon: "❤️" },
+  { value: "strength", label: "Build Strength", icon: "💪" },
+  { value: "fat_loss", label: "Lose Weight", icon: "🔥" },
+  { value: "muscle_gain", label: "Build Muscle", icon: "🏋️" },
+  { value: "endurance", label: "Endurance", icon: "🏃" },
+  { value: "mobility", label: "Mobility & Flex", icon: "🧘" },
+];
+
+const EXPERIENCE = [
+  { value: "beginner", label: "Beginner", sub: "New to fitness or returning after a long break" },
+  { value: "intermediate", label: "Intermediate", sub: "Training consistently for 6+ months" },
+  { value: "advanced", label: "Advanced", sub: "Training for 2+ years, know your way around" },
+];
+
+const EQUIPMENT_OPTIONS = [
+  { value: "none", label: "No equipment", sub: "Bodyweight only" },
+  { value: "dumbbell", label: "Dumbbells", sub: "Adjustable or fixed" },
+  { value: "resistance_bands", label: "Resistance bands", sub: "Light to heavy bands" },
+  { value: "pull_up_bar", label: "Pull-up bar", sub: "Door-mounted or free-standing" },
+];
+
+function OnboardingModal({ token, onComplete }) {
+  const [step, setStep] = useState(0);
+  const [goal, setGoal] = useState("health");
+  const [experience, setExperience] = useState("beginner");
+  const [equipment, setEquipment] = useState(["none"]);
+  const [duration, setDuration] = useState(30);
+  const [saving, setSaving] = useState(false);
+
+  const toggleEquip = (val) => {
+    if (val === "none") {
+      setEquipment(["none"]);
+    } else {
+      setEquipment((prev) => {
+        const without = prev.filter((e) => e !== "none");
+        return without.includes(val) ? without.filter((e) => e !== val) : [...without, val];
+      });
+    }
+  };
+
+  const handleFinish = async () => {
+    setSaving(true);
+    try {
+      await api.saveProfile(token, {
+        training_goal: goal,
+        experience_level: experience,
+        session_duration_min: duration,
+        days_per_week_target: 3,
+        preferences: { available_equipment: equipment },
+      });
+      onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration });
+    } catch (e) {
+      console.error("Failed to save profile:", e);
+      onComplete({});
+    }
+    setSaving(false);
+  };
+
+  const DURATION_OPTIONS = [15, 20, 30, 45, 60];
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 190,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(2,6,23,0.92)",
+        backdropFilter: "blur(12px)",
+      }}
+    >
+      <div
+        style={{
+          width: "100%",
+          maxWidth: 480,
+          background: "#0a1628",
+          border: `1px solid ${C.border}`,
+          borderRadius: 28,
+          overflow: "hidden",
+          maxHeight: "90vh",
+          display: "flex",
+          flexDirection: "column",
+          boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
+        }}
+      >
+        {/* Progress bar */}
+        <div style={{ height: 3, background: C.subtle }}>
+          <div
+            style={{
+              height: "100%",
+              background: C.emerald,
+              width: `${((step + 1) / 3) * 100}%`,
+              transition: "width 0.3s",
+            }}
+          />
+        </div>
+
+        <div style={{ padding: "28px 28px 24px", overflowY: "auto" }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
+            Step {step + 1} of 3
+          </div>
+
+          {step === 0 && (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>What's your goal?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Your plan adapts to this every day.</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                {GOALS.map((g) => (
+                  <button
+                    key={g.value}
+                    onClick={() => setGoal(g.value)}
+                    style={{
+                      padding: "16px 12px",
+                      borderRadius: 16,
+                      border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
+                      background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: goal === g.value ? C.emerald : C.muted,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ fontSize: 22, marginBottom: 6 }}>{g.icon}</div>
+                    <div>{g.label}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {step === 1 && (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Experience level?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>We calibrate volume and intensity to match you.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {EXPERIENCE.map((e) => (
+                  <button
+                    key={e.value}
+                    onClick={() => setExperience(e.value)}
+                    style={{
+                      padding: "16px 18px",
+                      borderRadius: 16,
+                      border: `1px solid ${experience === e.value ? C.emeraldBorder : C.border}`,
+                      background: experience === e.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: C.text,
+                      fontWeight: 700,
+                      fontSize: 14,
+                      cursor: "pointer",
+                      textAlign: "left",
+                    }}
+                  >
+                    <div style={{ color: experience === e.value ? C.emerald : C.text, marginBottom: 3 }}>{e.label}</div>
+                    <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{e.sub}</div>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {step === 2 && (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Equipment &amp; time?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Your default session setup.</div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                Available equipment
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+                {EQUIPMENT_OPTIONS.map((eq) => (
+                  <button
+                    key={eq.value}
+                    onClick={() => toggleEquip(eq.value)}
+                    style={{
+                      padding: "12px 16px",
+                      borderRadius: 14,
+                      border: `1px solid ${equipment.includes(eq.value) ? C.emeraldBorder : C.border}`,
+                      background: equipment.includes(eq.value) ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: C.text,
+                      fontWeight: 700,
+                      fontSize: 13,
+                      cursor: "pointer",
+                      textAlign: "left",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <span>{eq.label}</span>
+                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 500 }}>{eq.sub}</span>
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                Default session length
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {DURATION_OPTIONS.map((d) => (
+                  <button
+                    key={d}
+                    onClick={() => setDuration(d)}
+                    style={{
+                      flex: 1,
+                      padding: "10px 0",
+                      borderRadius: 12,
+                      border: `1px solid ${duration === d ? C.emeraldBorder : C.border}`,
+                      background: duration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: duration === d ? C.emerald : C.muted,
+                      fontWeight: 800,
+                      fontSize: 13,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {d}m
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        <div style={{ padding: "0 28px 28px", display: "flex", gap: 10 }}>
+          {step > 0 && (
+            <button
+              onClick={() => setStep(step - 1)}
+              style={{
+                flex: 1,
+                padding: 14,
+                borderRadius: 16,
+                border: `1px solid ${C.border}`,
+                background: "rgba(255,255,255,0.03)",
+                color: C.muted,
+                fontWeight: 700,
+                fontSize: 14,
+                cursor: "pointer",
+              }}
+            >
+              Back
+            </button>
+          )}
+          <button
+            onClick={step < 2 ? () => setStep(step + 1) : handleFinish}
+            disabled={saving}
+            style={{
+              flex: 2,
+              padding: 14,
+              borderRadius: 16,
+              border: "none",
+              background: C.emerald,
+              color: "#fff",
+              fontWeight: 900,
+              fontSize: 15,
+              cursor: "pointer",
+              boxShadow: "0 8px 32px rgba(16,185,129,0.35)",
+              opacity: saving ? 0.7 : 1,
+            }}
+          >
+            {saving ? "Saving..." : step < 2 ? "Continue" : "Start Training"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90];
@@ -1875,6 +2255,154 @@ function SettingsView({ prefs, onUpdate, userId }) {
   );
 }
 
+// ─── WEEKLY PLAN VIEW ─────────────────────────────────────────────────────────
+function PlanWeekView({ history }) {
+  const today = new Date().toISOString().split("T")[0];
+
+  // Build last 7 days
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - (6 - i));
+    return d.toISOString().split("T")[0];
+  });
+
+  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+  // Map history by date for quick lookup
+  const doneByDate = {};
+  (history || []).forEach((ex) => {
+    if (ex.date) doneByDate[ex.date] = ex;
+  });
+
+  return (
+    <div style={{ padding: "0 0 32px" }}>
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 4 }}>
+          This Week
+        </div>
+        <div style={{ fontSize: 13, color: C.muted }}>Your last 7 days at a glance</div>
+      </div>
+
+      {/* 7-day strip */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8, marginBottom: 32 }}>
+        {days.map((date) => {
+          const d = new Date(date + "T12:00:00");
+          const done = !!doneByDate[date];
+          const isToday = date === today;
+          const isFuture = date > today;
+
+          return (
+            <div
+              key={date}
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                gap: 6,
+                padding: "12px 4px",
+                borderRadius: 16,
+                background: isToday
+                  ? C.emeraldDim
+                  : done
+                    ? "rgba(16,185,129,0.06)"
+                    : "rgba(255,255,255,0.02)",
+                border: `1px solid ${isToday ? C.emeraldBorder : done ? "rgba(16,185,129,0.2)" : C.border}`,
+              }}
+            >
+              <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", color: isToday ? C.emerald : C.muted, textTransform: "uppercase" }}>
+                {dayNames[d.getDay()]}
+              </span>
+              <span style={{ fontSize: 15, fontWeight: 900, color: isToday ? C.emerald : isFuture ? C.subtle : C.text }}>
+                {d.getDate()}
+              </span>
+              {/* Status dot */}
+              <div
+                style={{
+                  width: 8,
+                  height: 8,
+                  borderRadius: "50%",
+                  background: done
+                    ? C.emerald
+                    : isFuture
+                      ? "transparent"
+                      : "rgba(255,255,255,0.1)",
+                  border: done ? "none" : isFuture ? `1px dashed ${C.subtle}` : `1px solid ${C.subtle}`,
+                }}
+              />
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Sessions this week */}
+      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        Completed Sessions
+      </div>
+
+      {days.filter((d) => doneByDate[d]).length === 0 ? (
+        <Glass style={{ padding: 28, textAlign: "center" }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>🏃</div>
+          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>No sessions yet this week</div>
+          <div style={{ fontSize: 13, color: C.muted }}>Complete today's session to start your streak.</div>
+        </Glass>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {days
+            .filter((d) => doneByDate[d])
+            .reverse()
+            .map((date) => {
+              const ex = doneByDate[date];
+              const d = new Date(date + "T12:00:00");
+              const mins = ex.total_duration_sec ? Math.round(ex.total_duration_sec / 60) : null;
+              return (
+                <Glass key={date} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 3 }}>
+                      {ex.execution_type || "Training Session"}
+                    </div>
+                    <div style={{ fontSize: 12, color: C.muted }}>
+                      {dayNames[d.getDay()]}, {monthNames[d.getMonth()]} {d.getDate()}
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    {mins && (
+                      <div style={{ fontSize: 18, fontWeight: 900, color: C.emerald }}>{mins}<span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}> min</span></div>
+                    )}
+                    {ex.perceived_exertion && (
+                      <div style={{ fontSize: 11, color: C.muted }}>RPE {ex.perceived_exertion}</div>
+                    )}
+                  </div>
+                </Glass>
+              );
+            })}
+        </div>
+      )}
+
+      {/* Weekly summary */}
+      {days.filter((d) => doneByDate[d]).length > 0 && (
+        <Glass style={{ padding: 20, marginTop: 16, display: "flex", justifyContent: "space-around", textAlign: "center" }}>
+          {[
+            { label: "Sessions", value: days.filter((d) => doneByDate[d]).length },
+            { label: "Days left", value: days.filter((d) => d >= today && !doneByDate[d]).length },
+            {
+              label: "Total min",
+              value: days
+                .filter((d) => doneByDate[d] && doneByDate[d].total_duration_sec)
+                .reduce((s, d) => s + Math.round(doneByDate[d].total_duration_sec / 60), 0) || "—",
+            },
+          ].map(({ label, value }) => (
+            <div key={label}>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.emerald }}>{value}</div>
+              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{label}</div>
+            </div>
+          ))}
+        </Glass>
+      )}
+    </div>
+  );
+}
+
 // ─── NAV ──────────────────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   {
@@ -1894,6 +2422,19 @@ const NAV_ITEMS = [
         <line x1="8" y1="2" x2="8" y2="6" />
         <line x1="3" y1="10" x2="21" y2="10" />
         <path d="m9 16 2 2 4-4" />
+      </svg>
+    ),
+  },
+  {
+    id: "plan",
+    label: "Plan",
+    icon: (a) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "#10b981" : "#64748b"} strokeWidth="2">
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="7" y1="15" x2="17" y2="15" />
       </svg>
     ),
   },
@@ -2027,6 +2568,7 @@ export default function App() {
       window.location.href = "/login.html";
     }
   }, []);
+
   const today = new Date().toISOString().split("T")[0];
 
   const [view, setView] = useState("today");
@@ -2037,6 +2579,11 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Onboarding / waiver flow
+  const [showWaiver, setShowWaiver] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
+  const [onboardingReady, setOnboardingReady] = useState(false);
 
   const [prefs, setPrefs] = useState(() => {
     try {
@@ -2052,8 +2599,51 @@ export default function App() {
     } catch {}
   }, [prefs]);
 
-  // Load score and history from API on mount
+  // On mount: check waiver → check profile
   useEffect(() => {
+    if (!userId || !token) return;
+    const waiverAccepted = localStorage.getItem("jf_waiver") === "1";
+    if (!waiverAccepted) {
+      setShowWaiver(true);
+      return;
+    }
+    // Waiver already done — check if profile exists
+    api.getProfile(token).then((data) => {
+      if (!data.exists) {
+        setShowOnboarding(true);
+      } else {
+        setOnboardingReady(true);
+      }
+    }).catch(() => setOnboardingReady(true));
+  }, []);
+
+  const handleWaiverAccept = () => {
+    localStorage.setItem("jf_waiver", "1");
+    setShowWaiver(false);
+    // Now check profile
+    api.getProfile(token).then((data) => {
+      if (!data.exists) {
+        setShowOnboarding(true);
+      } else {
+        setOnboardingReady(true);
+      }
+    }).catch(() => setOnboardingReady(true));
+  };
+
+  const handleOnboardingComplete = (profileData) => {
+    setShowOnboarding(false);
+    setOnboardingReady(true);
+    // Merge profile data into local prefs for immediate use
+    if (profileData) {
+      setPrefs((p) => ({ ...p, ...profileData }));
+    }
+    // Trigger check-in / plan generation
+    if (prefs.auto_prompt !== false) setShowCheckIn(true);
+  };
+
+  // Load score and history from API on mount (only after onboarding done)
+  useEffect(() => {
+    if (!onboardingReady) return;
     api
       .getScore(userId)
       .then(setScore)
@@ -2066,12 +2656,13 @@ export default function App() {
         setIsLoadingHistory(false);
       })
       .catch(() => setIsLoadingHistory(false));
-  }, [userId]);
+  }, [userId, onboardingReady]);
 
-  // Show check-in on first open if enabled
+  // Show check-in on first open if enabled (only after onboarding done)
   useEffect(() => {
+    if (!onboardingReady) return;
     if (prefs.auto_prompt !== false) setShowCheckIn(true);
-  }, []);
+  }, [onboardingReady]);
 
   const handleCheckIn = useCallback(
     async (data) => {
@@ -2225,6 +2816,9 @@ export default function App() {
                 isGenerating={isGenerating}
               />
             )}
+            {view === "plan" && (
+              <PlanWeekView history={history} />
+            )}
             {view === "history" && (
               <HistoryView history={history} isLoading={isLoadingHistory} />
             )}
@@ -2250,6 +2844,12 @@ export default function App() {
           onClose={() => setShowCheckIn(false)}
           isPro={!!prefs.isPro}
         />
+      )}
+
+      {showWaiver && <EUWaiverModal onAccept={handleWaiverAccept} />}
+
+      {showOnboarding && !showWaiver && (
+        <OnboardingModal token={token} onComplete={handleOnboardingComplete} />
       )}
     </div>
   );

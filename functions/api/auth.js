@@ -1,5 +1,38 @@
 const JWT_EXPIRY = 60 * 60 * 24 * 7; // 7 days in seconds
 
+async function sendWelcomeEmail(email, apiKey) {
+  await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      from: 'JustFit.cc <hello@justfit.cc>',
+      to: [email],
+      subject: 'Welcome to JustFit.cc — Consistency starts today',
+      html: `
+        <div style="font-family:-apple-system,sans-serif;max-width:520px;margin:0 auto;background:#020617;color:#f8fafc;padding:40px 32px;border-radius:16px;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:32px;">
+            <div style="width:36px;height:36px;background:#10b981;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;">JF</div>
+            <span style="font-weight:900;font-size:18px;">JustFit<span style="color:#10b981">.cc</span></span>
+          </div>
+          <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 12px;">You're in.</h1>
+          <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">
+            Your first plan is ready. Check in daily — even 10 minutes counts. Consistency beats intensity every time.
+          </p>
+          <a href="https://justfit.cc" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;letter-spacing:0.04em;">
+            Open JustFit →
+          </a>
+          <p style="color:#334155;font-size:11px;margin-top:40px;">
+            JustFit.cc — Privacy-first fitness. We never sell your data.
+          </p>
+        </div>
+      `,
+    }),
+  });
+}
+
 // Simple JWT implementation (no external libs in edge functions)
 async function createJWT(payload, secret) {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
@@ -83,6 +116,12 @@ export async function onRequestPost({ request, env }) {
       ]);
 
       const token = await createJWT({ userId, email: emailLower }, secret);
+
+      // Send welcome email (fire-and-forget — don't block signup on email failure)
+      if (env.RESEND_API_KEY) {
+        sendWelcomeEmail(emailLower, env.RESEND_API_KEY).catch(() => {});
+      }
+
       return Response.json({ ok: true, token, userId });
 
     } else if (action === 'login') {

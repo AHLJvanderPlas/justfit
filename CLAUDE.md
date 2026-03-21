@@ -53,21 +53,27 @@ justfit/
 │   └── index.css        ← empty (all styles are inline in App.jsx)
 ├── functions/
 │   └── api/
-│       ├── auth.js      ← POST signup/login, GET verify token
+│       ├── auth.js      ← POST signup/login (+ welcome email via Resend), GET verify token
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
-│       ├── plan.js      ← POST generate plan (runs planner engine), GET fetch plan
+│       ├── plan.js      ← POST generate plan (runs planner engine v1.5.1), GET fetch plan
+│       ├── profile.js   ← GET/POST user_preferences (onboarding + settings)
 │       ├── score.js     ← GET consistency score for user
 │       └── ping.js      ← GET health check
 ├── public/
+│   ├── index.html       ← marketing landing page (static, no React)
 │   ├── login.html       ← standalone auth page (no React, plain HTML/CSS/JS)
+│   ├── manifest.json    ← PWA manifest
+│   ├── favicon.svg      ← app icon
 │   ├── _routes.json     ← routes /api/* to Functions, /* to React SPA
 │   └── _redirects       ← SPA fallback
 ├── migrations/
 │   ├── 0001_init.sql    ← full schema
 │   ├── 0002_seed.sql    ← awards seed data
-│   └── 0003_cleanup.sql ← FK fixes
+│   ├── 0003_cleanup.sql ← FK fixes
+│   ├── 0004_exercises.sql ← 35 new exercises (total: 50)
+│   └── 0005_templates.sql ← 8 session templates
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -281,22 +287,26 @@ Calculated server-side from executions table:
 | Feature | Status |
 |---|---|
 | D1 schema + migrations | ✅ Live |
-| Exercise library (15 exercises) | ✅ Seeded in D1 |
+| Exercise library (50 exercises) | ✅ Seeded in D1 (migrations 0001–0004) |
+| Session templates (8 templates) | ✅ Seeded in D1 (migration 0005) |
 | Awards (12 awards) | ✅ Seeded in D1 |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine R510-R516 | ✅ Live |
+| Planner engine R510-R516 | ✅ Live — template-based, seeded shuffle variety, profile-aware |
+| /api/profile endpoint | ✅ Live — GET/POST user_preferences |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
+| Welcome email on signup | ✅ Live — Resend, fire-and-forget, RESEND_API_KEY in Pages env |
 | Sign Out button in Settings | ✅ Live |
 | execution_steps D1 batch insert | ✅ Fixed — no more 500s |
+| EU liability waiver modal | ✅ Live — shown on first use, accepted stored in localStorage |
+| Onboarding flow | ✅ Live — 3-step (goal, experience, equipment/duration), saves to /api/profile |
+| Weekly plan view (7-day) | ✅ Live — Plan tab in nav, shows session strip + completed sessions |
+| Landing page (marketing) | ✅ Live — public/index.html, dark design, features, rules, privacy |
+| PWA manifest | ✅ Live — manifest.json, theme-color, apple-mobile-web-app tags |
 | Offline / IndexedDB sync | ⬜ Not started |
-| Weekly plan view | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
-| Landing page (marketing) | ⬜ Not started |
-| EU liability waiver | ⬜ Not started |
-| Session templates seeded | ⬜ Empty table |
-| Exercise library expanded | ⬜ 15/150 exercises |
+| Exercise library expanded | 🔄 50/150 exercises |
 
 ---
 

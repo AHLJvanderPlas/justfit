@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JustFit.cc — Consistency over Intensity</title>
+  <meta name="description" content="A privacy-first fitness app that adapts to your real life. No subscriptions required to start. Just show up." />
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #020617;
+      --card: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.08);
+      --emerald: #10b981;
+      --emerald-dim: rgba(16,185,129,0.12);
+      --emerald-border: rgba(16,185,129,0.3);
+      --text: #f8fafc;
+      --muted: #64748b;
+      --subtle: #334155;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      line-height: 1.5;
+    }
+
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+
+    /* NAV */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 50;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 16px 24px;
+      background: rgba(2,6,23,0.85);
+      backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      text-decoration: none;
+    }
+
+    .logo-mark {
+      width: 34px;
+      height: 34px;
+      background: var(--emerald);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 900;
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .logo-text {
+      font-weight: 900;
+      font-size: 17px;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    .logo-text span { color: var(--emerald); }
+
+    .nav-cta {
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+
+    .btn-ghost {
+      padding: 8px 16px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--muted);
+      background: none;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      padding: 9px 20px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 900;
+      color: #fff;
+      background: var(--emerald);
+      border: none;
+      cursor: pointer;
+      text-decoration: none;
+      letter-spacing: 0.04em;
+    }
+
+    /* HERO */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero::before {
+      content: '';
+      position: absolute;
+      top: -200px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 800px;
+      background: radial-gradient(circle, rgba(16,185,129,0.08) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .ghost-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: var(--emerald-dim);
+      border: 1px solid var(--emerald-border);
+      font-size: 12px;
+      font-weight: 700;
+      color: #6ee7b7;
+      margin-bottom: 32px;
+    }
+
+    .ghost-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--emerald);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    h1 {
+      font-size: clamp(40px, 8vw, 72px);
+      font-weight: 900;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      max-width: 800px;
+      margin-bottom: 20px;
+    }
+
+    h1 em {
+      font-style: normal;
+      color: var(--emerald);
+    }
+
+    .hero-sub {
+      font-size: clamp(15px, 2.5vw, 18px);
+      color: var(--muted);
+      max-width: 540px;
+      line-height: 1.7;
+      margin-bottom: 40px;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-hero {
+      padding: 16px 36px;
+      border-radius: 16px;
+      font-size: 15px;
+      font-weight: 900;
+      letter-spacing: 0.04em;
+      text-decoration: none;
+      cursor: pointer;
+    }
+
+    .btn-hero-primary {
+      background: var(--emerald);
+      color: #fff;
+      border: none;
+      box-shadow: 0 8px 32px rgba(16,185,129,0.35);
+    }
+
+    .btn-hero-secondary {
+      background: var(--card);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+
+    /* FEATURES */
+    section {
+      padding: 80px 24px;
+      max-width: 1000px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.15em;
+      color: var(--emerald);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      line-height: 1.1;
+      margin-bottom: 16px;
+    }
+
+    .section-sub {
+      font-size: 15px;
+      color: var(--muted);
+      max-width: 540px;
+      line-height: 1.7;
+      margin-bottom: 52px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 24px;
+      padding: 28px;
+      transition: border-color 0.2s;
+    }
+
+    .feature-card:hover { border-color: var(--emerald-border); }
+
+    .feature-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--emerald-dim);
+      border: 1px solid var(--emerald-border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      margin-bottom: 16px;
+    }
+
+    .feature-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+
+    .feature-desc {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.65;
+    }
+
+    /* RULES */
+    .rules-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 12px;
+    }
+
+    .rule-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 18px 20px;
+    }
+
+    .rule-trigger {
+      font-size: 11px;
+      font-weight: 900;
+      letter-spacing: 0.1em;
+      color: var(--emerald);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+
+    .rule-effect {
+      font-size: 13px;
+      color: var(--text);
+      font-weight: 600;
+    }
+
+    /* PRIVACY */
+    .privacy-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 16px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .privacy-row:last-child { border-bottom: none; }
+
+    .check {
+      color: var(--emerald);
+      font-weight: 900;
+      font-size: 15px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .privacy-text { font-size: 14px; color: var(--text); line-height: 1.55; }
+    .privacy-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+
+    /* CTA STRIP */
+    .cta-strip {
+      background: var(--emerald-dim);
+      border-top: 1px solid var(--emerald-border);
+      border-bottom: 1px solid var(--emerald-border);
+      padding: 64px 24px;
+      text-align: center;
+    }
+
+    .cta-strip h2 {
+      font-size: clamp(28px, 5vw, 44px);
+      font-weight: 900;
+      letter-spacing: -0.02em;
+      margin-bottom: 12px;
+    }
+
+    .cta-strip p {
+      color: var(--muted);
+      font-size: 15px;
+      max-width: 420px;
+      margin: 0 auto 32px;
+      line-height: 1.7;
+    }
+
+    /* FOOTER */
+    footer {
+      padding: 32px 24px;
+      text-align: center;
+      border-top: 1px solid var(--border);
+    }
+
+    footer p {
+      font-size: 12px;
+      color: var(--subtle);
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    @media (max-width: 600px) {
+      .btn-ghost { display: none; }
+      .hero-actions { flex-direction: column; align-items: center; }
+      .btn-hero { width: 100%; max-width: 320px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <a href="/" class="logo">
+    <div class="logo-mark">JF</div>
+    <span class="logo-text">JustFit<span>.cc</span></span>
+  </a>
+  <div class="nav-cta">
+    <a href="/login.html" class="btn-ghost">Log in</a>
+    <a href="/login.html#signup" class="btn-primary">Start free</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <div class="ghost-badge">
+    <span class="ghost-dot"></span>
+    <span id="ghost-count">42</span> people training right now
+  </div>
+
+  <h1>Consistency<br />over <em>intensity.</em></h1>
+
+  <p class="hero-sub">
+    JustFit adapts your workout to your real life — sleep, stress, time, travel.
+    No guilt. No nonsense. Just show up.
+  </p>
+
+  <div class="hero-actions">
+    <a href="/login.html#signup" class="btn-hero btn-hero-primary">Start for free →</a>
+    <a href="#how-it-works" class="btn-hero btn-hero-secondary">How it works</a>
+  </div>
+</div>
+
+<!-- HOW IT WORKS -->
+<section id="how-it-works">
+  <p class="section-label">How it works</p>
+  <h2 class="section-title">Your plan adapts.<br />Every single day.</h2>
+  <p class="section-sub">
+    Check in takes 30 seconds. The engine reads your inputs and generates a session that fits today — not a perfect day.
+  </p>
+
+  <div class="features-grid">
+    <div class="feature-card">
+      <div class="feature-icon">⚡</div>
+      <div class="feature-title">Daily Check-in</div>
+      <div class="feature-desc">Rate your sleep, energy, and stress. Toggle constraints like no gear, traveling, or limited time. The plan adjusts instantly.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🧠</div>
+      <div class="feature-title">Rule-Based Planner</div>
+      <div class="feature-desc">7 deterministic rules — not AI guesswork. R510 through R516 cover every real-life scenario. Transparent, predictable, fast.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">📈</div>
+      <div class="feature-title">Consistency Score</div>
+      <div class="feature-desc">Your score rewards showing up, not crushing it. Low-effort sessions count. Resilience is a feature, not a bug.</div>
+    </div>
+    <div class="feature-card">
+      <div class="feature-icon">🏆</div>
+      <div class="feature-title">Awards</div>
+      <div class="feature-desc">Unlock milestones as you build the habit. First session, 7-day streak, resilience badge — every step forward is recognized.</div>
+    </div>
+  </div>
+</section>
+
+<!-- RULES SECTION -->
+<section>
+  <p class="section-label">The Engine</p>
+  <h2 class="section-title">7 rules that cover<br />real life.</h2>
+  <p class="section-sub">
+    Every plan runs through the same transparent ruleset. No black box.
+  </p>
+
+  <div class="rules-grid">
+    <div class="rule-card">
+      <div class="rule-trigger">No time</div>
+      <div class="rule-effect">→ Switches to micro session (≤10 min)</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">Poor sleep</div>
+      <div class="rule-effect">→ Intensity capped at low</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">Low energy</div>
+      <div class="rule-effect">→ Volume reduced by 40%</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">High stress</div>
+      <div class="rule-effect">→ Shifts to mobility / recovery</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">Pain reported</div>
+      <div class="rule-effect">→ Rest session, no loading</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">No clothing change</div>
+      <div class="rule-effect">→ Stealth mode (standing, quiet)</div>
+    </div>
+    <div class="rule-card">
+      <div class="rule-trigger">Traveling / no gear</div>
+      <div class="rule-effect">→ Bodyweight only</div>
+    </div>
+  </div>
+</section>
+
+<!-- PRIVACY -->
+<section>
+  <p class="section-label">Privacy First</p>
+  <h2 class="section-title">Your data stays yours.</h2>
+  <p class="section-sub">
+    Built for EU users. Designed with privacy as a constraint, not an afterthought.
+  </p>
+
+  <div style="background:var(--card);border:1px solid var(--border);border-radius:24px;padding:8px 28px;">
+    <div class="privacy-row">
+      <span class="check">✓</span>
+      <div>
+        <div class="privacy-text">Email stored separately from fitness data</div>
+        <div class="privacy-sub">Identity and health data never share the same table.</div>
+      </div>
+    </div>
+    <div class="privacy-row">
+      <span class="check">✓</span>
+      <div>
+        <div class="privacy-text">No tracking, no ads, no third-party analytics</div>
+        <div class="privacy-sub">We don't know your device, browser, or location.</div>
+      </div>
+    </div>
+    <div class="privacy-row">
+      <span class="check">✓</span>
+      <div>
+        <div class="privacy-text">No social features or leaderboards</div>
+        <div class="privacy-sub">Your progress is for you, not for engagement metrics.</div>
+      </div>
+    </div>
+    <div class="privacy-row">
+      <span class="check">✓</span>
+      <div>
+        <div class="privacy-text">GDPR compliant — EU hosted infrastructure</div>
+        <div class="privacy-sub">Cloudflare edge, data stays in region.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA STRIP -->
+<div class="cta-strip">
+  <h2>Start today. 30 seconds.</h2>
+  <p>No credit card. No subscription required to start. Just sign up and check in.</p>
+  <a href="/login.html#signup" class="btn-hero btn-hero-primary">Create your free account →</a>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <p>JustFit.cc &mdash; Consistency over Intensity &mdash; &copy; 2025</p>
+</footer>
+
+<script>
+  // Ghost counter — same formula as app
+  function updateGhost() {
+    const now = new Date();
+    const T = now.getHours() + now.getMinutes() / 60;
+    const morning = 40 * Math.sin((Math.PI * (T - 2)) / 12);
+    const evening = 35 * Math.sin((Math.PI * (T - 14)) / 12);
+    const isWE = [0, 6].includes(now.getDay());
+    let raw = morning + evening + 25;
+    if (isWE) raw *= 0.8;
+    const count = Math.max(8, Math.min(92, Math.floor(raw + Math.random() * 6 - 3)));
+    const el = document.getElementById('ghost-count');
+    if (el) el.textContent = count;
+  }
+  updateGhost();
+  setInterval(updateGhost, 60000);
+</script>
+
+</body>
+</html>
