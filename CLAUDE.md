@@ -53,7 +53,7 @@ justfit/
 │   └── index.css        ← empty (all styles are inline in App.jsx)
 ├── functions/
 │   └── api/
-│       ├── auth.js      ← POST signup/login (+ welcome email via Resend), GET verify token
+│       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
@@ -62,18 +62,22 @@ justfit/
 │       ├── score.js     ← GET consistency score for user
 │       └── ping.js      ← GET health check
 ├── public/
-│   ├── index.html       ← marketing landing page (static, no React)
-│   ├── login.html       ← standalone auth page (no React, plain HTML/CSS/JS)
-│   ├── manifest.json    ← PWA manifest
-│   ├── favicon.svg      ← app icon
-│   ├── _routes.json     ← routes /api/* to Functions, /* to React SPA
-│   └── _redirects       ← SPA fallback
+│   ├── index.html           ← marketing landing page (static, no React)
+│   ├── login.html           ← standalone auth page: password, magic link, passkey/Face ID, forgot password
+│   ├── reset-password.html  ← password reset form (linked from email, reads ?token=)
+│   ├── magic.html           ← magic link landing page (reads ?token=, handles needsSignup redirect)
+│   ├── manifest.json        ← PWA manifest
+│   ├── favicon.svg          ← app icon
+│   ├── _routes.json         ← routes /api/* to Functions, /* to React SPA
+│   └── _redirects           ← SPA fallback
 ├── migrations/
-│   ├── 0001_init.sql    ← full schema
-│   ├── 0002_seed.sql    ← awards seed data
-│   ├── 0003_cleanup.sql ← FK fixes
-│   ├── 0004_exercises.sql ← 35 new exercises (total: 50)
-│   └── 0005_templates.sql ← 8 session templates
+│   ├── 0001_init.sql        ← full schema
+│   ├── 0002_seed.sql        ← awards seed data
+│   ├── 0003_cleanup.sql     ← FK fixes
+│   ├── 0004_exercises.sql   ← 35 new exercises (total: 50)
+│   ├── 0005_templates.sql   ← 8 session templates
+│   ├── 0006_passkeys.sql    ← passkey_credentials table
+│   └── 0007_auth_tokens.sql ← password_reset_tokens + magic_link_tokens tables; counter/backed_up/transports on passkey_credentials
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -157,6 +161,27 @@ status TEXT (active/trialing/grace/canceled/expired),
 starts_at_ms INT, ends_at_ms INT, created_at_ms INT, updated_at_ms INT
 ```
 
+**passkey_credentials** — WebAuthn/passkey registrations (migration 0006 + 0007)
+```sql
+id TEXT PK, user_id TEXT FK→users(id), credential_id TEXT UNIQUE,
+public_key TEXT (SPKI base64url), algorithm INTEGER (-7 = ES256),
+device_type TEXT, counter INTEGER NOT NULL DEFAULT 0,
+backed_up INTEGER NOT NULL DEFAULT 0, transports TEXT,
+created_at_ms INT, last_used_at_ms INT, updated_at_ms INT
+```
+
+**password_reset_tokens** — DB-backed single-use reset tokens (migration 0007)
+```sql
+token TEXT PK, user_id TEXT FK→users(id), email TEXT,
+expires_at_ms INT (1 hour), used_at_ms INT (NULL = unused), created_at_ms INT
+```
+
+**magic_link_tokens** — DB-backed single-use magic link tokens (migration 0007)
+```sql
+token TEXT PK, user_id TEXT (NULL if email not yet registered), email TEXT,
+expires_at_ms INT (15 min), used_at_ms INT (NULL = unused), created_at_ms INT
+```
+
 **user_preferences, user_profile, user_availability, user_contact** — profile data
 **referrals, referral_codes, vouchers** — growth mechanics
 **user_awards** — unlocked awards per user
@@ -173,7 +198,8 @@ JWT implementation uses Web Crypto API only (no npm). Located in `functions/api/
 // User ID stored in localStorage as 'jf_user_id'
 // On app load: if no token → redirect to /login.html
 // JWT payload: { userId, email, exp }
-// JWT secret: stored as env var JWT_SECRET (fallback to hardcoded during dev)
+// JWT_EXPIRY = 7 days
+// JWT secret: env var JWT_SECRET (required in production)
 ```
 
 Password hashing:
@@ -182,9 +208,30 @@ hash = SHA-256(salt + password + JWT_SECRET)
 stored as: "salt:hash"
 ```
 
-Auth endpoints:
-- `POST /api/auth` with `{action:"signup"|"login", email, password}`
-- `GET /api/auth` with `Authorization: Bearer <token>` → verifies token
+Email sending: Resend API, FROM `JustFit.cc <noreply@justfit.cc>`, env var `RESEND_API_KEY`.
+
+Auth endpoints (`POST /api/auth` with `{action, ...}`):
+| action | Description |
+|---|---|
+| `signup` | Create account, send welcome email |
+| `login` | Password login |
+| `forgot_password` | Generate DB token, send reset email (1hr expiry) |
+| `reset_password` | Consume DB token (single-use), update password hash |
+| `magic_link` | Generate DB token, send magic link email (15min expiry) |
+| `passkey_begin_register` | Issue WebAuthn challenge JWT (2min), return options |
+| `passkey_complete_register` | Verify attestation, store credential with counter=0 |
+| `passkey_begin_auth` | Issue WebAuthn challenge JWT, return discoverable-credential options |
+| `passkey_complete_auth` | Verify assertion: challenge, RP ID hash, UP flag, counter, ECDSA sig |
+
+`GET /api/auth?magic=<token>` — verify magic link token (marks used, returns `{ok,token,userId}` or `{needsSignup,email}`)
+`GET /api/auth` with `Authorization: Bearer <token>` — verify JWT session token
+
+WebAuthn specifics:
+- Algorithm: ES256 (alg -7), ECDSA P-256
+- Public key stored as SPKI base64url via `getPublicKey()`
+- RP ID: `env.WEBAUTHN_RP_ID ?? 'justfit.cc'` (configurable for local dev)
+- Replay protection: sign counter checked (`newCounter > storedCounter`), counter=0 allowed for backed-up credentials
+- Discoverable credentials: `allowCredentials: []` for login (user selects passkey)
 
 ---
 
@@ -296,6 +343,9 @@ Calculated server-side from executions table:
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
 | Welcome email on signup | ✅ Live — Resend, fire-and-forget, RESEND_API_KEY in Pages env |
+| Forgot password / reset flow | ✅ Live — DB-backed single-use token, 1hr expiry, reset-password.html |
+| Magic link login | ✅ Live — DB-backed single-use token, 15min expiry, magic.html verify page |
+| Passkey / Face ID login | ✅ Live — WebAuthn ES256, discoverable creds, replay protection via counter |
 | Sign Out button in Settings | ✅ Live |
 | execution_steps D1 batch insert | ✅ Fixed — no more 500s |
 | EU liability waiver modal | ✅ Live — shown on first use, accepted stored in localStorage |
