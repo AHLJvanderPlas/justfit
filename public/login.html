@@ -194,7 +194,7 @@
     <!-- FORGOT PASSWORD VIEW -->
     <div id="forgot-view" style="display:none;">
       <h1 style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
-      <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 15 minutes.</p>
+      <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
       <div id="forgot-alert" class="alert"></div>
       <div class="field">
         <label>Email</label>
@@ -448,7 +448,7 @@
               id:   fromB64url(id),
             })),
             userVerification: 'preferred',
-            rpId:             'justfit.cc',
+            rpId:             beginRes.rpId || 'justfit.cc',
             timeout:          60000,
           },
         });
@@ -519,8 +519,16 @@
       const magic  = params.get('magic');
       if (magic) { verifyMagicLink(magic); return; }
 
-      // Signup hash?
-      if (window.location.hash === '#signup') setMode('signup');
+      // Pre-fill email from ?email= param (e.g. from magic.html needsSignup redirect)
+      const emailParam = params.get('email');
+      if (emailParam) {
+        document.getElementById('email').value       = emailParam;
+        document.getElementById('magic-email').value = emailParam;
+        document.getElementById('forgot-email').value = emailParam;
+      }
+
+      // Switch to signup from ?mode=signup or #signup hash
+      if (params.get('mode') === 'signup' || window.location.hash === '#signup') setMode('signup');
 
       // Passkey availability
       if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {

@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>JustFit.cc — Magic Link</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .card {
+      width: 100%;
+      max-width: 420px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 28px;
+      padding: 40px;
+      text-align: center;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 36px;
+    }
+    .logo-mark {
+      width: 42px; height: 42px;
+      background: #10b981;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 15px; color: #fff;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.3);
+    }
+    .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+    .logo-text span { color: #10b981; }
+    .icon { font-size: 48px; margin-bottom: 20px; }
+    h1 { font-size: 24px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 10px; }
+    .sub { font-size: 14px; color: #64748b; line-height: 1.6; }
+    .btn {
+      display: inline-block;
+      margin-top: 24px;
+      padding: 14px 28px;
+      background: #10b981;
+      border: none; border-radius: 14px;
+      color: #fff; font-size: 14px; font-weight: 900;
+      text-decoration: none; cursor: pointer;
+      box-shadow: 0 6px 24px rgba(16,185,129,0.3);
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-wrap { margin: 24px auto 0; }
+    .spinner {
+      display: inline-block;
+      width: 36px; height: 36px;
+      border: 3px solid rgba(16,185,129,0.2);
+      border-top-color: #10b981;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <div class="logo-mark">JF</div>
+      <div class="logo-text">JustFit<span>.cc</span></div>
+    </div>
+
+    <!-- Verifying state (default) -->
+    <div id="verifying-view">
+      <div class="icon">✉️</div>
+      <h1>Signing you in…</h1>
+      <p class="sub">Verifying your magic link.</p>
+      <div class="spinner-wrap"><div class="spinner"></div></div>
+    </div>
+
+    <!-- Success state -->
+    <div id="success-view" style="display:none;">
+      <div class="icon">✅</div>
+      <h1>Signed in!</h1>
+      <p class="sub">Redirecting you to the app…</p>
+    </div>
+
+    <!-- Expired / invalid state -->
+    <div id="error-view" style="display:none;">
+      <div class="icon">🔗</div>
+      <h1>Link expired</h1>
+      <p class="sub" id="error-msg">This magic link has expired or already been used.</p>
+      <a href="/login.html" class="btn">Request a new link</a>
+    </div>
+  </div>
+
+  <script>
+    (async () => {
+      const params = new URLSearchParams(window.location.search);
+      const token  = params.get('token');
+
+      function show(id) {
+        ['verifying-view', 'success-view', 'error-view'].forEach(v => {
+          document.getElementById(v).style.display = v === id ? 'block' : 'none';
+        });
+      }
+
+      if (!token) {
+        document.getElementById('error-msg').textContent = 'No magic link token found. Please request a new link.';
+        show('error-view');
+        return;
+      }
+
+      try {
+        const res  = await fetch(`/api/auth?magic=${encodeURIComponent(token)}`);
+        const data = await res.json();
+
+        if (data.ok) {
+          // Successful login
+          localStorage.setItem('jf_token',   data.token);
+          localStorage.setItem('jf_user_id', data.userId);
+          show('success-view');
+          setTimeout(() => { window.location.href = '/'; }, 800);
+          return;
+        }
+
+        if (data.needsSignup && data.email) {
+          // Email not registered — send to signup with pre-filled email
+          const dest = `/login.html?email=${encodeURIComponent(data.email)}&mode=signup`;
+          window.location.href = dest;
+          return;
+        }
+
+        // Expired / invalid
+        const msg = data.error || 'This magic link has expired or already been used.';
+        document.getElementById('error-msg').textContent = msg;
+        show('error-view');
+      } catch {
+        document.getElementById('error-msg').textContent = 'Network error. Please try again.';
+        show('error-view');
+      }
+    })();
+  </script>
+</body>
+</html>
