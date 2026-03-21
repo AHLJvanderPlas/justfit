@@ -1,7 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin } = body;
+    const { user_id, date, checkin, completed_exercise_ids } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -37,7 +37,7 @@ export async function onRequestPost({ request, env }) {
         }
       : null;
 
-    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates);
+    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids);
 
     if (user_id) {
       const userExists = await env.DB.prepare(
@@ -147,11 +147,18 @@ function pickTemplate(templates, slotType, intensity, budgetMin) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
   const trace = [];
   let intensity = 'moderate';
   let slot_type = 'main';
   let pool = [...exercises];
+
+  // Filter out already-done exercises (bonus session deduplication)
+  if (completedIds?.length) {
+    const doneSet = new Set(completedIds);
+    pool = pool.filter(e => !doneSet.has(e.id));
+    trace.push(`Bonus dedup — excluded ${completedIds.length} completed exercise(s)`);
+  }
 
   // Default budget: from preferences or checkin or 30 min
   const prefBudget = prefs?.session_duration_min ?? 30;
