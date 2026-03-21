@@ -1,0 +1,46 @@
+export async function onRequestGet({ request, env }) {
+  try {
+    const url = new URL(request.url);
+    const user_id = url.searchParams.get('user_id');
+
+    if (!user_id) return Response.json({ error: 'user_id required' }, { status: 400 });
+
+    // Last 7 days of executions
+    const result = await env.DB.prepare(`
+      SELECT date, execution_type, perceived_exertion
+      FROM executions 
+      WHERE user_id = ? 
+        AND status = 'completed'
+        AND date >= date('now', '-7 days')
+      ORDER BY date DESC
+    `).bind(user_id).all();
+
+    const executions = result.results;
+    const activeDays = new Set(executions.map(e => e.date)).size;
+    const activeDayPoints = activeDays * 10;
+
+    // Resilience bonus — completed despite low energy (perceived_exertion <= 4 but still done)
+    const resilienceBonus = Math.min(20,
+      executions.filter(e => e.perceived_exertion && e.perceived_exertion <= 4).length * 5
+    );
+
+    // Streak bonus — fetch last 28 days
+    const streakResult = await env.DB.prepare(`
+      SELECT DISTINCT date FROM executions
+      WHERE user_id = ? AND status = 'completed'
+      ORDER BY date DESC LIMIT 28
+    `).bind(user_id).all();
+
+    const streakDays = streakResult.results.length;
+    const continuityBonus = streakDays >= 28 ? 10 : streakDays >= 14 ? 5 : 0;
+
+    const score = Math.min(100, activeDayPoints + resilienceBonus + continuityBonus);
+
+    return Response.json({
+      score,
+      breakdown: { activeDayPoints, resilienceBonus, continuityBonus, activeDays }
+    });
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
