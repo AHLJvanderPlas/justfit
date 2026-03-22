@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env }) {
     // Fetch exercises and (optionally) user preferences in parallel
     const [exResult, userPrefs, templates, userProfileRow] = await Promise.all([
       env.DB.prepare(
-        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json
+        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
          FROM exercises WHERE is_active = 1`
       ).all(),
       user_id
@@ -252,6 +252,19 @@ function hasTags(exercise, ...tags) {
 function hasAllTags(exercise, ...tags) {
   const t = JSON.parse(exercise.tags_json || '[]');
   return tags.every(tag => t.includes(tag));
+}
+
+// ---------------------------------------------------------------------------
+// Rest duration helper — used per step in the plan
+// ---------------------------------------------------------------------------
+function getDefaultRest(exercise, slotType) {
+  const tags = JSON.parse(exercise?.tags_json || '[]');
+  if (slotType === 'micro') return 20;
+  if (tags.includes('pelvic_floor')) return 30;
+  if (tags.includes('mobility')) return 20;
+  if (tags.includes('cardio')) return 30;
+  if (tags.includes('bodyweight')) return 45;
+  return 60;
 }
 
 // ---------------------------------------------------------------------------
@@ -583,9 +596,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       exercise_slug: ex.slug,
       name: ex.name,
       category: ex.category,
+      tags_json: ex.tags_json ?? '[]',
       target_reps: reps,
       target_duration_sec: duration,
       sets,
+      rest_sec: getDefaultRest(ex, slot_type),
+      instructions_json: ex.instructions_json ?? null,
+      alternatives_json: ex.alternatives_json ?? null,
       gif_url: media.gif_url ?? null,
     };
   });
@@ -626,9 +643,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           exercise_slug: mobilityEx.slug,
           name: mobilityEx.name,
           category: mobilityEx.category,
+          tags_json: mobilityEx.tags_json ?? '[]',
           target_reps: undefined,
           target_duration_sec: 30,
           sets: 1,
+          rest_sec: getDefaultRest(mobilityEx, slot_type),
+          instructions_json: mobilityEx.instructions_json ?? null,
+          alternatives_json: mobilityEx.alternatives_json ?? null,
           gif_url: media.gif_url ?? null,
         });
       }
@@ -660,9 +681,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           exercise_slug: pfEx.slug,
           name: pfEx.name,
           category: pfEx.category,
+          tags_json: pfEx.tags_json ?? '[]',
           target_reps: 10,
           target_duration_sec: undefined,
           sets: 2,
+          rest_sec: getDefaultRest(pfEx, slot_type),
+          instructions_json: pfEx.instructions_json ?? null,
+          alternatives_json: pfEx.alternatives_json ?? null,
           gif_url: media.gif_url ?? null,
         });
         const ruleLabel = pregnancyContext.mode === 'pregnant' ? 'R534' : 'R541';

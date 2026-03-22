@@ -49,7 +49,7 @@ const api = {
     return data.score ?? 0;
   },
 
-  async saveExecution(userId, planId, date, steps, durationSec) {
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion) {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -59,14 +59,16 @@ const api = {
         day_plan_id: planId ?? null,
         session_type: "workout",
         duration_sec: durationSec,
+        perceived_exertion: perceivedExertion ?? null,
         steps: steps.map((s) => ({
           exercise_id: s.exercise_id,
           prescribed: {
-            reps: s.target_reps,
-            duration: s.target_duration,
             sets: s.sets,
+            reps: s.target_reps,
+            duration_sec: s.target_duration_sec,
+            rest_sec: s.rest_sec,
           },
-          actual: { completed: true },
+          actual: s.actual ?? { completed: true },
         })),
       }),
     });
@@ -2064,49 +2066,167 @@ function ExerciseGif({ gifUrl, name }) {
   );
 }
 
-function WorkoutView({ plan, onComplete, onBack }) {
-  const [step, setStep] = useState(0);
-  const [timer, setTimer] = useState(null);
-  const [startTime] = useState(Date.now());
+// ─── WORKOUT VIEW — coaching state machine ─────────────────────────────────────
+function WorkoutView({ plan, onComplete, onBack, cycle }) {
+  const exercises = plan?.steps ?? [];
+  const totalExercises = exercises.length;
+  const startTimeRef = useRef(Date.now());
+  const bodyMode = cycle?.mode ?? "standard";
+
+  // ── Core state ──────────────────────────────────────────────────────────────
+  const [exIdx, setExIdx] = useState(0);
+  const [currentSet, setCurrentSet] = useState(1);
+  const [repCount, setRepCount] = useState(0);
+  const [phase, setPhase] = useState(
+    !plan || plan.slot_type === "rest" ? "restDay" : totalExercises > 0 ? "instruction" : "sessionFeedback"
+  );
+  const [restRemaining, setRestRemaining] = useState(60);
+  const [restTotal, setRestTotal] = useState(60);
+  const [timerRunning, setTimerRunning] = useState(false);
+  const [timerRemaining, setTimerRemaining] = useState(0);
+  const [adjustedReps, setAdjustedReps] = useState(null);
+  const [showCancel, setShowCancel] = useState(false);
+  // Track actual data per exercise for saving
+  const stepsActualRef = useRef(
+    exercises.map((ex) => ({
+      exercise_id: ex.exercise_id,
+      prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec },
+      actual: { sets_completed: 0, reps_per_set: [], skipped: false },
+    }))
+  );
+
+  const cur = exercises[exIdx];
+  const totalSets = cur?.sets ?? 3;
+  const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+  const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
+
+  // ── Rest countdown ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "resting" || restRemaining <= 0) return;
+    const id = setTimeout(() => setRestRemaining((r) => Math.max(0, r - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [phase, restRemaining]);
 
   useEffect(() => {
-    if (timer === null || timer <= 0) return;
-    const id = setInterval(() => setTimer((t) => (t <= 1 ? 0 : t - 1)), 1000);
-    return () => clearInterval(id);
-  }, [timer]);
+    if (phase !== "resting" || restRemaining > 0) return;
+    setCurrentSet((s) => s + 1);
+    setRepCount(0);
+    setPhase("working");
+  }, [phase, restRemaining]);
 
-  if (!plan || plan.slot_type === "rest")
+  // ── Exercise timer ───────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (!timerRunning || timerRemaining <= 0) return;
+    const id = setTimeout(() => setTimerRemaining((r) => Math.max(0, r - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [timerRunning, timerRemaining]);
+
+  useEffect(() => {
+    if (!timerRunning || timerRemaining > 0) return;
+    setTimerRunning(false);
+    handleSetDone();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timerRunning, timerRemaining]);
+
+  // ── Instruction auto-advance (5s) ────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "instruction") return;
+    const id = setTimeout(() => setPhase("working"), 5000);
+    return () => clearTimeout(id);
+  }, [phase, exIdx]);
+
+  // ── Exercise complete auto-advance (2s) ──────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "exerciseComplete") return;
+    const id = setTimeout(() => {
+      setExIdx((i) => i + 1);
+      setCurrentSet(1);
+      setRepCount(0);
+      setAdjustedReps(null);
+      setPhase("instruction");
+    }, 2000);
+    return () => clearTimeout(id);
+  }, [phase]);
+
+  // ── Helpers ──────────────────────────────────────────────────────────────────
+  function getRestDuration(ex) {
+    const tags = JSON.parse(ex?.tags_json || "[]");
+    if (plan?.slot_type === "micro") return 20;
+    if (tags.includes("pelvic_floor")) return 30;
+    if (tags.includes("mobility")) return 20;
+    if (tags.includes("cardio")) return 30;
+    if (tags.includes("bodyweight")) return 45;
+    return ex?.rest_sec ?? 60;
+  }
+
+  function handleSetDone(repsThisSet) {
+    const reps = repsThisSet ?? repCount;
+    // Record actual reps
+    stepsActualRef.current[exIdx].actual.reps_per_set.push(reps);
+    stepsActualRef.current[exIdx].actual.sets_completed += 1;
+
+    if (currentSet < totalSets) {
+      const rest = getRestDuration(cur);
+      setRestRemaining(rest);
+      setRestTotal(rest);
+      setPhase("resting");
+    } else {
+      if (exIdx < totalExercises - 1) {
+        setPhase("exerciseComplete");
+      } else {
+        setPhase("sessionFeedback");
+      }
+    }
+  }
+
+  function handleRepTapped() {
+    if (navigator.vibrate) navigator.vibrate(30);
+    const next = repCount + 1;
+    setRepCount(next);
+    if (next >= targetReps) {
+      handleSetDone(next);
+    }
+  }
+
+  function handleSkipRest() {
+    clearTimeout();
+    setRestRemaining(0);
+    setCurrentSet((s) => s + 1);
+    setRepCount(0);
+    setPhase("working");
+  }
+
+  function handleSkipExercise() {
+    stepsActualRef.current[exIdx].actual.skipped = true;
+    if (exIdx < totalExercises - 1) {
+      setExIdx((i) => i + 1);
+      setCurrentSet(1);
+      setRepCount(0);
+      setAdjustedReps(null);
+      setPhase("instruction");
+    } else {
+      setPhase("sessionFeedback");
+    }
+  }
+
+  function handleFinishSession(perceivedExertion) {
+    const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    onComplete(durationSec, perceivedExertion, stepsActualRef.current);
+  }
+
+  // ── Session progress ─────────────────────────────────────────────────────────
+  const totalUnits = exercises.reduce((sum, ex) => sum + (ex.sets ?? 3), 0);
+  const doneUnits = exercises
+    .slice(0, exIdx)
+    .reduce((sum, ex) => sum + (ex.sets ?? 3), 0) + (currentSet - 1);
+  const progressPct = totalUnits > 0 ? Math.min(100, (doneUnits / totalUnits) * 100) : 0;
+
+  // ── Rest day / no exercises ──────────────────────────────────────────────────
+  if (phase === "restDay") {
     return (
-      <div
-        style={{
-          minHeight: "60vh",
-          display: "flex",
-          flexDirection: "column",
-          alignItems: "center",
-          justifyContent: "center",
-          textAlign: "center",
-          gap: 20,
-        }}
-      >
-        <div
-          style={{
-            width: 80,
-            height: 80,
-            borderRadius: "50%",
-            background: C.emeraldDim,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <svg
-            width="36"
-            height="36"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke={C.emerald}
-            strokeWidth="1.5"
-          >
+      <div style={{ minHeight: "60vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 20 }}>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="1.5">
             <rect width="18" height="18" x="3" y="4" rx="2" />
             <line x1="16" y1="2" x2="16" y2="6" />
             <line x1="8" y1="2" x2="8" y2="6" />
@@ -2114,269 +2234,306 @@ function WorkoutView({ plan, onComplete, onBack }) {
           </svg>
         </div>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>
-            Time to Recover.
-          </div>
-          <p
-            style={{
-              fontSize: 14,
-              color: C.muted,
-              marginTop: 8,
-              lineHeight: 1.5,
-            }}
-          >
-            Your plan calls for active recovery today.
-          </p>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>Time to Recover.</div>
+          <p style={{ fontSize: 14, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>Your plan calls for active recovery today.</p>
         </div>
-        <button
-          onClick={onBack}
-          style={{
-            padding: "12px 28px",
-            borderRadius: 16,
-            fontWeight: 700,
-            fontSize: 14,
-            background: "rgba(255,255,255,0.05)",
-            border: `1px solid ${C.border}`,
-            color: C.emerald,
-            cursor: "pointer",
-          }}
-        >
+        <button onClick={onBack} style={{ padding: "12px 28px", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.emerald, cursor: "pointer" }}>
           Return Home
         </button>
       </div>
     );
+  }
 
-  const steps = plan.steps ?? [];
-  const cur = steps[step];
-  const isLast = step === steps.length - 1;
-
-  const next = () => {
-    if (!isLast) {
-      setStep((s) => s + 1);
-      setTimer(null);
-    }
-  };
-
-  const finish = () => {
-    const durationSec = Math.floor((Date.now() - startTime) / 1000);
-    onComplete(durationSec);
-  };
-
+  // ── Full-screen workout overlay ──────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: 520, margin: "0 auto", paddingBottom: 120 }}>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
-          marginBottom: 40,
-        }}
-      >
-        <button
-          onClick={onBack}
-          style={{
-            fontSize: 13,
-            fontWeight: 700,
-            color: C.muted,
-            background: "none",
-            border: "none",
-            cursor: "pointer",
-          }}
-        >
-          Cancel
-        </button>
-        <div style={{ display: "flex", gap: 4 }}>
-          {steps.map((_, i) => (
-            <div
-              key={i}
-              style={{
-                height: 4,
-                borderRadius: 2,
-                transition: "all 0.3s",
-                width: i <= step ? 28 : 14,
-                background: i <= step ? C.emerald : "rgba(255,255,255,0.1)",
-              }}
-            />
-          ))}
-        </div>
-        <span
-          style={{
-            fontSize: 11,
-            fontWeight: 900,
-            color: C.emerald,
-            letterSpacing: "0.1em",
-            textTransform: "uppercase",
-          }}
-        >
-          {step + 1}/{steps.length}
-        </span>
-      </div>
-
-      <div style={{ textAlign: "center", marginBottom: 40 }}>
-        {cur?.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
-        <h1
-          style={{
-            fontSize: 42,
-            fontWeight: 900,
-            color: C.text,
-            letterSpacing: "-0.03em",
-            marginBottom: 10,
-            lineHeight: 1.1,
-          }}
-        >
-          {cur?.name}
-        </h1>
-      </div>
-
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "1fr 1fr",
-          gap: 12,
-          marginBottom: 32,
-        }}
-      >
-        <Glass style={{ padding: 24, textAlign: "center" }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.15em",
-              color: "rgba(16,185,129,0.6)",
-              textTransform: "uppercase",
-              marginBottom: 8,
-            }}
-          >
-            Target
-          </div>
-          <div style={{ fontSize: 36, fontWeight: 900, color: C.text }}>
-            {cur?.target_reps
-              ? `${cur.target_reps}`
-              : `${cur?.target_duration}s`}
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: C.muted,
-              fontWeight: 600,
-              marginTop: 4,
-            }}
-          >
-            {cur?.target_reps ? "reps" : "seconds"}
-          </div>
-        </Glass>
-        <Glass style={{ padding: 24, textAlign: "center" }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.15em",
-              color: "rgba(16,185,129,0.6)",
-              textTransform: "uppercase",
-              marginBottom: 8,
-            }}
-          >
-            Sets
-          </div>
-          <div style={{ fontSize: 36, fontWeight: 900, color: C.text }}>
-            {cur?.sets ?? 3}
-          </div>
-          <div
-            style={{
-              fontSize: 12,
-              color: C.muted,
-              fontWeight: 600,
-              marginTop: 4,
-            }}
-          >
-            rounds
-          </div>
-        </Glass>
-      </div>
-
-      {cur?.target_duration && (
-        <div style={{ textAlign: "center", marginBottom: 32 }}>
-          {timer !== null ? (
-            <div
-              style={{
-                fontSize: 88,
-                fontWeight: 900,
-                letterSpacing: "-0.04em",
-                lineHeight: 1,
-                color: timer < 10 ? "#f59e0b" : C.emerald,
-                fontVariantNumeric: "tabular-nums",
-              }}
-            >
-              {timer}
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 50, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      {/* Cancel confirmation overlay */}
+      {showCancel && (
+        <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <Glass style={{ padding: 32, maxWidth: 320, width: "100%", textAlign: "center" }}>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 8 }}>Quit workout?</div>
+            <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>Your progress won't be saved.</p>
+            <div style={{ display: "flex", gap: 12 }}>
+              <button onClick={() => setShowCancel(false)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
+                Resume
+              </button>
+              <button onClick={onBack} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", cursor: "pointer" }}>
+                Quit
+              </button>
             </div>
-          ) : (
-            <button
-              onClick={() => setTimer(cur.target_duration)}
-              style={{
-                width: 100,
-                height: 100,
-                borderRadius: "50%",
-                background: C.emeraldDim,
-                border: `2px solid ${C.emeraldBorder}`,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: C.emerald,
-                gap: 4,
-              }}
-            >
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="currentColor"
-              >
-                <polygon points="5 3 19 12 5 21 5 3" />
-              </svg>
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 900,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Start
-              </span>
-            </button>
-          )}
+          </Glass>
         </div>
       )}
 
-      <div
-        style={{
-          position: "fixed",
-          bottom: 32,
-          left: 16,
-          right: 16,
-          maxWidth: 488,
-          margin: "0 auto",
-        }}
-      >
-        <button
-          onClick={isLast ? finish : next}
-          style={{
-            width: "100%",
-            padding: "18px 0",
-            borderRadius: 20,
-            fontSize: 16,
-            fontWeight: 900,
-            background: isLast ? C.emerald : "rgba(255,255,255,0.07)",
-            border: isLast ? "none" : `1px solid ${C.border}`,
-            color: "#fff",
-            cursor: "pointer",
-            boxShadow: isLast ? "0 10px 40px rgba(16,185,129,0.3)" : "none",
-          }}
-        >
-          {isLast ? "Complete Session ✓" : "Next Exercise →"}
-        </button>
+      {/* Session header */}
+      {phase !== "sessionFeedback" && (
+        <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <button onClick={() => setShowCancel(true)} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
+                ← Cancel
+              </button>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
+                  {phase === "resting" || phase === "exerciseComplete" ? exercises[exIdx]?.name : cur?.name}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                  {phase === "exerciseComplete" ? `Exercise ${exIdx + 1} of ${totalExercises}` : `${exIdx + 1} of ${totalExercises} exercises`}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase", minWidth: 56, textAlign: "right" }}>
+                {phase === "resting" || phase === "working"
+                  ? `Set ${currentSet}/${totalSets}`
+                  : phase === "exerciseComplete"
+                  ? "Done ✓"
+                  : ""}
+              </div>
+            </div>
+            {/* Progress bar */}
+            <div style={{ marginTop: 10, height: 4, background: "rgba(255,255,255,0.08)", borderRadius: 2, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${progressPct}%`, background: C.emerald, borderRadius: 2, transition: "width 0.4s ease" }} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Phase content */}
+      <div style={{ flex: 1, overflow: "auto" }}>
+        {/* ── INSTRUCTION PHASE ── */}
+        {phase === "instruction" && cur && (
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 20px 40px", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 80px)" }}>
+            <div style={{ textAlign: "center", marginBottom: 32 }}>
+              {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
+              <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
+                {cur.name}
+              </h1>
+              <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 12 }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
+                  {totalSets} {totalSets === 1 ? "set" : "sets"}
+                </span>
+                <span style={{ fontSize: 13, color: C.muted }}>·</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
+                  {isTimeBased ? `${cur.target_duration_sec}s` : `${targetReps} reps`}
+                </span>
+              </div>
+            </div>
+
+            {/* Instruction steps */}
+            {(() => {
+              const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
+              const steps = instr?.steps ?? [];
+              const cues = instr?.cues ?? [];
+              return (
+                <Glass style={{ padding: 24, marginBottom: 24, flex: 1 }}>
+                  {steps.length > 0 ? (
+                    <>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 16 }}>
+                        How to do it
+                      </div>
+                      {steps.map((s, i) => (
+                        <div key={i} style={{ display: "flex", gap: 14, marginBottom: i < steps.length - 1 ? 16 : 0 }}>
+                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, fontWeight: 900, color: C.emerald, marginTop: 2 }}>
+                            {i + 1}
+                          </div>
+                          <div style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.5 }}>{s}</div>
+                        </div>
+                      ))}
+                      {cues.length > 0 && (
+                        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+                          {cues.map((c, i) => (
+                            <div key={i} style={{ fontSize: 13, color: C.muted, fontStyle: "italic", lineHeight: 1.5, marginBottom: i < cues.length - 1 ? 6 : 0 }}>
+                              💡 {c}
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 17, fontWeight: 700, color: C.text, lineHeight: 1.5, marginBottom: 12 }}>{cur.name}</div>
+                      <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>Focus on form. Quality over speed. You've got this.</div>
+                    </>
+                  )}
+                </Glass>
+              );
+            })()}
+
+            <button
+              onClick={() => setPhase("working")}
+              style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(16,185,129,0.3)", letterSpacing: "-0.01em" }}
+            >
+              Ready — let's go →
+            </button>
+          </div>
+        )}
+
+        {/* ── WORKING PHASE ── */}
+        {phase === "working" && cur && (
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 120px", display: "flex", flexDirection: "column", gap: 20 }}>
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 13, fontWeight: 900, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
+                Set {currentSet} of {totalSets}
+              </div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{cur.name}</div>
+            </div>
+
+            {isTimeBased ? (
+              /* Time-based exercise */
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald, fontVariantNumeric: "tabular-nums", marginBottom: 24, transition: "color 0.3s" }}>
+                  {String(Math.floor(timerRemaining / 60)).padStart(1, "0")}:{String(timerRemaining % 60).padStart(2, "0")}
+                </div>
+                {/* Timer progress bar */}
+                <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden", marginBottom: 24, maxWidth: 320, margin: "0 auto 24px" }}>
+                  <div style={{ height: "100%", width: `${(timerRemaining / (adjustedReps ?? cur.target_duration_sec ?? 30)) * 100}%`, background: timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald, borderRadius: 3, transition: "width 1s linear, background 0.3s" }} />
+                </div>
+                {!timerRunning ? (
+                  <button
+                    onClick={() => { setTimerRemaining(adjustedReps ?? cur.target_duration_sec ?? 30); setTimerRunning(true); }}
+                    style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
+                  >
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                    <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>Start</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => { setTimerRunning(false); handleSetDone(cur.target_duration_sec); }}
+                    style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 15, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+                  >
+                    ■ Done
+                  </button>
+                )}
+              </div>
+            ) : (
+              /* Rep-based exercise */
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, marginBottom: 12 }}>
+                  Target: {targetReps} reps
+                </div>
+                <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: repCount >= targetReps ? C.emerald : C.text, fontVariantNumeric: "tabular-nums", marginBottom: 8, transition: "color 0.2s" }}>
+                  {repCount}
+                </div>
+                <div style={{ fontSize: 16, color: C.muted, marginBottom: 24 }}>/ {targetReps}</div>
+
+                {/* Big tap zone — will be enhanced in Step 3 */}
+                <button
+                  onClick={handleRepTapped}
+                  style={{ width: "100%", minHeight: 140, borderRadius: 20, background: "rgba(16,185,129,0.08)", border: "2px solid rgba(16,185,129,0.2)", color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s", WebkitTapHighlightColor: "transparent" }}
+                  onMouseDown={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.22)"; }}
+                  onMouseUp={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.08)"; }}
+                  onTouchStart={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.22)"; }}
+                  onTouchEnd={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.08)"; }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>TAP TO COUNT REP</span>
+                </button>
+              </div>
+            )}
+
+            {/* Bottom actions */}
+            <div style={{ display: "flex", gap: 12, position: "fixed", bottom: 24, left: 16, right: 16, maxWidth: 528, margin: "0 auto" }}>
+              <button
+                onClick={handleSkipExercise}
+                style={{ flex: 1, padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+              >
+                Skip exercise
+              </button>
+              <button
+                onClick={() => handleSetDone(repCount)}
+                style={{ flex: 2, padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+              >
+                Finish set →
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── RESTING PHASE ── */}
+        {phase === "resting" && (
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 24, textAlign: "center" }}>
+            <div style={{ fontSize: 14, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+              Set {currentSet - 1} of {totalSets} complete ✓
+            </div>
+
+            <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>REST</div>
+
+            {/* Countdown */}
+            <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald, transition: "color 0.5s", animation: restRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
+              {String(Math.floor(restRemaining / 60)).padStart(1, "0")}:{String(restRemaining % 60).padStart(2, "0")}
+            </div>
+
+            {/* Rest progress bar */}
+            <div style={{ width: "100%", maxWidth: 320, height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${((restTotal - restRemaining) / restTotal) * 100}%`, background: restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald, borderRadius: 3, transition: "width 1s linear, background 0.5s" }} />
+            </div>
+
+            {/* Next up */}
+            {currentSet <= totalSets && (
+              <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
+                Next set: {targetReps} × {cur?.name}
+              </div>
+            )}
+
+            <button
+              onClick={handleSkipRest}
+              style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+            >
+              Skip rest →
+            </button>
+          </div>
+        )}
+
+        {/* ── EXERCISE COMPLETE PHASE ── */}
+        {phase === "exerciseComplete" && (
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "80px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, textAlign: "center" }}>
+            <div style={{ width: 80, height: 80, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
+              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
+              {exercises[exIdx]?.name} done ✓
+            </div>
+            <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
+              {exercises[exIdx]?.sets ?? 3} sets complete · Next up: {exercises[exIdx + 1]?.name}
+            </div>
+          </div>
+        )}
+
+        {/* ── SESSION FEEDBACK PHASE ── */}
+        {phase === "sessionFeedback" && (
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "64px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 32, textAlign: "center" }}>
+            <div>
+              <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>Session done!</div>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>How did that feel?</p>
+            </div>
+
+            <div style={{ display: "flex", gap: 12, width: "100%" }}>
+              {[
+                { label: "Too hard", emoji: "😰", value: 8 },
+                { label: "Just right", emoji: "😌", value: 5 },
+                { label: "Too easy", emoji: "💪", value: 3 },
+              ].map(({ label, emoji, value }) => (
+                <button
+                  key={value}
+                  onClick={() => handleFinishSession(value)}
+                  style={{ flex: 1, padding: "20px 8px", borderRadius: 18, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "background 0.15s, border-color 0.15s" }}
+                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.borderColor = C.emeraldBorder; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = C.border; }}
+                >
+                  <span style={{ fontSize: 32 }}>{emoji}</span>
+                  <span>{label}</span>
+                </button>
+              ))}
+            </div>
+
+            <button
+              onClick={() => handleFinishSession(null)}
+              style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+            >
+              Skip rating
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -3856,14 +4013,16 @@ export default function App() {
   );
 
   const handleComplete = useCallback(
-    async (durationSec) => {
+    async (durationSec, perceivedExertion, stepsActual) => {
       try {
+        const mergedSteps = (stepsActual ?? plan?.steps ?? []);
         await api.saveExecution(
           userId,
           plan?.id,
           today,
-          plan?.steps ?? [],
+          mergedSteps,
           durationSec,
+          perceivedExertion,
         );
         const [newScore, newHistory] = await Promise.all([
           api.getScore(userId),
@@ -3888,9 +4047,10 @@ export default function App() {
   );
 
   const handleBonusComplete = useCallback(
-    async (durationSec) => {
+    async (durationSec, perceivedExertion, stepsActual) => {
       try {
-        await api.saveExecution(userId, bonusPlan?.id, today, bonusPlan?.steps ?? [], durationSec);
+        const mergedSteps = stepsActual ?? bonusPlan?.steps ?? [];
+        await api.saveExecution(userId, bonusPlan?.id, today, mergedSteps, durationSec, perceivedExertion);
         const [newScore, newHistory] = await Promise.all([
           api.getScore(userId),
           api.getHistory(userId),
@@ -4082,12 +4242,14 @@ export default function App() {
             plan={bonusPlan}
             onComplete={handleBonusComplete}
             onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
+            cycle={prefs.cycle}
           />
         ) : inWorkout ? (
           <WorkoutView
             plan={plan}
             onComplete={handleComplete}
             onBack={() => setInWorkout(false)}
+            cycle={prefs.cycle}
           />
         ) : (
           <>

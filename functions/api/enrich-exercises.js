@@ -2,8 +2,9 @@
 // POST /api/enrich-exercises
 // Headers: X-Admin-Key: <env.ADMIN_KEY>
 //
-// Fetches up to 150 exercises from ExerciseDB, matches against our D1 exercises
-// by normalised name, updates matched rows and inserts unmatched ones.
+// Fetches exercises from ExerciseDB (free tier: up to 10), matches against our
+// D1 exercises by normalised name, updates primary/secondary muscles on matched
+// rows, and inserts unmatched ones (no GIF — free tier has no gifUrl field).
 // Returns: { ok, matched, inserted, skipped }
 
 function normalize(name) {
@@ -103,26 +104,25 @@ export async function onRequestPost({ request, env }) {
   const stmts = [];
 
   for (const edb of edbExercises) {
-    if (!edb.name || !edb.gifUrl) { skipped++; continue; }
+    if (!edb.name) { skipped++; continue; }
 
     const norm  = normalize(edb.name);
     const our   = ourByNorm.get(norm);
-    const media = JSON.stringify({ gif_url: edb.gifUrl });
     const primaryMuscles   = JSON.stringify([edb.target].filter(Boolean));
     const secondaryMuscles = JSON.stringify(Array.isArray(edb.secondaryMuscles) ? edb.secondaryMuscles : []);
 
     if (our) {
-      // Update existing exercise: media + muscles only (don't overwrite hand-tuned fields)
+      // Update muscles only — don't overwrite hand-tuned fields or media
       stmts.push(
         env.DB.prepare(
           `UPDATE exercises
-           SET media_json = ?, primary_muscles_json = ?, secondary_muscles_json = ?, updated_at_ms = ?
+           SET primary_muscles_json = ?, secondary_muscles_json = ?, updated_at_ms = ?
            WHERE id = ?`
-        ).bind(media, primaryMuscles, secondaryMuscles, now, our.id)
+        ).bind(primaryMuscles, secondaryMuscles, now, our.id)
       );
       matched++;
     } else {
-      // Insert new exercise from ExerciseDB
+      // Insert new exercise from ExerciseDB (no GIF on free tier)
       const slug     = slugify(edb.name);
       const name     = edb.name.charAt(0).toUpperCase() + edb.name.slice(1);
       const category = mapCategory(edb.bodyPart);
@@ -141,13 +141,13 @@ export async function onRequestPost({ request, env }) {
           `INSERT INTO exercises
              (id, slug, name, category,
               primary_muscles_json, secondary_muscles_json, tags_json,
-              equipment_required_json, instructions_json, media_json, metrics_json,
+              equipment_required_json, instructions_json, metrics_json,
               is_active, created_at_ms, updated_at_ms)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)`
         ).bind(
           crypto.randomUUID(), slug, name, category,
           primaryMuscles, secondaryMuscles, tags,
-          equipment, instructions, media, metrics,
+          equipment, instructions, metrics,
           now, now
         )
       );

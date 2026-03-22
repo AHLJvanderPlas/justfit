@@ -1,0 +1,120 @@
+
+ ⛅️ wrangler 4.76.0
+───────────────────
+Resource location: remote 
+
+🌀 Executing on remote database justfit-db (4c6fedf0-b9e2-4441-aa98-71c1420136c1):
+🌀 To execute on your local development database, remove the --remote flag from your wrangler command.
+🚣 Executed 1 command in 0.29ms
+[
+  {
+    "results": [
+      {
+        "name": "_cf_KV",
+        "sql": "CREATE TABLE _cf_KV (\n        key TEXT PRIMARY KEY,\n        value BLOB\n      ) WITHOUT ROWID"
+      },
+      {
+        "name": "_migrations",
+        "sql": "CREATE TABLE _migrations (\n  id                 INTEGER PRIMARY KEY AUTOINCREMENT,\n  name               TEXT NOT NULL UNIQUE,\n  applied_at_ms      INTEGER NOT NULL\n) STRICT"
+      },
+      {
+        "name": "auth_users",
+        "sql": "CREATE TABLE auth_users (\n  id                 TEXT PRIMARY KEY,                 -- uuid\n  user_id            TEXT NOT NULL,\n  provider           TEXT NOT NULL DEFAULT 'password' CHECK (provider IN ('password','magic_link','oauth_google','oauth_apple','oauth_other')),\n  provider_subject   TEXT,                             -- e.g. oauth sub\n  email              TEXT,                             -- login identifier (if applicable)\n  email_verified     INTEGER NOT NULL DEFAULT 0 CHECK (email_verified IN (0,1)),\n  phone              TEXT,\n  phone_verified     INTEGER NOT NULL DEFAULT 0 CHECK (phone_verified IN (0,1)),\n\n  password_hash      TEXT,                             -- for provider=password\n  password_algo      TEXT,                             -- e.g. 'argon2id', 'bcrypt'\n  last_login_at_ms   INTEGER,\n\n  created_at_ms      INTEGER NOT NULL,\n  updated_at_ms      INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (email IS NULL OR length(email) <= 320),\n  CHECK (phone IS NULL OR length(phone) <= 32),\n  CHECK (provider_subject IS NULL OR length(provider_subject) <= 512)\n) STRICT"
+      },
+      {
+        "name": "awards",
+        "sql": "CREATE TABLE awards (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  slug                    TEXT NOT NULL,\n  name                    TEXT NOT NULL,\n  description             TEXT,\n  category                TEXT CHECK (category IN ('streak','milestone','performance','habit','special')),\n  icon                    TEXT,                        -- identifier/path\n  criteria_json           TEXT NOT NULL,               -- JSON rule definition\n  is_active               INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  CHECK (length(slug) BETWEEN 1 AND 128),\n  CHECK (json_valid(criteria_json))\n) STRICT"
+      },
+      {
+        "name": "context_overrides",
+        "sql": "CREATE TABLE context_overrides (\n  id                      TEXT PRIMARY KEY,             -- uuid\n  user_id                 TEXT NOT NULL,\n  date                    TEXT NOT NULL,                -- 'YYYY-MM-DD' local date\n\n  -- overrides for planner (e.g., travel, illness, time constraints)\n  override_type           TEXT NOT NULL CHECK (override_type IN ('time','intensity','equipment','injury','skip','other')),\n  override_json           TEXT NOT NULL,                -- JSON\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (json_valid(override_json))\n) STRICT"
+      },
+      {
+        "name": "daily_checkins",
+        "sql": "CREATE TABLE daily_checkins (\n  id                      TEXT PRIMARY KEY,             -- uuid\n  user_id                 TEXT NOT NULL,\n  date                    TEXT NOT NULL,                -- local date 'YYYY-MM-DD' (user TZ)\n\n  mood                    INTEGER CHECK (mood IS NULL OR (mood >= 1 AND mood <= 10)),\n  energy                  INTEGER CHECK (energy IS NULL OR (energy >= 1 AND energy <= 10)),\n  soreness                INTEGER CHECK (soreness IS NULL OR (soreness >= 0 AND soreness <= 10)),\n  sleep_hours             REAL CHECK (sleep_hours IS NULL OR (sleep_hours >= 0 AND sleep_hours <= 24)),\n  stress                  INTEGER CHECK (stress IS NULL OR (stress >= 1 AND stress <= 10)),\n\n  weight_kg               REAL CHECK (weight_kg IS NULL OR (weight_kg >= 20 AND weight_kg <= 400)),\n\n  notes                   TEXT,\n  checkin_json            TEXT,                         -- JSON (symptoms, tags, etc.)\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (checkin_json IS NULL OR json_valid(checkin_json))\n) STRICT"
+      },
+      {
+        "name": "day_plans",
+        "sql": "CREATE TABLE day_plans (\n  id                      TEXT PRIMARY KEY,             -- uuid\n  user_id                 TEXT NOT NULL,\n  date                    TEXT NOT NULL,                -- 'YYYY-MM-DD' local date\n\n  -- planner output\n  plan_status             TEXT NOT NULL DEFAULT 'draft' CHECK (plan_status IN ('draft','final','skipped','archived')),\n  plan_json               TEXT NOT NULL,                -- JSON (sessions, blocks, suggestions)\n  generated_by            TEXT NOT NULL DEFAULT 'engine',-- 'engine'|'manual'|...\n  engine_version          TEXT,                         -- e.g. 'v1'\n  seed                    TEXT,                         -- deterministic generation seed (optional)\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (json_valid(plan_json))\n) STRICT"
+      },
+      {
+        "name": "entitlements",
+        "sql": "CREATE TABLE entitlements (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  user_id                 TEXT NOT NULL,\n\n  product_code            TEXT NOT NULL,               -- e.g. 'justfit_pro_monthly'\n  source                  TEXT NOT NULL DEFAULT 'manual' CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other')),\n  status                  TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','trialing','grace','canceled','expired')),\n\n  starts_at_ms            INTEGER NOT NULL,\n  ends_at_ms              INTEGER,                     -- nullable if perpetual\n  renews_at_ms            INTEGER,                     -- nullable\n\n  external_ref            TEXT,                        -- subscription id, transaction id, etc.\n  meta_json               TEXT,                        -- JSON\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (length(product_code) <= 128),\n  CHECK (external_ref IS NULL OR length(external_ref) <= 256),\n  CHECK (meta_json IS NULL OR json_valid(meta_json))\n) STRICT"
+      },
+      {
+        "name": "execution_steps",
+        "sql": "CREATE TABLE execution_steps (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  execution_id            TEXT NOT NULL,\n\n  step_index              INTEGER NOT NULL CHECK (step_index >= 0),\n  step_type               TEXT NOT NULL CHECK (step_type IN ('exercise','interval','rest','note','block')),\n  exercise_id             TEXT,                        -- if step_type='exercise'\n\n  -- prescribed\n  prescribed_json         TEXT,                        -- JSON (sets/reps/time/watts/weight targets)\n\n  -- actuals\n  actual_json             TEXT,                        -- JSON (completed sets, avg watts, etc.)\n\n  started_at_ms           INTEGER,\n  ended_at_ms             INTEGER,\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (execution_id) REFERENCES executions(id) ON DELETE CASCADE ON UPDATE CASCADE,\n  FOREIGN KEY (exercise_id) REFERENCES exercises(id) ON DELETE SET NULL ON UPDATE CASCADE,\n\n  CHECK (prescribed_json IS NULL OR json_valid(prescribed_json)),\n  CHECK (actual_json IS NULL OR json_valid(actual_json))\n) STRICT"
+      },
+      {
+        "name": "executions",
+        "sql": "CREATE TABLE executions (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  user_id                 TEXT NOT NULL,\n\n  -- linkage\n  date                    TEXT,                        -- 'YYYY-MM-DD' local date (optional)\n  day_plan_id             TEXT,                        -- reference to day_plans.id (optional)\n  session_template_id     TEXT,                        -- reference to templates (optional)\n\n  execution_type          TEXT NOT NULL DEFAULT 'workout' CHECK (execution_type IN ('workout','bike','run','walk','mobility','recovery','mixed')),\n  status                  TEXT NOT NULL DEFAULT 'completed' CHECK (status IN ('planned','in_progress','completed','abandoned')),\n\n  started_at_ms           INTEGER,\n  ended_at_ms             INTEGER,\n\n  -- summary metrics\n  total_duration_sec      INTEGER CHECK (total_duration_sec IS NULL OR total_duration_sec >= 0),\n  total_distance_m        REAL CHECK (total_distance_m IS NULL OR total_distance_m >= 0),\n  total_energy_kcal       REAL CHECK (total_energy_kcal IS NULL OR total_energy_kcal >= 0),\n  avg_hr_bpm              REAL CHECK (avg_hr_bpm IS NULL OR avg_hr_bpm >= 0),\n  perceived_exertion      INTEGER CHECK (perceived_exertion IS NULL OR (perceived_exertion >= 1 AND perceived_exertion <= 10)),\n\n  notes                   TEXT,\n  execution_json          TEXT,                        -- JSON (device ids, raw import, etc.)\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n  FOREIGN KEY (day_plan_id) REFERENCES day_plans(id) ON DELETE SET NULL ON UPDATE CASCADE,\n  FOREIGN KEY (session_template_id) REFERENCES session_templates(id) ON DELETE SET NULL ON UPDATE CASCADE,\n\n  CHECK (execution_json IS NULL OR json_valid(execution_json))\n) STRICT"
+      },
+      {
+        "name": "exercises",
+        "sql": "CREATE TABLE exercises (\n  id                      TEXT PRIMARY KEY,            -- uuid (or stable slug id)\n  slug                    TEXT NOT NULL,               -- stable identifier\n  name                    TEXT NOT NULL,\n  category                TEXT CHECK (category IN ('strength','cardio','mobility','recovery','skill','mixed')),\n  primary_muscles_json    TEXT,                        -- JSON array\n  secondary_muscles_json  TEXT,                        -- JSON array\n  tags_json               TEXT,                        -- JSON array (difficulty, patterns, etc.)\n\n  equipment_required_json TEXT,                        -- JSON array (required)\n  equipment_advised_json  TEXT,                        -- JSON array (advised)\n\n  instructions_json       TEXT,                        -- JSON (steps, cues)\n  media_json              TEXT,                        -- JSON (image/video refs)\n  metrics_json            TEXT,                        -- JSON (supports: weight, wattage, time, distance, reps, etc.)\n  alternatives_json       TEXT,                        -- JSON (1-3 alternatives or links)\n\n  is_active               INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  CHECK (length(slug) BETWEEN 1 AND 128),\n  CHECK (json_valid(primary_muscles_json) OR primary_muscles_json IS NULL),\n  CHECK (json_valid(secondary_muscles_json) OR secondary_muscles_json IS NULL),\n  CHECK (json_valid(tags_json) OR tags_json IS NULL),\n  CHECK (json_valid(equipment_required_json) OR equipment_required_json IS NULL),\n  CHECK (json_valid(equipment_advised_json) OR equipment_advised_json IS NULL),\n  CHECK (json_valid(instructions_json) OR instructions_json IS NULL),\n  CHECK (json_valid(media_json) OR media_json IS NULL),\n  CHECK (json_valid(metrics_json) OR metrics_json IS NULL),\n  CHECK (json_valid(alternatives_json) OR alternatives_json IS NULL)\n) STRICT"
+      },
+      {
+        "name": "referral_codes",
+        "sql": "CREATE TABLE referral_codes (\n  user_id TEXT PRIMARY KEY REFERENCES users(user_id),\n  code    TEXT UNIQUE NOT NULL\n)"
+      },
+      {
+        "name": "referrals",
+        "sql": "CREATE TABLE referrals (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  referrer_user_id        TEXT NOT NULL,\n  referred_user_id        TEXT,                        -- set once signup occurs\n\n  code                    TEXT NOT NULL,               -- referral code\n  status                  TEXT NOT NULL DEFAULT 'issued' CHECK (status IN ('issued','clicked','signed_up','qualified','rewarded','expired','canceled')),\n\n  issued_at_ms            INTEGER NOT NULL,\n  signed_up_at_ms         INTEGER,\n  rewarded_at_ms          INTEGER,\n\n  meta_json               TEXT,\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (referrer_user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n  FOREIGN KEY (referred_user_id) REFERENCES users(id) ON DELETE SET NULL ON UPDATE CASCADE,\n\n  CHECK (length(code) BETWEEN 4 AND 64),\n  CHECK (meta_json IS NULL OR json_valid(meta_json))\n) STRICT"
+      },
+      {
+        "name": "session_templates",
+        "sql": "CREATE TABLE session_templates (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  slug                    TEXT,                        -- optional stable id\n  name                    TEXT NOT NULL,\n  description             TEXT,\n\n  session_type            TEXT NOT NULL CHECK (session_type IN ('workout','bike','run','walk','mobility','recovery','mixed')),\n  difficulty              TEXT CHECK (difficulty IN ('easy','moderate','hard')),\n  duration_min            INTEGER CHECK (duration_min IS NULL OR (duration_min >= 5 AND duration_min <= 240)),\n\n  -- template structure\n  template_json           TEXT NOT NULL,               -- JSON (blocks/steps, exercise refs, defaults)\n\n  is_active               INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  CHECK (slug IS NULL OR length(slug) <= 128),\n  CHECK (json_valid(template_json))\n) STRICT"
+      },
+      {
+        "name": "sqlite_sequence",
+        "sql": "CREATE TABLE sqlite_sequence(name,seq)"
+      },
+      {
+        "name": "user_availability",
+        "sql": "CREATE TABLE user_availability (\n  user_id                 TEXT PRIMARY KEY,\n\n  -- availability rules (recurring schedule, time windows, constraints)\n  availability_json       TEXT NOT NULL,                -- JSON\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (json_valid(availability_json))\n) STRICT"
+      },
+      {
+        "name": "user_awards",
+        "sql": "CREATE TABLE user_awards (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  user_id                 TEXT NOT NULL,\n  award_id                TEXT NOT NULL,\n\n  awarded_at_ms           INTEGER NOT NULL,\n  source                  TEXT NOT NULL DEFAULT 'engine' CHECK (source IN ('engine','admin','import','other')),\n  meta_json               TEXT,\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n  FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (meta_json IS NULL OR json_valid(meta_json))\n) STRICT"
+      },
+      {
+        "name": "user_contact",
+        "sql": "CREATE TABLE user_contact (\n  user_id            TEXT PRIMARY KEY,\n  email              TEXT,\n  email_verified     INTEGER NOT NULL DEFAULT 0 CHECK (email_verified IN (0,1)),\n  phone              TEXT,\n  phone_verified     INTEGER NOT NULL DEFAULT 0 CHECK (phone_verified IN (0,1)),\n  country_code       TEXT,                             -- ISO country code, e.g. NL\n  locale             TEXT,                             -- e.g. 'en-US', 'nl-NL'\n  timezone           TEXT,                             -- e.g. 'Europe/Amsterdam'\n  created_at_ms      INTEGER NOT NULL,\n  updated_at_ms      INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (email IS NULL OR length(email) <= 320),\n  CHECK (phone IS NULL OR length(phone) <= 32),\n  CHECK (country_code IS NULL OR length(country_code) BETWEEN 2 AND 3),\n  CHECK (locale IS NULL OR length(locale) <= 16),\n  CHECK (timezone IS NULL OR length(timezone) <= 64)\n) STRICT"
+      },
+      {
+        "name": "user_preferences",
+        "sql": "CREATE TABLE user_preferences (\n  user_id                 TEXT PRIMARY KEY,\n\n  -- core toggles\n  units                   TEXT NOT NULL DEFAULT 'metric' CHECK (units IN ('metric','imperial')),\n  training_goal           TEXT CHECK (training_goal IN ('fat_loss','muscle_gain','endurance','strength','health','mobility','mixed')),\n  experience_level        TEXT CHECK (experience_level IN ('beginner','intermediate','advanced')),\n\n  -- plan / engine knobs\n  intensity_pref          INTEGER CHECK (intensity_pref IS NULL OR (intensity_pref >= 1 AND intensity_pref <= 10)),\n  session_duration_min    INTEGER CHECK (session_duration_min IS NULL OR (session_duration_min >= 5 AND session_duration_min <= 180)),\n  days_per_week_target    INTEGER CHECK (days_per_week_target IS NULL OR (days_per_week_target >= 1 AND days_per_week_target <= 7)),\n\n  -- equipment, injuries, dislikes, etc.\n  preferences_json        TEXT,                         -- JSON\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (preferences_json IS NULL OR json_valid(preferences_json))\n) STRICT"
+      },
+      {
+        "name": "user_profile",
+        "sql": "CREATE TABLE user_profile (\n  user_id                 TEXT PRIMARY KEY,\n  display_name            TEXT,\n  given_name              TEXT,\n  family_name             TEXT,\n  birth_date              TEXT,                       -- ISO8601 date 'YYYY-MM-DD'\n  sex                     TEXT CHECK (sex IN ('male','female','intersex','unspecified')),\n  height_cm               REAL CHECK (height_cm IS NULL OR (height_cm >= 50 AND height_cm <= 260)),\n  weight_kg               REAL CHECK (weight_kg IS NULL OR (weight_kg >= 20 AND weight_kg <= 400)),\n\n  -- fitness / baseline (optional)\n  baseline_json            TEXT,                       -- JSON blob (tests, estimates, etc.)\n\n  created_at_ms            INTEGER NOT NULL,\n  updated_at_ms            INTEGER NOT NULL,\n\n  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,\n\n  CHECK (display_name IS NULL OR length(display_name) <= 128),\n  CHECK (given_name IS NULL OR length(given_name) <= 128),\n  CHECK (family_name IS NULL OR length(family_name) <= 128),\n  CHECK (baseline_json IS NULL OR json_valid(baseline_json))\n) STRICT"
+      },
+      {
+        "name": "users",
+        "sql": "CREATE TABLE users (\n  id                 TEXT PRIMARY KEY,                 -- uuid\n  status             TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled','deleted')),\n  created_at_ms      INTEGER NOT NULL,\n  updated_at_ms      INTEGER NOT NULL,\n  deleted_at_ms      INTEGER,\n\n  -- convenience (not a login source of truth)\n  primary_email      TEXT,\n  primary_phone      TEXT,\n\n  CHECK (primary_email IS NULL OR length(primary_email) <= 320),\n  CHECK (primary_phone IS NULL OR length(primary_phone) <= 32)\n) STRICT"
+      },
+      {
+        "name": "vouchers",
+        "sql": "CREATE TABLE vouchers (\n  id                      TEXT PRIMARY KEY,            -- uuid\n  code                    TEXT NOT NULL,\n  voucher_type            TEXT NOT NULL CHECK (voucher_type IN ('percent','fixed','trial_days','entitlement_product','other')),\n  status                  TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','redeemed','expired','disabled')),\n\n  max_redemptions         INTEGER CHECK (max_redemptions IS NULL OR max_redemptions >= 1),\n  redemption_count        INTEGER NOT NULL DEFAULT 0 CHECK (redemption_count >= 0),\n\n  valid_from_ms           INTEGER,\n  valid_to_ms             INTEGER,\n\n  payload_json            TEXT NOT NULL,               -- JSON (discount parameters, product_code, etc.)\n  created_by              TEXT,                        -- admin/user/system identifier\n\n  created_at_ms           INTEGER NOT NULL,\n  updated_at_ms           INTEGER NOT NULL,\n\n  CHECK (length(code) BETWEEN 4 AND 64),\n  CHECK (json_valid(payload_json))\n) STRICT"
+      }
+    ],
+    "success": true,
+    "meta": {
+      "served_by": "v3-prod",
+      "served_by_region": "WEUR",
+      "served_by_colo": "AMS",
+      "served_by_primary": true,
+      "timings": {
+        "sql_duration_ms": 0.2886
+      },
+      "duration": 0.2886,
+      "changes": 0,
+      "last_row_id": 0,
+      "changed_db": false,
+      "size_after": 344064,
+      "rows_read": 90,
+      "rows_written": 0,
+      "total_attempts": 1
+    }
+  }
+]
