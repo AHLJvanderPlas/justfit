@@ -10,7 +10,7 @@ export async function onRequestPost({ request, env }) {
     // Fetch exercises and (optionally) user preferences in parallel
     const [exResult, userPrefs, templates] = await Promise.all([
       env.DB.prepare(
-        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json
+        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json
          FROM exercises WHERE is_active = 1`
       ).all(),
       user_id
@@ -279,6 +279,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
     const scale = expScale[prefs?.experience_level] ?? 1.0;
     if (scale !== 1.0 && reps) reps = Math.round(reps * scale);
 
+    const media = ex.media_json ? JSON.parse(ex.media_json) : {};
     return {
       exercise_id: ex.id,
       exercise_slug: ex.slug,
@@ -287,6 +288,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
       target_reps: reps,
       target_duration_sec: duration,
       sets,
+      gif_url: media.gif_url ?? null,
     };
   });
 
