@@ -2121,6 +2121,34 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
   const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
 
+  // ── Wake Lock — keep screen on during active workout ─────────────────────────
+  const wakeLockRef = useRef(null);
+  const [wakeLockDenied, setWakeLockDenied] = useState(false);
+  useEffect(() => {
+    const activePhases = ["instruction", "working", "resting", "exerciseComplete"];
+    if (!activePhases.includes(phase)) {
+      if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+      return;
+    }
+    if (!("wakeLock" in navigator)) { setWakeLockDenied(true); return; }
+    if (wakeLockRef.current) return; // already held
+    const acquire = () => {
+      if (wakeLockRef.current) return;
+      navigator.wakeLock.request("screen").then((lock) => {
+        wakeLockRef.current = lock;
+        lock.addEventListener("release", () => { wakeLockRef.current = null; });
+      }).catch(() => setWakeLockDenied(true));
+    };
+    acquire();
+    // Re-acquire after user returns to tab (browser releases wake lock on visibility change)
+    const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+    };
+  }, [phase]);
+
   // ── Rest countdown ───────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== "resting" || restRemaining <= 0) return;
@@ -2369,6 +2397,13 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
               </button>
             </div>
           </Glass>
+        </div>
+      )}
+
+      {/* Wake lock fallback — non-intrusive hint if screen lock can't be prevented */}
+      {wakeLockDenied && ["instruction","working","resting"].includes(phase) && (
+        <div style={{ flexShrink: 0, background: "rgba(245,158,11,0.12)", borderBottom: "1px solid rgba(245,158,11,0.25)", padding: "8px 20px", textAlign: "center" }}>
+          <span style={{ fontSize: 12, color: "#f59e0b" }}>Keep your screen on to avoid interruptions during your workout.</span>
         </div>
       )}
 
