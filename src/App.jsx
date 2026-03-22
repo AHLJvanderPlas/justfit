@@ -856,20 +856,59 @@ function OnboardingModal({ token, onComplete }) {
 // Shown to existing users after a major app update.
 // Preserves all current settings — only re-confirms training_goal.
 function GoalRecheckModal({ token, profileData, onComplete }) {
+  const [step, setStep] = useState(0);
+
+  // Step 0 — About you
+  const [sex, setSex] = useState(profileData?.sex ?? null);
+  const [weightInput, setWeightInput] = useState(profileData?.weight_kg ? String(profileData.weight_kg) : "");
+  const [weightUnit, setWeightUnit] = useState("kg");
+  const [bodyModeSelection, setBodyModeSelection] = useState(profileData?.cycle?.mode ?? "standard");
+  const [pregnancyDueDate, setPregnancyDueDate] = useState(profileData?.cycle?.pregnancy_due_date ?? "");
+  const [postnatalBirthDate, setPostnatalBirthDate] = useState(profileData?.cycle?.postnatal_birth_date ?? "");
+  const [showCycleSetup, setShowCycleSetup] = useState(false);
+  const [lastPeriodStart, setLastPeriodStart] = useState(profileData?.cycle?.last_period_start ?? defaultPeriodDate());
+  const [cycleLength, setCycleLength] = useState(profileData?.cycle?.cycle_length_days ?? 28);
+  const [cycleTrackingMode, setCycleTrackingMode] = useState(profileData?.cycle?.tracking_mode ?? null);
+  // If they already had a sex set, cycle section is considered acknowledged
+  const [cycleSetupDone, setCycleSetupDone] = useState(!!profileData?.sex);
+
+  // Step 1 — Goal
   const [goal, setGoal] = useState(profileData?.training_goal ?? "health");
   const [saving, setSaving] = useState(false);
+
+  const canAdvance = !!sex;
 
   const handleConfirm = async () => {
     setSaving(true);
     try {
-      // Send full merged profile so no existing setting is defaulted-away by the API
+      let weight_kg = null;
+      if (weightInput) {
+        const w = parseFloat(weightInput);
+        if (!isNaN(w)) weight_kg = weightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
+      }
+
+      let cycle;
+      if (sex === "female") {
+        if (bodyModeSelection === "pregnant") {
+          cycle = { tracking_mode: "off", mode: "pregnant", pregnancy_due_date: pregnancyDueDate || null };
+        } else if (bodyModeSelection === "postnatal") {
+          cycle = { tracking_mode: "off", mode: "postnatal", postnatal_birth_date: postnatalBirthDate || null };
+        } else if (cycleTrackingMode === "smart") {
+          cycle = { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart, mode: "standard" };
+        } else {
+          cycle = { tracking_mode: profileData?.cycle?.tracking_mode ?? "off", mode: "standard" };
+        }
+      }
+
       await api.saveProfile(token, {
         training_goal: goal,
         experience_level: profileData?.experience_level ?? "beginner",
         session_duration_min: profileData?.session_duration_min ?? 30,
         days_per_week_target: profileData?.days_per_week_target ?? 3,
         preferences: profileData?.preferences ?? {},
-        // sex / weight_kg / cycle intentionally omitted — API only updates if provided
+        sex,
+        weight_kg,
+        ...(cycle !== undefined ? { cycle } : {}),
       });
     } catch (e) {
       console.error("Goal recheck save failed:", e);
@@ -880,71 +919,244 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(2,6,23,0.95)", backdropFilter: "blur(12px)" }}>
-      <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", padding: 32, display: "flex", flexDirection: "column", gap: 28 }}>
+      <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", padding: 32, display: "flex", flexDirection: "column", gap: 24 }}>
 
-        {/* Header */}
+        {/* Progress bar */}
         <div>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: C.emerald, marginBottom: 10 }}>
-            Major update
+          <div style={{ height: 3, background: C.subtle, borderRadius: 99, marginBottom: 20 }}>
+            <div style={{ height: "100%", background: C.emerald, borderRadius: 99, width: step === 0 ? "50%" : "100%", transition: "width 0.3s" }} />
           </div>
-          <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: 10 }}>
-            JustFit just got a proper coaching interface.
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: C.emerald }}>
+            Major update · Step {step + 1} of 2
           </div>
-          <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>
-            Your workouts now have step-by-step coaching, rep tracking, rest timers, and difficulty controls — right on screen.
-          </p>
         </div>
 
-        {/* What's new */}
-        <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, marginBottom: 2 }}>What's new</div>
-          {[
-            "Swipeable instruction cards for every exercise",
-            "Tap to count reps — no more guessing",
-            "Rest timers with −15s / +15s controls",
-            "Adjust reps or duration mid-set",
-            "Swap exercises for alternatives instantly",
-            "Wake lock — screen stays on during workouts",
-          ].map((item, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-              <span style={{ color: C.emerald, fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
-              <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
+        {/* ── Step 0: About you ── */}
+        {step === 0 && (
+          <>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: 8 }}>
+                Let's make sure we have you right.
+              </div>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>
+                JustFit now adapts to your body. Please confirm a few details — they personalise your coaching every day.
+              </p>
             </div>
-          ))}
-        </div>
 
-        {/* Goal recheck */}
-        <div>
-          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 6 }}>Is your goal still on track?</div>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Your plan adapts to this every day. Tap to change if things have shifted.</div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {GOALS.map((g) => (
-              <button
-                key={g.value}
-                onClick={() => setGoal(g.value)}
-                style={{
-                  padding: "14px 12px", borderRadius: 14,
-                  border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
-                  background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                  color: goal === g.value ? C.emerald : C.muted,
-                  fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
-                }}
-              >
-                <div style={{ fontSize: 20, marginBottom: 4 }}>{g.icon}</div>
-                <div>{g.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
+            {/* Sex */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>How do you identify?</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {SEX_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      const wasNotFemale = sex !== "female";
+                      setSex(opt.value);
+                      if (opt.value !== "female") {
+                        setCycleSetupDone(true);
+                        setShowCycleSetup(false);
+                        setBodyModeSelection("standard");
+                      } else if (wasNotFemale) {
+                        setCycleSetupDone(false);
+                      }
+                    }}
+                    style={{
+                      padding: "12px 10px", borderRadius: 14,
+                      border: `1px solid ${sex === opt.value ? C.emeraldBorder : C.border}`,
+                      background: sex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: sex === opt.value ? C.emerald : C.muted,
+                      fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
 
-        {/* CTA */}
-        <button
-          onClick={handleConfirm}
-          disabled={saving}
-          style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: saving ? "rgba(16,185,129,0.4)" : C.emerald, border: "none", color: "#fff", cursor: saving ? "default" : "pointer", letterSpacing: "-0.01em" }}
-        >
-          {saving ? "Saving…" : "Confirmed — let's go →"}
-        </button>
+            {/* Weight */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                Your weight <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="number"
+                  placeholder="—"
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                  style={{ width: 80, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit" }}
+                />
+                <div style={{ display: "flex", gap: 6 }}>
+                  {["kg", "lbs"].map((u) => (
+                    <button key={u} onClick={() => setWeightUnit(u)}
+                      style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${weightUnit === u ? C.emeraldBorder : C.border}`, background: weightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.03)", color: weightUnit === u ? C.emerald : C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Female-only: body mode + cycle */}
+            {sex === "female" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Current body situation</div>
+                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8 }}>
+                    {[{ value: "standard", label: "Standard" }, { value: "pregnant", label: "Pregnant" }, { value: "postnatal", label: "Postnatal" }].map((m) => (
+                      <button key={m.value} onClick={() => setBodyModeSelection(m.value)}
+                        style={{ padding: "12px 8px", borderRadius: 14, border: `1px solid ${bodyModeSelection === m.value ? C.emeraldBorder : C.border}`, background: bodyModeSelection === m.value ? C.emeraldDim : "rgba(255,255,255,0.03)", color: bodyModeSelection === m.value ? C.emerald : C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
+                        {m.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Pregnant — due date */}
+                {bodyModeSelection === "pregnant" && (
+                  <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 16, padding: 16 }}>
+                    <div style={{ fontSize: 13, color: "#fbbf24", fontWeight: 800, marginBottom: 8 }}>Due date <span style={{ fontWeight: 500, color: C.muted }}>(optional)</span></div>
+                    <input type="date" value={pregnancyDueDate} onChange={(e) => setPregnancyDueDate(e.target.value)}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Helps us track your trimester and adapt exercises safely.</div>
+                  </div>
+                )}
+
+                {/* Postnatal — birth date */}
+                {bodyModeSelection === "postnatal" && (
+                  <div style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 16, padding: 16 }}>
+                    <div style={{ fontSize: 13, color: "#f43f5e", fontWeight: 800, marginBottom: 8 }}>Birth date <span style={{ fontWeight: 500, color: C.muted }}>(optional)</span></div>
+                    <input type="date" value={postnatalBirthDate} onChange={(e) => setPostnatalBirthDate(e.target.value)}
+                      max={new Date().toISOString().split("T")[0]}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Helps us phase your recovery and postnatal exercises correctly.</div>
+                  </div>
+                )}
+
+                {/* Standard — cycle tracking */}
+                {bodyModeSelection === "standard" && !cycleSetupDone && (
+                  <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(16,185,129,0.04)", padding: 20 }}>
+                    {!showCycleSetup ? (
+                      <>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
+                        <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
+                          JustFit can adapt your sessions across your cycle — lighter when you need rest, ready to push when you're at your strongest.
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => setShowCycleSetup(true)}
+                            style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+                            Set up cycle tracking
+                          </button>
+                          <button onClick={() => { setCycleTrackingMode("off"); setCycleSetupDone(true); }}
+                            style={{ flex: 1, padding: "10px 16px", borderRadius: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            Maybe later
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16 }}>🌙 Set up cycle tracking</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your last period start?</div>
+                        <input type="date" value={lastPeriodStart} max={new Date().toISOString().split("T")[0]} onChange={(e) => setLastPeriodStart(e.target.value)}
+                          style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }} />
+                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>How long is your typical cycle?</div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                          {CYCLE_LENGTHS.map((d) => (
+                            <button key={d} onClick={() => setCycleLength(d)}
+                              style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}>
+                              {d}d
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, fontStyle: "italic" }}>Can be updated anytime in Settings.</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button onClick={() => { if (lastPeriodStart) { setCycleTrackingMode("smart"); setCycleSetupDone(true); } }}
+                            style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer" }}>
+                            Save
+                          </button>
+                          <button onClick={() => { setCycleTrackingMode("off"); setCycleSetupDone(true); }}
+                            style={{ flex: 1, padding: "10px 16px", borderRadius: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+                            Skip
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                {bodyModeSelection === "standard" && cycleSetupDone && (
+                  <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)" }}>
+                    {(cycleTrackingMode ?? profileData?.cycle?.tracking_mode) === "smart"
+                      ? "✓ Cycle tracking enabled"
+                      : "Cycle tracking off — enable anytime in Settings."}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <button onClick={() => setStep(1)} disabled={!canAdvance}
+              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: canAdvance ? C.emerald : "rgba(16,185,129,0.2)", border: "none", color: canAdvance ? "#fff" : C.muted, cursor: canAdvance ? "pointer" : "default", letterSpacing: "-0.01em" }}>
+              Next →
+            </button>
+          </>
+        )}
+
+        {/* ── Step 1: What's new + goal ── */}
+        {step === 1 && (
+          <>
+            <div>
+              <div style={{ fontSize: 24, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: 8 }}>
+                JustFit just got a proper coaching interface.
+              </div>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>
+                Your workouts now have step-by-step coaching, rep tracking, rest timers, and difficulty controls — right on screen.
+              </p>
+            </div>
+
+            <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, marginBottom: 2 }}>What's new</div>
+              {[
+                "Swipeable instruction cards for every exercise",
+                "Tap to count reps — no more guessing",
+                "Rest timers with −15s / +15s controls",
+                "Adjust reps or duration mid-set",
+                "Swap exercises for alternatives instantly",
+                "Wake lock — screen stays on during workouts",
+              ].map((item, i) => (
+                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+                  <span style={{ color: C.emerald, fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
+                  <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
+                </div>
+              ))}
+            </div>
+
+            <div>
+              <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 6 }}>Is your goal still on track?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Your plan adapts to this every day. Tap to change if things have shifted.</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {GOALS.map((g) => (
+                  <button key={g.value} onClick={() => setGoal(g.value)}
+                    style={{
+                      padding: "14px 12px", borderRadius: 14,
+                      border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
+                      background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: goal === g.value ? C.emerald : C.muted,
+                      fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
+                    }}>
+                    <div style={{ fontSize: 20, marginBottom: 4 }}>{g.icon}</div>
+                    <div>{g.label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button onClick={handleConfirm} disabled={saving}
+              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: saving ? "rgba(16,185,129,0.4)" : C.emerald, border: "none", color: "#fff", cursor: saving ? "default" : "pointer", letterSpacing: "-0.01em" }}>
+              {saving ? "Saving…" : "Confirmed — let's go →"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
