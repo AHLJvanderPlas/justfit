@@ -2107,12 +2107,27 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [dragOffset, setDragOffset] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
   const touchStartXRef = useRef(0);
+  const restStartedAtRef = useRef(0);   // ms timestamp when rest phase began
+  const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
   // Track actual data per exercise for saving
   const stepsActualRef = useRef(
     exercises.map((ex) => ({
       exercise_id: ex.exercise_id,
       prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec },
-      actual: { sets_completed: 0, reps_per_set: [], skipped: false },
+      actual: {
+        sets_completed: 0,
+        reps_per_set: [],          // actual reps per set (or seconds for time-based)
+        rest_taken_seconds: [],    // actual rest duration between sets
+        target_adjusted: false,
+        target_original: null,
+        target_final: null,
+        adjustment_direction: null,
+        exercise_substituted: false,
+        original_exercise_id: null,
+        substitute_exercise_id: null,
+        skipped: false,
+        completed_at_ms: null,
+      },
     }))
   );
 
@@ -2158,9 +2173,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
   useEffect(() => {
     if (phase !== "resting" || restRemaining > 0) return;
+    // Record actual rest taken (natural completion — full rest elapsed)
+    const actualRest = restStartedAtRef.current > 0
+      ? Math.round((Date.now() - restStartedAtRef.current) / 1000)
+      : 0;
+    stepsActualRef.current[exIdx]?.actual?.rest_taken_seconds?.push(actualRest);
     setCurrentSet((s) => s + 1);
     setRepCount(0);
     setPhase("working");
+  // exIdx is stable during resting; restStartedAtRef is a ref (always current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, restRemaining]);
 
   // ── Exercise timer ───────────────────────────────────────────────────────────
@@ -2173,7 +2195,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   useEffect(() => {
     if (!timerRunning || timerRemaining > 0) return;
     setTimerRunning(false);
-    handleSetDone();
+    // Pass full timer duration so actual_json records correct seconds completed
+    handleSetDone(timerTotalRef.current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerRunning, timerRemaining]);
 
@@ -2225,12 +2248,30 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
   function handleSetDone(repsThisSet) {
     const reps = repsThisSet ?? repCount;
-    // Record actual reps
-    stepsActualRef.current[exIdx].actual.reps_per_set.push(reps);
-    stepsActualRef.current[exIdx].actual.sets_completed += 1;
+    const actualEntry = stepsActualRef.current[exIdx]?.actual;
+    if (actualEntry) {
+      actualEntry.reps_per_set.push(reps);
+      actualEntry.sets_completed += 1;
+      // Record target adjustment info (on first set that differs from prescribed)
+      if (!actualEntry.target_adjusted) {
+        const prescribedTarget = isTimeBased ? (cur?.target_duration_sec ?? 30) : (cur?.target_reps ?? 10);
+        const finalTarget = isTimeBased ? (adjustedDuration ?? prescribedTarget) : (adjustedReps ?? prescribedTarget);
+        if (finalTarget !== prescribedTarget) {
+          actualEntry.target_adjusted = true;
+          actualEntry.target_original = prescribedTarget;
+          actualEntry.target_final = finalTarget;
+          actualEntry.adjustment_direction = finalTarget < prescribedTarget ? "down" : "up";
+        }
+      }
+      // Mark completed timestamp on last set
+      if (currentSet >= totalSets) {
+        actualEntry.completed_at_ms = Date.now();
+      }
+    }
 
     if (currentSet < totalSets) {
       const rest = getRestDuration(cur);
+      restStartedAtRef.current = Date.now();
       setRestRemaining(rest);
       setRestTotal(rest);
       setPhase("resting");
@@ -2255,7 +2296,12 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   }
 
   function handleSkipRest() {
-    clearTimeout();
+    // Record actual rest taken before skipping
+    const actualRest = restStartedAtRef.current > 0
+      ? Math.round((Date.now() - restStartedAtRef.current) / 1000)
+      : 0;
+    stepsActualRef.current[exIdx]?.actual?.rest_taken_seconds?.push(actualRest);
+    restStartedAtRef.current = 0;
     setRestRemaining(0);
     setCurrentSet((s) => s + 1);
     setRepCount(0);
@@ -2263,7 +2309,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   }
 
   function handleSkipExercise() {
-    stepsActualRef.current[exIdx].actual.skipped = true;
+    const actualEntry = stepsActualRef.current[exIdx]?.actual;
+    if (actualEntry) { actualEntry.skipped = true; actualEntry.completed_at_ms = Date.now(); }
     if (exIdx < totalExercises - 1) {
       setExIdx((i) => i + 1);
       setCurrentSet(1);
@@ -2339,7 +2386,12 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     stepsActualRef.current[exIdx] = {
       exercise_id: altEx.id,
       prescribed: stepsActualRef.current[exIdx]?.prescribed ?? {},
-      actual: { sets_completed: 0, reps_per_set: [], skipped: false, exercise_substituted: true, original_exercise_id: cur?.exercise_id, substitute_exercise_id: altEx.id },
+      actual: {
+        sets_completed: 0, reps_per_set: [], rest_taken_seconds: [],
+        target_adjusted: false, target_original: null, target_final: null, adjustment_direction: null,
+        exercise_substituted: true, original_exercise_id: cur?.exercise_id, substitute_exercise_id: altEx.id,
+        skipped: false, completed_at_ms: null,
+      },
     };
     setShowAlternatives(false);
     setRepCount(0);
@@ -2628,7 +2680,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                     </div>
                     {!timerRunning ? (
                       <button
-                        onClick={() => { setTimerRemaining(totalDur); setTimerRunning(true); }}
+                        onClick={() => { timerTotalRef.current = totalDur; setTimerRemaining(totalDur); setTimerRunning(true); }}
                         style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
                       >
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
