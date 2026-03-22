@@ -629,23 +629,12 @@ function OnboardingModal({ token, onComplete }) {
                     color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
                   }}
                 />
-                <div style={{ display: "flex", gap: 6 }}>
-                  {["kg", "lbs"].map((u) => (
-                    <button
-                      key={u}
-                      onClick={() => setWeightUnit(u)}
-                      style={{
-                        padding: "8px 16px", borderRadius: 10,
-                        border: `1px solid ${weightUnit === u ? C.emeraldBorder : C.border}`,
-                        background: weightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                        color: weightUnit === u ? C.emerald : C.muted,
-                        fontWeight: 700, fontSize: 12, cursor: "pointer",
-                      }}
-                    >
-                      {u}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setWeightUnit(u => u === "kg" ? "lbs" : "kg")}
+                  style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 12, cursor: "pointer", minWidth: 48, flexShrink: 0 }}
+                >
+                  {weightUnit}
+                </button>
               </div>
 
               {/* Cycle tracking card — female only */}
@@ -996,14 +985,12 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                   onChange={(e) => setWeightInput(e.target.value)}
                   style={{ width: 80, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit" }}
                 />
-                <div style={{ display: "flex", gap: 6 }}>
-                  {["kg", "lbs"].map((u) => (
-                    <button key={u} onClick={() => setWeightUnit(u)}
-                      style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${weightUnit === u ? C.emeraldBorder : C.border}`, background: weightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.03)", color: weightUnit === u ? C.emerald : C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer" }}>
-                      {u}
-                    </button>
-                  ))}
-                </div>
+                <button
+                  onClick={() => setWeightUnit(u => u === "kg" ? "lbs" : "kg")}
+                  style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 12, cursor: "pointer", minWidth: 48, flexShrink: 0 }}
+                >
+                  {weightUnit}
+                </button>
               </div>
             </div>
 
@@ -3880,15 +3867,12 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 placeholder={profileWeightUnit === "kg" ? "e.g. 70" : "e.g. 154"}
                 style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
               />
-              {["kg", "lbs"].map((u) => (
-                <button
-                  key={u}
-                  onClick={() => setProfileWeightUnit(u)}
-                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${profileWeightUnit === u ? C.emeraldBorder : C.border}`, background: profileWeightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.04)", color: profileWeightUnit === u ? C.emerald : C.muted, cursor: "pointer" }}
-                >
-                  {u}
-                </button>
-              ))}
+              <button
+                onClick={() => setProfileWeightUnit(u => u === "kg" ? "lbs" : "kg")}
+                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
+              >
+                {profileWeightUnit}
+              </button>
             </div>
           </div>
 
