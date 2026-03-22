@@ -48,19 +48,44 @@ export async function onRequestPost({ request, env }) {
       weight_kg: user_profile?.weight_kg ?? userProfileRow?.weight_kg ?? null,
     };
 
-    // Resolve cycle context: prefer request body, else calculate from DB
+    // Resolve cycle + pregnancy context from DB when user_id is present
     let resolvedCycleContext = cycle_context ?? null;
-    if (!resolvedCycleContext && user_id && bodyProfile.sex === 'female') {
+    let pregnancyContext = null;
+
+    if (user_id) {
       const cycleRow = await env.DB.prepare(
-        `SELECT tracking_mode, cycle_length_days, last_period_start
+        `SELECT tracking_mode, cycle_length_days, last_period_start,
+                mode, pregnancy_due_date, postnatal_birth_date, postnatal_birth_type,
+                postnatal_cleared_for_exercise
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
       ).bind(user_id).first();
-      if (cycleRow?.tracking_mode === 'smart') {
-        resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
+
+      if (cycleRow) {
+        const bodyMode = cycleRow.mode ?? 'standard';
+
+        if (bodyMode === 'pregnant') {
+          const week = calculatePregnancyWeek(cycleRow.pregnancy_due_date, date);
+          pregnancyContext = {
+            mode: 'pregnant',
+            week,
+            trimester: getTrimester(week),
+            past_due: week != null && week > 40,
+          };
+        } else if (bodyMode === 'postnatal') {
+          const postnatalPhase = getPostnatalPhase(cycleRow.postnatal_birth_date, cycleRow.postnatal_birth_type, date);
+          pregnancyContext = {
+            mode: 'postnatal',
+            postnatal_phase: postnatalPhase,
+            postnatal_birth_type: cycleRow.postnatal_birth_type ?? null,
+            postnatal_cleared_for_exercise: cycleRow.postnatal_cleared_for_exercise ?? 0,
+          };
+        } else if (bodyMode === 'standard' && cycleRow.tracking_mode === 'smart' && !resolvedCycleContext && bodyProfile.sex === 'female') {
+          resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
+        }
       }
     }
 
-    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext);
+    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext);
 
     if (user_id) {
       const userExists = await env.DB.prepare(
@@ -73,7 +98,7 @@ export async function onRequestPost({ request, env }) {
         await env.DB.prepare(`
           INSERT INTO day_plans
             (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.5.1', ?, ?, ?)
+          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.6.0', ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             plan_json = excluded.plan_json,
             updated_at_ms = excluded.updated_at_ms
@@ -149,11 +174,9 @@ const GOAL_CATEGORY = {
 function pickTemplate(templates, slotType, intensity, budgetMin) {
   if (slotType === 'rest') return null;
 
-  // Map intensity to template difficulty
   const diffMap = { low: 'easy', moderate: 'moderate', high: 'hard' };
   const wantDiff = diffMap[intensity] || 'moderate';
 
-  // Candidate templates for this slot type
   let candidates = templates.filter(t =>
     slotType === 'micro'
       ? t.duration_min <= 15
@@ -162,13 +185,12 @@ function pickTemplate(templates, slotType, intensity, budgetMin) {
 
   if (!candidates.length) candidates = templates;
 
-  // Prefer matching difficulty, fall back to any
   const preferred = candidates.filter(t => t.difficulty === wantDiff);
   return preferred.length ? preferred[0] : candidates[0];
 }
 
 // ---------------------------------------------------------------------------
-// Cycle phase calculation
+// Cycle phase calculation (standard cycle)
 // ---------------------------------------------------------------------------
 function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
   if (!lastPeriodStart) return null;
@@ -189,9 +211,53 @@ function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
 }
 
 // ---------------------------------------------------------------------------
+// Pregnancy helpers
+// ---------------------------------------------------------------------------
+function calculatePregnancyWeek(dueDate, today) {
+  if (!dueDate) return null;
+  const conception = new Date(dueDate);
+  conception.setDate(conception.getDate() - 280);
+  const daysPregnant = Math.floor((new Date(today) - conception) / (1000 * 60 * 60 * 24));
+  if (daysPregnant < 0) return null;
+  return Math.min(Math.floor(daysPregnant / 7) + 1, 42);
+}
+
+function getTrimester(week) {
+  if (!week) return null;
+  if (week <= 12) return 1;
+  if (week <= 27) return 2;
+  return 3;
+}
+
+function getPostnatalPhase(birthDate, birthType, today) {
+  if (!birthDate) return null;
+  const daysSince = Math.floor((new Date(today) - new Date(birthDate)) / (1000 * 60 * 60 * 24));
+  if (daysSince < 0) return null;
+  const isCaesarean = birthType === 'caesarean';
+  if (daysSince < 14) return 'immediate';
+  if (daysSince < (isCaesarean ? 70 : 42)) return 'early';
+  if (daysSince < 112) return 'rebuilding';
+  if (daysSince < 182) return 'strengthening';
+  return 'returning';
+}
+
+// ---------------------------------------------------------------------------
+// Exercise tag helper
+// ---------------------------------------------------------------------------
+function hasTags(exercise, ...tags) {
+  const t = JSON.parse(exercise.tags_json || '[]');
+  return tags.some(tag => t.includes(tag));
+}
+
+function hasAllTags(exercise, ...tags) {
+  const t = JSON.parse(exercise.tags_json || '[]');
+  return tags.every(tag => t.includes(tag));
+}
+
+// ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext) {
   const trace = [];
   let intensity = 'moderate';
   let slot_type = 'main';
@@ -227,10 +293,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     intensity = 'low';
     trace.push('R511 — Poor sleep → intensity capped at low');
   }
-
-  // ------------------------------------------------------------------
-  // R512 volume reduction applied per-exercise below
-  // ------------------------------------------------------------------
 
   // ------------------------------------------------------------------
   // R513: Stress Recovery Bias
@@ -274,7 +336,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const reason = forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
     trace.push(`R516 — Bodyweight only (${reason}) → ${pool.length} exercises remain`);
   } else if (userEquip && userEquip.length > 0) {
-    // Filter to equipment user has available
     pool = pool.filter(ex => {
       const equip = JSON.parse(ex.equipment_required_json || '["none"]');
       return equip.every(e => e === 'none' || userEquip.includes(e));
@@ -283,7 +344,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
-  // Body-aware rules (R520–R523) — fire after R510-R516
+  // Body-aware rules (R520–R525) — standard cycle only
   // ------------------------------------------------------------------
   const sex = bodyProfile?.sex ?? null;
   const weightKg = bodyProfile?.weight_kg ?? null;
@@ -295,42 +356,182 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let volumeMultiplier = 1.0;
   let sessionNotes = null;
 
-  // R520 — Period day override
-  if (periodToday || phase === 'menstrual') {
-    intensity = 'low';
-    // Bias toward mobility (handled in targetCategory below)
-    trace.push('R520 — Your body is asking for gentleness today');
-  }
+  // Only apply cycle rules when NOT in pregnancy/postnatal mode
+  const isStandardMode = !pregnancyContext || pregnancyContext.mode === undefined;
 
-  // R521 — Follicular energy boost
-  if (phase === 'follicular' && (checkIn?.energy ?? 10) >= 6 && (checkIn?.sleep_hours ?? 8) >= 5) {
-    volumeMultiplier = 1.15;
-    trace.push('R521 — Your energy is building — time to be strong');
-  }
-
-  // R522 — Ovulation peak
-  if (phase === 'ovulation') {
-    sessionNotes = 'Take an extra minute to warm up today — your body is ready to perform.';
-    trace.push('R522 — You\'re at your peak — let\'s make the most of it');
-  }
-
-  // R523 — Late luteal wind-down
-  if (phase === 'luteal') {
-    const isLateLuteal = cycleDay != null && cycleDay >= (cycleLengthDays - 5);
-    if (isLateLuteal) {
-      if (intensity === 'high') intensity = 'moderate';
-      if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= 6) intensity = 'low';
-      trace.push('R523 — Winding down this week, staying consistent');
+  if (isStandardMode) {
+    // R520 — Period day override
+    if (periodToday || phase === 'menstrual') {
+      intensity = 'low';
+      trace.push('R520 — Your body is asking for gentleness today');
     }
+
+    // R521 — Follicular energy boost
+    if (phase === 'follicular' && (checkIn?.energy ?? 10) >= 6 && (checkIn?.sleep_hours ?? 8) >= 5) {
+      volumeMultiplier = 1.15;
+      trace.push('R521 — Your energy is building — time to be strong');
+    }
+
+    // R522 — Ovulation peak
+    if (phase === 'ovulation') {
+      sessionNotes = 'Take an extra minute to warm up today — your body is ready to perform.';
+      trace.push('R522 — You\'re at your peak — let\'s make the most of it');
+    }
+
+    // R523 — Late luteal wind-down
+    if (phase === 'luteal') {
+      const isLateLuteal = cycleDay != null && cycleDay >= (cycleLengthDays - 5);
+      if (isLateLuteal) {
+        if (intensity === 'high') intensity = 'moderate';
+        if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= 6) intensity = 'low';
+        trace.push('R523 — Winding down this week, staying consistent');
+      }
+    }
+  }
+
+  // ==================================================================
+  // PREGNANCY RULES (R530–R537)
+  // ==================================================================
+  if (pregnancyContext?.mode === 'pregnant') {
+    const week = pregnancyContext.week ?? 1;
+    const trimester = pregnancyContext.trimester ?? 1;
+    const nauseaToday = checkIn?.pregnancy_signals?.nausea ?? false;
+    const breathlessToday = checkIn?.pregnancy_signals?.breathless ?? false;
+
+    // R530 — Intensity cap by trimester
+    if (trimester === 3) {
+      if (intensity === 'high' || intensity === 'moderate') intensity = 'low';
+      trace.push('R530 — T3: intensity capped at low');
+    } else {
+      if (intensity === 'high') intensity = 'moderate';
+      trace.push(`R530 — T${trimester}: intensity capped at moderate`);
+    }
+
+    // R531 — Supine filter after week 16
+    if (week >= 16) {
+      pool = pool.filter(ex => !hasTags(ex, 'supine'));
+      trace.push(`R531 — Week ${week}: supine exercises filtered out`);
+    }
+
+    // R532 — High impact excluded throughout pregnancy
+    pool = pool.filter(ex => !hasTags(ex, 'high_impact'));
+    trace.push('R532 — High-impact exercises excluded during pregnancy');
+
+    // R533 — Absolute exclusions
+    pool = pool.filter(ex => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
+    // Prone excluded from T2 onwards
+    if (trimester >= 2) {
+      pool = pool.filter(ex => !hasTags(ex, 'prone'));
+      trace.push('R533 — T2+: prone exercises excluded');
+    }
+    trace.push('R533 — Absolute exclusions: valsalva, inversion, crunch');
+
+    // R534 — Pelvic floor inclusion T2+
+    // Handled after step building
+
+    // R535 — Nausea override → recovery/breathing
+    if (nauseaToday) {
+      slot_type = 'micro';
+      const nauseaPool = exercises.filter(ex => hasTags(ex, 'breathing', 'recovery') && !hasTags(ex, 'high_impact', 'supine'));
+      if (nauseaPool.length) pool = nauseaPool;
+      sessionNotes = 'Gentle movement only today. Listen to your body — rest is always the right choice.';
+      trace.push('R535 — Nausea today → breathing/recovery focus');
+    }
+
+    // R536 — T3 breathlessness adaptation
+    if (trimester === 3 && breathlessToday) {
+      volumeMultiplier = 0.8;
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + 'Shorter intervals today — pause when you need to breathe.';
+      trace.push('R536 — T3 breathlessness → volume ×0.8');
+    }
+
+    // R537 — Post-due-date flag
+    if (pregnancyContext.past_due) {
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + 'When your baby arrives, switch to postnatal mode in Settings.';
+      trace.push('R537 — Past due date: postnatal transition prompt added');
+    }
+  }
+
+  // ==================================================================
+  // POSTNATAL RULES (R540–R544)
+  // ==================================================================
+  if (pregnancyContext?.mode === 'postnatal') {
+    const postnatalPhase = pregnancyContext.postnatal_phase ?? 'immediate';
+    const birthType = pregnancyContext.postnatal_birth_type ?? null;
+    const isCaesarean = birthType === 'caesarean';
+
+    // R540 — Phase absolute rules: filter pool by allowed exercise tags
+    if (postnatalPhase === 'immediate') {
+      // Only pelvic floor, breathing, and recovery
+      pool = exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'));
+      intensity = 'low';
+      slot_type = pool.length ? slot_type : 'rest';
+      trace.push('R540 — Immediate phase: pelvic floor, breathing, recovery only');
+    } else if (postnatalPhase === 'early') {
+      // Pelvic floor + mobility (no strength, no high impact)
+      pool = exercises.filter(ex =>
+        hasTags(ex, 'pelvic_floor', 'breathing', 'recovery') ||
+        (ex.category === 'mobility' && hasTags(ex, 'low_impact') && !hasTags(ex, 'high_impact'))
+      );
+      intensity = 'low';
+      trace.push('R540 — Early phase: pelvic floor, breathing, light mobility');
+    } else if (postnatalPhase === 'rebuilding') {
+      // Add bodyweight strength, exclude high impact, crunch, valsalva
+      pool = exercises.filter(ex => {
+        if (hasTags(ex, 'high_impact', 'crunch', 'valsalva')) return false;
+        if (hasTags(ex, 'dumbbell') && !hasTags(ex, 'pelvic_floor')) return false; // no dumbbells yet
+        return true;
+      });
+      if (isCaesarean) {
+        pool = pool.filter(ex => !hasTags(ex, 'prone'));
+        trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
+      }
+      sessionNotes = 'Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.';
+      trace.push('R540 — Rebuilding phase: bodyweight only, no crunch/high-impact');
+      trace.push('R543 — Diastasis recti check reminder added');
+    } else if (postnatalPhase === 'strengthening') {
+      // Introduce dumbbells, still exclude high impact
+      pool = exercises.filter(ex => !hasTags(ex, 'high_impact', 'crunch', 'valsalva'));
+      trace.push('R540 — Strengthening phase: dumbbells introduced, high-impact excluded');
+    } else {
+      // returning — most exercises allowed, exclude valsalva
+      pool = exercises.filter(ex => !hasTags(ex, 'valsalva'));
+      const runningToday = checkIn?.postnatal_signals?.running_today ?? false;
+      if (runningToday) {
+        sessionNotes = 'Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.';
+        trace.push('R544 — Running clearance note added');
+      }
+      trace.push('R540 — Returning phase: full programme, no valsalva');
+    }
+
+    // Always exclude supine from postnatal if caesarean and early
+    if (isCaesarean && (postnatalPhase === 'immediate' || postnatalPhase === 'early')) {
+      pool = pool.filter(ex => !hasTags(ex, 'supine'));
+    }
+
+    if (!pool.length) pool = [...exercises].filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
+
+    // R541 — Pelvic floor always included (immediate, early, rebuilding)
+    // Handled after step building
   }
 
   // ------------------------------------------------------------------
   // Determine target category from goal + rules
   // ------------------------------------------------------------------
   let targetCategory;
-  if ((checkIn?.stress ?? 0) >= 7 || slot_type === 'rest') {
+  const inSpecialMode = pregnancyContext?.mode === 'pregnant' || pregnancyContext?.mode === 'postnatal';
+
+  if (slot_type === 'rest') {
     targetCategory = 'mobility';
-  } else if (periodToday || phase === 'menstrual') {
+  } else if (inSpecialMode) {
+    // For pregnancy: prefer mobility; postnatal immediate/early: pelvic_floor tagged (category=mobility)
+    const postnatalPhase = pregnancyContext?.postnatal_phase;
+    if (postnatalPhase === 'immediate' || postnatalPhase === 'early') {
+      targetCategory = 'mobility'; // pelvic_floor exercises are in mobility category
+    } else {
+      targetCategory = 'strength';
+    }
+  } else if ((checkIn?.stress ?? 0) >= 7 || periodToday || phase === 'menstrual') {
     targetCategory = 'mobility';
   } else {
     const goal = prefs?.training_goal ?? 'health';
@@ -339,11 +540,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   // Filter + seed-shuffle for variety across days
   let filtered = pool.filter(ex => ex.category === targetCategory);
-  if (!filtered.length) filtered = pool; // graceful fallback
+  if (!filtered.length) filtered = pool;
+  if (!filtered.length) filtered = [...exercises];
   const shuffled = seededShuffle(filtered, date);
 
   // How many exercises to include
-  const count = slot_type === 'micro' ? 2 : budget > 35 ? 5 : budget > 20 ? 4 : 3;
+  const postnatalPhase = pregnancyContext?.postnatal_phase;
+  const isGentleMode = postnatalPhase === 'immediate' || postnatalPhase === 'early';
+  const count = slot_type === 'micro' || isGentleMode ? 2 : budget > 35 ? 5 : budget > 20 ? 4 : 3;
   const selection = shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
@@ -354,7 +558,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const supportsReps = metrics.supports?.includes('reps');
     let reps = supportsReps ? 10 : undefined;
     let duration = !supportsReps ? 30 : undefined;
-    const sets = slot_type === 'micro' ? 1 : 3;
+    const sets = (slot_type === 'micro' || isGentleMode) ? 1 : 3;
 
     // R512: Low energy → volume × 0.6
     if ((checkIn?.energy ?? 10) <= 3) {
@@ -367,7 +571,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const scale = expScale[prefs?.experience_level] ?? 1.0;
     if (scale !== 1.0 && reps) reps = Math.round(reps * scale);
 
-    // Apply volume multiplier (R521 follicular boost)
+    // Apply volume multiplier (R521, R536)
     if (volumeMultiplier !== 1.0) {
       if (reps) reps = Math.round(reps * volumeMultiplier);
       if (duration) duration = Math.round(duration * volumeMultiplier);
@@ -404,7 +608,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   // R525 — Sex baseline: ensure ≥1 mobility exercise in main sessions
   // ------------------------------------------------------------------
-  if (sex === 'female' && slot_type === 'main' && steps.length) {
+  if (sex === 'female' && slot_type === 'main' && steps.length && isStandardMode) {
     const hasMobility = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
       return ex?.category === 'mobility';
@@ -432,16 +636,67 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R534 — Pelvic floor inclusion T2+ (pregnancy)
+  // R541 — Pelvic floor always in immediate/early/rebuilding (postnatal)
+  // ------------------------------------------------------------------
+  const needsPelvicFloor =
+    (pregnancyContext?.mode === 'pregnant' && (pregnancyContext?.trimester ?? 1) >= 2) ||
+    (pregnancyContext?.mode === 'postnatal' && ['immediate', 'early', 'rebuilding'].includes(pregnancyContext?.postnatal_phase));
+
+  if (needsPelvicFloor && slot_type !== 'rest') {
+    const hasPelvicFloor = steps.some(s => {
+      const ex = exercises.find(e => e.id === s.exercise_id);
+      return JSON.parse(ex?.tags_json || '[]').includes('pelvic_floor');
+    });
+    if (!hasPelvicFloor) {
+      const pfEx = exercises.find(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        return tags.includes('pelvic_floor') && tags.includes('pregnancy_safe');
+      });
+      if (pfEx) {
+        const media = pfEx.media_json ? JSON.parse(pfEx.media_json) : {};
+        steps.push({
+          exercise_id: pfEx.id,
+          exercise_slug: pfEx.slug,
+          name: pfEx.name,
+          category: pfEx.category,
+          target_reps: 10,
+          target_duration_sec: undefined,
+          sets: 2,
+          gif_url: media.gif_url ?? null,
+        });
+        const ruleLabel = pregnancyContext.mode === 'pregnant' ? 'R534' : 'R541';
+        trace.push(`${ruleLabel} — Pelvic floor exercise added`);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Pick a template for session naming + structure context
   // ------------------------------------------------------------------
   const template = templates?.length
     ? pickTemplate(templates, slot_type, intensity, budget)
     : null;
 
-  const fallbackNames = { main: 'Daily Training', micro: 'Micro Session', rest: 'Active Rest' };
-  const session_name = slot_type === 'rest'
-    ? 'Active Rest'
-    : template?.name ?? fallbackNames[slot_type];
+  // Pregnancy/postnatal vocabulary overrides
+  let session_name;
+  if (pregnancyContext?.mode === 'pregnant') {
+    const trimester = pregnancyContext.trimester ?? 1;
+    const nauseaToday = checkIn?.pregnancy_signals?.nausea ?? false;
+    if (nauseaToday) session_name = 'Five minutes for you';
+    else if (trimester === 3) session_name = 'Strong & supported';
+    else session_name = 'Today\'s movement';
+  } else if (pregnancyContext?.mode === 'postnatal') {
+    const postnatalPhase = pregnancyContext.postnatal_phase;
+    if (postnatalPhase === 'immediate' || postnatalPhase === 'early') session_name = 'A gentle moment';
+    else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
+    else session_name = 'Today\'s recovery';
+  } else {
+    const fallbackNames = { main: 'Daily Training', micro: 'Micro Session', rest: 'Active Rest' };
+    session_name = slot_type === 'rest'
+      ? 'Active Rest'
+      : template?.name ?? fallbackNames[slot_type];
+  }
 
   return {
     date,
@@ -451,6 +706,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     template_slug: template?.slug ?? null,
     target_category: targetCategory,
     session_notes: sessionNotes,
+    pregnancy_week: pregnancyContext?.week ?? null,
+    trimester: pregnancyContext?.trimester ?? null,
+    postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
     steps,
     rule_trace: trace,
   };
