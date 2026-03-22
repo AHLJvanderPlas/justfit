@@ -81,6 +81,13 @@ const api = {
     return data.executions ?? [];
   },
 
+  async getExercisesBySlugs(slugs) {
+    const res = await fetch("/api/exercises");
+    const data = await res.json();
+    const all = data.exercises ?? [];
+    return all.filter((ex) => slugs.includes(ex.slug));
+  },
+
   async saveActivity(userId, date, executionType, durationSec) {
     const res = await fetch("/api/execution", {
       method: "POST",
@@ -2090,6 +2097,11 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [tapFlash, setTapFlash] = useState(false); // visual flash on rep tap
   const [adjustLabel, setAdjustLabel] = useState(""); // "Adjusted to N reps" toast
   const adjustLabelTimerRef = useRef(null);
+  // Alternatives
+  const [showAlternatives, setShowAlternatives] = useState(false);
+  const [altExercises, setAltExercises] = useState([]);
+  const [altLoading, setAltLoading] = useState(false);
+  const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [idx]: exercise }
   // Instruction card swipe state
   const [instrStep, setInstrStep] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -2104,7 +2116,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     }))
   );
 
-  const cur = exercises[exIdx];
+  const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
   const totalSets = cur?.sets ?? 3;
   const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
   const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
@@ -2263,6 +2275,50 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     setAdjustLabel(text);
     clearTimeout(adjustLabelTimerRef.current);
     adjustLabelTimerRef.current = setTimeout(() => setAdjustLabel(""), 2000);
+  }
+
+  async function handleOpenAlternatives() {
+    setShowAlternatives(true);
+    const altJson = cur?.alternatives_json;
+    const slugs = altJson ? (JSON.parse(altJson)?.substitutions ?? []) : [];
+    if (!slugs.length) { setAltExercises([]); return; }
+    setAltLoading(true);
+    try {
+      const found = await api.getExercisesBySlugs(slugs);
+      setAltExercises(found);
+    } catch { setAltExercises([]); }
+    finally { setAltLoading(false); }
+  }
+
+  function handleChooseAlternative(altEx) {
+    // Build a replacement step keeping the current sets/reps/rest
+    const replacement = {
+      ...altEx,
+      exercise_id: altEx.id,
+      exercise_slug: altEx.slug,
+      tags_json: altEx.tags_json ?? "[]",
+      instructions_json: altEx.instructions_json ?? null,
+      alternatives_json: altEx.alternatives_json ?? null,
+      sets: cur?.sets ?? 3,
+      target_reps: cur?.target_reps,
+      target_duration_sec: cur?.target_duration_sec,
+      rest_sec: cur?.rest_sec,
+      substituted: true,
+      original_exercise_id: cur?.exercise_id,
+    };
+    setExerciseOverrides((prev) => ({ ...prev, [exIdx]: replacement }));
+    // Update actual tracking
+    stepsActualRef.current[exIdx] = {
+      exercise_id: altEx.id,
+      prescribed: stepsActualRef.current[exIdx]?.prescribed ?? {},
+      actual: { sets_completed: 0, reps_per_set: [], skipped: false, exercise_substituted: true, original_exercise_id: cur?.exercise_id, substitute_exercise_id: altEx.id },
+    };
+    setShowAlternatives(false);
+    setRepCount(0);
+    setCurrentSet(1);
+    setAdjustedReps(null);
+    setAdjustedDuration(null);
+    setPhase("instruction");
   }
 
   // ── Session progress ─────────────────────────────────────────────────────────
@@ -2621,19 +2677,27 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
             )}
 
             {/* Bottom actions */}
-            <div style={{ display: "flex", gap: 12, position: "fixed", bottom: 24, left: 16, right: 16, maxWidth: 528, margin: "0 auto" }}>
-              <button
-                onClick={handleSkipExercise}
-                style={{ flex: 1, padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
-              >
-                Skip exercise
-              </button>
-              <button
-                onClick={() => handleSetDone(repCount)}
-                style={{ flex: 2, padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
-              >
-                Finish set →
-              </button>
+            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px 24px" }}>
+              <div style={{ maxWidth: 528, margin: "0 auto", display: "flex", gap: 10 }}>
+                <button
+                  onClick={handleSkipExercise}
+                  style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+                >
+                  Skip
+                </button>
+                <button
+                  onClick={handleOpenAlternatives}
+                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+                >
+                  Show alternatives
+                </button>
+                <button
+                  onClick={() => handleSetDone(repCount)}
+                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+                >
+                  Finish set →
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -2754,6 +2818,68 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           </div>
         )}
       </div>
+
+      {/* ── ALTERNATIVES BOTTOM SHEET ── */}
+      {showAlternatives && (
+        <div
+          style={{ position: "absolute", inset: 0, zIndex: 20, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}
+          onClick={() => setShowAlternatives(false)}
+        >
+          {/* Scrim */}
+          <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.7)" }} />
+          {/* Sheet */}
+          <div
+            style={{ position: "relative", background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "20px 0 40px", maxHeight: "70vh", overflowY: "auto" }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Handle */}
+            <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", margin: "0 auto 20px" }} />
+
+            <div style={{ padding: "0 20px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 8 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>Alternatives for {cur?.name}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Same sets and reps, different movement</div>
+            </div>
+
+            {altLoading ? (
+              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>Loading...</div>
+            ) : altExercises.length === 0 ? (
+              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14, fontStyle: "italic" }}>No alternatives found for this exercise.</div>
+            ) : (
+              <div style={{ padding: "8px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
+                {altExercises.map((alt) => {
+                  const tags = JSON.parse(alt.tags_json || "[]");
+                  const isEasier = tags.includes("beginner") || alt.slug.includes("knee") || alt.slug.includes("incline") || alt.slug.includes("assisted");
+                  const isHarder = tags.includes("advanced") || alt.slug.includes("diamond") || alt.slug.includes("weighted") || alt.slug.includes("single");
+                  const hint = isEasier ? "Easier" : isHarder ? "Harder" : "Similar";
+                  return (
+                    <div key={alt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px", background: "rgba(255,255,255,0.04)", borderRadius: 16, border: `1px solid ${C.border}` }}>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{alt.name}</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{hint}</div>
+                      </div>
+                      <button
+                        onClick={() => handleChooseAlternative(alt)}
+                        style={{ padding: "10px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
+                      >
+                        Try this
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <div style={{ padding: "12px 20px 0" }}>
+              <button
+                onClick={() => setShowAlternatives(false)}
+                style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+              >
+                Keep original
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
