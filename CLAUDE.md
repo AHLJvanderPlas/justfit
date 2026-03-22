@@ -82,7 +82,6 @@ justfit/
 │   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
 │   └── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
-├── WORKOUT_EXECUTION_UX.md  ← full coaching interface spec (all 10 steps implemented)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -394,65 +393,297 @@ WorkoutView calls `onComplete(durationSec, perceivedExertion, stepsActualRef.cur
 
 ## WorkoutView — Coaching Interface
 
-`WorkoutView` is a full-screen fixed overlay rendered when `inWorkout === true`.
+**Philosophy**: During a workout, the app is a coach standing next to you. Every interaction must work with one thumb, in 2 seconds, at a glance. Screen stays on via Wake Lock.
+
+`WorkoutView` is a full-screen fixed overlay (`position: fixed, inset: 0, zIndex: 50`) rendered when `inWorkout === true`.
 
 ```javascript
 function WorkoutView({ plan, onComplete, onBack, cycle })
 ```
 
+Props:
+- `plan` — day_plan object with `steps[]`, `slot_type`, `session_name`, `id`
+- `onComplete(durationSec, perceivedExertion, stepsActual)` — called when session finishes
+- `onBack()` — cancels workout, returns to Today screen
+- `cycle` — cycle_profile object; `cycle.mode` drives pregnancy/postnatal adaptations
+
 ### Phase state machine
 
 ```
-"instruction" → "working" → "resting" → (loop per set)
-                                       ↓ (after last set)
-                              "exerciseComplete" → (auto-advance 2s)
-                                                 ↓ (after last exercise)
-                              "sessionFeedback"  → onComplete(...)
+"instruction" → "working" → "resting" → (repeat per set) → "exerciseComplete" → (next exercise) → "sessionFeedback"
 ```
 
-Special:
+Special phases:
 - `"restDay"` — when `plan.slot_type === 'rest'` or no exercises
+- `"exerciseComplete"` — 2-second auto-advance between exercises
 - Exercise overrides: `const cur = exerciseOverrides[exIdx] ?? exercises[exIdx]`
 
-### Key state variables in WorkoutView
+### Screen layout
 
-See `WORKOUT_EXECUTION_UX.md` section 11 for full list. Key ones:
-
-```javascript
-const [phase, setPhase] = useState("instruction" | "working" | "resting" | "exerciseComplete" | "sessionFeedback" | "restDay");
-const [exerciseOverrides, setExerciseOverrides] = useState({}); // {[exIdx]: replacementExercise}
-const stepsActualRef = useRef([...]);  // rich actual_json per exercise, not state
-const restStartedAtRef = useRef(0);   // Date.now() when rest began, for rest_taken_seconds
-const timerTotalRef = useRef(0);      // total timer duration when Start pressed
+```
+┌─────────────────────────────────────────────────────┐
+│  ← Cancel          Push-up          Set 2 of 3      │  ← header
+├─────────────────────────────────────────────────────┤
+│  [amber wake lock banner, only if API unavailable]  │
+├─────────────────────────────────────────────────────┤
+│  [thin progress bar — full session progress]        │
+├─────────────────────────────────────────────────────┤
+│                                                     │
+│  [phase-specific content]                           │
+│                                                     │
+└─────────────────────────────────────────────────────┘
 ```
 
-### Pregnancy/postnatal flag
+### State
+
+All state is local to `WorkoutView`. No global state store.
+
+#### useState
+
+```javascript
+const [exIdx, setExIdx] = useState(0);
+const [currentSet, setCurrentSet] = useState(1);
+const [repCount, setRepCount] = useState(0);
+const [phase, setPhase] = useState(
+  !plan || plan.slot_type === "rest" ? "restDay"
+  : totalExercises > 0 ? "instruction"
+  : "sessionFeedback"
+);
+const [restRemaining, setRestRemaining] = useState(60);
+const [restTotal, setRestTotal] = useState(60);
+const [timerRunning, setTimerRunning] = useState(false);
+const [timerRemaining, setTimerRemaining] = useState(0);
+const [adjustedReps, setAdjustedReps] = useState(null);     // null = use plan value
+const [adjustedDuration, setAdjustedDuration] = useState(null);
+const [showCancel, setShowCancel] = useState(false);
+const [tapFlash, setTapFlash] = useState(false);
+const [adjustLabel, setAdjustLabel] = useState("");
+const [showAlternatives, setShowAlternatives] = useState(false);
+const [altExercises, setAltExercises] = useState([]);
+const [altLoading, setAltLoading] = useState(false);
+const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [exIdx]: replacementExercise }
+const [instrStep, setInstrStep] = useState(0);
+const [dragOffset, setDragOffset] = useState(0);
+const [isDragging, setIsDragging] = useState(false);
+const [showBreathingReminder, setShowBreathingReminder] = useState(false);
+const [wakeLockDenied, setWakeLockDenied] = useState(false);
+```
+
+#### useRef (no re-renders)
+
+```javascript
+const startTimeRef = useRef(Date.now());       // session start for duration calc
+const touchStartXRef = useRef(0);             // swipe gesture tracking
+const restStartedAtRef = useRef(0);           // ms when rest phase began
+const timerTotalRef = useRef(0);             // total duration when Start button pressed
+const wakeLockRef = useRef(null);            // WakeLockSentinel
+const adjustLabelTimerRef = useRef(null);    // clearTimeout handle for toast
+const breathingTimerRef = useRef(null);      // clearTimeout handle
+const stepsActualRef = useRef([...]);        // rich actual_json per exercise (see below)
+```
+
+#### Derived values
+
+```javascript
+const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
+const bodyMode = cycle?.mode ?? "standard";
+const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
+const totalSets = cur?.sets ?? 3;
+const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
+```
+
+### Instruction cards (phase: "instruction")
+
+Cards built from `instructions_json` parsed from exercise record:
+
+```javascript
+const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
+const rawSteps = instr?.steps ?? [];
+const cues    = instr?.cues ?? [];   // always visible below cards
+```
+
+Card objects: `{ text: string, accent: null | "amber" | "rose" }`
+
+| accent | background | border | text colour |
+|---|---|---|---|
+| `null` | `rgba(255,255,255,0.06)` | `rgba(255,255,255,0.1)` | `#f8fafc` |
+| `"amber"` | `rgba(245,158,11,0.08)` | `rgba(245,158,11,0.3)` | `#f59e0b` |
+| `"rose"` | `rgba(244,63,94,0.08)` | `rgba(244,63,94,0.3)` | `#f43f5e` |
+
+Card order / accent rules:
+- Pregnant: `pregnancy_note` → amber card prepended as **first** card
+- Postnatal: `postnatal_note` → rose card prepended as **first** card
+- Postnatal + `pelvic_floor` tag: rose card appended at **end**: "Remember: the release is just as important as the squeeze. Full relaxation between each rep."
+- Standard steps: no accent
+- Fallback when no steps: "Focus on form. Quality over speed. You've got this."
+
+Step label shows "Important note" for accent cards, "Step N of M" for standard steps.
+
+Swipe gesture: `onTouchStart/Move/End` + `onMouseDown/Move/Up/Leave`. Drag dampened ×0.55. Snap if `|delta| > 60px`. Spring on release: `cubic-bezier(0.34, 1.4, 0.64, 1)`. `instrStep` resets to 0 on exercise change. Auto-advances to working phase after 5s of no interaction. "Ready — let's go →" CTA advances immediately.
+
+### Rep/timer zone (phase: "working")
+
+**Rep-based**: Large tap zone (min 280px height, full width minus padding). `navigator.vibrate(30)` on tap. `tapFlash` triggers `@keyframes tapScale` (scale 1→0.96→1, 150ms) + `tapRing` pulse. Auto-calls `handleSetDone` at 220ms after `repCount >= targetReps`. 64px weight-900 counter. Max 10 rep dots; "+N" overflow label if targetReps > 10.
+
+**Time-based**: 84px countdown. Start button records `timerTotalRef.current = totalDur`. "Done early" calls `handleSetDone(totalDur - timerRemaining)` to record actual seconds. Natural completion fires at `timerRemaining === 0` via effect: `handleSetDone(timerTotalRef.current)`. Colour: emerald → amber at 10s → red at 5s.
+
+**Difficulty controls** (both modes, always visible in pregnancy mode):
+- Rep-based: `−2` / `+2` reps, bounds 1–30
+- Time-based: `−10s` / `+10s`, bounds 10s–300s
+- Toast "Adjusted to N reps" shown 2s via `adjustLabelTimerRef`
+- State persists across sets until `exIdx` changes
+
+### Rest countdown (phase: "resting")
+
+```javascript
+function getRestDuration(ex) {
+  const tags = JSON.parse(ex?.tags_json || "[]");
+  if (plan?.slot_type === "micro") return 20;
+  if (tags.includes("pelvic_floor")) return 30;
+  if (tags.includes("mobility")) return 20;
+  if (tags.includes("cardio")) return 30;
+  const base = ex?.rest_sec ?? 60;   // rest_sec from plan step (plan.js getDefaultRest)
+  return isPregnancyMode ? base + 15 : base;
+}
+```
+
+Timer via `setTimeout` (not `setInterval`) to avoid stale closures:
+
+```javascript
+useEffect(() => {
+  if (phase !== "resting" || restRemaining <= 0) return;
+  const id = setTimeout(() => setRestRemaining(r => Math.max(0, r - 1)), 1000);
+  return () => clearTimeout(id);
+}, [phase, restRemaining]);
+```
+
+Controls: `[−15s]` (min 10), `[Skip rest]`, `[+15s]` (max 180). Haptic `navigator.vibrate(60)` at exactly 10s and 5s remaining. "Next set: N × ExerciseName" or "Next: ExerciseName" for the following exercise. Progress bar fills as elapsed grows. At 0: records actual rest, increments set, returns to working phase.
+
+### Exercise substitution
+
+Bottom sheet slide-up with dark scrim and drag handle. Alternatives fetched by `api.getExercisesBySlugs(slugs)` from `alternatives_json.substitutions[]`. On "Try this instead" (`handleChooseAlternative`):
+1. Stores replacement in `exerciseOverrides[exIdx]`
+2. Resets `stepsActualRef.current[exIdx]` with `exercise_substituted: true`, `original_exercise_id`, `substitute_exercise_id`
+3. Resets `currentSet`, `repCount`, `adjustedReps`, `adjustedDuration`, `instrStep` to 0
+4. Returns to `"instruction"` phase
+
+Button label: "Show alternatives" (standard) or "This doesn't feel right" (pregnancy/postnatal).
+
+### Session feedback (phase: "sessionFeedback")
+
+```
+[😰 Too hard]  [😌 Just right]  [💪 Too easy]   Skip rating
+```
+
+Maps to `perceived_exertion`: 8 / 5 / 3 / null. Calls `onComplete(durationSec, perceivedExertion, stepsActualRef.current)`.
+
+`perceived_exertion` feeds the consistency score resilience bonus (low PE = resilience).
+
+### Wake Lock
+
+```javascript
+useEffect(() => {
+  const activePhases = ["instruction", "working", "resting", "exerciseComplete"];
+  if (!activePhases.includes(phase)) {
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+    return;
+  }
+  if (!("wakeLock" in navigator)) { setWakeLockDenied(true); return; }
+  if (wakeLockRef.current) return;
+  const acquire = () => {
+    if (wakeLockRef.current) return;
+    navigator.wakeLock.request("screen").then(lock => {
+      wakeLockRef.current = lock;
+      lock.addEventListener("release", () => { wakeLockRef.current = null; });
+    }).catch(() => setWakeLockDenied(true));
+  };
+  acquire();
+  const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisible);
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+  };
+}, [phase]);
+```
+
+Fallback: amber banner shown below header when `wakeLockDenied === true` and phase is active.
+
+### Pregnancy/postnatal adaptations
 
 ```javascript
 const bodyMode = cycle?.mode ?? "standard";
 const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
 ```
 
-`isPregnancyMode` drives:
-- Rest +15s (`getRestDuration` adds 15 to base)
-- Breathing reminder after each set (amber card, 3s auto-dismiss)
-- `pregnancy_note`/`postnatal_note` as first instruction card (amber/rose accent)
-- Pelvic floor coaching card for postnatal + `pelvic_floor` tag exercises
-- "This doesn't feel right" instead of "Show alternatives" on action bar
+| Feature | Implementation |
+|---|---|
+| Rest +15s | `getRestDuration` adds 15 to base for `isPregnancyMode` |
+| Breathing reminder | Amber card in resting phase, 3s auto-dismiss via `breathingTimerRef` |
+| Breathing message | "Take a breath — inhale through nose, sigh out through mouth." |
+| First instruction card | `pregnancy_note` (amber) for pregnant; `postnatal_note` (rose) for postnatal |
+| Pelvic floor card | Rose card appended for postnatal + `pelvic_floor` tag |
+| Softer language | "This doesn't feel right" instead of "Show alternatives" |
 
-### Wake Lock
+### Rich actual_json tracking (`stepsActualRef`)
 
-Acquired on active phases (`instruction`, `working`, `resting`, `exerciseComplete`),
-re-acquired on `visibilitychange`, released on inactive phases and unmount.
-Falls back to amber banner when `navigator.wakeLock` unavailable.
+Initialised from `plan.steps` at mount:
 
-### Instruction card accent system
+```javascript
+const stepsActualRef = useRef(
+  exercises.map(ex => ({
+    exercise_id: ex.exercise_id,
+    prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec },
+    actual: {
+      sets_completed: 0,
+      reps_per_set: [],           // actual reps or seconds per set
+      rest_taken_seconds: [],     // wall-clock rest elapsed per rest period
+      target_adjusted: false,
+      target_original: null,      // prescribed reps or duration_sec
+      target_final: null,         // after user adjustments
+      adjustment_direction: null, // "up" | "down"
+      exercise_substituted: false,
+      original_exercise_id: null,
+      substitute_exercise_id: null,
+      skipped: false,
+      completed_at_ms: null,
+    },
+  }))
+);
+```
 
-Cards are objects `{ text: string, accent: null | "amber" | "rose" }`.
-- `pregnancy_note` → amber, prepended as first card (pregnant users)
-- `postnatal_note` → rose, prepended as first card (postnatal users)
-- Pelvic floor coaching → rose, appended as last card (postnatal users)
-- Standard steps → no accent
+Write points:
+
+| Event | Written to |
+|---|---|
+| Rep tapped / set done | `reps_per_set.push(reps)`, `sets_completed += 1` |
+| Set done with adjustment | `target_adjusted`, `target_original`, `target_final`, `adjustment_direction` |
+| Last set done | `completed_at_ms = Date.now()` |
+| Rest starts | `restStartedAtRef.current = Date.now()` |
+| Rest ends naturally or skipped | `rest_taken_seconds.push(Math.round((Date.now() - restStartedAtRef.current) / 1000))` |
+| Alternative chosen | Full `actual` object replaced: `exercise_substituted: true`, `original_exercise_id`, `substitute_exercise_id` |
+| Timer ends naturally | `handleSetDone(timerTotalRef.current)` |
+| Done early (timer) | `handleSetDone(totalDur - timerRemaining)` — records actual seconds |
+
+### CSS keyframes
+
+```css
+@keyframes tapScale { 0% { transform: scale(1) } 40% { transform: scale(0.96) } 100% { transform: scale(1) } }
+@keyframes tapRing  { 0% { opacity: 0.7; transform: scale(1) } 100% { opacity: 0; transform: scale(1.18) } }
+@keyframes pulse    { 0%, 100% { opacity: 1 } 50% { opacity: 0.5 } }
+```
+
+### Font sizes and touch targets
+
+- Exercise name: 32px weight 900
+- Instruction text: 18px weight 700, line-height 1.6
+- Cue text: 13px italic, muted, prefixed with 💡
+- Rep counter: 64px weight 900
+- Countdown timer: 84px weight 900, `fontVariantNumeric: "tabular-nums"`
+- All action buttons: min 48px height
+- Tap zone: min 280px height
+- Bottom action bar: fixed bottom, padding-bottom 24px (safe area)
 
 ---
 
@@ -633,8 +864,6 @@ The full product spec is v1.5.0 (Golden Master Design). Key decisions:
 - EU liability waiver required on first signup
 - Target exercise library: ~150 exercises
 - Planner is a pure function — never writes to DB directly
-
-The coaching execution UX spec is in `WORKOUT_EXECUTION_UX.md`.
 
 ---
 

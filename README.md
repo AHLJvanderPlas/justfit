@@ -41,5 +41,4 @@ git push             # push to main → auto-deploys via Cloudflare Pages (~30s)
 npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql
 ```
 
-See `CLAUDE.md` for full project context, schema, and coding conventions.
-See `WORKOUT_EXECUTION_UX.md` for the coaching interface spec (fully implemented).
+See `CLAUDE.md` for full project context, schema, coaching interface spec, and coding conventions.
