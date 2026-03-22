@@ -842,8 +842,9 @@ function OnboardingModal({ token, onComplete }) {
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90];
 
-function CheckInModal({ onSave, onClose, isPro, sex }) {
-  const showPeriodToggle = sex === "female";
+function CheckInModal({ onSave, onClose, isPro, sex, cycle }) {
+  const bodyMode = cycle?.mode ?? "standard";
+  const showPeriodToggle = sex === "female" && bodyMode === "standard";
   const [d, setD] = useState({
     energy: 3,
     sleep_hours: 7,
@@ -858,8 +859,14 @@ function CheckInModal({ onSave, onClose, isPro, sex }) {
     pain_level: 0,
     period_today: false,
     free_text: "",
+    // Pregnancy signals
+    pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
+    // Postnatal signals
+    postnatal_signals: { running_today: false, heaviness: false },
   });
   const upd = (patch) => setD((prev) => ({ ...prev, ...patch }));
+  const updPregnancySignal = (key, val) => setD((prev) => ({ ...prev, pregnancy_signals: { ...prev.pregnancy_signals, [key]: val } }));
+  const updPostnatalSignal = (key, val) => setD((prev) => ({ ...prev, postnatal_signals: { ...prev.postnatal_signals, [key]: val } }));
 
   const handleSubmit = () => {
     // Map 1-5 stress scale to 1-10 for DB (spec uses 1-5 UI, DB stores 1-10)
@@ -879,6 +886,8 @@ function CheckInModal({ onSave, onClose, isPro, sex }) {
         free_text: d.free_text,
         motivation: d.motivation,
         time_budget: d.time_budget,
+        pregnancy_signals: d.pregnancy_signals,
+        postnatal_signals: d.postnatal_signals,
       },
     });
   };
@@ -1135,6 +1144,83 @@ function CheckInModal({ onSave, onClose, isPro, sex }) {
               </button>
             )}
           </div>
+
+          {/* ── Pregnancy signals section ── */}
+          {bodyMode === "pregnant" && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#fbbf24", textTransform: "uppercase", marginBottom: 16 }}>
+                How is your body today?
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  { key: "nausea", label: "Feeling nauseous", sub: "We'll keep it very gentle" },
+                  { key: "breathless", label: "Feeling breathless", sub: "We'll shorten intervals" },
+                  { key: "pelvic_discomfort", label: "Pelvic discomfort", sub: "Low-load focus today" },
+                ].map(({ key, label, sub }) => {
+                  const active = d.pregnancy_signals[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => updPregnancySignal(key, !active)}
+                      style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left",
+                        background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                        {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
+                      </div>
+                      <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
+                        <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Postnatal signals section ── */}
+          {bodyMode === "postnatal" && (
+            <div style={{ marginBottom: 28 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(251,191,36,0.8)", textTransform: "uppercase", marginBottom: 16 }}>
+                How is your recovery today?
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  { key: "heaviness", label: "Feeling pelvic heaviness", sub: "We'll reduce load and impact" },
+                  { key: "running_today", label: "Returned to running", sub: "Clearance note will be added" },
+                ].map(({ key, label, sub }) => {
+                  const active = d.postnatal_signals[key];
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => updPostnatalSignal(key, !active)}
+                      style={{
+                        display: "flex", justifyContent: "space-between", alignItems: "center",
+                        padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left",
+                        background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)",
+                        border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`,
+                        cursor: "pointer",
+                      }}
+                    >
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                        {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
+                      </div>
+                      <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
+                        <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {isPro && (
             <div style={{ marginBottom: 28 }}>
@@ -3924,6 +4010,7 @@ export default function App() {
           onClose={() => setShowCheckIn(false)}
           isPro={!!prefs.isPro}
           sex={prefs.sex}
+          cycle={prefs.cycle}
         />
       )}
 
