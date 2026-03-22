@@ -430,13 +430,41 @@ const EQUIPMENT_OPTIONS = [
   { value: "pull_up_bar", label: "Pull-up bar", sub: "Door-mounted or free-standing" },
 ];
 
+const SEX_OPTIONS = [
+  { label: "Male", value: "male" },
+  { label: "Female", value: "female" },
+  { label: "Non-binary", value: "non_binary" },
+  { label: "Prefer not to say", value: "prefer_not_to_say" },
+];
+
+const CYCLE_LENGTHS = [21, 24, 26, 28, 30, 32, 35];
+
+// Default last period ≈ 4 weeks ago
+function defaultPeriodDate() {
+  const d = new Date();
+  d.setDate(d.getDate() - 28);
+  return d.toISOString().split("T")[0];
+}
+
 function OnboardingModal({ token, onComplete }) {
   const [step, setStep] = useState(0);
+  // Step 0 — About you
+  const [sex, setSex] = useState(null);
+  const [weightInput, setWeightInput] = useState("");
+  const [weightUnit, setWeightUnit] = useState("kg");
+  const [showCycleSetup, setShowCycleSetup] = useState(false);
+  const [lastPeriodStart, setLastPeriodStart] = useState(defaultPeriodDate());
+  const [cycleLength, setCycleLength] = useState(28);
+  const [cycleTrackingMode, setCycleTrackingMode] = useState(null);
+  const [cycleSetupDone, setCycleSetupDone] = useState(false);
+  // Steps 1-3 (existing)
   const [goal, setGoal] = useState("health");
   const [experience, setExperience] = useState("beginner");
   const [equipment, setEquipment] = useState(["none"]);
   const [duration, setDuration] = useState(30);
   const [saving, setSaving] = useState(false);
+
+  const TOTAL_STEPS = 4;
 
   const toggleEquip = (val) => {
     if (val === "none") {
@@ -452,14 +480,26 @@ function OnboardingModal({ token, onComplete }) {
   const handleFinish = async () => {
     setSaving(true);
     try {
+      let weight_kg = null;
+      if (weightInput) {
+        const w = parseFloat(weightInput);
+        if (!isNaN(w)) weight_kg = weightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
+      }
+      const cycle = (sex === "female" && cycleTrackingMode === "smart")
+        ? { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart }
+        : { tracking_mode: "off" };
+
       await api.saveProfile(token, {
         training_goal: goal,
         experience_level: experience,
         session_duration_min: duration,
         days_per_week_target: 3,
         preferences: { available_equipment: equipment },
+        sex,
+        weight_kg,
+        cycle,
       });
-      onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration });
+      onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration, sex, weight_kg });
     } catch (e) {
       console.error("Failed to save profile:", e);
       onComplete({});
@@ -467,6 +507,7 @@ function OnboardingModal({ token, onComplete }) {
     setSaving(false);
   };
 
+  const canAdvance = step === 0 ? !!sex : true;
   const DURATION_OPTIONS = [15, 20, 30, 45, 60];
 
   return (
@@ -503,7 +544,7 @@ function OnboardingModal({ token, onComplete }) {
             style={{
               height: "100%",
               background: C.emerald,
-              width: `${((step + 1) / 3) * 100}%`,
+              width: `${((step + 1) / TOTAL_STEPS) * 100}%`,
               transition: "width 0.3s",
             }}
           />
@@ -511,10 +552,150 @@ function OnboardingModal({ token, onComplete }) {
 
         <div style={{ padding: "28px 28px 24px", overflowY: "auto" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
-            Step {step + 1} of 3
+            Step {step + 1} of {TOTAL_STEPS}
           </div>
 
+          {/* ── Step 0: About you ── */}
           {step === 0 && (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>About you</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>This helps us personalise your training baseline.</div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                How do you identify?
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 24 }}>
+                {SEX_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => { setSex(opt.value); if (opt.value !== "female") { setCycleSetupDone(false); setShowCycleSetup(false); } }}
+                    style={{
+                      padding: "12px 10px",
+                      borderRadius: 14,
+                      border: `1px solid ${sex === opt.value ? C.emeraldBorder : C.border}`,
+                      background: sex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: sex === opt.value ? C.emerald : C.muted,
+                      fontWeight: 700, fontSize: 13, cursor: "pointer",
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                Your weight <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>Helps us scale exercise volume to your body.</div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 24 }}>
+                <input
+                  type="number"
+                  placeholder="—"
+                  value={weightInput}
+                  onChange={(e) => setWeightInput(e.target.value)}
+                  style={{
+                    width: 80, padding: "10px 14px", borderRadius: 12,
+                    background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                    color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
+                  }}
+                />
+                <div style={{ display: "flex", gap: 6 }}>
+                  {["kg", "lbs"].map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => setWeightUnit(u)}
+                      style={{
+                        padding: "8px 16px", borderRadius: 10,
+                        border: `1px solid ${weightUnit === u ? C.emeraldBorder : C.border}`,
+                        background: weightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        color: weightUnit === u ? C.emerald : C.muted,
+                        fontWeight: 700, fontSize: 12, cursor: "pointer",
+                      }}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Cycle tracking card — female only */}
+              {sex === "female" && !cycleSetupDone && (
+                <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(16,185,129,0.04)", padding: 20, marginBottom: 8 }}>
+                  {!showCycleSetup ? (
+                    <>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
+                      <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
+                        Your body has incredible wisdom. JustFit can adapt your sessions across your cycle — lighter when you need rest, and ready to push when you're at your strongest.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => setShowCycleSetup(true)}
+                          style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: "pointer" }}
+                        >
+                          Set up cycle tracking
+                        </button>
+                        <button
+                          onClick={() => { setCycleTrackingMode("off"); setCycleSetupDone(true); }}
+                          style={{ flex: 1, padding: "10px 16px", borderRadius: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                        >
+                          Maybe later
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16 }}>🌙 Set up cycle tracking</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your last period start?</div>
+                      <input
+                        type="date"
+                        value={lastPeriodStart}
+                        max={new Date().toISOString().split("T")[0]}
+                        onChange={(e) => setLastPeriodStart(e.target.value)}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }}
+                      />
+                      <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>How long is your typical cycle?</div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
+                        {CYCLE_LENGTHS.map((d) => (
+                          <button
+                            key={d}
+                            onClick={() => setCycleLength(d)}
+                            style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                          >
+                            {d}d
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, fontStyle: "italic" }}>
+                        Every body is different — these can be updated anytime in Settings.
+                      </div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <button
+                          onClick={() => { if (lastPeriodStart) { setCycleTrackingMode("smart"); setCycleSetupDone(true); } }}
+                          style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer" }}
+                        >
+                          Save
+                        </button>
+                        <button
+                          onClick={() => { setCycleTrackingMode("off"); setCycleSetupDone(true); }}
+                          style={{ flex: 1, padding: "10px 16px", borderRadius: 12, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                        >
+                          Skip
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              {sex === "female" && cycleSetupDone && (
+                <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)" }}>
+                  {cycleTrackingMode === "smart" ? "✓ Cycle tracking enabled" : "Cycle tracking skipped — enable anytime in Settings."}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* ── Step 1: Goal ── */}
+          {step === 1 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>What's your goal?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Your plan adapts to this every day.</div>
@@ -529,10 +710,7 @@ function OnboardingModal({ token, onComplete }) {
                       border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
                       background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
                       color: goal === g.value ? C.emerald : C.muted,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      textAlign: "left",
+                      fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
                     }}
                   >
                     <div style={{ fontSize: 22, marginBottom: 6 }}>{g.icon}</div>
@@ -543,7 +721,8 @@ function OnboardingModal({ token, onComplete }) {
             </>
           )}
 
-          {step === 1 && (
+          {/* ── Step 2: Experience ── */}
+          {step === 2 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Experience level?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>We calibrate volume and intensity to match you.</div>
@@ -553,15 +732,10 @@ function OnboardingModal({ token, onComplete }) {
                     key={e.value}
                     onClick={() => setExperience(e.value)}
                     style={{
-                      padding: "16px 18px",
-                      borderRadius: 16,
+                      padding: "16px 18px", borderRadius: 16,
                       border: `1px solid ${experience === e.value ? C.emeraldBorder : C.border}`,
                       background: experience === e.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                      color: C.text,
-                      fontWeight: 700,
-                      fontSize: 14,
-                      cursor: "pointer",
-                      textAlign: "left",
+                      color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left",
                     }}
                   >
                     <div style={{ color: experience === e.value ? C.emerald : C.text, marginBottom: 3 }}>{e.label}</div>
@@ -572,7 +746,8 @@ function OnboardingModal({ token, onComplete }) {
             </>
           )}
 
-          {step === 2 && (
+          {/* ── Step 3: Equipment + time ── */}
+          {step === 3 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Equipment &amp; time?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Your default session setup.</div>
@@ -586,18 +761,11 @@ function OnboardingModal({ token, onComplete }) {
                     key={eq.value}
                     onClick={() => toggleEquip(eq.value)}
                     style={{
-                      padding: "12px 16px",
-                      borderRadius: 14,
+                      padding: "12px 16px", borderRadius: 14,
                       border: `1px solid ${equipment.includes(eq.value) ? C.emeraldBorder : C.border}`,
                       background: equipment.includes(eq.value) ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                      color: C.text,
-                      fontWeight: 700,
-                      fontSize: 13,
-                      cursor: "pointer",
-                      textAlign: "left",
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
+                      color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
+                      display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}
                   >
                     <span>{eq.label}</span>
@@ -615,15 +783,11 @@ function OnboardingModal({ token, onComplete }) {
                     key={d}
                     onClick={() => setDuration(d)}
                     style={{
-                      flex: 1,
-                      padding: "10px 0",
-                      borderRadius: 12,
+                      flex: 1, padding: "10px 0", borderRadius: 12,
                       border: `1px solid ${duration === d ? C.emeraldBorder : C.border}`,
                       background: duration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
                       color: duration === d ? C.emerald : C.muted,
-                      fontWeight: 800,
-                      fontSize: 13,
-                      cursor: "pointer",
+                      fontWeight: 800, fontSize: 13, cursor: "pointer",
                     }}
                   >
                     {d}m
@@ -639,38 +803,26 @@ function OnboardingModal({ token, onComplete }) {
             <button
               onClick={() => setStep(step - 1)}
               style={{
-                flex: 1,
-                padding: 14,
-                borderRadius: 16,
-                border: `1px solid ${C.border}`,
-                background: "rgba(255,255,255,0.03)",
-                color: C.muted,
-                fontWeight: 700,
-                fontSize: 14,
-                cursor: "pointer",
+                flex: 1, padding: 14, borderRadius: 16,
+                border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)",
+                color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer",
               }}
             >
               Back
             </button>
           )}
           <button
-            onClick={step < 2 ? () => setStep(step + 1) : handleFinish}
-            disabled={saving}
+            onClick={step < TOTAL_STEPS - 1 ? () => setStep(step + 1) : handleFinish}
+            disabled={saving || !canAdvance}
             style={{
-              flex: 2,
-              padding: 14,
-              borderRadius: 16,
-              border: "none",
-              background: C.emerald,
-              color: "#fff",
-              fontWeight: 900,
-              fontSize: 15,
-              cursor: "pointer",
-              boxShadow: "0 8px 32px rgba(16,185,129,0.35)",
+              flex: 2, padding: 14, borderRadius: 16, border: "none",
+              background: canAdvance ? C.emerald : C.subtle,
+              color: "#fff", fontWeight: 900, fontSize: 15, cursor: canAdvance ? "pointer" : "not-allowed",
+              boxShadow: canAdvance ? "0 8px 32px rgba(16,185,129,0.35)" : "none",
               opacity: saving ? 0.7 : 1,
             }}
           >
-            {saving ? "Saving..." : step < 2 ? "Continue" : "Start Training"}
+            {saving ? "Saving..." : step < TOTAL_STEPS - 1 ? "Continue" : "Start Training"}
           </button>
         </div>
       </div>
@@ -681,7 +833,8 @@ function OnboardingModal({ token, onComplete }) {
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90];
 
-function CheckInModal({ onSave, onClose, isPro }) {
+function CheckInModal({ onSave, onClose, isPro, sex }) {
+  const showPeriodToggle = sex === "female";
   const [d, setD] = useState({
     energy: 3,
     sleep_hours: 7,
@@ -694,6 +847,7 @@ function CheckInModal({ onSave, onClose, isPro }) {
     gym_today: false,
     traveling: false,
     pain_level: 0,
+    period_today: false,
     free_text: "",
   });
   const upd = (patch) => setD((prev) => ({ ...prev, ...patch }));
@@ -712,6 +866,7 @@ function CheckInModal({ onSave, onClose, isPro }) {
         gym_today: d.gym_today,
         traveling: d.traveling,
         pain_level: d.pain_level,
+        period_today: d.period_today,
         free_text: d.free_text,
         motivation: d.motivation,
         time_budget: d.time_budget,
@@ -948,6 +1103,28 @@ function CheckInModal({ onSave, onClose, isPro }) {
               active={d.traveling}
               onToggle={() => upd({ traveling: !d.traveling })}
             />
+            {showPeriodToggle && (
+              <button
+                onClick={() => upd({ period_today: !d.period_today })}
+                style={{
+                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                  padding: "14px 16px", borderRadius: 16, width: "100%", textAlign: "left",
+                  background: d.period_today ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${d.period_today ? "rgba(167,139,250,0.4)" : C.border}`,
+                  cursor: "pointer", transition: "all 0.15s", marginBottom: 8,
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>🌙 Period today</div>
+                  <div style={{ fontSize: 11, color: d.period_today ? "rgba(167,139,250,0.8)" : C.muted, marginTop: 2 }}>
+                    {d.period_today ? "Taking care of you today 🌙" : "We'll plan something that feels good"}
+                  </div>
+                </div>
+                <div style={{ width: 40, height: 22, borderRadius: 999, background: d.period_today ? "#a78bfa" : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                  <div style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: d.period_today ? 21 : 3, transition: "left 0.2s" }} />
+                </div>
+              </button>
+            )}
           </div>
 
           {isPro && (
@@ -2989,6 +3166,7 @@ export default function App() {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
+        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle }));
         setOnboardingReady(true);
       }
     }).catch(() => setOnboardingReady(true));
@@ -3002,6 +3180,7 @@ export default function App() {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
+        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle }));
         setOnboardingReady(true);
       }
     }).catch(() => setOnboardingReady(true));
@@ -3335,6 +3514,7 @@ export default function App() {
           onSave={handleCheckIn}
           onClose={() => setShowCheckIn(false)}
           isPro={!!prefs.isPro}
+          sex={prefs.sex}
         />
       )}
 
