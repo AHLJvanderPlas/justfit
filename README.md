@@ -1,16 +1,33 @@
-# React + Vite
+# JustFit.cc
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Privacy-first, consistency-driven fitness PWA. **Consistency > Intensity**.
 
-Currently, two official plugins are available:
+Live: [justfit.cc](https://justfit.cc)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- **Frontend**: React + Vite, single `src/App.jsx`, inline styles, no router
+- **API**: Cloudflare Pages Functions (`/functions/api/`), plain JS, no npm
+- **Database**: Cloudflare D1 (SQLite) — bound as `DB`
+- **Auth**: JWT via Web Crypto API (no external libs), passkeys/Face ID, magic links
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Development
 
-## Expanding the ESLint configuration
+```bash
+npm install
+npm run dev          # local Vite dev server
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+## Deploy
+
+```bash
+git push             # push to main → auto-deploys via Cloudflare Pages (~30s)
+```
+
+## Migrations
+
+```bash
+npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql
+```
+
+See `CLAUDE.md` for full project context, schema, and coding conventions.

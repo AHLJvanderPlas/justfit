@@ -57,8 +57,8 @@ justfit/
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
-│       ├── plan.js      ← POST generate plan (runs planner engine v1.5.1), GET fetch plan
-│       ├── profile.js   ← GET/POST user_preferences (onboarding + settings)
+│       ├── plan.js      ← POST generate plan (runs planner engine v1.6.0), GET fetch plan
+│       ├── profile.js   ← GET/POST user_preferences + cycle/pregnancy/postnatal context
 │       ├── score.js     ← GET consistency score for user
 │       └── ping.js      ← GET health check
 ├── public/
@@ -77,7 +77,11 @@ justfit/
 │   ├── 0004_exercises.sql   ← 35 new exercises (total: 50)
 │   ├── 0005_templates.sql   ← 8 session templates
 │   ├── 0006_passkeys.sql    ← passkey_credentials table
-│   └── 0007_auth_tokens.sql ← password_reset_tokens + magic_link_tokens tables; counter/backed_up/transports on passkey_credentials
+│   ├── 0007_auth_tokens.sql ← password_reset_tokens + magic_link_tokens tables; counter/backed_up/transports on passkey_credentials
+│   ├── 0008_cycle.sql       ← cycle_profile table (standard cycle tracking: tracking_mode, cycle_length_days, last_period_start)
+│   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
+│   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
+│   └── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -135,16 +139,21 @@ step_type TEXT, exercise_id TEXT FK→exercises(id),
 prescribed_json TEXT, actual_json TEXT, created_at_ms INT, updated_at_ms INT
 ```
 
-**exercises** — 15 seeded exercises, target ~150
+**exercises** — ~150 exercises seeded (migrations 0001–0010)
 ```sql
-id TEXT PK, slug TEXT, name TEXT, category TEXT,
-tags_json TEXT,               ← ["strength","bodyweight","no_floor","low_impact","quiet",...]
+id TEXT PK, slug TEXT, name TEXT,
+category TEXT CHECK (category IN ('strength','cardio','mobility','recovery','skill','mixed')),
+tags_json TEXT,               ← ["strength","bodyweight","no_floor","low_impact","quiet",
+                                  "pregnancy_safe","postnatal_safe","pelvic_floor","kegel",
+                                  "breathing","supine","prone","crunch","valsalva","high_impact","inversion",...]
 equipment_required_json TEXT, ← ["none"] or ["dumbbell"] etc
+equipment_advised_json TEXT,  ← optional advisory equipment (migration 0010)
 instructions_json TEXT,       ← {steps:[], cues:[]}
 metrics_json TEXT,            ← {supports:["reps","sets","time",...]}
 alternatives_json TEXT,       ← {substitutions:["slug1","slug2"]}
 is_active INT, created_at_ms INT, updated_at_ms INT
 ```
+Note: `pelvic_floor` is a TAG (used for planner filtering), not a category. Pelvic floor exercises use category `'mobility'`.
 
 **awards** — 12 seeded awards
 ```sql
@@ -180,6 +189,35 @@ expires_at_ms INT (1 hour), used_at_ms INT (NULL = unused), created_at_ms INT
 ```sql
 token TEXT PK, user_id TEXT (NULL if email not yet registered), email TEXT,
 expires_at_ms INT (15 min), used_at_ms INT (NULL = unused), created_at_ms INT
+```
+
+**cycle_profile** — body mode and cycle tracking per user (migrations 0008 + 0009)
+```sql
+user_id TEXT FK→users(id),
+-- Standard cycle (migration 0008)
+tracking_mode TEXT ('off','smart'), cycle_length_days INT, last_period_start TEXT,
+-- Body mode + pregnancy (migration 0009)
+mode TEXT NOT NULL DEFAULT 'standard' CHECK (mode IN ('standard','pregnant','postnatal')),
+pregnancy_due_date TEXT, pregnancy_confirmed_at_ms INT, medical_clearance_confirmed INT DEFAULT 0,
+-- Postnatal (migration 0009)
+postnatal_birth_date TEXT,
+postnatal_birth_type TEXT CHECK (postnatal_birth_type IN ('vaginal','caesarean','prefer_not_to_say')),
+postnatal_cleared_for_exercise INT DEFAULT 0, postnatal_clearance_date TEXT,
+created_at_ms INT, updated_at_ms INT
+```
+
+**pregnancy_weekly_log** — weekly summary log during pregnancy (migration 0009)
+```sql
+id TEXT PK, user_id TEXT FK→users(id),
+week_number INT, week_start_date TEXT,
+avg_energy REAL, avg_nausea REAL, avg_breathless REAL,
+sessions_done INT DEFAULT 0, notes TEXT, created_at_ms INT
+```
+
+**period_log** — period start events for smart cycle tracking (migration 0008)
+```sql
+id TEXT PK, user_id TEXT FK→users(id),
+started_on TEXT, noted_at_ms INT, source TEXT ('manual','auto')
 ```
 
 **user_preferences, user_profile, user_availability, user_contact** — profile data
@@ -284,10 +322,14 @@ api.getHistory(userId)                   // GET /api/execution
 
 ## Planner Engine (functions/api/plan.js)
 
-Pure function `runPlanner(date, checkIn, exercises)` — no side effects, no DB calls.
-Returns: `{ date, slot_type, intensity, session_name, steps[], rule_trace[] }`
+Engine version: **v1.6.0** (pregnancy/postnatal support added).
 
-### Rules implemented
+Signature: `runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext)`
+Returns: `{ date, slot_type, intensity, session_name, steps[], rule_trace[], pregnancy_week, trimester, postnatal_phase }`
+
+`onRequestPost` fetches `cycle_profile` from D1 and builds `pregnancyContext` before calling `runPlanner`.
+
+### Standard cycle rules (only fire when mode = 'standard')
 | Rule | Trigger | Effect |
 |---|---|---|
 | R510 | time_budget ≤10 or no_time | slot_type = 'micro' |
@@ -297,10 +339,38 @@ Returns: `{ date, slot_type, intensity, session_name, steps[], rule_trace[] }`
 | R514 | pain_level ≥2 | slot_type = 'rest' |
 | R515 | no_clothing | filter: low_impact + no floor tag |
 | R516 | no_gear or traveling | filter: equipment_required = ["none"] |
+| R520–R525 | cycle phase signals | intensity/volume adjustments per phase |
+
+### Pregnancy rules (mode = 'pregnant')
+| Rule | Trigger | Effect |
+|---|---|---|
+| R530 | T3 | intensity cap = low; T1/T2 cap = moderate |
+| R531 | week ≥ 16 | filter out `supine` exercises |
+| R532 | always | filter out `high_impact` exercises |
+| R533 | always | filter out `valsalva`, `inversion`, `crunch`; filter `prone` from T2 |
+| R534 | T2+ | inject pelvic_floor exercise if none in session |
+| R535 | nausea signal | override to micro + breathing/recovery pool |
+| R536 | breathless signal (T3) | volumeMultiplier = 0.8 |
+| R537 | past due date | add session_notes about postnatal transition |
+
+### Postnatal rules (mode = 'postnatal')
+| Rule | Trigger | Effect |
+|---|---|---|
+| R540 | phase-gated | immediate: pelvic_floor+breathing+recovery only; early: +mobility; rebuilding: bodyweight no crunch/high_impact; strengthening: +dumbbell; returning: no valsalva |
+| R541 | immediate/early/rebuilding | inject pelvic_floor exercise if none in session |
+| R542 | caesarean + rebuilding | filter out `prone` exercises |
+| R543 | rebuilding | add diastasis recti check note to session_notes |
+| R544 | running_today signal | add running clearance note to session_notes |
+
+### Pregnancy/postnatal vocabulary overrides
+- Pregnancy: "Today's movement", "Strong & supported", "Five minutes for you"
+- Postnatal: "A gentle moment", "Rebuilding your foundation", "Today's recovery"
 
 ### Exercise filtering uses tags_json
 Key tags: `no_floor`, `low_impact`, `quiet`, `high_impact`, `floor`, `loud`,
-`bodyweight`, `dumbbell`, `strength`, `cardio`, `mobility`, `recovery`
+`bodyweight`, `dumbbell`, `strength`, `cardio`, `mobility`, `recovery`,
+`pregnancy_safe`, `postnatal_safe`, `pelvic_floor`, `kegel`, `breathing`,
+`supine`, `prone`, `crunch`, `valsalva`, `inversion`
 
 ---
 
@@ -333,13 +403,13 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live |
-| Exercise library (50 exercises) | ✅ Seeded in D1 (migrations 0001–0004) |
-| Session templates (8 templates) | ✅ Seeded in D1 (migration 0005) |
+| D1 schema + migrations | ✅ Live (0001–0011) |
+| Exercise library (~150 exercises) | ✅ Seeded in D1 (migrations 0001–0010) |
+| Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards) | ✅ Seeded in D1 |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine R510-R516 | ✅ Live — template-based, seeded shuffle variety, profile-aware |
-| /api/profile endpoint | ✅ Live — GET/POST user_preferences |
+| Planner engine v1.6.0 (R510–R544) | ✅ Live — template-based, profile-aware, pregnancy/postnatal rules |
+| /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
 | Welcome email on signup | ✅ Live — Resend, fire-and-forget, RESEND_API_KEY in Pages env |
@@ -353,10 +423,11 @@ Calculated server-side from executions table:
 | Weekly plan view (7-day) | ✅ Live — Plan tab in nav, shows session strip + completed sessions |
 | Landing page (marketing) | ✅ Live — public/index.html, dark design, features, rules, privacy |
 | PWA manifest | ✅ Live — manifest.json, theme-color, apple-mobile-web-app tags |
+| Pregnancy mode | ✅ Live — setup in Settings, planner rules R530–R537, progress banner, check-in signals |
+| Postnatal mode | ✅ Live — phase detection, planner rules R540–R544, phase banner, check-in signals |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
-| Exercise library expanded | 🔄 50/150 exercises |
 
 ---
 
