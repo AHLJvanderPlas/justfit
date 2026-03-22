@@ -2098,6 +2098,9 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [adjustLabel, setAdjustLabel] = useState(""); // "Adjusted to N reps" toast
   const adjustLabelTimerRef = useRef(null);
   // Alternatives
+  const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
+  const [showBreathingReminder, setShowBreathingReminder] = useState(false);
+  const breathingTimerRef = useRef(null);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [altExercises, setAltExercises] = useState([]);
   const [altLoading, setAltLoading] = useState(false);
@@ -2243,7 +2246,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     if (tags.includes("mobility")) return 20;
     if (tags.includes("cardio")) return 30;
     if (tags.includes("bodyweight")) return 45;
-    return ex?.rest_sec ?? 60;
+    const base = ex?.rest_sec ?? 60;
+    return isPregnancyMode ? base + 15 : base;
   }
 
   function handleSetDone(repsThisSet) {
@@ -2274,6 +2278,11 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
       restStartedAtRef.current = Date.now();
       setRestRemaining(rest);
       setRestTotal(rest);
+      if (isPregnancyMode) {
+        setShowBreathingReminder(true);
+        clearTimeout(breathingTimerRef.current);
+        breathingTimerRef.current = setTimeout(() => setShowBreathingReminder(false), 3000);
+      }
       setPhase("resting");
     } else {
       if (exIdx < totalExercises - 1) {
@@ -2498,8 +2507,19 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
           const rawSteps = instr?.steps ?? [];
           const cues = instr?.cues ?? [];
-          // Build card slides: one per step, or one fallback card
-          const cards = rawSteps.length > 0 ? rawSteps : ["Focus on form. Quality over speed. You've got this."];
+          const tags = JSON.parse(cur.tags_json || "[]");
+
+          // Build card slides: prepend pregnancy/postnatal notes as accented first card
+          const pregnancyNote = isPregnancyMode && bodyMode === "pregnant" ? instr?.pregnancy_note : null;
+          const postnatalNote = isPregnancyMode && bodyMode === "postnatal" ? instr?.postnatal_note : null;
+          const isPelvicFloor = bodyMode === "postnatal" && tags.includes("pelvic_floor");
+
+          // Card objects: { text, accent } — accent null means standard style
+          const rawCards = rawSteps.length > 0 ? rawSteps.map((s) => ({ text: s, accent: null })) : [{ text: "Focus on form. Quality over speed. You've got this.", accent: null }];
+          if (pregnancyNote) rawCards.unshift({ text: pregnancyNote, accent: "amber" });
+          if (postnatalNote) rawCards.unshift({ text: postnatalNote, accent: "rose" });
+          if (isPelvicFloor) rawCards.push({ text: "Remember: the release is just as important as the squeeze. Full relaxation between each rep.", accent: "rose" });
+          const cards = rawCards;
           const totalCards = cards.length;
           const clampedStep = Math.min(instrStep, totalCards - 1);
 
@@ -2560,13 +2580,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 {/* Step label + dots */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px" }}>
                   <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted }}>
-                    {rawSteps.length > 0 ? `Step ${clampedStep + 1} of ${totalCards}` : "Coaching cue"}
+                    {cards[clampedStep]?.accent ? "Important note" : rawSteps.length > 0 ? `Step ${clampedStep + 1} of ${totalCards}` : "Coaching cue"}
                   </span>
                   {totalCards > 1 && (
                     <div style={{ display: "flex", gap: 6 }}>
-                      {cards.map((_, i) => (
-                        <div key={i} onClick={() => setInstrStep(i)} style={{ width: 8, height: 8, borderRadius: "50%", background: i === clampedStep ? C.emerald : "rgba(255,255,255,0.15)", transition: "background 0.25s", cursor: "pointer" }} />
-                      ))}
+                      {cards.map((card, i) => {
+                        const dotColor = i === clampedStep
+                          ? (card.accent === "amber" ? "#f59e0b" : card.accent === "rose" ? "#f43f5e" : C.emerald)
+                          : "rgba(255,255,255,0.15)";
+                        return <div key={i} onClick={() => setInstrStep(i)} style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.25s", cursor: "pointer" }} />;
+                      })}
                     </div>
                   )}
                 </div>
@@ -2583,13 +2606,20 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                   onMouseLeave={onMouseUp}
                 >
                   <div style={{ display: "flex", transform: `translateX(calc(-${clampedStep * 100}% + ${dragOffset}px))`, transition: isDragging ? "none" : "transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
-                    {cards.map((card, i) => (
-                      <div key={i} style={{ minWidth: "100%", flexShrink: 0 }}>
-                        <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "28px 24px", minHeight: 140, display: "flex", alignItems: "center" }}>
-                          <p style={{ fontSize: 18, fontWeight: 700, color: C.text, lineHeight: 1.6, margin: 0 }}>{card}</p>
+                    {cards.map((card, i) => {
+                      const isAmber = card.accent === "amber";
+                      const isRose = card.accent === "rose";
+                      const cardBg = isAmber ? "rgba(245,158,11,0.08)" : isRose ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.06)";
+                      const cardBorder = isAmber ? "rgba(245,158,11,0.3)" : isRose ? "rgba(244,63,94,0.3)" : "rgba(255,255,255,0.1)";
+                      const cardColor = isAmber ? "#f59e0b" : isRose ? "#f43f5e" : C.text;
+                      return (
+                        <div key={i} style={{ minWidth: "100%", flexShrink: 0 }}>
+                          <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: "28px 24px", minHeight: 140, display: "flex", alignItems: "center" }}>
+                            <p style={{ fontSize: 18, fontWeight: 700, color: cardColor, lineHeight: 1.6, margin: 0 }}>{card.text}</p>
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
 
@@ -2776,7 +2806,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                   onClick={handleOpenAlternatives}
                   style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
                 >
-                  Show alternatives
+                  {isPregnancyMode ? "This doesn't feel right" : "Show alternatives"}
                 </button>
                 <button
                   onClick={() => handleSetDone(repCount)}
@@ -2807,6 +2837,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
               <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
                 Set {currentSet - 1} of {totalSets} complete ✓
               </div>
+
+              {/* Breathing reminder (pregnancy/postnatal only, auto-dismisses in 3s) */}
+              {showBreathingReminder && (
+                <div style={{ width: "100%", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <p style={{ margin: 0, fontSize: 14, color: "#f59e0b", lineHeight: 1.5, fontWeight: 600 }}>
+                    Take a breath — inhale through nose, sigh out through mouth.
+                  </p>
+                  <button onClick={() => { clearTimeout(breathingTimerRef.current); setShowBreathingReminder(false); }} style={{ background: "none", border: "none", color: "#f59e0b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
+                </div>
+              )}
 
               <div style={{ fontSize: 11, fontWeight: 900, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase" }}>REST</div>
 
