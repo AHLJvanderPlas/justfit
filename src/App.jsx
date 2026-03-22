@@ -5017,6 +5017,16 @@ export default function App() {
       .then((h) => {
         setHistory(h);
         setIsLoadingHistory(false);
+        // Reconcile: if no executions exist for today, clear completed state
+        const hasToday = h.some((ex) => ex.date === today);
+        if (!hasToday) {
+          setTodayCompleted(false);
+          setCompletedSession(null);
+          localStorage.removeItem(`jf_completed_${today}`);
+          localStorage.removeItem(`jf_completed_session_${today}`);
+          setBonusDone(false);
+          localStorage.removeItem(`jf_bonus_${today}`);
+        }
       })
       .catch(() => setIsLoadingHistory(false));
   }, [userId, onboardingReady]);
