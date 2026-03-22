@@ -1,3 +1,44 @@
+# Standing Instructions — Always Follow
+
+These rules apply to EVERY task in EVERY session, without exception.
+
+## After every change
+- Always run `git add . && git commit -m "..." && git push` after completing each task
+- Never leave uncommitted changes
+- Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
+
+## After every session
+- Update `CLAUDE.md` to reflect any new features built, bugs fixed, or status changes
+- Update `README.md` with any new setup steps, environment variables, or architectural changes
+- Update the "Current Build Status" table in `CLAUDE.md` — mark completed items ✅, new items ⬜
+
+## Before starting any task
+- Read `CLAUDE.md` fully if it has been updated since last read
+- Check `wrangler.toml` does NOT contain `account_id` — remove it if present
+- Never hardcode secrets — always use `env.VARIABLE_NAME` from Cloudflare environment
+
+## Code quality rules
+- Pages Functions are plain `.js` files — no TypeScript, no npm imports, no bundler
+- All styles in `src/App.jsx` are inline using the `C.` design token object
+- Never add `account_id` to `wrangler.toml`
+- Always use `env.DB.batch([...])` for multiple D1 inserts, never sequential awaits in a loop
+- All D1 timestamps are milliseconds: `Date.now()` — column suffix `_at_ms`
+- All D1 primary keys are UUIDs: `crypto.randomUUID()`
+
+## Design rules
+- Background: #020617, accent: #10b981 emerald, cards: rgba(255,255,255,0.04)
+- Border radius: 28px for cards, 14px for inputs, 16px for buttons
+- All styles inline — no Tailwind, no CSS modules, no external stylesheets
+- Typography: font-weight 900 for headings, 700 for labels, 500 for body
+- Never use Inter, Roboto, or Arial — use system font stack
+
+## Testing before push
+- Run `npm run build` locally and confirm it succeeds before pushing
+- Check the browser console for errors after deploy
+- Verify the specific feature works end-to-end before moving to next task
+
+---
+
 # JustFit.cc — Claude Code Project Context
 
 ## What this project is
