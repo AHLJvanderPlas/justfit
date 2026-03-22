@@ -5100,12 +5100,25 @@ export default function App() {
 
   const handleDeleteExecution = useCallback(
     async (executionId) => {
+      const targetExec = history.find((h) => h.id === executionId);
+      const isToday = targetExec?.date === today;
       setHistory((prev) => prev.filter((h) => h.id !== executionId));
       await api.deleteExecution(executionId, userId);
       const newScore = await api.getScore(userId);
       setScore(newScore);
+      if (isToday) {
+        const remainingToday = history.filter((h) => h.id !== executionId && h.date === today);
+        if (remainingToday.length === 0) {
+          setTodayCompleted(false);
+          setCompletedSession(null);
+          localStorage.removeItem(`jf_completed_${today}`);
+          localStorage.removeItem(`jf_completed_session_${today}`);
+          setBonusDone(false);
+          localStorage.removeItem(`jf_bonus_${today}`);
+        }
+      }
     },
-    [userId],
+    [userId, history, today],
   );
 
   const handleBonusSelect = useCallback(
@@ -5119,6 +5132,8 @@ export default function App() {
         setInBonusWorkout(true);
       } catch (e) {
         console.error("Bonus plan failed:", e);
+        setActivityToast("Couldn't generate bonus session — try again");
+        setTimeout(() => setActivityToast(""), 3000);
       } finally {
         setIsGenerating(false);
       }
