@@ -1464,6 +1464,130 @@ function BonusMinutePicker({ onSelect, onClose }) {
   );
 }
 
+// ─── PREGNANCY PROGRESS BANNER ───────────────────────────────────────────────
+const PREGNANCY_MILESTONES = [
+  { week: 4,  msg: "Week 4 · Your baby is the size of a poppy seed. Movement is good — keep it gentle." },
+  { week: 8,  msg: "Week 8 · First trimester well underway. Listen to your body — rest counts too." },
+  { week: 13, msg: "Week 13 · Welcome to the second trimester. Energy often improves from here." },
+  { week: 16, msg: "Week 16 · Time to move away from exercises lying flat on your back." },
+  { week: 20, msg: "Week 20 · Halfway there. Your sessions are adapting with you." },
+  { week: 24, msg: "Week 24 · Pelvic floor work pays dividends now and after birth." },
+  { week: 28, msg: "Week 28 · Third trimester begins. Slower and steadier — you're doing brilliantly." },
+  { week: 32, msg: "Week 32 · Breathlessness is normal. Short breaks are part of the session." },
+  { week: 36, msg: "Week 36 · Practise your labour breathing — it's the most useful thing now." },
+  { week: 40, msg: "Week 40 · Due any day. Movement can help — rest when you need to." },
+];
+
+const POSTNATAL_MILESTONES = [
+  { day: 3,   msg: "Day 3 · Rest and pelvic floor breathing. That's everything right now." },
+  { day: 7,   msg: "Week 1 · Gentle heel slides and pelvic tilts are a great start." },
+  { day: 14,  msg: "Week 2 · Your body is healing quietly. Every breath counts." },
+  { day: 42,  msg: "Week 6 · Time to check in with your midwife or GP about exercise clearance." },
+  { day: 84,  msg: "Week 12 · Core rebuilding is underway. Take it one week at a time." },
+  { day: 140, msg: "Week 20 · Great progress. Strength is returning." },
+  { day: 182, msg: "Week 26 · You're in the returning phase. Full programme available when you're ready." },
+];
+
+function PregnancyProgressBanner({ cycle }) {
+  const [dismissed, setDismissed] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem("jf_milestone_dismissed") || "{}"); } catch { return {}; }
+  });
+
+  if (!cycle) return null;
+  const mode = cycle.mode ?? "standard";
+
+  if (mode === "pregnant") {
+    const week = cycle.pregnancy_week;
+    const trimester = cycle.trimester;
+    if (!week) return null;
+
+    // Find current milestone
+    const milestone = [...PREGNANCY_MILESTONES].reverse().find(m => week >= m.week);
+    const milestoneKey = milestone ? `p_w${milestone.week}` : null;
+    const showMilestone = milestone && !dismissed[milestoneKey];
+
+    const pct = Math.min(100, Math.round((week / 40) * 100));
+    const T_COLORS = { 1: "#10b981", 2: "#fbbf24", 3: "#f97316" };
+    const barColor = T_COLORS[trimester] ?? "#fbbf24";
+
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.18)", borderRadius: 16, padding: "14px 16px" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24" }}>Week {week} of your pregnancy</div>
+            <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)", fontWeight: 700 }}>Trimester {trimester}</div>
+          </div>
+          <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 999, overflow: "hidden" }}>
+            <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 999, transition: "width 0.5s" }} />
+          </div>
+          {showMilestone && (
+            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{milestone.msg}</div>
+              <button
+                onClick={() => {
+                  const updated = { ...dismissed, [milestoneKey]: true };
+                  setDismissed(updated);
+                  localStorage.setItem("jf_milestone_dismissed", JSON.stringify(updated));
+                }}
+                style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "2px 0", flexShrink: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (mode === "postnatal") {
+    const birthDate = cycle.postnatal_birth_date;
+    if (!birthDate) return null;
+    const daysSince = Math.floor((new Date() - new Date(birthDate)) / (1000 * 60 * 60 * 24));
+    const postnatalPhase = cycle.postnatal_phase;
+
+    const milestone = [...POSTNATAL_MILESTONES].reverse().find(m => daysSince >= m.day);
+    const milestoneKey = milestone ? `pn_d${milestone.day}` : null;
+    const showMilestone = milestone && !dismissed[milestoneKey];
+
+    const PHASE_LABELS_PN = {
+      immediate: "Immediate recovery",
+      early: "Early recovery",
+      rebuilding: "Rebuilding",
+      strengthening: "Strengthening",
+      returning: "Returning to fitness",
+    };
+
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 16, padding: "14px 16px" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 3 }}>
+            {PHASE_LABELS_PN[postnatalPhase] ?? "Postnatal recovery"}
+          </div>
+          <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)" }}>Day {daysSince} after birth</div>
+          {showMilestone && (
+            <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
+              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{milestone.msg}</div>
+              <button
+                onClick={() => {
+                  const updated = { ...dismissed, [milestoneKey]: true };
+                  setDismissed(updated);
+                  localStorage.setItem("jf_milestone_dismissed", JSON.stringify(updated));
+                }}
+                style={{ fontSize: 11, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "2px 0", flexShrink: 0 }}
+              >
+                ✕
+              </button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  return null;
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot }) {
   const intensityColor = {
@@ -3968,19 +4092,22 @@ export default function App() {
         ) : (
           <>
             {view === "today" && (
-              <Dashboard
-                plan={plan}
-                score={score}
-                prevScore={prevScore}
-                onStartWorkout={() => setInWorkout(true)}
-                isGenerating={isGenerating}
-                todayCompleted={todayCompleted}
-                completedSession={completedSession}
-                bonusDone={bonusDone}
-                onLogActivity={() => setShowLogActivity(true)}
-                onBonusSession={() => setShowBonusPicker(true)}
-                onWhyNot={() => setShowWhyNot(true)}
-              />
+              <>
+                <PregnancyProgressBanner cycle={prefs.cycle} />
+                <Dashboard
+                  plan={plan}
+                  score={score}
+                  prevScore={prevScore}
+                  onStartWorkout={() => setInWorkout(true)}
+                  isGenerating={isGenerating}
+                  todayCompleted={todayCompleted}
+                  completedSession={completedSession}
+                  bonusDone={bonusDone}
+                  onLogActivity={() => setShowLogActivity(true)}
+                  onBonusSession={() => setShowBonusPicker(true)}
+                  onWhyNot={() => setShowWhyNot(true)}
+                />
+              </>
             )}
             {view === "plan" && (
               <PlanWeekView history={history} />
