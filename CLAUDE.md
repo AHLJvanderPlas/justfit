@@ -82,6 +82,7 @@ justfit/
 │   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
 │   └── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
+├── WORKOUT_EXECUTION_UX.md  ← full coaching interface spec (all 10 steps implemented)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -125,18 +126,54 @@ plan_json TEXT (JSON: session_name, slot_type, intensity, steps[], rule_trace[])
 generated_by TEXT, engine_version TEXT, seed TEXT, created_at_ms INT, updated_at_ms INT
 ```
 
+Each step in `steps[]` contains:
+```javascript
+{
+  exercise_id, exercise_slug, name, category,
+  tags_json,            // "[\"strength\",\"bodyweight\",...]" — used for rest calc and coaching
+  target_reps,          // null for time-based
+  target_duration_sec,  // null for rep-based
+  sets,
+  rest_sec,             // pre-computed by getDefaultRest() in plan.js
+  instructions_json,    // "{steps:[], cues:[], pregnancy_note?, postnatal_note?}" or null
+  alternatives_json,    // "{substitutions:[\"slug1\",\"slug2\"]}" or null
+  gif_url,              // optional
+}
+```
+
 **executions** — completed workouts
 ```sql
 id TEXT PK, user_id TEXT, date TEXT, day_plan_id TEXT,
 execution_type TEXT, status TEXT, total_duration_sec INT,
-perceived_exertion INT, created_at_ms INT, updated_at_ms INT
+perceived_exertion INT,   ← 3 (too easy) / 5 (just right) / 8 (too hard) / NULL (skipped rating)
+created_at_ms INT, updated_at_ms INT
 ```
 
 **execution_steps** — per-exercise detail within a workout
 ```sql
 id TEXT PK, execution_id TEXT FK→executions(id), step_index INT,
 step_type TEXT, exercise_id TEXT FK→exercises(id),
-prescribed_json TEXT, actual_json TEXT, created_at_ms INT, updated_at_ms INT
+prescribed_json TEXT,   ← {sets, reps, duration_sec, rest_sec}
+actual_json TEXT,       ← see rich actual_json structure below
+created_at_ms INT, updated_at_ms INT
+```
+
+**Rich `actual_json` structure** (stored per execution_step):
+```javascript
+{
+  sets_completed: 3,
+  reps_per_set: [10, 9, 8],         // actual reps per set (or seconds for time-based)
+  rest_taken_seconds: [63, 41],     // wall-clock rest elapsed per rest period
+  target_adjusted: true,            // whether user changed the target
+  target_original: 10,              // prescribed value
+  target_final: 8,                  // after user adjustments
+  adjustment_direction: "down",     // "up" | "down"
+  exercise_substituted: false,      // whether an alternative was chosen
+  original_exercise_id: null,
+  substitute_exercise_id: null,
+  skipped: false,                   // whether exercise was skipped entirely
+  completed_at_ms: 1767830400000,   // Date.now() when exercise was finished
+}
 ```
 
 **exercises** — ~150 exercises seeded (migrations 0001–0010)
@@ -148,12 +185,15 @@ tags_json TEXT,               ← ["strength","bodyweight","no_floor","low_impac
                                   "breathing","supine","prone","crunch","valsalva","high_impact","inversion",...]
 equipment_required_json TEXT, ← ["none"] or ["dumbbell"] etc
 equipment_advised_json TEXT,  ← optional advisory equipment (migration 0010)
-instructions_json TEXT,       ← {steps:[], cues:[]}
+instructions_json TEXT,       ← {steps:[], cues:[], pregnancy_note?: string, postnatal_note?: string}
 metrics_json TEXT,            ← {supports:["reps","sets","time",...]}
 alternatives_json TEXT,       ← {substitutions:["slug1","slug2"]}
 is_active INT, created_at_ms INT, updated_at_ms INT
 ```
-Note: `pelvic_floor` is a TAG (used for planner filtering), not a category. Pelvic floor exercises use category `'mobility'`.
+Notes:
+- `pelvic_floor` is a TAG (used for planner filtering), not a category. Pelvic floor exercises use category `'mobility'`.
+- `instructions_json.pregnancy_note` — shown in instruction card for pregnant users (amber accent)
+- `instructions_json.postnatal_note` — shown in instruction card for postnatal users (rose accent)
 
 **awards** — 12 seeded awards
 ```sql
@@ -292,13 +332,17 @@ const C = {
 };
 ```
 
+Pregnancy/postnatal accent colours (not in C, used inline):
+- Amber: `#f59e0b` / `rgba(245,158,11,0.08)` / `rgba(245,158,11,0.3)`
+- Rose: `#f43f5e` / `rgba(244,63,94,0.08)` / `rgba(244,63,94,0.3)`
+
 ### Views (internal state, no router)
 - `today` — Dashboard with consistency score + today's session card
 - `history` — List of past executions from API
 - `awards` — Hall of Fame, 6 awards shown
 - `settings` — Subscription toggle, app preferences, logout
 
-### Key state
+### Key app-level state
 ```javascript
 userId        // from localStorage 'jf_user_id'
 token         // from localStorage 'jf_token'
@@ -307,16 +351,108 @@ score         // consistency score integer 0-100
 history       // array of execution objects
 isGenerating  // bool — plan generation in progress
 showCheckIn   // bool — check-in modal visible
-inWorkout     // bool — workout execution view active
+inWorkout     // bool — workout execution view (WorkoutView overlay) active
+cycle         // cycle_profile object {mode, ...} from /api/profile
 ```
 
-### API calls (all in `api` object)
+### API calls (all in `api` object at top of App.jsx)
 ```javascript
-api.generatePlan(userId, date, checkin)  // POST /api/plan
-api.getScore(userId)                     // GET /api/score
-api.saveExecution(userId, planId, date, steps, durationSec)  // POST /api/execution
-api.getHistory(userId)                   // GET /api/execution
+api.generatePlan(userId, date, checkin)
+  // POST /api/plan → returns day_plan object
+
+api.getScore(userId)
+  // GET /api/score → returns integer 0-100
+
+api.saveExecution(userId, planId, date, steps, durationSec, perceivedExertion)
+  // POST /api/execution
+  // steps: stepsActualRef.current from WorkoutView (each has exercise_id, prescribed{}, actual{})
+  // perceivedExertion: 3|5|8|null
+  // → returns { ok: true }
+
+api.getHistory(userId)
+  // GET /api/execution → returns array of execution objects
+
+api.getExercisesBySlugs(slugs)
+  // GET /api/exercises, filters client-side by slug array
+  // Used by WorkoutView to load alternative exercises
+  // → returns array of exercise objects
 ```
+
+### handleComplete / handleBonusComplete (app-level callbacks)
+
+```javascript
+const handleComplete = async (durationSec, perceivedExertion, stepsActual) => {
+  const mergedSteps = stepsActual ?? plan?.steps ?? [];
+  await api.saveExecution(userId, plan?.id, today, mergedSteps, durationSec, perceivedExertion);
+  // refreshes score + history, marks today completed
+};
+```
+
+WorkoutView calls `onComplete(durationSec, perceivedExertion, stepsActualRef.current)`.
+
+---
+
+## WorkoutView — Coaching Interface
+
+`WorkoutView` is a full-screen fixed overlay rendered when `inWorkout === true`.
+
+```javascript
+function WorkoutView({ plan, onComplete, onBack, cycle })
+```
+
+### Phase state machine
+
+```
+"instruction" → "working" → "resting" → (loop per set)
+                                       ↓ (after last set)
+                              "exerciseComplete" → (auto-advance 2s)
+                                                 ↓ (after last exercise)
+                              "sessionFeedback"  → onComplete(...)
+```
+
+Special:
+- `"restDay"` — when `plan.slot_type === 'rest'` or no exercises
+- Exercise overrides: `const cur = exerciseOverrides[exIdx] ?? exercises[exIdx]`
+
+### Key state variables in WorkoutView
+
+See `WORKOUT_EXECUTION_UX.md` section 11 for full list. Key ones:
+
+```javascript
+const [phase, setPhase] = useState("instruction" | "working" | "resting" | "exerciseComplete" | "sessionFeedback" | "restDay");
+const [exerciseOverrides, setExerciseOverrides] = useState({}); // {[exIdx]: replacementExercise}
+const stepsActualRef = useRef([...]);  // rich actual_json per exercise, not state
+const restStartedAtRef = useRef(0);   // Date.now() when rest began, for rest_taken_seconds
+const timerTotalRef = useRef(0);      // total timer duration when Start pressed
+```
+
+### Pregnancy/postnatal flag
+
+```javascript
+const bodyMode = cycle?.mode ?? "standard";
+const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
+```
+
+`isPregnancyMode` drives:
+- Rest +15s (`getRestDuration` adds 15 to base)
+- Breathing reminder after each set (amber card, 3s auto-dismiss)
+- `pregnancy_note`/`postnatal_note` as first instruction card (amber/rose accent)
+- Pelvic floor coaching card for postnatal + `pelvic_floor` tag exercises
+- "This doesn't feel right" instead of "Show alternatives" on action bar
+
+### Wake Lock
+
+Acquired on active phases (`instruction`, `working`, `resting`, `exerciseComplete`),
+re-acquired on `visibilitychange`, released on inactive phases and unmount.
+Falls back to amber banner when `navigator.wakeLock` unavailable.
+
+### Instruction card accent system
+
+Cards are objects `{ text: string, accent: null | "amber" | "rose" }`.
+- `pregnancy_note` → amber, prepended as first card (pregnant users)
+- `postnatal_note` → rose, prepended as first card (postnatal users)
+- Pelvic floor coaching → rose, appended as last card (postnatal users)
+- Standard steps → no accent
 
 ---
 
@@ -328,6 +464,39 @@ Signature: `runPlanner(date, checkIn, exercises, prefs, templates, completedIds,
 Returns: `{ date, slot_type, intensity, session_name, steps[], rule_trace[], pregnancy_week, trimester, postnatal_phase }`
 
 `onRequestPost` fetches `cycle_profile` from D1 and builds `pregnancyContext` before calling `runPlanner`.
+
+### `getDefaultRest(exercise, slotType)` helper
+
+```javascript
+function getDefaultRest(exercise, slotType) {
+  const tags = JSON.parse(exercise?.tags_json || '[]');
+  if (slotType === 'micro') return 20;
+  if (tags.includes('pelvic_floor')) return 30;
+  if (tags.includes('mobility')) return 20;
+  if (tags.includes('cardio')) return 30;
+  if (tags.includes('bodyweight')) return 45;
+  return 60;
+}
+```
+
+Returns `rest_sec` stored on each plan step. The client-side `getRestDuration()` in WorkoutView
+adds +15s for pregnancy/postnatal on top of this.
+
+### Each plan step object returned
+
+```javascript
+{
+  exercise_id, exercise_slug, name, category,
+  tags_json,            // raw JSON string from DB
+  target_reps,          // null for time-based exercises
+  target_duration_sec,  // null for rep-based exercises
+  sets,
+  rest_sec,             // from getDefaultRest()
+  instructions_json,    // raw JSON string or null
+  alternatives_json,    // raw JSON string or null
+  gif_url,              // or null
+}
+```
 
 ### Standard cycle rules (only fire when mode = 'standard')
 | Rule | Trigger | Effect |
@@ -425,6 +594,7 @@ Calculated server-side from executions table:
 | PWA manifest | ✅ Live — manifest.json, theme-color, apple-mobile-web-app tags |
 | Pregnancy mode | ✅ Live — setup in Settings, planner rules R530–R537, progress banner, check-in signals |
 | Postnatal mode | ✅ Live — phase detection, planner rules R540–R544, phase banner, check-in signals |
+| Workout execution coaching UX | ✅ Live — phase state machine, instruction cards, rep tap zone, rest timer, difficulty override, alternatives, perceived exertion, Wake Lock, rich actual_json, pregnancy/postnatal adaptations |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
@@ -446,6 +616,9 @@ None currently. 🟢
 - **Error responses**: always `Response.json({ error: e.message }, { status: 500 })`
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
 - **Deploy**: `git push` only — never use `wrangler pages deploy` manually
+- **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
+- **Refs vs state for tracking**: mutable data that doesn't need to trigger re-renders (e.g. `stepsActualRef`, `restStartedAtRef`) goes in `useRef`. UI state goes in `useState`.
+- **Functional setState for counters**: use `setCurrentSet(s => s + 1)` not `setCurrentSet(currentSet + 1)` inside effects/callbacks to avoid stale closure issues.
 
 ---
 
@@ -460,6 +633,8 @@ The full product spec is v1.5.0 (Golden Master Design). Key decisions:
 - EU liability waiver required on first signup
 - Target exercise library: ~150 exercises
 - Planner is a pure function — never writes to DB directly
+
+The coaching execution UX spec is in `WORKOUT_EXECUTION_UX.md`.
 
 ---
 
@@ -479,8 +654,14 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 git add . && git commit -m "feat: ..." && git push
 
 # Check recent executions
-npx wrangler d1 execute justfit-db --remote --command "SELECT id, user_id, date, execution_type FROM executions ORDER BY created_at_ms DESC LIMIT 10;"
+npx wrangler d1 execute justfit-db --remote --command "SELECT id, user_id, date, perceived_exertion, total_duration_sec FROM executions ORDER BY created_at_ms DESC LIMIT 10;"
+
+# Check execution_steps actual_json for a given execution
+npx wrangler d1 execute justfit-db --remote --command "SELECT step_index, exercise_id, actual_json FROM execution_steps WHERE execution_id='<id>';"
 
 # Check users
 npx wrangler d1 execute justfit-db --remote --command "SELECT id, primary_email, status, created_at_ms FROM users ORDER BY created_at_ms DESC LIMIT 10;"
+
+# Check exercises with instructions
+npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instructions_json FROM exercises WHERE instructions_json IS NOT NULL LIMIT 5;"
 ```

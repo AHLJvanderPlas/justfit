@@ -1,5 +1,5 @@
-# Workout Execution UX — Spec for Claude Code
-# Step-by-step coaching, rep confirmation, rest timers, difficulty override
+# Workout Execution UX — Coaching Interface
+# ✅ FULLY IMPLEMENTED (all 10 steps complete, as of 2026-03-22)
 
 ## Philosophy
 
@@ -13,7 +13,30 @@ must work with one thumb, in 2 seconds, at a glance.
 
 ---
 
-## 1. Workout execution screen — complete redesign
+## 1. Workout execution screen — complete redesign ✅
+
+### Phase state machine
+
+`WorkoutView` is a full-screen overlay (`position: fixed, inset: 0, zIndex: 50`) driven by a single `phase` variable:
+
+```
+"instruction" → "working" → "resting" → (repeat per set) → "exerciseComplete" → (next exercise) → "sessionFeedback"
+```
+
+Special phases:
+- `"restDay"` — shown when `plan.slot_type === 'rest'` or no exercises
+- `"exerciseComplete"` — 2-second auto-advance between exercises
+
+### WorkoutView props
+
+```javascript
+function WorkoutView({ plan, onComplete, onBack, cycle })
+```
+
+- `plan` — day_plan object with `steps[]`, `slot_type`, `session_name`, `id`
+- `onComplete(durationSec, perceivedExertion, stepsActual)` — called when session finishes
+- `onBack()` — cancels workout, returns to Today screen
+- `cycle` — cycle_profile object; `cycle.mode` drives pregnancy/postnatal adaptations
 
 ### Screen layout (single exercise, full screen)
 
@@ -21,343 +44,200 @@ must work with one thumb, in 2 seconds, at a glance.
 ┌─────────────────────────────────────────────────────┐
 │  ← Cancel          Push-up          Set 2 of 3      │  ← header
 ├─────────────────────────────────────────────────────┤
+│  [amber wake lock banner, only if API unavailable]  │
+├─────────────────────────────────────────────────────┤
+│  [thin progress bar — full session progress]        │
+├─────────────────────────────────────────────────────┤
 │                                                     │
-│  ╔═══════════════════════════════════════════════╗  │
-│  ║  INSTRUCTION CARD (swipeable)                ║  │
-│  ║                                               ║  │
-│  ║  Step 2 of 4                                 ║  │
-│  ║                                               ║  │
-│  ║  "Lower chest to the floor                   ║  │
-│  ║   with control. Elbows                        ║  │
-│  ║   30–45° from your torso."                   ║  │
-│  ║                                               ║  │
-│  ║  ● ● ○ ○  ← step dots                       ║  │
-│  ╚═══════════════════════════════════════════════╝  │
+│  [phase-specific content — see below]               │
 │                                                     │
-│         Target: 10 reps   ░░░░░░░░░░░░░░           │
-│                  Done: ● ● ● ○ ○ ○ ○ ○ ○ ○         │  ← rep dots
-│                                                     │
-│  [  −  ]  [  10 reps  ]  [  +  ]                   │  ← difficulty
-│                                                     │
-│  ┌───────────────────────────────────────────────┐  │
-│  │                                               │  │
-│  │           TAP TO COUNT REP                   │  │  ← big tap zone
-│  │                                               │  │
-│  │              4 / 10                           │  │
-│  │                                               │  │
-│  └───────────────────────────────────────────────┘  │
-│                                                     │
-│  [Skip exercise]              [Finish set early]    │
 └─────────────────────────────────────────────────────┘
 ```
 
-### After each rep is tapped:
-- Rep dot fills: ○ → ●
-- Subtle haptic (if available): `navigator.vibrate(30)`
-- Rep count increments
-- Small emerald flash on the tap zone
-
-### After last rep of a set:
-- Transition to REST screen (see below)
-
-### After last rep of last set:
-- Transition to SET COMPLETE → next exercise
-
 ---
 
-## 2. Instruction card — swipeable steps
+## 2. Instruction card — swipeable steps ✅
 
-### Behaviour
-- Shows steps from `instructions_json.steps[]`
-- 1 step per card, swipeable left/right
-- Auto-shows step 1 when exercise begins
-- User can swipe through at their own pace
-- Step dots show position (● ● ○ ○)
-- Cues from `instructions_json.cues[]` shown below the steps
-  in smaller muted text — always visible regardless of which step
+### Implementation
 
-### Instruction card design
-
-```
-╔═══════════════════════════════════════════════╗
-║  Step 1 of 4                   ○ ● ○ ○       ║
-║                                               ║
-║  "Start in a high plank,                     ║
-║   hands shoulder-width apart."               ║
-║                                               ║
-║  ───────────────────────────────────         ║
-║                                               ║
-║  💡 Ribs down, glutes tight                  ║  ← cue
-║     Neck neutral — don't look up             ║
-╚═══════════════════════════════════════════════╝
-```
-
-Styling:
-- Background: `rgba(255,255,255,0.06)` glassmorphism
-- Border: `1px solid rgba(255,255,255,0.1)`
-- Step text: white, 17px, font-weight 700, line-height 1.5
-- Cues: muted (#64748b), 13px, italic
-- Step indicator dots: emerald when active
-- Swipe gesture: CSS transform with snap, spring animation
-- "Step X of Y" label: small, muted, uppercase
-
-### If no instructions in DB:
-- Show exercise name + generic coaching cue:
-  "Focus on form. Quality over speed. You've got this."
-- Never show an empty card
-
-### Pregnancy note / postnatal note:
-- If `instructions_json.pregnancy_note` exists AND user is pregnant:
-  Show as an additional card at the end with 🤱 icon
-- If `instructions_json.postnatal_note` exists AND user is postnatal:
-  Show as an additional card with 🌸 icon
-
----
-
-## 3. Rep confirmation system
-
-### For rep-based exercises (target_reps is set)
-
-Large tap zone — minimum 280px tall, full width minus 32px padding.
-Cannot be accidentally tapped by scrolling.
+Cards are built from `instructions_json` (parsed JSON from exercise record):
 
 ```javascript
-// Tap zone visual states
-const TAP_STATES = {
-  idle:     { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)',  text: 'TAP TO COUNT REP' },
-  pressed:  { bg: 'rgba(16,185,129,0.25)', border: 'rgba(16,185,129,0.5)',  text: 'COUNTED!' },
-  complete: { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)',  text: 'SET COMPLETE' }
-};
+const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
+const rawSteps = instr?.steps ?? [];   // array of step strings
+const cues    = instr?.cues ?? [];     // always visible below cards
 ```
 
-Rep dots display:
-```
-Done: ● ● ● ● ○ ○ ○ ○ ○ ○
-      (filled)  (empty)
-```
-- Max 10 dots shown regardless of rep count
-  (for 15 reps: dots still show 10, number counts up 11, 12...)
-- On mobile: dots are 12px diameter, 8px gap, centered
+Card objects have shape `{ text: string, accent: null | "amber" | "rose" }`:
+- Standard steps → `{ text: step, accent: null }`
+- `pregnancy_note` (pregnant mode) → `{ text: note, accent: "amber" }` — prepended as **first** card
+- `postnatal_note` (postnatal mode) → `{ text: note, accent: "rose" }` — prepended as **first** card
+- Pelvic floor coaching (postnatal + `pelvic_floor` tag) → rose card **appended** at end:
+  `"Remember: the release is just as important as the squeeze. Full relaxation between each rep."`
+- Fallback when no steps: `{ text: "Focus on form. Quality over speed. You've got this.", accent: null }`
 
-### For time-based exercises (target_duration is set)
+### Card styling by accent
 
-Replace tap zone with:
+| accent | background | border | text colour |
+|---|---|---|---|
+| `null` | `rgba(255,255,255,0.06)` | `rgba(255,255,255,0.1)` | `#f8fafc` |
+| `"amber"` | `rgba(245,158,11,0.08)` | `rgba(245,158,11,0.3)` | `#f59e0b` |
+| `"rose"` | `rgba(244,63,94,0.08)` | `rgba(244,63,94,0.3)` | `#f43f5e` |
 
-```
-┌─────────────────────────────────────────────┐
-│                                             │
-│              00:30                          │  ← countdown
-│                                             │
-│         [▶ Start Timer]                    │
-│   or if running:                           │
-│         [■ Stop]                           │
-│                                             │
-│  Progress bar filling as time passes       │
-└─────────────────────────────────────────────┘
-```
+Step label shows "Important note" for accent cards, "Step N of M" for standard steps.
 
-Timer behaviour:
-- Tap to start
-- Haptic every 10 seconds
-- Final 5 seconds: colour shifts to amber, counts loud
-- At 0: auto-proceed to rest (no tap needed)
-- User can stop early and mark as done
+### Swipe gesture
+
+- `onTouchStart/Move/End` + `onMouseDown/Move/Up/Leave` on wrapper div
+- During drag: `dragOffset = delta × 0.55` (dampened), CSS `transition: none`
+- On release: snap to next/prev if `|delta| > 60px`; CSS spring: `transition: transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1)`
+- Prev/Next buttons below cards (supplemental)
+- Step dots update accent colour to match current card
+
+### Auto-advance
+
+5-second auto-advance from instruction → working phase if user doesn't interact.
+`instrStep` resets to 0 whenever `exIdx` changes (next exercise).
+
+### Cues
+
+`cues[]` displayed below cards at all times, muted italic, 13px, prefixed with 💡.
+
+### "Ready — let's go →" CTA
+
+Full-width emerald button at bottom of instruction phase, advances to working phase immediately.
 
 ---
 
-## 4. Rest countdown screen
+## 3. Rep confirmation system ✅
+
+### Rep-based exercises
+
+Large tap zone — minimum 280px tall, full width minus padding.
+
+Visual states:
+```javascript
+idle:     { bg: 'rgba(16,185,129,0.08)', border: 'rgba(16,185,129,0.2)',  label: 'TAP TO COUNT REP' }
+pressed:  { bg: 'rgba(16,185,129,0.25)', border: 'rgba(16,185,129,0.55)', label: 'COUNTED!' }
+complete: { bg: 'rgba(16,185,129,0.15)', border: 'rgba(16,185,129,0.4)',  label: 'SET COMPLETE' }
+```
+
+On tap:
+- `navigator.vibrate(30)` haptic
+- `tapFlash` state → CSS `@keyframes tapScale` (scale 1→0.96→1, 150ms) + ring pulse (`@keyframes tapRing`)
+- Rep count increments
+- At `repCount >= targetReps`: auto-calls `handleSetDone(next)` after 220ms debounce
+
+Rep dots:
+- Max 10 dots shown (`Math.min(10, targetReps)`)
+- If targetReps > 10 and repCount > 10: shows "+N" overflow label
+- 12px diameter, 8px gap, centered
+
+64px font-weight 900 counter: `{repCount} / {targetReps}`
+
+### Time-based exercises
+
+84px countdown timer, progress bar (fills left to right).
+Colours: emerald → amber at 10s → red at 5s (+ pulse animation).
+- **[▶ Start]** button — 120px circle, starts timer, records `timerTotalRef.current = totalDur`
+- **[■ Done early]** — calls `handleSetDone(totalDur - timerRemaining)` to record actual seconds
+- Natural completion: effect fires at `timerRemaining === 0`, calls `handleSetDone(timerTotalRef.current)`
+
+---
+
+## 4. Rest countdown screen ✅
 
 ### Triggered after: last rep of a set (not the last set)
 
-Full screen takeover, replacing the exercise view:
+Full content area replacement:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                                                     │
-│              Set 2 of 3 complete ✓                 │
-│                                                     │
-│                    REST                             │
-│                                                     │
-│              ┌─────────────────┐                   │
-│              │                 │                   │
-│              │      0:45       │                   │  ← countdown
-│              │                 │                   │
-│              └─────────────────┘                   │
-│                                                     │
-│         [−15s]  [Skip rest]  [+15s]                │  ← adjust
-│                                                     │
-│         Next set: 10 × Push-up                     │
-│                                                     │
-│  ████████████████████░░░░░░░░  ← rest progress     │
-│                                                     │
-└─────────────────────────────────────────────────────┘
+Set 2 of 3 complete ✓
+
+[breathing reminder — pregnancy/postnatal only, 3s, amber]
+
+            REST
+
+           0:45
+
+   [−15s]  [Skip rest]  [+15s]
+
+    Next set: 10 × Push-up
+    ████████████████████░░░░░░░░
 ```
 
-### Rest duration defaults (from spec + exercise science):
+### Rest duration defaults (`getRestDuration` in WorkoutView)
 
 ```javascript
-const DEFAULT_REST = {
-  strength_heavy:   90,  // 3+ sets, compound movement
-  strength_light:   60,  // isolation or bodyweight
-  pelvic_floor:     30,  // between Kegel sets
-  cardio_interval:  30,  // between cardio intervals
-  mobility:         20,  // between stretch holds
-  micro_session:    20,  // always shorter rest in micro
-};
-
-function getDefaultRest(exercise, slotType, sets) {
-  const tags = JSON.parse(exercise.tags_json || '[]');
-  if (slotType === 'micro') return 20;
-  if (tags.includes('pelvic_floor')) return 30;
-  if (tags.includes('mobility')) return 20;
-  if (tags.includes('cardio')) return 30;
-  if (tags.includes('bodyweight') && sets <= 2) return 45;
-  return 60; // default strength
+function getRestDuration(ex) {
+  const tags = JSON.parse(ex?.tags_json || "[]");
+  if (plan?.slot_type === "micro") return 20;
+  if (tags.includes("pelvic_floor")) return 30;
+  if (tags.includes("mobility")) return 20;
+  if (tags.includes("cardio")) return 30;
+  if (tags.includes("bodyweight")) return 45;
+  const base = ex?.rest_sec ?? 60;   // rest_sec comes from plan step (from plan.js getDefaultRest)
+  return isPregnancyMode ? base + 15 : base;  // +15s for pregnant/postnatal
 }
 ```
 
-### Rest controls:
-- `[−15s]` — reduces rest by 15 seconds (minimum 10s)
-- `[+15s]` — increases rest by 15 seconds (maximum 180s)
-- `[Skip rest]` — immediately proceeds to next set
-- Adjustments remembered per-session (not persisted globally)
+`getDefaultRest(exercise, slotType)` in `functions/api/plan.js` applies the same logic server-side
+and stores `rest_sec` on each plan step.
 
-### Rest UI details:
-- Countdown in large format: 84px font-weight 900 emerald
-- Turns amber at 10 seconds remaining
-- Turns red at 5 seconds with gentle pulse animation
-- Haptic at 10s and 5s remaining
-- At 0: automatically transitions to next set
-- "Next set: X × Exercise" — user knows what's coming
-- Between LAST set and next EXERCISE: rest is also shown
-  with "Next: [Exercise Name]" instead of "Next set"
+### Rest controls
+
+- `[−15s]` — `Math.max(10, restRemaining - 15)` and same on `restTotal`
+- `[+15s]` — `Math.min(180, restRemaining + 15)` and same on `restTotal`
+- `[Skip rest]` — records actual rest in `stepsActualRef`, sets phase to "working"
+
+### Rest UI details
+
+- 84px font-weight 900 countdown, `fontVariantNumeric: "tabular-nums"`
+- Colour: emerald → amber at 10s → red at 5s + `@keyframes pulse`
+- Haptic `navigator.vibrate(60)` at exactly 10s and 5s remaining
+- "Next set: N × ExerciseName" (same exercise) or "Next: ExerciseName" (next exercise)
+- Progress bar fills as elapsed time grows
+- At 0: records actual rest, increments set, returns to working phase
+
+### Timing implementation
+
+Rest uses `setTimeout` (not `setInterval`) to avoid stale closure issues:
+```javascript
+useEffect(() => {
+  if (phase !== "resting" || restRemaining <= 0) return;
+  const id = setTimeout(() => setRestRemaining(r => Math.max(0, r - 1)), 1000);
+  return () => clearTimeout(id);
+}, [phase, restRemaining]);
+```
+Separate effect watches `restRemaining === 0` to advance phase.
 
 ---
 
-## 5. Difficulty override
+## 5. Difficulty override ✅
 
-### Inline on exercise screen
+### Inline on working phase screen
 
 ```
 [  −  ]  [  10 reps  ]  [  +  ]
+         "Adjusted to 8 reps"  ← toast (fades after 2s)
 ```
 
-- `[ − ]` — reduces by 2 reps OR increases rest by 15s
-- `[ + ]` — increases by 2 reps OR reduces rest by 15s
-- The current target updates immediately
-- Shows a brief label: "Adjusted to 8 reps" (fades after 2s)
+- Rep-based: `−2` / `+2` reps; bounds: min 1, max 30
+- Time-based: `−10s` / `+10s`; bounds: min 10s, max 300s
+- Stored in `adjustedReps` / `adjustedDuration` state
+- Override applies to all remaining sets (state persists until `exIdx` changes)
+- Label stored in `adjustLabel` state, cleared by `adjustLabelTimerRef` after 2s
 
-### For time-based exercises:
-- `[ − ]` reduces duration by 10 seconds
-- `[ + ]` increases duration by 10 seconds
-
-### Rules for override:
-- Minimum reps: 1 (never zero)
-- Maximum reps: 30 (cap at 30 for safety)
-- Minimum duration: 10 seconds
-- Maximum duration: 300 seconds (5 minutes)
-- Override applies to CURRENT and ALL REMAINING sets
-  (user sets once, it applies consistently)
-
-### Override storage:
-Store in the execution_steps actual_json:
-```json
-{
-  "target_original": 10,
-  "target_adjusted": 8,
-  "adjustment_reason": "user_override",
-  "direction": "down",
-  "reps_completed": 8
-}
-```
-This feeds back to the planner next time — if user consistently
-adjusts down, R512 becomes more aggressive. If consistently up,
-the plan difficulty increases.
-
-### Difficulty feedback after session:
-After the final exercise, before "Complete Session":
-
-```
-How did that feel?
-
-[😰 Too hard]  [😌 Just right]  [💪 Too easy]
-```
-
-Map to perceived_exertion score:
-- Too hard → perceived_exertion = 8
-- Just right → perceived_exertion = 5
-- Too easy → perceived_exertion = 3
-
-Store in executions.perceived_exertion
-This feeds into the planner's difficulty calibration.
+For pregnancy/postnatal: difficulty override is always visible (the row never hides).
 
 ---
 
-## 6. Exercise screen states — full flow
+## 6. Exercise substitution (alternatives) ✅
 
-```
-STATE 1: INSTRUCTION
-Shows swipeable instruction cards.
-Button: [Ready — let's go →]
-(or auto-advances after 5 seconds if user doesn't interact)
+### Bottom sheet
 
-STATE 2: WORKING
-Shows rep tap zone / timer.
-Header shows: Set X of Y
-Rep dots fill as user taps.
-Difficulty controls available.
-
-STATE 3: SET REST
-Shows rest countdown.
-Shows what's coming next.
-Controls: −15s, Skip, +15s
-
-[Repeat STATE 2 → STATE 3 for each set]
-
-STATE 4: EXERCISE COMPLETE
-Brief celebration:
-"Push-up done ✓  3 sets · 10 reps each"
-Auto-advances after 2 seconds (or tap to skip)
-
-[Repeat for each exercise]
-
-STATE 5: SESSION COMPLETE
-Difficulty feedback question
-Then → "Complete Session" button
-```
-
----
-
-## 7. Session header — always visible
-
-```
-┌─────────────────────────────────────────────────────┐
-│  ← Cancel    Push-up (2/5)    ████░░░░░  Set 2/3   │
-└─────────────────────────────────────────────────────┘
-```
-
-- Exercise name + position in session (e.g. "2 of 5 exercises")
-- Overall session progress bar (thin, 4px, full width)
-- Current set indicator
-- Cancel: goes back to Today screen (with confirmation if mid-session)
-
----
-
-## 8. "Can't do this exercise?" flow
-
-Below the tap zone, always visible (small, unobtrusive):
-
-```
-[Skip exercise]          [Show alternatives]
-```
-
-### Skip exercise:
-- Logs step as `skipped: true` in execution_steps
-- Moves to next exercise immediately
-- No rest countdown (they're not tired if they skipped)
-
-### Show alternatives:
-Opens a bottom sheet:
+Slide-up sheet with dark scrim, drag handle at top, smooth slide animation.
+Alternatives fetched by slug from `alternatives_json.substitutions[]` via `api.getExercisesBySlugs()`.
 
 ```
 Alternatives for Push-up
@@ -368,208 +248,354 @@ Alternatives for Push-up
 ● Knee Push-up         Easier — on your knees
   [Try this instead]
 
-● Diamond Push-up      Harder — hands close together
-  [Try this instead]
-
 [Keep original]
 ```
 
-Data from `alternatives_json.substitutions[]` in the exercise record.
-Fetch the alternative exercises from DB by slug.
-Show: name + brief description + difficulty indicator.
+### `api.getExercisesBySlugs(slugs)`
 
-On "Try this instead":
-- Replace current exercise with the alternative for this session only
-- Log: `exercise_substituted: true`, `original_exercise_id`, `substitute_exercise_id`
-- Show the alternative's instruction cards
-- Continue with same sets/reps target
+Fetches `GET /api/exercises`, filters client-side. No slug-based server endpoint exists.
 
----
+### On "Try this instead" (`handleChooseAlternative`)
 
-## 9. Pregnancy & postnatal adaptations to execution screen
+1. Builds `replacement` step preserving `sets`, `target_reps`, `target_duration_sec`, `rest_sec`
+2. Stores in `exerciseOverrides[exIdx]` — `cur = exerciseOverrides[exIdx] ?? exercises[exIdx]`
+3. Resets `stepsActualRef.current[exIdx]` with `exercise_substituted: true`, `original_exercise_id`, `substitute_exercise_id`
+4. Resets `currentSet`, `repCount`, `adjustedReps`, `adjustedDuration`, `instrStep` to 0
+5. Returns to `"instruction"` phase to show the alternative's instruction cards
 
-### Pregnancy mode:
-- Rest timer default +15s longer than standard
-- After each set: show optional breathing reminder
-  "Take a breath — inhale through nose, sigh out through mouth"
-  (dismissable, shown for 3s only)
-- Difficulty override is always visible and prominent
-  (pregnant users should feel empowered to adjust at any time)
-- If exercise has `pregnancy_note`: show as the FIRST instruction card
-  with a soft amber/gold accent instead of white
-- "Can't do this?" is renamed "This doesn't feel right"
-  (softer language for pregnancy)
+### Button label
 
-### Postnatal mode:
-- Same as pregnancy adaptations above
-- For pelvic floor exercises: show a special coaching card:
-  "Remember: the release is just as important as the squeeze.
-   Full relaxation between each rep."
-- If `postnatal_note` exists: show as first instruction card with rose accent
+- Standard mode: "Show alternatives"
+- Pregnancy/postnatal mode: "This doesn't feel right" (softer language)
 
 ---
 
-## 10. Wake Lock implementation
+## 7. Difficulty feedback (perceived exertion) ✅
 
-```javascript
-// Keep screen awake during workout
-let wakeLock = null;
+### Session feedback screen (`phase === "sessionFeedback"`)
 
-async function requestWakeLock() {
-  try {
-    if ('wakeLock' in navigator) {
-      wakeLock = await navigator.wakeLock.request('screen');
-    }
-  } catch (err) {
-    // Not supported or permission denied — show reminder
-    showScreenReminder();
-  }
-}
+Shown after the last set of the last exercise:
 
-function showScreenReminder() {
-  // Small non-intrusive banner at top:
-  // "Keep your screen on during the workout → Settings"
-  // Dismissable, shown once per session
-}
+```
+Session done!
+How did that feel?
 
-// Request wake lock when workout starts
-// Release when workout complete or user leaves screen
-async function releaseWakeLock() {
-  if (wakeLock) {
-    await wakeLock.release();
-    wakeLock = null;
-  }
-}
+[😰 Too hard]  [😌 Just right]  [💪 Too easy]
 
-// Re-acquire on visibility change (tab back to foreground)
-document.addEventListener('visibilitychange', async () => {
-  if (wakeLock !== null && document.visibilityState === 'visible') {
-    await requestWakeLock();
-  }
-});
+Skip rating
 ```
 
+Mapping:
+- 😰 Too hard → `perceived_exertion = 8`
+- 😌 Just right → `perceived_exertion = 5`
+- 💪 Too easy → `perceived_exertion = 3`
+- Skip rating → `perceived_exertion = null`
+
+### Data chain
+
+```
+handleFinishSession(perceivedExertion)
+  → durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000)
+  → onComplete(durationSec, perceivedExertion, stepsActualRef.current)
+    → api.saveExecution(userId, planId, date, mergedSteps, durationSec, perceivedExertion)
+      → POST /api/execution { perceived_exertion: N | null, ... }
+        → stored in executions.perceived_exertion (INT)
+```
+
+`perceived_exertion` feeds the consistency score resilience bonus (low PE sessions = resilience).
+
 ---
 
-## 11. Data stored per execution step
+## 8. Wake Lock API ✅
+
+### Implementation
 
 ```javascript
-// execution_steps record for each exercise attempt
+const wakeLockRef = useRef(null);
+const [wakeLockDenied, setWakeLockDenied] = useState(false);
+
+useEffect(() => {
+  const activePhases = ["instruction", "working", "resting", "exerciseComplete"];
+  if (!activePhases.includes(phase)) {
+    // Release when done/feedback/restDay
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+    return;
+  }
+  if (!("wakeLock" in navigator)) { setWakeLockDenied(true); return; }
+  if (wakeLockRef.current) return; // already held
+
+  const acquire = () => {
+    if (wakeLockRef.current) return;
+    navigator.wakeLock.request("screen").then(lock => {
+      wakeLockRef.current = lock;
+      lock.addEventListener("release", () => { wakeLockRef.current = null; });
+    }).catch(() => setWakeLockDenied(true));
+  };
+  acquire();
+
+  // Re-acquire when user tabs back (browser releases on visibility change)
+  const onVisible = () => { if (document.visibilityState === "visible") acquire(); };
+  document.addEventListener("visibilitychange", onVisible);
+  return () => {
+    document.removeEventListener("visibilitychange", onVisible);
+    if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
+  };
+}, [phase]);
+```
+
+### Fallback banner
+
+When `wakeLockDenied === true` and phase is active:
+
+```
+Keep your screen on to avoid interruptions during your workout.
+```
+
+Amber banner (`rgba(245,158,11,0.12)` bg, `rgba(245,158,11,0.25)` border), 12px text.
+Shown below the session header, above the progress bar.
+
+---
+
+## 9. Pregnancy & postnatal adaptations ✅
+
+### Computed flag
+
+```javascript
+const bodyMode = cycle?.mode ?? "standard";
+const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
+```
+
+### Pregnancy mode adaptations
+
+| Feature | Implementation |
+|---|---|
+| Rest +15s | `getRestDuration` adds `isPregnancyMode ? base + 15 : base` |
+| Breathing reminder | `showBreathingReminder` state, shown in resting phase for 3s then auto-dismissed, with amber styling |
+| `pregnancy_note` as first card | Parsed from `instr?.pregnancy_note`, prepended with `accent: "amber"` |
+| Softer alternatives language | "This doesn't feel right" instead of "Show alternatives" |
+
+### Postnatal mode adaptations
+
+Same as pregnancy, plus:
+
+| Feature | Implementation |
+|---|---|
+| `postnatal_note` as first card | `instr?.postnatal_note`, prepended with `accent: "rose"` |
+| Pelvic floor coaching card | If `tags.includes("pelvic_floor")`, rose card appended: "Remember: the release is just as important as the squeeze. Full relaxation between each rep." |
+
+### Breathing reminder detail
+
+```javascript
+// In handleSetDone, when entering rest phase:
+if (isPregnancyMode) {
+  setShowBreathingReminder(true);
+  clearTimeout(breathingTimerRef.current);
+  breathingTimerRef.current = setTimeout(() => setShowBreathingReminder(false), 3000);
+}
+```
+
+Message: `"Take a breath — inhale through nose, sigh out through mouth."`
+Has a dismiss `×` button (dismisses and clears the timer).
+
+---
+
+## 10. Data stored per execution step ✅
+
+### `stepsActualRef` — tracking ref (not state, avoids re-renders)
+
+Initialised from `plan.steps` at mount:
+
+```javascript
+const stepsActualRef = useRef(
+  exercises.map(ex => ({
+    exercise_id: ex.exercise_id,
+    prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec },
+    actual: {
+      sets_completed: 0,
+      reps_per_set: [],           // actual reps per set (or seconds for time-based)
+      rest_taken_seconds: [],     // actual rest elapsed between sets (wall-clock ms / 1000)
+      target_adjusted: false,
+      target_original: null,      // prescribed reps or duration_sec
+      target_final: null,         // after user adjustments
+      adjustment_direction: null, // "up" | "down"
+      exercise_substituted: false,
+      original_exercise_id: null,
+      substitute_exercise_id: null,
+      skipped: false,
+      completed_at_ms: null,
+    },
+  }))
+);
+```
+
+### Write points
+
+| Event | Written to |
+|---|---|
+| Rep tapped / set done | `reps_per_set.push(reps)`, `sets_completed += 1` |
+| Set done with adjustment | `target_adjusted`, `target_original`, `target_final`, `adjustment_direction` set if changed |
+| Last set done | `completed_at_ms = Date.now()` |
+| Rest starts | `restStartedAtRef.current = Date.now()` |
+| Rest ends naturally | `rest_taken_seconds.push(Math.round((Date.now() - restStartedAtRef.current) / 1000))` |
+| Skip rest | Same rest calculation before advancing |
+| Skip exercise | `skipped = true`, `completed_at_ms = Date.now()` |
+| Alternative chosen | Full `actual` object replaced with `exercise_substituted: true`, `original_exercise_id`, `substitute_exercise_id` |
+| Timer starts | `timerTotalRef.current = totalDur` |
+| Timer ends naturally | `handleSetDone(timerTotalRef.current)` — records full duration in `reps_per_set` |
+| Done early (timer) | `handleSetDone(totalDur - timerRemaining)` — records actual seconds |
+
+### What `execution_steps.actual_json` contains
+
+```javascript
 {
-  id: uuid,
   execution_id: uuid,
   step_index: 0,
-  step_type: 'exercise',
+  step_type: "exercise",
   exercise_id: uuid,
-  
+
   prescribed_json: {
     sets: 3,
-    reps: 10,          // or duration_seconds
-    rest_seconds: 60,
-    intensity: 'moderate'
+    reps: 10,           // or duration_sec
+    rest_sec: 60,
   },
-  
+
   actual_json: {
     sets_completed: 3,
-    reps_per_set: [10, 9, 8],      // actual reps per set
-    rest_taken_seconds: [65, 45],  // actual rest between sets
+    reps_per_set: [10, 9, 8],         // actual reps or seconds per set
+    rest_taken_seconds: [63, 41],      // wall-clock rest per rest period
     target_adjusted: true,
     target_original: 10,
-    target_final: 8,               // after user adjustments
-    adjustment_direction: 'down',
+    target_final: 8,
+    adjustment_direction: "down",
     exercise_substituted: false,
     original_exercise_id: null,
     substitute_exercise_id: null,
     skipped: false,
-    duration_seconds: null,        // for time-based
-    completed_at_ms: 1767830400000
+    completed_at_ms: 1767830400000,
   }
 }
 ```
 
 ---
 
-## 12. State management in App.jsx
+## 11. State in WorkoutView
 
-Add to workout state:
+All state is local to `WorkoutView`. No global state store used.
+
+### useState
 
 ```javascript
-const [workoutState, setWorkoutState] = useState({
-  // Current position
-  exerciseIndex: 0,    // which exercise in session
-  currentSet: 1,       // which set of current exercise
-  repCount: 0,         // reps done this set
-  phase: 'instruction', // 'instruction' | 'working' | 'resting' | 'complete'
-  
-  // User adjustments
-  adjustedReps: null,  // null = use plan value
-  adjustedDuration: null,
-  
-  // Tracking
-  setsData: [],        // [{reps_completed, rest_taken}] per set
-  startTime: null,
-  
-  // Rest timer
-  restRemaining: 60,
-  restTotal: 60,
-  restInterval: null,
-});
+const [exIdx, setExIdx] = useState(0);
+const [currentSet, setCurrentSet] = useState(1);
+const [repCount, setRepCount] = useState(0);
+const [phase, setPhase] = useState(
+  !plan || plan.slot_type === "rest" ? "restDay"
+  : totalExercises > 0 ? "instruction"
+  : "sessionFeedback"
+);
+const [restRemaining, setRestRemaining] = useState(60);
+const [restTotal, setRestTotal] = useState(60);
+const [timerRunning, setTimerRunning] = useState(false);
+const [timerRemaining, setTimerRemaining] = useState(0);
+const [adjustedReps, setAdjustedReps] = useState(null);     // null = use plan value
+const [adjustedDuration, setAdjustedDuration] = useState(null);
+const [showCancel, setShowCancel] = useState(false);
+const [tapFlash, setTapFlash] = useState(false);
+const [adjustLabel, setAdjustLabel] = useState("");
+const [showAlternatives, setShowAlternatives] = useState(false);
+const [altExercises, setAltExercises] = useState([]);
+const [altLoading, setAltLoading] = useState(false);
+const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [exIdx]: replacementExercise }
+const [instrStep, setInstrStep] = useState(0);
+const [dragOffset, setDragOffset] = useState(0);
+const [isDragging, setIsDragging] = useState(false);
+const [showBreathingReminder, setShowBreathingReminder] = useState(false);
+const [wakeLockDenied, setWakeLockDenied] = useState(false);
+```
+
+### useRef (no re-renders)
+
+```javascript
+const startTimeRef = useRef(Date.now());       // session start for duration calc
+const touchStartXRef = useRef(0);             // swipe gesture tracking
+const restStartedAtRef = useRef(0);           // ms when rest phase began
+const timerTotalRef = useRef(0);             // total duration when timer starts
+const wakeLockRef = useRef(null);            // WakeLockSentinel
+const adjustLabelTimerRef = useRef(null);    // clearTimeout handle
+const breathingTimerRef = useRef(null);      // clearTimeout handle
+const stepsActualRef = useRef([...]);        // rich actual_json per exercise
+```
+
+### Derived
+
+```javascript
+const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
+const bodyMode = cycle?.mode ?? "standard";
+const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
+const totalSets = cur?.sets ?? 3;
+const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
 ```
 
 ---
 
-## 13. Implementation order
+## 12. CSS keyframes added to global `<style>`
 
-1. Redesign WorkoutView component with phase state machine
-   (instruction → working → resting → exercise complete → next)
-2. Build instruction card with swipe gesture
-3. Build rep tap zone with dot display and haptics
-4. Build rest countdown timer with +/− controls
-5. Build difficulty override controls (−/+ reps or duration)
-6. Build "Show alternatives" bottom sheet
-7. Build difficulty feedback question (too hard / just right / too easy)
-8. Implement Wake Lock API with fallback reminder
-9. Update execution_steps API to store actual_json with full detail
-10. Add pregnancy/postnatal adaptations to execution screen
-11. Test full flow: instruction → rep confirmation → rest → next set → next exercise → complete
+```css
+@keyframes tapScale {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(0.96); }
+  100% { transform: scale(1); }
+}
+@keyframes tapRing {
+  0%   { opacity: 0.7; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.18); }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.5; }
+}
+```
 
-Commit and push after each step.
+---
+
+## 13. Implementation order — ✅ ALL COMPLETE
+
+1. ✅ Redesign WorkoutView component with phase state machine
+2. ✅ Build instruction card with swipe gesture
+3. ✅ Build rep tap zone with dot display and haptics
+4. ✅ Build rest countdown timer with +/− controls
+5. ✅ Build difficulty override controls (−/+ reps or duration)
+6. ✅ Build "Show alternatives" bottom sheet
+7. ✅ Build difficulty feedback question (too hard / just right / too easy) — wired to perceived_exertion
+8. ✅ Implement Wake Lock API with fallback reminder
+9. ✅ Update execution_steps actual_json with full rich tracking per set
+10. ✅ Add pregnancy/postnatal adaptations to execution screen
 
 ---
 
 ## 14. Micro-interactions and feel
 
-The workout screen should feel alive. These small details matter:
-
-- **Rep tap**: emerald flash + subtle scale (1.0 → 0.96 → 1.0 in 150ms)
-- **Set complete**: brief green ring expands from center, fades out (300ms)
-- **Rest start**: smooth slide-up of rest screen (300ms ease-out)
-- **Rest end**: smooth slide-down back to exercise (200ms ease-in)
-- **Instruction swipe**: spring physics (stiffness 300, damping 30)
-- **Difficulty change**: number updates with a subtle bounce
-- **Exercise complete**: checkmark draws itself (SVG path animation, 400ms)
-- **Session complete**: confetti burst (CSS only, 20 particles, 1s)
-
-All animations respect `prefers-reduced-motion`:
-```css
-@media (prefers-reduced-motion: reduce) {
-  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-}
-```
+- **Rep tap**: emerald flash + `tapScale` animation (1.0 → 0.96 → 1.0, 150ms) + `tapRing` pulse
+- **Rest start**: smooth phase transition
+- **Rest countdown colour**: emerald → amber at 10s → red at 5s (CSS `transition: color 0.4s`)
+- **Instruction swipe**: spring physics `cubic-bezier(0.34, 1.4, 0.64, 1)`, dampened drag (×0.55)
+- **Difficulty change**: toast label "Adjusted to N reps" fades after 2s
+- **Exercise complete**: checkmark icon, 2s auto-advance
+- **Breathing reminder**: amber card slides in at rest start, auto-dismisses after 3s
 
 ---
 
-## 15. Font size and touch targets
+## 15. Font sizes and touch targets
 
-These are used during exercise — everything must be readable at arm's
-length and tappable with sweaty fingers:
+All must be readable at arm's length, tappable with sweaty fingers:
 
 - Exercise name: 32px font-weight 900
-- Set counter: 16px font-weight 700
-- Instruction text: 18px font-weight 600 line-height 1.6
-- Cue text: 14px font-weight 500 color muted
-- Rep count display: 64px font-weight 900 (the big number)
+- Set counter label: 13px font-weight 900 uppercase muted
+- Instruction text: 18px font-weight 700 line-height 1.6
+- Cue text: 13px italic color muted
+- Rep count display: 64px font-weight 900
 - Countdown timer: 84px font-weight 900
-- All tap targets: minimum 56px height
+- All action buttons: minimum 48px height
 - Tap zone: minimum 280px height
-- Bottom action buttons: minimum 56px height, full width or 48% each
+- Bottom action bar: fixed bottom, padding-bottom 24px (safe area)
