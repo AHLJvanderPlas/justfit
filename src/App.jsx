@@ -3095,7 +3095,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                       <button
                         onClick={handleRepTapped}
                         disabled={isComplete}
-                        style={{ width: "100%", minHeight: 280, borderRadius: 20, background: tapBg, border: `2px solid ${tapBorder}`, color: C.emerald, cursor: isComplete ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, transition: "background 0.15s, border-color 0.15s", WebkitTapHighlightColor: "transparent", animation: tapFlash ? "tapScale 0.15s ease-out" : "none", outline: "none" }}
+                        style={{ width: "100%", minHeight: 220, borderRadius: 20, background: tapBg, border: `2px solid ${tapBorder}`, color: C.emerald, cursor: isComplete ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, transition: "background 0.15s, border-color 0.15s", WebkitTapHighlightColor: "transparent", animation: tapFlash ? "tapScale 0.15s ease-out" : "none", outline: "none" }}
                       >
                         <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>
                           {tapLabel}
@@ -3110,6 +3110,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                         )}
                       </button>
                     </div>
+
+                    {/* All reps done shortcut */}
+                    {!isComplete && (
+                      <button
+                        onClick={() => handleSetDone(targetReps)}
+                        style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}
+                      >
+                        ✓ All {targetReps} reps done
+                      </button>
+                    )}
                   </div>
                 );
               })()
