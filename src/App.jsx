@@ -1639,6 +1639,27 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 }
 
 // ─── WORKOUT VIEW ─────────────────────────────────────────────────────────────
+// ─── EXERCISE GIF ─────────────────────────────────────────────────────────────
+function ExerciseGif({ gifUrl, name }) {
+  const [loaded, setLoaded] = useState(false);
+  return (
+    <div style={{ position: "relative", width: "100%", maxWidth: 300, margin: "0 auto 24px", borderRadius: 20, overflow: "hidden", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
+      {/* Loading skeleton */}
+      {!loaded && (
+        <div style={{ width: "100%", height: 200, background: "rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 32, height: 32, border: `2px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+        </div>
+      )}
+      <img
+        src={gifUrl}
+        alt={name}
+        onLoad={() => setLoaded(true)}
+        style={{ display: loaded ? "block" : "none", width: "100%", maxHeight: 200, objectFit: "cover" }}
+      />
+    </div>
+  );
+}
+
 function WorkoutView({ plan, onComplete, onBack }) {
   const [step, setStep] = useState(0);
   const [timer, setTimer] = useState(null);
@@ -1788,6 +1809,7 @@ function WorkoutView({ plan, onComplete, onBack }) {
       </div>
 
       <div style={{ textAlign: "center", marginBottom: 40 }}>
+        {cur?.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
         <h1
           style={{
             fontSize: 42,
