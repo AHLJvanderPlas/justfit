@@ -111,6 +111,7 @@ export async function onRequestPost({ request, env }) {
     return Response.json({ ok: true, saved: false, plan });
 
   } catch (e) {
+    console.error('plan.js error:', e.stack ?? e.message ?? e);
     return Response.json({ error: e.message }, { status: 500 });
   }
 }
