@@ -93,6 +93,15 @@ const api = {
     return res.json();
   },
 
+  async logPeriod(userId, startedOn) {
+    const res = await fetch("/api/cycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, started_on: startedOn }),
+    });
+    return res.json();
+  },
+
   async generateBonusPlan(userId, date, minutes, completedIds) {
     const res = await fetch("/api/plan", {
       method: "POST",
@@ -3225,6 +3234,10 @@ export default function App() {
       setShowCheckIn(false);
       setIsGenerating(true);
       try {
+        // Auto-log period if toggled and cycle tracking is active
+        if (data.checkin_json?.period_today && userId) {
+          api.logPeriod(userId, today).catch(() => {});
+        }
         const newPlan = await api.generatePlan(userId, today, data);
         setPlan(newPlan);
       } catch (e) {
