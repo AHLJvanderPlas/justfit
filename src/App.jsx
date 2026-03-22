@@ -1920,7 +1920,18 @@ function PregnancyProgressBanner({ cycle }) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
+function useNarrow(bp = 600) {
+  const [narrow, setNarrow] = useState(() => window.innerWidth < bp);
+  useEffect(() => {
+    const fn = () => setNarrow(window.innerWidth < bp);
+    window.addEventListener("resize", fn);
+    return () => window.removeEventListener("resize", fn);
+  }, [bp]);
+  return narrow;
+}
+
 function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot }) {
+  const isMobile = useNarrow();
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -1967,7 +1978,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "5fr 7fr",
+          gridTemplateColumns: isMobile ? "1fr" : "5fr 7fr",
           gap: 16,
           marginBottom: 16,
         }}
@@ -1975,117 +1986,76 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         {/* Score card */}
         <Glass
           style={{
-            padding: 28,
-            minHeight: 220,
+            order: isMobile ? 2 : 0,
+            padding: isMobile ? "16px 20px" : 28,
+            minHeight: isMobile ? 0 : 220,
             display: "flex",
-            flexDirection: "column",
-            justifyContent: "space-between",
+            flexDirection: isMobile ? "row" : "column",
+            alignItems: isMobile ? "center" : undefined,
+            justifyContent: isMobile ? "space-between" : "space-between",
             overflow: "hidden",
             position: "relative",
           }}
         >
-          <div
-            style={{
-              position: "absolute",
-              top: -20,
-              right: -20,
-              opacity: 0.06,
-            }}
-          >
-            <svg
-              width="160"
-              height="160"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke={C.emerald}
-              strokeWidth="1"
-            >
-              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-            </svg>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 10,
-              marginBottom: 24,
-            }}
-          >
-            <div
-              style={{
-                width: 36,
-                height: 36,
-                borderRadius: 12,
-                background: C.emeraldDim,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <svg
-                width="18"
-                height="18"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={C.emerald}
-                strokeWidth="2.5"
-              >
-                <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
-              </svg>
-            </div>
-            <span
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.15em",
-                color: "rgba(16,185,129,0.7)",
-                textTransform: "uppercase",
-              }}
-            >
-              Consistency
-            </span>
-          </div>
-          <div
-            style={{
-              display: "flex",
-              alignItems: "baseline",
-              gap: 6,
-              marginBottom: 12,
-            }}
-          >
-            <span
-              style={{
-                fontSize: 68,
-                fontWeight: 900,
-                color: C.text,
-                lineHeight: 1,
-                letterSpacing: "-0.04em",
-              }}
-            >
-              {score}
-            </span>
-            <span style={{ fontSize: 18, fontWeight: 700, color: C.muted }}>
-              /100
-            </span>
-          </div>
-          <p
-            style={{
-              fontSize: 12,
-              color: C.muted,
-              fontWeight: 500,
-              lineHeight: 1.5,
-              maxWidth: 180,
-            }}
-          >
-            {score >= 80
-              ? "Elite tier. The chain is unbroken."
-              : score >= 50
-                ? "Building momentum. Keep showing up."
-                : "Every rep counts. Start today."}
-          </p>
+          {isMobile ? (
+            /* ── Compact horizontal strip (mobile) ── */
+            <>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <div
+                  style={{
+                    width: 32, height: 32, borderRadius: 10,
+                    background: C.emeraldDim,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  }}
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(16,185,129,0.7)", textTransform: "uppercase" }}>
+                  Consistency
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+                <span style={{ fontSize: 44, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.03em" }}>{score}</span>
+                <span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}>/100</span>
+              </div>
+            </>
+          ) : (
+            /* ── Full vertical card (desktop) ── */
+            <>
+              <div style={{ position: "absolute", top: -20, right: -20, opacity: 0.06 }}>
+                <svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="1">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                </svg>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  </svg>
+                </div>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(16,185,129,0.7)", textTransform: "uppercase" }}>
+                  Consistency
+                </span>
+              </div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12 }}>
+                <span style={{ fontSize: 68, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.04em" }}>{score}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: C.muted }}>/100</span>
+              </div>
+              <p style={{ fontSize: 12, color: C.muted, fontWeight: 500, lineHeight: 1.5, maxWidth: 180 }}>
+                {score >= 80
+                  ? "Elite tier. The chain is unbroken."
+                  : score >= 50
+                    ? "Building momentum. Keep showing up."
+                    : "Every rep counts. Start today."}
+              </p>
+            </>
+          )}
         </Glass>
 
         {/* Session card — replaced by DoneCard after workout */}
+        <div style={{ order: isMobile ? 1 : 0 }}>
         {todayCompleted ? (
           <DoneCard
             score={score}
@@ -2332,6 +2302,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           )}
         </Glass>
         )}
+        </div>
       </div>
 
       {/* Rule trace */}
