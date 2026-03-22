@@ -2086,6 +2086,11 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [timerRemaining, setTimerRemaining] = useState(0);
   const [adjustedReps, setAdjustedReps] = useState(null);
   const [showCancel, setShowCancel] = useState(false);
+  // Instruction card swipe state
+  const [instrStep, setInstrStep] = useState(0);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const touchStartXRef = useRef(0);
   // Track actual data per exercise for saving
   const stepsActualRef = useRef(
     exercises.map((ex) => ({
@@ -2134,6 +2139,12 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     const id = setTimeout(() => setPhase("working"), 5000);
     return () => clearTimeout(id);
   }, [phase, exIdx]);
+
+  // ── Reset instruction card when exercise changes ──────────────────────────────
+  useEffect(() => {
+    setInstrStep(0);
+    setDragOffset(0);
+  }, [exIdx]);
 
   // ── Exercise complete auto-advance (2s) ──────────────────────────────────────
   useEffect(() => {
@@ -2300,72 +2311,138 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
       {/* Phase content */}
       <div style={{ flex: 1, overflow: "auto" }}>
         {/* ── INSTRUCTION PHASE ── */}
-        {phase === "instruction" && cur && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "32px 20px 40px", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 80px)" }}>
-            <div style={{ textAlign: "center", marginBottom: 32 }}>
-              {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
-              <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
-                {cur.name}
-              </h1>
-              <div style={{ display: "flex", justifyContent: "center", gap: 16, marginTop: 12 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
-                  {totalSets} {totalSets === 1 ? "set" : "sets"}
-                </span>
-                <span style={{ fontSize: 13, color: C.muted }}>·</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
-                  {isTimeBased ? `${cur.target_duration_sec}s` : `${targetReps} reps`}
-                </span>
+        {phase === "instruction" && cur && (() => {
+          const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
+          const rawSteps = instr?.steps ?? [];
+          const cues = instr?.cues ?? [];
+          // Build card slides: one per step, or one fallback card
+          const cards = rawSteps.length > 0 ? rawSteps : ["Focus on form. Quality over speed. You've got this."];
+          const totalCards = cards.length;
+          const clampedStep = Math.min(instrStep, totalCards - 1);
+
+          function onTouchStart(e) {
+            touchStartXRef.current = e.touches[0].clientX;
+            setIsDragging(true);
+          }
+          function onTouchMove(e) {
+            const delta = e.touches[0].clientX - touchStartXRef.current;
+            setDragOffset(delta * 0.55);
+          }
+          function onTouchEnd(e) {
+            const delta = e.changedTouches[0].clientX - touchStartXRef.current;
+            setIsDragging(false);
+            setDragOffset(0);
+            if (delta < -60 && clampedStep < totalCards - 1) setInstrStep((s) => s + 1);
+            else if (delta > 60 && clampedStep > 0) setInstrStep((s) => s - 1);
+          }
+          // Mouse drag for desktop
+          function onMouseDown(e) {
+            touchStartXRef.current = e.clientX;
+            setIsDragging(true);
+          }
+          function onMouseMove(e) {
+            if (!isDragging) return;
+            setDragOffset((e.clientX - touchStartXRef.current) * 0.55);
+          }
+          function onMouseUp(e) {
+            if (!isDragging) return;
+            const delta = e.clientX - touchStartXRef.current;
+            setIsDragging(false);
+            setDragOffset(0);
+            if (delta < -60 && clampedStep < totalCards - 1) setInstrStep((s) => s + 1);
+            else if (delta > 60 && clampedStep > 0) setInstrStep((s) => s - 1);
+          }
+
+          return (
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 20px 32px", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 80px)", gap: 20 }}>
+              {/* Exercise name + target */}
+              <div style={{ textAlign: "center" }}>
+                {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
+                <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
+                  {cur.name}
+                </h1>
+                <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
+                    {totalSets} {totalSets === 1 ? "set" : "sets"}
+                  </span>
+                  <span style={{ fontSize: 13, color: C.muted }}>·</span>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
+                    {isTimeBased ? `${cur.target_duration_sec}s` : `${targetReps} reps`}
+                  </span>
+                </div>
               </div>
-            </div>
 
-            {/* Instruction steps */}
-            {(() => {
-              const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
-              const steps = instr?.steps ?? [];
-              const cues = instr?.cues ?? [];
-              return (
-                <Glass style={{ padding: 24, marginBottom: 24, flex: 1 }}>
-                  {steps.length > 0 ? (
-                    <>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 16 }}>
-                        How to do it
-                      </div>
-                      {steps.map((s, i) => (
-                        <div key={i} style={{ display: "flex", gap: 14, marginBottom: i < steps.length - 1 ? 16 : 0 }}>
-                          <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 10, fontWeight: 900, color: C.emerald, marginTop: 2 }}>
-                            {i + 1}
-                          </div>
-                          <div style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.5 }}>{s}</div>
-                        </div>
+              {/* Swipeable instruction card */}
+              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
+                {/* Step label + dots */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px" }}>
+                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted }}>
+                    {rawSteps.length > 0 ? `Step ${clampedStep + 1} of ${totalCards}` : "Coaching cue"}
+                  </span>
+                  {totalCards > 1 && (
+                    <div style={{ display: "flex", gap: 6 }}>
+                      {cards.map((_, i) => (
+                        <div key={i} onClick={() => setInstrStep(i)} style={{ width: 8, height: 8, borderRadius: "50%", background: i === clampedStep ? C.emerald : "rgba(255,255,255,0.15)", transition: "background 0.25s", cursor: "pointer" }} />
                       ))}
-                      {cues.length > 0 && (
-                        <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-                          {cues.map((c, i) => (
-                            <div key={i} style={{ fontSize: 13, color: C.muted, fontStyle: "italic", lineHeight: 1.5, marginBottom: i < cues.length - 1 ? 6 : 0 }}>
-                              💡 {c}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ fontSize: 17, fontWeight: 700, color: C.text, lineHeight: 1.5, marginBottom: 12 }}>{cur.name}</div>
-                      <div style={{ fontSize: 14, color: C.muted, fontStyle: "italic", lineHeight: 1.5 }}>Focus on form. Quality over speed. You've got this.</div>
-                    </>
+                    </div>
                   )}
-                </Glass>
-              );
-            })()}
+                </div>
 
-            <button
-              onClick={() => setPhase("working")}
-              style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(16,185,129,0.3)", letterSpacing: "-0.01em" }}
-            >
-              Ready — let's go →
-            </button>
-          </div>
-        )}
+                {/* Card carousel */}
+                <div
+                  style={{ overflow: "hidden", borderRadius: 20, cursor: totalCards > 1 ? "grab" : "default", userSelect: "none" }}
+                  onTouchStart={onTouchStart}
+                  onTouchMove={onTouchMove}
+                  onTouchEnd={onTouchEnd}
+                  onMouseDown={onMouseDown}
+                  onMouseMove={onMouseMove}
+                  onMouseUp={onMouseUp}
+                  onMouseLeave={onMouseUp}
+                >
+                  <div style={{ display: "flex", transform: `translateX(calc(-${clampedStep * 100}% + ${dragOffset}px))`, transition: isDragging ? "none" : "transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
+                    {cards.map((card, i) => (
+                      <div key={i} style={{ minWidth: "100%", flexShrink: 0 }}>
+                        <div style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 20, padding: "28px 24px", minHeight: 140, display: "flex", alignItems: "center" }}>
+                          <p style={{ fontSize: 18, fontWeight: 700, color: C.text, lineHeight: 1.6, margin: 0 }}>{card}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Prev / Next nav (supplemental to swipe) */}
+                {totalCards > 1 && (
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <button onClick={() => setInstrStep((s) => Math.max(0, s - 1))} disabled={clampedStep === 0} style={{ fontSize: 13, fontWeight: 700, color: clampedStep === 0 ? "rgba(255,255,255,0.15)" : C.muted, background: "none", border: "none", cursor: clampedStep === 0 ? "default" : "pointer", padding: "8px 4px" }}>
+                      ← Prev
+                    </button>
+                    <button onClick={() => setInstrStep((s) => Math.min(totalCards - 1, s + 1))} disabled={clampedStep === totalCards - 1} style={{ fontSize: 13, fontWeight: 700, color: clampedStep === totalCards - 1 ? "rgba(255,255,255,0.15)" : C.muted, background: "none", border: "none", cursor: clampedStep === totalCards - 1 ? "default" : "pointer", padding: "8px 4px" }}>
+                      Next →
+                    </button>
+                  </div>
+                )}
+
+                {/* Cues — always visible below */}
+                {cues.length > 0 && (
+                  <div style={{ padding: "12px 4px" }}>
+                    {cues.map((c, i) => (
+                      <div key={i} style={{ fontSize: 13, color: C.muted, fontStyle: "italic", lineHeight: 1.6, marginBottom: i < cues.length - 1 ? 6 : 0 }}>
+                        💡 {c}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <button
+                onClick={() => setPhase("working")}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(16,185,129,0.3)", letterSpacing: "-0.01em", flexShrink: 0 }}
+              >
+                Ready — let's go →
+              </button>
+            </div>
+          );
+        })()}
 
         {/* ── WORKING PHASE ── */}
         {phase === "working" && cur && (
