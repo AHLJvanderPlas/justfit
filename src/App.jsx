@@ -2517,11 +2517,24 @@ const fromB64url = (str) => {
   return Uint8Array.from(atob(str), (c) => c.charCodeAt(0));
 };
 
-function SettingsView({ prefs, onUpdate, userId }) {
-  const token = getToken();
+const PHASE_LABELS = {
+  menstrual:  "Rest & restore phase",
+  follicular: "Building strength phase",
+  ovulation:  "Peak energy phase",
+  luteal:     "Wind-down phase",
+};
+
+const CYCLE_LENGTHS_SETTINGS = [21, 24, 26, 28, 30, 32, 35];
+
+function SettingsView({ prefs, onUpdate, userId, token }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
+  // Cycle settings state
+  const [cycleTrackingMode, setCycleTrackingMode] = useState(prefs.cycle?.tracking_mode ?? "off");
+  const [cycleLength, setCycleLength] = useState(prefs.cycle?.cycle_length_days ?? 28);
+  const [lastPeriodStart, setLastPeriodStart] = useState(prefs.cycle?.last_period_start ?? "");
+  const [cycleSaving, setCycleSaving] = useState(false);
 
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
@@ -2771,6 +2784,92 @@ function SettingsView({ prefs, onUpdate, userId }) {
           </span>
         </Glass>
       </div>
+
+      {/* ── Your body — only shown to female users ── */}
+      {prefs.sex === "female" && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+            Your body
+          </div>
+
+          <Glass style={{ padding: 20, marginBottom: 12 }}>
+            {/* Cycle tracking mode */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Cycle tracking</div>
+                {cycleTrackingMode === "smart" && prefs.cycle?.current_phase && (
+                  <div style={{ fontSize: 12, color: "rgba(167,139,250,0.8)", marginTop: 3 }}>
+                    Currently in your {PHASE_LABELS[prefs.cycle.current_phase]} · Day {prefs.cycle.cycle_day}
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {["smart", "off"].map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setCycleTrackingMode(mode)}
+                    style={{
+                      padding: "6px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700,
+                      border: `1px solid ${cycleTrackingMode === mode ? C.emeraldBorder : C.border}`,
+                      background: cycleTrackingMode === mode ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      color: cycleTrackingMode === mode ? C.emerald : C.muted, cursor: "pointer",
+                    }}
+                  >
+                    {mode === "smart" ? "Smart" : "Off"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {cycleTrackingMode === "smart" && (
+              <>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Last period started</div>
+                <input
+                  type="date"
+                  value={lastPeriodStart}
+                  max={new Date().toISOString().split("T")[0]}
+                  onChange={(e) => setLastPeriodStart(e.target.value)}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 14, boxSizing: "border-box" }}
+                />
+
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Cycle length</div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
+                  {CYCLE_LENGTHS_SETTINGS.map((d) => (
+                    <button
+                      key={d}
+                      onClick={() => setCycleLength(d)}
+                      style={{ padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                    >
+                      {d}d
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
+            <button
+              disabled={cycleSaving}
+              onClick={async () => {
+                setCycleSaving(true);
+                try {
+                  await api.saveProfile(token, {
+                    cycle: { tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined },
+                  });
+                  onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart } }));
+                } catch {}
+                setCycleSaving(false);
+              }}
+              style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(255,255,255,0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
+            >
+              {cycleSaving ? "Saving…" : "Save"}
+            </button>
+          </Glass>
+
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6, padding: "0 4px" }}>
+            Your body data is stored privately on your device and our secure servers. It is never shared, sold, or used for advertising. Ever.
+          </div>
+        </div>
+      )}
 
       <div style={{marginTop:24}}>
         <button onClick={logout} style={{
@@ -3514,7 +3613,7 @@ export default function App() {
               />
             )}
             {view === "settings" && (
-              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} />
+              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} />
             )}
           </>
         )}
