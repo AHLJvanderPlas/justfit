@@ -1600,7 +1600,7 @@ const POSTNATAL_MILESTONES = [
 ];
 
 function PregnancyProgressBanner({ cycle }) {
-  const [dismissed, setDismissed] = React.useState(() => {
+  const [dismissed, setDismissed] = useState(() => {
     try { return JSON.parse(localStorage.getItem("jf_milestone_dismissed") || "{}"); } catch { return {}; }
   });
 
