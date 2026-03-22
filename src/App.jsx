@@ -145,6 +145,13 @@ const api = {
     });
     return res.json();
   },
+
+  async deleteExecution(executionId, userId) {
+    const res = await fetch(`/api/execution?execution_id=${executionId}&user_id=${userId}`, {
+      method: "DELETE",
+    });
+    return res.json();
+  },
 };
 
 // ─── GHOST COUNTER ────────────────────────────────────────────────────────────
@@ -3326,24 +3333,45 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 }
 
 // ─── HISTORY VIEW ─────────────────────────────────────────────────────────────
-function HistoryView({ history, isLoading }) {
+function HistoryView({ history, isLoading, onDeleteExecution }) {
+  const [deleteTarget, setDeleteTarget] = useState(null); // execution object
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteToast, setDeleteToast] = useState("");
+
+  const handleDeleteConfirm = async () => {
+    if (deleteInput !== "DELETE") return;
+    setDeleting(true);
+    try {
+      await onDeleteExecution(deleteTarget.id);
+      setDeleteToast("Session removed");
+      setTimeout(() => setDeleteToast(""), 3000);
+    } catch {
+      setDeleteToast("Delete failed — try again");
+      setTimeout(() => setDeleteToast(""), 3000);
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
+    setDeleteInput("");
+  };
+
   return (
     <div>
       <div style={{ marginBottom: 36 }}>
-        <h1
-          style={{
-            fontSize: 36,
-            fontWeight: 900,
-            color: C.text,
-            letterSpacing: "-0.03em",
-          }}
-        >
+        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>
           History
         </h1>
         <p style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
           {history.length} sessions completed
         </p>
       </div>
+
+      {deleteToast && (
+        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
+          {deleteToast}
+        </div>
+      )}
+
       <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
         {isLoading ? (
           <Glass style={{ padding: 60, textAlign: "center" }}>
@@ -3356,80 +3384,82 @@ function HistoryView({ history, isLoading }) {
             </p>
           </Glass>
         ) : (
-          [...history].reverse().map((h, i) => (
+          [...history].reverse().map((h) => (
             <Glass
-              key={i}
-              style={{
-                padding: "16px 20px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-              }}
+              key={h.id}
+              style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 12,
-                    background: C.emeraldDim,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke={C.emerald}
-                    strokeWidth="2.5"
-                  >
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-                    {new Date(h.date + "T12:00:00").toLocaleDateString("en", {
-                      weekday: "long",
-                      month: "short",
-                      day: "numeric",
-                    })}
+                    {new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
                   </div>
-                  <div
-                    style={{
-                      fontSize: 11,
-                      color: C.muted,
-                      fontWeight: 600,
-                      marginTop: 2,
-                    }}
-                  >
-                    {h.execution_type || "workout"} ·{" "}
-                    {h.total_duration_sec
-                      ? `${Math.round(h.total_duration_sec / 60)} min`
-                      : "completed"}
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                    {h.execution_type || "workout"} · {h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}
                   </div>
                 </div>
               </div>
-              <span
-                style={{
-                  fontSize: 10,
-                  fontWeight: 900,
-                  letterSpacing: "0.12em",
-                  textTransform: "uppercase",
-                  color: C.emerald,
-                  background: C.emeraldDim,
-                  padding: "4px 10px",
-                  borderRadius: 8,
-                }}
-              >
-                Done
-              </span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, background: C.emeraldDim, padding: "4px 10px", borderRadius: 8 }}>
+                  Done
+                </span>
+                <button
+                  onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
+                  style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  aria-label="Delete session"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                  </svg>
+                </button>
+              </div>
             </Glass>
           ))
         )}
       </div>
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,6,23,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Delete session?</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: "#f87171" }}>DELETE</strong> to confirm.
+            </div>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              placeholder="Type DELETE"
+              autoFocus
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => { setDeleteTarget(null); setDeleteInput(""); }}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteInput !== "DELETE" || deleting}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </Glass>
+        </div>
+      )}
     </div>
   );
 }
@@ -5067,6 +5097,16 @@ export default function App() {
     [userId, bonusPlan, today],
   );
 
+  const handleDeleteExecution = useCallback(
+    async (executionId) => {
+      setHistory((prev) => prev.filter((h) => h.id !== executionId));
+      await api.deleteExecution(executionId, userId);
+      const newScore = await api.getScore(userId);
+      setScore(newScore);
+    },
+    [userId],
+  );
+
   const handleBonusSelect = useCallback(
     async (minutes) => {
       setShowBonusPicker(false);
@@ -5274,7 +5314,7 @@ export default function App() {
               <PlanWeekView history={history} />
             )}
             {view === "history" && (
-              <HistoryView history={history} isLoading={isLoadingHistory} />
+              <HistoryView history={history} isLoading={isLoadingHistory} onDeleteExecution={handleDeleteExecution} />
             )}
             {view === "awards" && (
               <AwardsView

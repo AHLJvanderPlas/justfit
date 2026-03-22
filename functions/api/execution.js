@@ -74,3 +74,19 @@ export async function onRequestGet({ request, env }) {
     return Response.json({ error: e.message }, { status: 500 });
   }
 }
+
+export async function onRequestDelete({ request, env }) {
+  try {
+    const url = new URL(request.url);
+    const execution_id = url.searchParams.get('execution_id');
+    const user_id = url.searchParams.get('user_id');
+    if (!execution_id || !user_id) return Response.json({ error: 'missing params' }, { status: 400 });
+    await env.DB.batch([
+      env.DB.prepare('DELETE FROM execution_steps WHERE execution_id = ?').bind(execution_id),
+      env.DB.prepare('DELETE FROM executions WHERE id = ? AND user_id = ?').bind(execution_id, user_id),
+    ]);
+    return Response.json({ ok: true });
+  } catch (e) {
+    return Response.json({ error: e.message }, { status: 500 });
+  }
+}
