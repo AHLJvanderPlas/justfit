@@ -2535,6 +2535,12 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [cycleLength, setCycleLength] = useState(prefs.cycle?.cycle_length_days ?? 28);
   const [lastPeriodStart, setLastPeriodStart] = useState(prefs.cycle?.last_period_start ?? "");
   const [cycleSaving, setCycleSaving] = useState(false);
+  // Pregnancy mode state
+  const [bodyMode, setBodyMode] = useState(prefs.cycle?.mode ?? "standard");
+  const [pregnancySetupStep, setPregnancySetupStep] = useState(0); // 0=hidden,1=clearance,2=duedate
+  const [medicalClearance, setMedicalClearance] = useState(false);
+  const [pregnancyDueDate, setPregnancyDueDate] = useState(prefs.cycle?.pregnancy_due_date ?? "");
+  const [pregnancySaving, setPregnancySaving] = useState(false);
 
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
@@ -2864,6 +2870,176 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               {cycleSaving ? "Saving…" : "Save"}
             </button>
           </Glass>
+
+          {/* ── Pregnancy mode card ── */}
+          {bodyMode === "standard" && pregnancySetupStep === 0 && (
+            <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.15)" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 6 }}>Expecting?</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 14 }}>
+                JustFit can switch to a pregnancy-safe programme — adapted to your trimester, pelvic floor, and energy levels.
+              </div>
+              <button
+                onClick={() => setPregnancySetupStep(1)}
+                style={{ padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.08)", color: "#fbbf24", cursor: "pointer" }}
+              >
+                I'm pregnant
+              </button>
+            </Glass>
+          )}
+
+          {bodyMode === "standard" && pregnancySetupStep === 1 && (
+            <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24", marginBottom: 12 }}>Step 1 of 2 — Medical guidance</div>
+              <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 16 }}>
+                JustFit is a fitness app, not a medical service. Please confirm that you have discussed or will discuss exercise during pregnancy with your midwife, GP, or OB-GYN.
+              </div>
+              <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 20 }}>
+                <input
+                  type="checkbox"
+                  checked={medicalClearance}
+                  onChange={(e) => setMedicalClearance(e.target.checked)}
+                  style={{ marginTop: 2, accentColor: "#fbbf24", width: 16, height: 16, flexShrink: 0 }}
+                />
+                <span style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
+                  I confirm I will seek medical guidance regarding exercise during my pregnancy.
+                </span>
+              </label>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => { setPregnancySetupStep(0); setMedicalClearance(false); }}
+                  style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  disabled={!medicalClearance}
+                  onClick={() => setPregnancySetupStep(2)}
+                  style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: medicalClearance ? "#fbbf24" : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
+                >
+                  Continue
+                </button>
+              </div>
+            </Glass>
+          )}
+
+          {bodyMode === "standard" && pregnancySetupStep === 2 && (
+            <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24", marginBottom: 12 }}>Step 2 of 2 — Your due date</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When is your estimated due date?</div>
+              <input
+                type="date"
+                value={pregnancyDueDate}
+                min={new Date().toISOString().split("T")[0]}
+                onChange={(e) => setPregnancyDueDate(e.target.value)}
+                style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }}
+              />
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
+                Your due date helps us calculate your pregnancy week and adapt sessions to your trimester. You can update it anytime.
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  onClick={() => setPregnancySetupStep(1)}
+                  style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                >
+                  Back
+                </button>
+                <button
+                  disabled={!pregnancyDueDate || pregnancySaving}
+                  onClick={async () => {
+                    setPregnancySaving(true);
+                    try {
+                      await api.saveProfile(token, {
+                        cycle: {
+                          tracking_mode: "off",
+                          mode: "pregnant",
+                          pregnancy_due_date: pregnancyDueDate,
+                          medical_clearance_confirmed: true,
+                        },
+                      });
+                      setBodyMode("pregnant");
+                      setPregnancySetupStep(0);
+                      onUpdate((p) => ({
+                        ...p,
+                        cycle: {
+                          ...(p.cycle ?? {}),
+                          mode: "pregnant",
+                          tracking_mode: "off",
+                          pregnancy_due_date: pregnancyDueDate,
+                          medical_clearance_confirmed: 1,
+                        },
+                      }));
+                    } catch {}
+                    setPregnancySaving(false);
+                  }}
+                  style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: pregnancyDueDate && !pregnancySaving ? "#fbbf24" : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
+                >
+                  {pregnancySaving ? "Saving…" : "Enable pregnancy mode"}
+                </button>
+              </div>
+            </Glass>
+          )}
+
+          {bodyMode === "pregnant" && (
+            <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24" }}>Pregnancy mode active</div>
+                  {prefs.cycle?.pregnancy_week && (
+                    <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginTop: 3 }}>
+                      Week {prefs.cycle.pregnancy_week} · Trimester {prefs.cycle.trimester}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
+                Your sessions are adapted for pregnancy — pelvic floor included, high-impact excluded, intensity matched to your trimester.
+              </div>
+              {pregnancyDueDate && (
+                <>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Due date</div>
+                  <input
+                    type="date"
+                    value={pregnancyDueDate}
+                    onChange={(e) => setPregnancyDueDate(e.target.value)}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                  />
+                  <button
+                    disabled={pregnancySaving}
+                    onClick={async () => {
+                      setPregnancySaving(true);
+                      try {
+                        await api.saveProfile(token, {
+                          cycle: { mode: "pregnant", pregnancy_due_date: pregnancyDueDate, tracking_mode: "off" },
+                        });
+                        onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), pregnancy_due_date: pregnancyDueDate } }));
+                      } catch {}
+                      setPregnancySaving(false);
+                    }}
+                    style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : "#fbbf24", cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
+                  >
+                    {pregnancySaving ? "Saving…" : "Update due date"}
+                  </button>
+                </>
+              )}
+              <button
+                onClick={async () => {
+                  if (!confirm("Switch back to standard mode? Your pregnancy data will be kept.")) return;
+                  setPregnancySaving(true);
+                  try {
+                    await api.saveProfile(token, {
+                      cycle: { mode: "standard", tracking_mode: "off" },
+                    });
+                    setBodyMode("standard");
+                    onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard" } }));
+                  } catch {}
+                  setPregnancySaving(false);
+                }}
+                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+              >
+                Leave pregnancy mode
+              </button>
+            </Glass>
+          )}
 
           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6, padding: "0 4px" }}>
             Your body data is stored privately on your device and our secure servers. It is never shared, sold, or used for advertising. Ever.
@@ -3274,7 +3450,7 @@ export default function App() {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
-        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle }));
+        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
         setOnboardingReady(true);
       }
     }).catch(() => setOnboardingReady(true));
@@ -3288,7 +3464,7 @@ export default function App() {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
-        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle }));
+        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
         setOnboardingReady(true);
       }
     }).catch(() => setOnboardingReady(true));
