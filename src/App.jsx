@@ -2088,6 +2088,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [adjustedDuration, setAdjustedDuration] = useState(null);
   const [showCancel, setShowCancel] = useState(false);
   const [tapFlash, setTapFlash] = useState(false); // visual flash on rep tap
+  const [adjustLabel, setAdjustLabel] = useState(""); // "Adjusted to N reps" toast
+  const adjustLabelTimerRef = useRef(null);
   // Instruction card swipe state
   const [instrStep, setInstrStep] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -2164,6 +2166,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
       setCurrentSet(1);
       setRepCount(0);
       setAdjustedReps(null);
+      setAdjustedDuration(null);
       setPhase("instruction");
     }, 2000);
     return () => clearTimeout(id);
@@ -2226,6 +2229,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
       setCurrentSet(1);
       setRepCount(0);
       setAdjustedReps(null);
+      setAdjustedDuration(null);
       setPhase("instruction");
     } else {
       setPhase("sessionFeedback");
@@ -2235,6 +2239,30 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   function handleFinishSession(perceivedExertion) {
     const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
     onComplete(durationSec, perceivedExertion, stepsActualRef.current);
+  }
+
+  function handleAdjust(delta) {
+    if (isTimeBased) {
+      setAdjustedDuration((prev) => {
+        const current = prev ?? cur?.target_duration_sec ?? 30;
+        const next = Math.max(10, Math.min(300, current + delta));
+        showAdjustLabel(`Adjusted to ${next}s`);
+        return next;
+      });
+    } else {
+      setAdjustedReps((prev) => {
+        const current = prev ?? cur?.target_reps ?? 10;
+        const next = Math.max(1, Math.min(30, current + delta));
+        showAdjustLabel(`Adjusted to ${next} reps`);
+        return next;
+      });
+    }
+  }
+
+  function showAdjustLabel(text) {
+    setAdjustLabel(text);
+    clearTimeout(adjustLabelTimerRef.current);
+    adjustLabelTimerRef.current = setTimeout(() => setAdjustLabel(""), 2000);
   }
 
   // ── Session progress ─────────────────────────────────────────────────────────
@@ -2464,6 +2492,34 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 Set {currentSet} of {totalSets}
               </div>
               <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{cur.name}</div>
+            </div>
+
+            {/* ── Difficulty override row ── */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+              <button
+                onClick={() => handleAdjust(isTimeBased ? -10 : -2)}
+                style={{ width: 48, height: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                −
+              </button>
+              <div style={{ minWidth: 120, textAlign: "center" }}>
+                <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
+                  {isTimeBased
+                    ? `${adjustedDuration ?? cur.target_duration_sec ?? 30}s`
+                    : `${targetReps} reps`}
+                </div>
+                {adjustLabel && (
+                  <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2, transition: "opacity 0.3s" }}>
+                    {adjustLabel}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => handleAdjust(isTimeBased ? 10 : 2)}
+                style={{ width: 48, height: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
+              >
+                +
+              </button>
             </div>
 
             {isTimeBased ? (
