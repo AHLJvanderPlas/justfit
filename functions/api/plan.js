@@ -1,7 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context } = body;
+    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -85,7 +85,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext);
+    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
 
     if (user_id) {
       const userExists = await env.DB.prepare(
@@ -270,7 +270,7 @@ function getDefaultRest(exercise, slotType) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession) {
   const trace = [];
   let intensity = 'moderate';
   let slot_type = 'main';
@@ -297,6 +297,21 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     trace.push('R510 — Short session (≤20 min)');
   } else {
     trace.push('R510 — Normal session (>20 min)');
+  }
+
+  // ------------------------------------------------------------------
+  // Bonus session overrides — keep it fresh and manageable
+  // ------------------------------------------------------------------
+  if (bonusSession) {
+    if (budget <= 15) {
+      slot_type = 'micro';
+      if (intensity === 'high') intensity = 'low';
+      else if (intensity === 'moderate') intensity = 'low';
+      trace.push('Bonus session (≤15 min) — micro slot, low intensity to protect recovery');
+    } else {
+      if (intensity === 'high') intensity = 'moderate';
+      trace.push('Bonus session (>15 min) — intensity capped at moderate');
+    }
   }
 
   // ------------------------------------------------------------------

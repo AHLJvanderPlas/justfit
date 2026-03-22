@@ -49,7 +49,7 @@ const api = {
     return data.score ?? 0;
   },
 
-  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion) {
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout") {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -57,7 +57,7 @@ const api = {
         user_id: userId,
         date,
         day_plan_id: planId ?? null,
-        session_type: "workout",
+        session_type: sessionType,
         duration_sec: durationSec,
         perceived_exertion: perceivedExertion ?? null,
         steps: steps.map((s) => ({
@@ -120,6 +120,7 @@ const api = {
         date,
         checkin: { time_budget: minutes },
         completed_exercise_ids: completedIds,
+        bonus_session: true,
       }),
     });
     const data = await res.json();
@@ -5077,7 +5078,7 @@ export default function App() {
     async (durationSec, perceivedExertion, stepsActual) => {
       try {
         const mergedSteps = stepsActual ?? bonusPlan?.steps ?? [];
-        await api.saveExecution(userId, bonusPlan?.id, today, mergedSteps, durationSec, perceivedExertion);
+        await api.saveExecution(userId, bonusPlan?.id, today, mergedSteps, durationSec, perceivedExertion, "bonus");
         const [newScore, newHistory] = await Promise.all([
           api.getScore(userId),
           api.getHistory(userId),
