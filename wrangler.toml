@@ -1,7 +1,6 @@
 name = "justfit"
 pages_build_output_dir = "dist"
 compatibility_date = "2024-01-01"
-account_id = "ce96b957f7de20cc5d388eba856fa8dc"
 
 [[d1_databases]]
 binding = "DB"

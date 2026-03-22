@@ -457,6 +457,10 @@ const SEX_OPTIONS = [
 
 const CYCLE_LENGTHS = [21, 24, 26, 28, 30, 32, 35];
 
+// Bump this when a major update requires existing users to re-confirm their goal.
+// Checked against localStorage "jf_version" on every login.
+const APP_VERSION = "2";
+
 // Default last period ≈ 4 weeks ago
 function defaultPeriodDate() {
   const d = new Date();
@@ -843,6 +847,104 @@ function OnboardingModal({ token, onComplete }) {
             {saving ? "Saving..." : step < TOTAL_STEPS - 1 ? "Continue" : "Start Training"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── GOAL RECHECK MODAL ───────────────────────────────────────────────────────
+// Shown to existing users after a major app update.
+// Preserves all current settings — only re-confirms training_goal.
+function GoalRecheckModal({ token, profileData, onComplete }) {
+  const [goal, setGoal] = useState(profileData?.training_goal ?? "health");
+  const [saving, setSaving] = useState(false);
+
+  const handleConfirm = async () => {
+    setSaving(true);
+    try {
+      // Send full merged profile so no existing setting is defaulted-away by the API
+      await api.saveProfile(token, {
+        training_goal: goal,
+        experience_level: profileData?.experience_level ?? "beginner",
+        session_duration_min: profileData?.session_duration_min ?? 30,
+        days_per_week_target: profileData?.days_per_week_target ?? 3,
+        preferences: profileData?.preferences ?? {},
+        // sex / weight_kg / cycle intentionally omitted — API only updates if provided
+      });
+    } catch (e) {
+      console.error("Goal recheck save failed:", e);
+    }
+    setSaving(false);
+    onComplete(goal);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(2,6,23,0.95)", backdropFilter: "blur(12px)" }}>
+      <div style={{ background: "#0f172a", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 24, width: "100%", maxWidth: 480, maxHeight: "90vh", overflowY: "auto", padding: 32, display: "flex", flexDirection: "column", gap: 28 }}>
+
+        {/* Header */}
+        <div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: C.emerald, marginBottom: 10 }}>
+            Major update
+          </div>
+          <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: 10 }}>
+            JustFit just got a proper coaching interface.
+          </div>
+          <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>
+            Your workouts now have step-by-step coaching, rep tracking, rest timers, and difficulty controls — right on screen.
+          </p>
+        </div>
+
+        {/* What's new */}
+        <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, marginBottom: 2 }}>What's new</div>
+          {[
+            "Swipeable instruction cards for every exercise",
+            "Tap to count reps — no more guessing",
+            "Rest timers with −15s / +15s controls",
+            "Adjust reps or duration mid-set",
+            "Swap exercises for alternatives instantly",
+            "Wake lock — screen stays on during workouts",
+          ].map((item, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+              <span style={{ color: C.emerald, fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
+              <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Goal recheck */}
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 6 }}>Is your goal still on track?</div>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Your plan adapts to this every day. Tap to change if things have shifted.</div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+            {GOALS.map((g) => (
+              <button
+                key={g.value}
+                onClick={() => setGoal(g.value)}
+                style={{
+                  padding: "14px 12px", borderRadius: 14,
+                  border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
+                  background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                  color: goal === g.value ? C.emerald : C.muted,
+                  fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
+                }}
+              >
+                <div style={{ fontSize: 20, marginBottom: 4 }}>{g.icon}</div>
+                <div>{g.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* CTA */}
+        <button
+          onClick={handleConfirm}
+          disabled={saving}
+          style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: saving ? "rgba(16,185,129,0.4)" : C.emerald, border: "none", color: "#fff", cursor: saving ? "default" : "pointer", letterSpacing: "-0.01em" }}
+        >
+          {saving ? "Saving…" : "Confirmed — let's go →"}
+        </button>
       </div>
     </div>
   );
@@ -4378,9 +4480,11 @@ export default function App() {
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
-  // Onboarding / waiver flow
+  // Onboarding / waiver / goal-recheck flow
   const [showWaiver, setShowWaiver] = useState(false);
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const [showGoalRecheck, setShowGoalRecheck] = useState(false);
+  const [profileData, setProfileData] = useState(null);
   const [onboardingReady, setOnboardingReady] = useState(false);
 
   const [prefs, setPrefs] = useState(() => {
@@ -4397,6 +4501,17 @@ export default function App() {
     } catch {}
   }, [prefs]);
 
+  // After profile load: advance to ready, or show goal recheck for existing users on new version
+  function handleProfileLoaded(data) {
+    if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
+    if (localStorage.getItem("jf_version") !== APP_VERSION) {
+      setProfileData(data);
+      setShowGoalRecheck(true);
+    } else {
+      setOnboardingReady(true);
+    }
+  }
+
   // On mount: check waiver → check profile
   useEffect(() => {
     if (!userId || !token) return;
@@ -4405,13 +4520,11 @@ export default function App() {
       setShowWaiver(true);
       return;
     }
-    // Waiver already done — check if profile exists
     api.getProfile(token).then((data) => {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
-        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
-        setOnboardingReady(true);
+        handleProfileLoaded(data);
       }
     }).catch(() => setOnboardingReady(true));
   }, []);
@@ -4419,25 +4532,30 @@ export default function App() {
   const handleWaiverAccept = () => {
     localStorage.setItem("jf_waiver", "1");
     setShowWaiver(false);
-    // Now check profile
     api.getProfile(token).then((data) => {
       if (!data.exists) {
         setShowOnboarding(true);
       } else {
-        if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
-        setOnboardingReady(true);
+        handleProfileLoaded(data);
       }
     }).catch(() => setOnboardingReady(true));
   };
 
-  const handleOnboardingComplete = (profileData) => {
+  const handleGoalRecheckComplete = (newGoal) => {
+    localStorage.setItem("jf_version", APP_VERSION);
+    setShowGoalRecheck(false);
+    setPrefs((p) => ({ ...p, training_goal: newGoal }));
+    setOnboardingReady(true);
+    if (prefs.auto_prompt !== false) setShowCheckIn(true);
+  };
+
+  const handleOnboardingComplete = (completedProfileData) => {
+    localStorage.setItem("jf_version", APP_VERSION);
     setShowOnboarding(false);
     setOnboardingReady(true);
-    // Merge profile data into local prefs for immediate use
-    if (profileData) {
-      setPrefs((p) => ({ ...p, ...profileData }));
+    if (completedProfileData) {
+      setPrefs((p) => ({ ...p, ...completedProfileData }));
     }
-    // Trigger check-in / plan generation
     if (prefs.auto_prompt !== false) setShowCheckIn(true);
   };
 
@@ -4781,6 +4899,10 @@ export default function App() {
 
       {showOnboarding && !showWaiver && (
         <OnboardingModal token={token} onComplete={handleOnboardingComplete} />
+      )}
+
+      {showGoalRecheck && !showWaiver && !showOnboarding && (
+        <GoalRecheckModal token={token} profileData={profileData} onComplete={handleGoalRecheckComplete} />
       )}
 
       {showLogActivity && (
