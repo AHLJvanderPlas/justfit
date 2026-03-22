@@ -1480,15 +1480,23 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <div
                       style={{ display: "flex", alignItems: "center", gap: 10 }}
                     >
-                      <div
-                        style={{
-                          width: 6,
-                          height: 6,
-                          borderRadius: "50%",
-                          background: C.emerald,
-                          flexShrink: 0,
-                        }}
-                      />
+                      {s.gif_url ? (
+                        <img
+                          src={s.gif_url}
+                          alt=""
+                          style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: "rgba(255,255,255,0.04)" }}
+                        />
+                      ) : (
+                        <div
+                          style={{
+                            width: 6,
+                            height: 6,
+                            borderRadius: "50%",
+                            background: C.emerald,
+                            flexShrink: 0,
+                          }}
+                        />
+                      )}
                       <span
                         style={{
                           fontSize: 13,
