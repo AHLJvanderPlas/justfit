@@ -2541,6 +2541,11 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [medicalClearance, setMedicalClearance] = useState(false);
   const [pregnancyDueDate, setPregnancyDueDate] = useState(prefs.cycle?.pregnancy_due_date ?? "");
   const [pregnancySaving, setPregnancySaving] = useState(false);
+  // Postnatal mode state
+  const [postnatalSetupStep, setPostnatalSetupStep] = useState(0); // 0=hidden,1=birthdate,2=birthtype
+  const [postnatalBirthDate, setPostnatalBirthDate] = useState(prefs.cycle?.postnatal_birth_date ?? "");
+  const [postnatalBirthType, setPostnatalBirthType] = useState(prefs.cycle?.postnatal_birth_type ?? "");
+  const [postnatalSaving, setPostnatalSaving] = useState(false);
 
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
@@ -3021,6 +3026,92 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                   </button>
                 </>
               )}
+              {/* Baby arrived prompt — show when due date has passed */}
+              {prefs.cycle?.pregnancy_due_date && new Date(prefs.cycle.pregnancy_due_date) <= new Date() && postnatalSetupStep === 0 && (
+                <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 6 }}>Has your baby arrived?</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.6 }}>
+                    When you're ready, switch to postnatal mode for a gentle recovery programme.
+                  </div>
+                  <button
+                    onClick={() => setPostnatalSetupStep(1)}
+                    style={{ padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer" }}
+                  >
+                    Yes — set up postnatal mode
+                  </button>
+                </div>
+              )}
+
+              {postnatalSetupStep === 1 && (
+                <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 1 of 2 — Birth date</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your baby arrive?</div>
+                  <input
+                    type="date"
+                    value={postnatalBirthDate}
+                    max={new Date().toISOString().split("T")[0]}
+                    onChange={(e) => setPostnatalBirthDate(e.target.value)}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                  />
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}>Cancel</button>
+                    <button
+                      disabled={!postnatalBirthDate}
+                      onClick={() => setPostnatalSetupStep(2)}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(255,255,255,0.03)", color: postnatalBirthDate ? "#fbbf24" : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
+                    >Continue</button>
+                  </div>
+                </div>
+              )}
+
+              {postnatalSetupStep === 2 && (
+                <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 2 of 2 — Birth type</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.6 }}>This helps us adapt your recovery timeline. (Optional)</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+                    {[["vaginal", "Vaginal"], ["caesarean", "Caesarean"], ["prefer_not_to_say", "Prefer not to say"]].map(([val, label]) => (
+                      <button
+                        key={val}
+                        onClick={() => setPostnatalBirthType(val)}
+                        style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${postnatalBirthType === val ? "rgba(251,191,36,0.4)" : C.border}`, background: postnatalBirthType === val ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: postnatalBirthType === val ? "#fbbf24" : C.muted, cursor: "pointer" }}
+                      >{label}</button>
+                    ))}
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button onClick={() => setPostnatalSetupStep(1)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}>Back</button>
+                    <button
+                      disabled={postnatalSaving}
+                      onClick={async () => {
+                        setPostnatalSaving(true);
+                        try {
+                          await api.saveProfile(token, {
+                            cycle: {
+                              mode: "postnatal",
+                              tracking_mode: "off",
+                              postnatal_birth_date: postnatalBirthDate,
+                              postnatal_birth_type: postnatalBirthType || "prefer_not_to_say",
+                            },
+                          });
+                          setBodyMode("postnatal");
+                          setPostnatalSetupStep(0);
+                          onUpdate((p) => ({
+                            ...p,
+                            cycle: {
+                              ...(p.cycle ?? {}),
+                              mode: "postnatal",
+                              postnatal_birth_date: postnatalBirthDate,
+                              postnatal_birth_type: postnatalBirthType || "prefer_not_to_say",
+                            },
+                          }));
+                        } catch {}
+                        setPostnatalSaving(false);
+                      }}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : "#fbbf24", cursor: postnatalSaving ? "not-allowed" : "pointer" }}
+                    >{postnatalSaving ? "Saving…" : "Start postnatal mode"}</button>
+                  </div>
+                </div>
+              )}
+
               <button
                 onClick={async () => {
                   if (!confirm("Switch back to standard mode? Your pregnancy data will be kept.")) return;
@@ -3037,6 +3128,36 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
               >
                 Leave pregnancy mode
+              </button>
+            </Glass>
+          )}
+
+          {/* ── Postnatal mode card ── */}
+          {bodyMode === "postnatal" && (
+            <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.2)" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>Postnatal mode active</div>
+              {prefs.cycle?.postnatal_phase && (
+                <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginBottom: 12 }}>
+                  {{ immediate: "Immediate recovery (0–2 wks)", early: "Early recovery (2–6 wks)", rebuilding: "Rebuilding (6–16 wks)", strengthening: "Strengthening (16–26 wks)", returning: "Returning to fitness (26+ wks)" }[prefs.cycle.postnatal_phase]}
+                </div>
+              )}
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 14 }}>
+                Your programme is adapted to your postnatal phase — pelvic floor foundation first, progressive rebuilding as you heal.
+              </div>
+              <button
+                onClick={async () => {
+                  if (!confirm("Switch back to standard mode?")) return;
+                  setPostnatalSaving(true);
+                  try {
+                    await api.saveProfile(token, { cycle: { mode: "standard", tracking_mode: "off" } });
+                    setBodyMode("standard");
+                    onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard" } }));
+                  } catch {}
+                  setPostnatalSaving(false);
+                }}
+                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+              >
+                Leave postnatal mode
               </button>
             </Glass>
           )}
