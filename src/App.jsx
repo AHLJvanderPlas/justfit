@@ -2085,7 +2085,9 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [timerRunning, setTimerRunning] = useState(false);
   const [timerRemaining, setTimerRemaining] = useState(0);
   const [adjustedReps, setAdjustedReps] = useState(null);
+  const [adjustedDuration, setAdjustedDuration] = useState(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [tapFlash, setTapFlash] = useState(false); // visual flash on rep tap
   // Instruction card swipe state
   const [instrStep, setInstrStep] = useState(0);
   const [dragOffset, setDragOffset] = useState(0);
@@ -2192,10 +2194,12 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
   function handleRepTapped() {
     if (navigator.vibrate) navigator.vibrate(30);
+    setTapFlash(true);
+    setTimeout(() => setTapFlash(false), 180);
     const next = repCount + 1;
     setRepCount(next);
     if (next >= targetReps) {
-      handleSetDone(next);
+      setTimeout(() => handleSetDone(next), 220);
     }
   }
 
@@ -2455,55 +2459,101 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
             </div>
 
             {isTimeBased ? (
-              /* Time-based exercise */
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald, fontVariantNumeric: "tabular-nums", marginBottom: 24, transition: "color 0.3s" }}>
-                  {String(Math.floor(timerRemaining / 60)).padStart(1, "0")}:{String(timerRemaining % 60).padStart(2, "0")}
-                </div>
-                {/* Timer progress bar */}
-                <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden", marginBottom: 24, maxWidth: 320, margin: "0 auto 24px" }}>
-                  <div style={{ height: "100%", width: `${(timerRemaining / (adjustedReps ?? cur.target_duration_sec ?? 30)) * 100}%`, background: timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald, borderRadius: 3, transition: "width 1s linear, background 0.3s" }} />
-                </div>
-                {!timerRunning ? (
-                  <button
-                    onClick={() => { setTimerRemaining(adjustedReps ?? cur.target_duration_sec ?? 30); setTimerRunning(true); }}
-                    style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
-                  >
-                    <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                    <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>Start</span>
-                  </button>
-                ) : (
-                  <button
-                    onClick={() => { setTimerRunning(false); handleSetDone(cur.target_duration_sec); }}
-                    style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 15, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
-                  >
-                    ■ Done
-                  </button>
-                )}
-              </div>
+              /* ── Time-based exercise ── */
+              (() => {
+                const totalDur = adjustedDuration ?? cur.target_duration_sec ?? 30;
+                const timerColor = timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald;
+                return (
+                  <div style={{ textAlign: "center" }}>
+                    <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerColor, fontVariantNumeric: "tabular-nums", marginBottom: 20, transition: "color 0.3s", animation: timerRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
+                      {String(Math.floor(timerRemaining / 60)).padStart(1, "0")}:{String(timerRemaining % 60).padStart(2, "0")}
+                    </div>
+                    <div style={{ height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden", maxWidth: 320, margin: "0 auto 24px" }}>
+                      <div style={{ height: "100%", width: `${totalDur > 0 ? ((totalDur - timerRemaining) / totalDur) * 100 : 0}%`, background: timerColor, borderRadius: 3, transition: "width 1s linear, background 0.3s" }} />
+                    </div>
+                    {!timerRunning ? (
+                      <button
+                        onClick={() => { setTimerRemaining(totalDur); setTimerRunning(true); }}
+                        style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
+                      >
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>Start</span>
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => { setTimerRunning(false); handleSetDone(totalDur - timerRemaining); }}
+                        style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 15, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
+                      >
+                        ■ Done early
+                      </button>
+                    )}
+                  </div>
+                );
+              })()
             ) : (
-              /* Rep-based exercise */
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, marginBottom: 12 }}>
-                  Target: {targetReps} reps
-                </div>
-                <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: repCount >= targetReps ? C.emerald : C.text, fontVariantNumeric: "tabular-nums", marginBottom: 8, transition: "color 0.2s" }}>
-                  {repCount}
-                </div>
-                <div style={{ fontSize: 16, color: C.muted, marginBottom: 24 }}>/ {targetReps}</div>
+              /* ── Rep-based exercise ── */
+              (() => {
+                const isComplete = repCount >= targetReps;
+                const dotCount = Math.min(10, targetReps);
+                const tapBg = tapFlash
+                  ? "rgba(16,185,129,0.25)"
+                  : isComplete
+                  ? "rgba(16,185,129,0.15)"
+                  : "rgba(16,185,129,0.08)";
+                const tapBorder = tapFlash
+                  ? "rgba(16,185,129,0.55)"
+                  : isComplete
+                  ? "rgba(16,185,129,0.4)"
+                  : "rgba(16,185,129,0.2)";
+                const tapLabel = isComplete ? "SET COMPLETE" : tapFlash ? "COUNTED!" : "TAP TO COUNT REP";
 
-                {/* Big tap zone — will be enhanced in Step 3 */}
-                <button
-                  onClick={handleRepTapped}
-                  style={{ width: "100%", minHeight: 140, borderRadius: 20, background: "rgba(16,185,129,0.08)", border: "2px solid rgba(16,185,129,0.2)", color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 8, transition: "background 0.15s", WebkitTapHighlightColor: "transparent" }}
-                  onMouseDown={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.22)"; }}
-                  onMouseUp={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.08)"; }}
-                  onTouchStart={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.22)"; }}
-                  onTouchEnd={(e) => { e.currentTarget.style.background = "rgba(16,185,129,0.08)"; }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>TAP TO COUNT REP</span>
-                </button>
-              </div>
+                return (
+                  <div>
+                    {/* Rep dots */}
+                    <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+                      {Array.from({ length: dotCount }).map((_, i) => (
+                        <div key={i} style={{ width: 12, height: 12, borderRadius: "50%", background: repCount > i ? C.emerald : "rgba(255,255,255,0.15)", transition: "background 0.15s", flexShrink: 0 }} />
+                      ))}
+                      {targetReps > 10 && repCount > 10 && (
+                        <span style={{ fontSize: 12, fontWeight: 700, color: C.emerald, alignSelf: "center", marginLeft: 4 }}>+{repCount - 10}</span>
+                      )}
+                    </div>
+
+                    {/* Rep count display */}
+                    <div style={{ textAlign: "center", marginBottom: 20 }}>
+                      <span style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: isComplete ? C.emerald : C.text, fontVariantNumeric: "tabular-nums", transition: "color 0.2s" }}>
+                        {repCount}
+                      </span>
+                      <span style={{ fontSize: 24, fontWeight: 700, color: C.muted, marginLeft: 6 }}>/ {targetReps}</span>
+                    </div>
+
+                    {/* Big tap zone */}
+                    <div style={{ position: "relative" }}>
+                      {/* Ring flash */}
+                      {tapFlash && (
+                        <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: `2px solid ${C.emerald}`, animation: "tapRing 0.35s ease-out forwards", pointerEvents: "none" }} />
+                      )}
+                      <button
+                        onClick={handleRepTapped}
+                        disabled={isComplete}
+                        style={{ width: "100%", minHeight: 280, borderRadius: 20, background: tapBg, border: `2px solid ${tapBorder}`, color: C.emerald, cursor: isComplete ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, transition: "background 0.15s, border-color 0.15s", WebkitTapHighlightColor: "transparent", animation: tapFlash ? "tapScale 0.15s ease-out" : "none", outline: "none" }}
+                      >
+                        <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>
+                          {tapLabel}
+                        </span>
+                        {!isComplete && (
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(16,185,129,0.15)", border: "1.5px solid rgba(16,185,129,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                          </div>
+                        )}
+                        {isComplete && (
+                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })()
             )}
 
             {/* Bottom actions */}
@@ -4234,6 +4284,8 @@ export default function App() {
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
         @keyframes spin { to { transform: rotate(360deg); } }
+        @keyframes tapScale { 0%{transform:scale(1)} 40%{transform:scale(0.96)} 100%{transform:scale(1)} }
+        @keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
         ::-webkit-scrollbar { width: 0; }
         textarea { font-family: inherit; color: inherit; }
         button:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
