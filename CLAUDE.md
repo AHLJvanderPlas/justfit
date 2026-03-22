@@ -867,6 +867,9 @@ Calculated server-side from executions table:
 | Pregnancy mode | ✅ Live — setup in Settings, planner rules R530–R537, progress banner, check-in signals |
 | Postnatal mode | ✅ Live — phase detection, planner rules R540–R544, phase banner, check-in signals |
 | Workout execution coaching UX | ✅ Live — phase state machine, instruction cards, rep tap zone, rest timer, difficulty override, alternatives, perceived exertion, Wake Lock, rich actual_json, pregnancy/postnatal adaptations |
+| Profile settings in Settings | ✅ Live — display name, sex, weight (kg/lbs), cycle tracking, pregnancy/postnatal status, redo onboarding |
+| Delete workout from history | ✅ Live — trash icon on each row, confirmation modal (type DELETE), onRequestDelete in execution.js |
+| Bonus session intensity cap | ✅ Live — bonus_session flag in plan.js, micro ≤15min, moderate cap >15min, saved as session_type=bonus |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
