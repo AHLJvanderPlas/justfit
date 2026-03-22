@@ -5129,8 +5129,8 @@ export default function App() {
         setInBonusWorkout(true);
       } catch (e) {
         console.error("Bonus plan failed:", e);
-        setActivityToast(`Bonus session error: ${e.message || "unknown"}`);
-        setTimeout(() => setActivityToast(""), 6000);
+        setActivityToast("Couldn't start bonus session — try again");
+        setTimeout(() => setActivityToast(""), 3000);
       } finally {
         setIsGenerating(false);
       }

@@ -87,6 +87,14 @@ export async function onRequestPost({ request, env }) {
 
     const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
 
+    // Bonus plans are ephemeral — don't save to day_plans to avoid the
+    // (user_id, date) unique index conflict with today's regular plan.
+    // Return a generated id so the execution can still reference it.
+    const bonusId = bonus_session ? crypto.randomUUID() : null;
+    if (bonusId) {
+      return Response.json({ ok: true, saved: false, plan: { id: bonusId, ...plan } });
+    }
+
     if (user_id) {
       const userExists = await env.DB.prepare(
         `SELECT id FROM users WHERE id = ? LIMIT 1`
