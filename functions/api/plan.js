@@ -1,14 +1,14 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids } = body;
+    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
     }
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json
          FROM exercises WHERE is_active = 1`
@@ -24,6 +24,11 @@ export async function onRequestPost({ request, env }) {
         `SELECT slug, name, session_type, difficulty, duration_min, template_json
          FROM session_templates WHERE is_active = 1`
       ).all(),
+      user_id
+        ? env.DB.prepare(
+            `SELECT sex, weight_kg FROM user_profile WHERE user_id = ? LIMIT 1`
+          ).bind(user_id).first()
+        : Promise.resolve(null),
     ]);
 
     const allExercises = exResult.results;
@@ -37,7 +42,25 @@ export async function onRequestPost({ request, env }) {
         }
       : null;
 
-    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids);
+    // Merge body profile: prefer request body fields, fall back to DB row
+    const bodyProfile = {
+      sex: user_profile?.sex ?? userProfileRow?.sex ?? null,
+      weight_kg: user_profile?.weight_kg ?? userProfileRow?.weight_kg ?? null,
+    };
+
+    // Resolve cycle context: prefer request body, else calculate from DB
+    let resolvedCycleContext = cycle_context ?? null;
+    if (!resolvedCycleContext && user_id && bodyProfile.sex === 'female') {
+      const cycleRow = await env.DB.prepare(
+        `SELECT tracking_mode, cycle_length_days, last_period_start
+         FROM cycle_profile WHERE user_id = ? LIMIT 1`
+      ).bind(user_id).first();
+      if (cycleRow?.tracking_mode === 'smart') {
+        resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
+      }
+    }
+
+    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext);
 
     if (user_id) {
       const userExists = await env.DB.prepare(
@@ -145,9 +168,30 @@ function pickTemplate(templates, slotType, intensity, budgetMin) {
 }
 
 // ---------------------------------------------------------------------------
+// Cycle phase calculation
+// ---------------------------------------------------------------------------
+function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
+  if (!lastPeriodStart) return null;
+  const start = new Date(lastPeriodStart);
+  const now = new Date(today);
+  const daysSince = Math.floor((now - start) / (1000 * 60 * 60 * 24));
+  if (daysSince < 0) return null;
+  const cycleLen = cycleLengthDays ?? 28;
+  const dayInCycle = ((daysSince % cycleLen) + cycleLen) % cycleLen + 1;
+  const scale = cycleLen / 28;
+  const menstrualEnd = Math.round(5 * scale);
+  const follicularEnd = Math.round(13 * scale);
+  const ovulationEnd = Math.round(16 * scale);
+  if (dayInCycle <= menstrualEnd) return { phase: 'menstrual', day: dayInCycle };
+  if (dayInCycle <= follicularEnd) return { phase: 'follicular', day: dayInCycle };
+  if (dayInCycle <= ovulationEnd) return { phase: 'ovulation', day: dayInCycle };
+  return { phase: 'luteal', day: dayInCycle };
+}
+
+// ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext) {
   const trace = [];
   let intensity = 'moderate';
   let slot_type = 'main';
@@ -239,10 +283,54 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
   }
 
   // ------------------------------------------------------------------
+  // Body-aware rules (R520–R523) — fire after R510-R516
+  // ------------------------------------------------------------------
+  const sex = bodyProfile?.sex ?? null;
+  const weightKg = bodyProfile?.weight_kg ?? null;
+  const phase = cycleContext?.phase ?? null;
+  const cycleDay = cycleContext?.day ?? null;
+  const cycleLengthDays = cycleContext?.cycle_length_days ?? 28;
+  const periodToday = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
+
+  let volumeMultiplier = 1.0;
+  let sessionNotes = null;
+
+  // R520 — Period day override
+  if (periodToday || phase === 'menstrual') {
+    intensity = 'low';
+    // Bias toward mobility (handled in targetCategory below)
+    trace.push('R520 — Your body is asking for gentleness today');
+  }
+
+  // R521 — Follicular energy boost
+  if (phase === 'follicular' && (checkIn?.energy ?? 10) >= 6 && (checkIn?.sleep_hours ?? 8) >= 5) {
+    volumeMultiplier = 1.15;
+    trace.push('R521 — Your energy is building — time to be strong');
+  }
+
+  // R522 — Ovulation peak
+  if (phase === 'ovulation') {
+    sessionNotes = 'Take an extra minute to warm up today — your body is ready to perform.';
+    trace.push('R522 — You\'re at your peak — let\'s make the most of it');
+  }
+
+  // R523 — Late luteal wind-down
+  if (phase === 'luteal') {
+    const isLateLuteal = cycleDay != null && cycleDay >= (cycleLengthDays - 5);
+    if (isLateLuteal) {
+      if (intensity === 'high') intensity = 'moderate';
+      if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= 6) intensity = 'low';
+      trace.push('R523 — Winding down this week, staying consistent');
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Determine target category from goal + rules
   // ------------------------------------------------------------------
   let targetCategory;
   if ((checkIn?.stress ?? 0) >= 7 || slot_type === 'rest') {
+    targetCategory = 'mobility';
+  } else if (periodToday || phase === 'menstrual') {
     targetCategory = 'mobility';
   } else {
     const goal = prefs?.training_goal ?? 'health';
@@ -279,6 +367,12 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
     const scale = expScale[prefs?.experience_level] ?? 1.0;
     if (scale !== 1.0 && reps) reps = Math.round(reps * scale);
 
+    // Apply volume multiplier (R521 follicular boost)
+    if (volumeMultiplier !== 1.0) {
+      if (reps) reps = Math.round(reps * volumeMultiplier);
+      if (duration) duration = Math.round(duration * volumeMultiplier);
+    }
+
     const media = ex.media_json ? JSON.parse(ex.media_json) : {};
     return {
       exercise_id: ex.id,
@@ -291,6 +385,51 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
       gif_url: media.gif_url ?? null,
     };
   });
+
+  // ------------------------------------------------------------------
+  // R524 — Weight-adjusted volume (bodyweight exercises only)
+  // ------------------------------------------------------------------
+  if (weightKg && steps.length) {
+    const weightRatio = weightKg / 70;
+    for (const step of steps) {
+      const ex = exercises.find(e => e.id === step.exercise_id);
+      const tags = JSON.parse(ex?.tags_json || '[]');
+      if (tags.includes('bodyweight') && step.target_reps) {
+        const wScale = Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(weightRatio)));
+        step.target_reps = Math.round(step.target_reps * wScale);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // R525 — Sex baseline: ensure ≥1 mobility exercise in main sessions
+  // ------------------------------------------------------------------
+  if (sex === 'female' && slot_type === 'main' && steps.length) {
+    const hasMobility = steps.some(s => {
+      const ex = exercises.find(e => e.id === s.exercise_id);
+      return ex?.category === 'mobility';
+    });
+    if (!hasMobility) {
+      const mobilityEx = exercises.find(e => {
+        if (e.category !== 'mobility') return false;
+        const tags = JSON.parse(e.tags_json || '[]');
+        return tags.includes('low_impact');
+      });
+      if (mobilityEx) {
+        const media = mobilityEx.media_json ? JSON.parse(mobilityEx.media_json) : {};
+        steps.push({
+          exercise_id: mobilityEx.id,
+          exercise_slug: mobilityEx.slug,
+          name: mobilityEx.name,
+          category: mobilityEx.category,
+          target_reps: undefined,
+          target_duration_sec: 30,
+          sets: 1,
+          gif_url: media.gif_url ?? null,
+        });
+      }
+    }
+  }
 
   // ------------------------------------------------------------------
   // Pick a template for session naming + structure context
@@ -311,6 +450,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds) {
     session_name,
     template_slug: template?.slug ?? null,
     target_category: targetCategory,
+    session_notes: sessionNotes,
     steps,
     rule_trace: trace,
   };
