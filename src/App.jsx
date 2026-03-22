@@ -3699,6 +3699,48 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [postnatalBirthDate, setPostnatalBirthDate] = useState(prefs.cycle?.postnatal_birth_date ?? "");
   const [postnatalBirthType, setPostnatalBirthType] = useState(prefs.cycle?.postnatal_birth_type ?? "");
   const [postnatalSaving, setPostnatalSaving] = useState(false);
+  // Profile editing state
+  const [displayName, setDisplayName] = useState(prefs.preferences?.display_name ?? "");
+  const [profileSex, setProfileSex] = useState(prefs.sex ?? null);
+  const [profileWeight, setProfileWeight] = useState(prefs.weight_kg ? String(prefs.weight_kg) : "");
+  const [profileWeightUnit, setProfileWeightUnit] = useState("kg");
+  const [profileSaving, setProfileSaving] = useState(false);
+  const [profileSaveMsg, setProfileSaveMsg] = useState("");
+
+  const handleProfileSave = async () => {
+    setProfileSaving(true);
+    try {
+      let weight_kg = null;
+      if (profileWeight) {
+        const w = parseFloat(profileWeight);
+        if (!isNaN(w)) weight_kg = profileWeightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
+      }
+      const payload = {
+        sex: profileSex,
+        weight_kg,
+        preferences: { ...(prefs.preferences ?? {}), display_name: displayName },
+      };
+      if (profileSex === "female") {
+        payload.cycle = cycleTrackingMode === "smart"
+          ? { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined, mode: bodyMode }
+          : { tracking_mode: "off", mode: bodyMode };
+      }
+      await api.saveProfile(token, payload);
+      onUpdate((p) => ({
+        ...p,
+        sex: profileSex,
+        weight_kg,
+        preferences: { ...(p.preferences ?? {}), display_name: displayName },
+        ...(profileSex === "female" ? { cycle: { ...(p.cycle ?? {}), tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart } } : {}),
+      }));
+      setProfileSaveMsg("Saved ✓");
+      setTimeout(() => setProfileSaveMsg(""), 2000);
+    } catch {
+      setProfileSaveMsg("Save failed");
+      setTimeout(() => setProfileSaveMsg(""), 2000);
+    }
+    setProfileSaving(false);
+  };
 
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
@@ -3780,6 +3822,147 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Settings
         </h1>
+      </div>
+
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Your Profile
+        </div>
+        <Glass style={{ padding: 24 }}>
+          {/* Display name */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Display name</div>
+            <input
+              type="text"
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="Your name"
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+            />
+          </div>
+
+          {/* Sex */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Sex</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {SEX_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => setProfileSex(opt.value)}
+                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Weight */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Weight</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number"
+                value={profileWeight}
+                onChange={(e) => setProfileWeight(e.target.value)}
+                placeholder={profileWeightUnit === "kg" ? "e.g. 70" : "e.g. 154"}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+              />
+              {["kg", "lbs"].map((u) => (
+                <button
+                  key={u}
+                  onClick={() => setProfileWeightUnit(u)}
+                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${profileWeightUnit === u ? C.emeraldBorder : C.border}`, background: profileWeightUnit === u ? C.emeraldDim : "rgba(255,255,255,0.04)", color: profileWeightUnit === u ? C.emerald : C.muted, cursor: "pointer" }}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Female-only: cycle tracking */}
+          {profileSex === "female" && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Cycle tracking</div>
+              <div style={{ display: "flex", gap: 8, marginBottom: cycleTrackingMode === "smart" ? 14 : 0 }}>
+                {[{ label: "Smart", value: "smart" }, { label: "Off", value: "off" }].map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => setCycleTrackingMode(opt.value)}
+                    style={{ flex: 1, padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${cycleTrackingMode === opt.value ? C.emeraldBorder : C.border}`, background: cycleTrackingMode === opt.value ? C.emeraldDim : "rgba(255,255,255,0.04)", color: cycleTrackingMode === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              {cycleTrackingMode === "smart" && (
+                <>
+                  <div style={{ marginBottom: 12 }}>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Last period start</div>
+                    <input
+                      type="date"
+                      value={lastPeriodStart}
+                      onChange={(e) => setLastPeriodStart(e.target.value)}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+                    />
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Cycle length (days)</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {CYCLE_LENGTHS_SETTINGS.map((d) => (
+                        <button
+                          key={d}
+                          onClick={() => setCycleLength(d)}
+                          style={{ padding: "6px 12px", borderRadius: 10, fontWeight: 900, fontSize: 13, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.04)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Female-only: pregnancy/postnatal status */}
+          {profileSex === "female" && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Body mode</div>
+              {bodyMode === "standard" && (
+                <button
+                  onClick={() => setPregnancySetupStep(1)}
+                  style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer", textAlign: "left" }}
+                >
+                  Standard · Enable pregnancy mode →
+                </button>
+              )}
+              {bodyMode === "pregnant" && (
+                <div style={{ padding: "10px 14px", borderRadius: 14, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b", fontWeight: 700, fontSize: 14 }}>
+                  Pregnancy mode active
+                  {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · Due {pregnancyDueDate}</span>}
+                </div>
+              )}
+              {bodyMode === "postnatal" && (
+                <div style={{ padding: "10px 14px", borderRadius: 14, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", fontWeight: 700, fontSize: 14 }}>
+                  Postnatal mode active
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Save row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <button
+              onClick={handleProfileSave}
+              disabled={profileSaving}
+              style={{ flex: 1, padding: "12px 20px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: C.emerald, border: "none", color: "#000", cursor: profileSaving ? "default" : "pointer", opacity: profileSaving ? 0.6 : 1 }}
+            >
+              {profileSaving ? "Saving…" : "Save profile"}
+            </button>
+            {profileSaveMsg && <span style={{ fontSize: 13, fontWeight: 700, color: profileSaveMsg.includes("fail") ? "#f87171" : C.emerald }}>{profileSaveMsg}</span>}
+          </div>
+        </Glass>
       </div>
 
       <div style={{ marginBottom: 32 }}>
@@ -4321,7 +4504,19 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         </div>
       )}
 
-      <div style={{marginTop:24}}>
+      <div style={{marginTop:24, display:"flex", flexDirection:"column", gap:10}}>
+        <button
+          onClick={() => {
+            if (confirm("This will restart the onboarding flow. Continue?")) {
+              localStorage.removeItem("jf_waiver");
+              localStorage.removeItem("jf_version");
+              window.location.reload();
+            }
+          }}
+          style={{ width:"100%", padding:14, borderRadius:14, background:"rgba(255,255,255,0.04)", border:`1px solid ${C.border}`, color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}
+        >
+          Redo onboarding
+        </button>
         <button onClick={logout} style={{
           width:"100%", padding:14, borderRadius:14,
           background:"rgba(226,76,74,0.1)", border:"1px solid rgba(226,76,74,0.3)",
