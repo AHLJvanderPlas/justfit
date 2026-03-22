@@ -79,6 +79,36 @@ const api = {
     return data.executions ?? [];
   },
 
+  async saveActivity(userId, date, executionType, durationSec) {
+    const res = await fetch("/api/execution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        date,
+        execution_type: executionType,
+        duration_sec: durationSec,
+      }),
+    });
+    return res.json();
+  },
+
+  async generateBonusPlan(userId, date, minutes, completedIds) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        date,
+        checkin: { time_budget: minutes },
+        completed_exercise_ids: completedIds,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.plan;
+  },
+
   async getProfile(token) {
     const res = await fetch("/api/profile", {
       headers: { Authorization: `Bearer ${token}` },
@@ -1005,8 +1035,165 @@ function CheckInModal({ onSave, onClose, isPro }) {
   );
 }
 
+// ─── LOG ACTIVITY MODAL ───────────────────────────────────────────────────────
+const ACTIVITY_TYPES = [
+  { label: "Run",   value: "run"   },
+  { label: "Walk",  value: "walk"  },
+  { label: "Cycle", value: "bike"  },
+  { label: "Swim",  value: "mixed" },
+  { label: "Sport", value: "mixed" },
+  { label: "Other", value: "mixed" },
+];
+const ACTIVITY_DURATIONS = [15, 20, 30, 45, 60, 90];
+
+function LogActivityModal({ onSave, onClose }) {
+  const [type, setType] = useState(null);
+  const [duration, setDuration] = useState(null);
+
+  const pill = (active) => ({
+    padding: "9px 18px",
+    borderRadius: 999,
+    fontSize: 13,
+    fontWeight: 800,
+    cursor: "pointer",
+    border: active ? `1px solid ${C.emerald}` : `1px solid ${C.border}`,
+    background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
+    color: active ? C.emerald : C.muted,
+  });
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", padding: "32px 24px 40px" }}>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 24 }}>Log Activity</div>
+
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 12 }}>Type</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+          {ACTIVITY_TYPES.map((t) => (
+            <button key={t.label} onClick={() => setType(t)} style={pill(type?.label === t.label)}>{t.label}</button>
+          ))}
+        </div>
+
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 12 }}>Duration</div>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
+          {ACTIVITY_DURATIONS.map((d) => (
+            <button key={d} onClick={() => setDuration(d)} style={pill(duration === d)}>{d}m</button>
+          ))}
+        </div>
+
+        <button
+          disabled={!type || !duration}
+          onClick={() => onSave(type.value, duration)}
+          style={{ width: "100%", padding: 16, borderRadius: 16, fontSize: 15, fontWeight: 900, background: (!type || !duration) ? C.subtle : C.emerald, border: "none", color: (!type || !duration) ? C.muted : "#fff", cursor: (!type || !duration) ? "not-allowed" : "pointer", boxShadow: (!type || !duration) ? "none" : "0 8px 30px rgba(16,185,129,0.3)" }}
+        >
+          Save Activity
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── WHY NOT MODAL ────────────────────────────────────────────────────────────
+const WHY_NOT_OPTIONS = [
+  { label: "No time",       checkin: { no_time: true, time_budget: 10 } },
+  { label: "Feeling sick",  checkin: { pain_level: 2 } },
+  { label: "Injured",       checkin: { pain_level: 3 } },
+  { label: "Too tired",     checkin: { energy: 2 } },
+  { label: "No gear",       checkin: { no_gear: true } },
+  { label: "Just need rest",checkin: null },
+];
+
+function WhyNotModal({ onRegen, onRestDay, onClose }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8 }}>What's getting in the way?</div>
+        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>We'll adjust today's plan to fit your situation.</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+          {WHY_NOT_OPTIONS.map((opt) => (
+            <button
+              key={opt.label}
+              onClick={() => opt.checkin === null ? onRestDay() : onRegen(opt.checkin)}
+              style={{ padding: "11px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+        <button onClick={onClose} style={{ width: "100%", padding: 13, borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+// ─── DONE CARD ────────────────────────────────────────────────────────────────
+function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone }) {
+  const sessionLabel = completedSession?.name ?? "Session";
+  const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
+  const scoreBump = score > prevScore;
+  const beforeNight = new Date().getHours() < 20;
+
+  return (
+    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(16,185,129,0.4)", borderRadius: 20 }}>
+      {/* Checkmark */}
+      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, boxShadow: "0 0 20px rgba(16,185,129,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+        </div>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>Session Complete</div>
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>
+            {sessionLabel}{mins ? ` · ${mins} min` : ""}
+          </div>
+        </div>
+      </div>
+
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Great work. You showed up today.</div>
+
+      {scoreBump && (
+        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: 16 }}>
+          Consistency score: {prevScore} → {score} ⚡
+        </div>
+      )}
+      {!scoreBump && <div style={{ marginBottom: 16 }} />}
+
+      <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
+
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
+
+      <div style={{ display: "flex", gap: 10 }}>
+        <button onClick={onLogActivity} style={{ flex: 1, padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}>
+          + Log activity
+        </button>
+        {!bonusDone && beforeNight && (
+          <button onClick={onBonusSession} style={{ flex: 1, padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
+            ⚡ Bonus session
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─── BONUS MINUTE PICKER ──────────────────────────────────────────────────────
+function BonusMinutePicker({ onSelect, onClose }) {
+  const opts = [10, 15, 20, 30];
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 8, letterSpacing: "-0.02em" }}>Bonus Session</div>
+        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>How many extra minutes do you have?</p>
+        <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
+          {opts.map(m => (
+            <button key={m} onClick={() => onSelect(m)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontSize: 15, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>{m}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function Dashboard({ plan, score, onStartWorkout, isGenerating }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot }) {
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -1171,7 +1358,17 @@ function Dashboard({ plan, score, onStartWorkout, isGenerating }) {
           </p>
         </Glass>
 
-        {/* Session card */}
+        {/* Session card — replaced by DoneCard after workout */}
+        {todayCompleted ? (
+          <DoneCard
+            score={score}
+            prevScore={prevScore}
+            completedSession={completedSession}
+            onLogActivity={onLogActivity}
+            onBonusSession={onBonusSession}
+            bonusDone={bonusDone}
+          />
+        ) : (
         <Glass
           style={{
             padding: 28,
@@ -1362,6 +1559,14 @@ function Dashboard({ plan, score, onStartWorkout, isGenerating }) {
                   </>
                 )}
               </button>
+              {plan.slot_type !== "rest" && (
+                <button
+                  onClick={onWhyNot}
+                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}
+                >
+                  Can't do this today?
+                </button>
+              )}
             </>
           ) : (
             <div
@@ -1391,6 +1596,7 @@ function Dashboard({ plan, score, onStartWorkout, isGenerating }) {
             </div>
           )}
         </Glass>
+        )}
       </div>
 
       {/* Rule trace */}
@@ -2698,9 +2904,28 @@ export default function App() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [plan, setPlan] = useState(null);
   const [score, setScore] = useState(0);
+  const [prevScore, setPrevScore] = useState(0);
   const [history, setHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+
+  // Post-workout state
+  const [todayCompleted, setTodayCompleted] = useState(
+    () => localStorage.getItem(`jf_completed_${today}`) === "1"
+  );
+  const [completedSession, setCompletedSession] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(`jf_completed_session_${today}`) || "null"); }
+    catch { return null; }
+  });
+  const [bonusDone, setBonusDone] = useState(
+    () => localStorage.getItem(`jf_bonus_${today}`) === "1"
+  );
+  const [showBonusPicker, setShowBonusPicker] = useState(false);
+  const [showLogActivity, setShowLogActivity] = useState(false);
+  const [activityToast, setActivityToast] = useState("");
+  const [showWhyNot, setShowWhyNot] = useState(false);
+  const [inBonusWorkout, setInBonusWorkout] = useState(false);
+  const [bonusPlan, setBonusPlan] = useState(null);
 
   // Onboarding / waiver flow
   const [showWaiver, setShowWaiver] = useState(false);
@@ -2812,21 +3037,123 @@ export default function App() {
           plan?.steps ?? [],
           durationSec,
         );
-        // Refresh score and history
         const [newScore, newHistory] = await Promise.all([
           api.getScore(userId),
           api.getHistory(userId),
         ]);
+        setPrevScore(score);
         setScore(newScore);
         setHistory(newHistory);
+        // Mark today as completed
+        setTodayCompleted(true);
+        localStorage.setItem(`jf_completed_${today}`, "1");
+        const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
+        setCompletedSession(sessionInfo);
+        localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       } catch (e) {
         console.error("Failed to save execution:", e);
       }
       setInWorkout(false);
       setView("today");
     },
-    [userId, plan, today],
+    [userId, plan, today, score],
   );
+
+  const handleBonusComplete = useCallback(
+    async (durationSec) => {
+      try {
+        await api.saveExecution(userId, bonusPlan?.id, today, bonusPlan?.steps ?? [], durationSec);
+        const [newScore, newHistory] = await Promise.all([
+          api.getScore(userId),
+          api.getHistory(userId),
+        ]);
+        setScore(newScore);
+        setHistory(newHistory);
+        setBonusDone(true);
+        localStorage.setItem(`jf_bonus_${today}`, "1");
+        setActivityToast("Double session! 🔥");
+        setTimeout(() => setActivityToast(""), 3000);
+      } catch (e) {
+        console.error("Failed to save bonus execution:", e);
+      }
+      setInBonusWorkout(false);
+      setBonusPlan(null);
+    },
+    [userId, bonusPlan, today],
+  );
+
+  const handleBonusSelect = useCallback(
+    async (minutes) => {
+      setShowBonusPicker(false);
+      setIsGenerating(true);
+      try {
+        const completedIds = (plan?.steps ?? []).map((s) => s.exercise_id).filter(Boolean);
+        const bp = await api.generateBonusPlan(userId, today, minutes, completedIds);
+        setBonusPlan(bp);
+        setInBonusWorkout(true);
+      } catch (e) {
+        console.error("Bonus plan failed:", e);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [userId, today, plan],
+  );
+
+  const handleLogActivity = useCallback(
+    async (executionType, durationMin) => {
+      setShowLogActivity(false);
+      try {
+        await api.saveActivity(userId, today, executionType, durationMin * 60);
+        const [newScore, newHistory] = await Promise.all([
+          api.getScore(userId),
+          api.getHistory(userId),
+        ]);
+        setScore(newScore);
+        setHistory(newHistory);
+        setActivityToast("Activity logged ✓");
+        setTimeout(() => setActivityToast(""), 3000);
+      } catch (e) {
+        console.error("Failed to log activity:", e);
+      }
+    },
+    [userId, today],
+  );
+
+  const handleWhyNotRegen = useCallback(
+    async (checkinOverride) => {
+      setShowWhyNot(false);
+      setIsGenerating(true);
+      try {
+        const newPlan = await api.generatePlan(userId, today, checkinOverride);
+        setPlan(newPlan);
+      } catch (e) {
+        console.error("Plan regen failed:", e);
+      } finally {
+        setIsGenerating(false);
+      }
+    },
+    [userId, today],
+  );
+
+  const handleRestDay = useCallback(async () => {
+    setShowWhyNot(false);
+    try {
+      await api.saveActivity(userId, today, "recovery", 0);
+      const [newScore, newHistory] = await Promise.all([
+        api.getScore(userId),
+        api.getHistory(userId),
+      ]);
+      setScore(newScore);
+      setHistory(newHistory);
+      setTodayCompleted(true);
+      localStorage.setItem(`jf_completed_${today}`, "1");
+      setCompletedSession({ name: "Rest Day", duration_sec: 0 });
+      localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify({ name: "Rest Day", duration_sec: 0 }));
+    } catch (e) {
+      console.error("Failed to log rest day:", e);
+    }
+  }, [userId, today]);
 
   return (
     <div
@@ -2922,7 +3249,13 @@ export default function App() {
           </header>
         )}
 
-        {inWorkout ? (
+        {inBonusWorkout && bonusPlan ? (
+          <WorkoutView
+            plan={bonusPlan}
+            onComplete={handleBonusComplete}
+            onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
+          />
+        ) : inWorkout ? (
           <WorkoutView
             plan={plan}
             onComplete={handleComplete}
@@ -2934,8 +3267,15 @@ export default function App() {
               <Dashboard
                 plan={plan}
                 score={score}
+                prevScore={prevScore}
                 onStartWorkout={() => setInWorkout(true)}
                 isGenerating={isGenerating}
+                todayCompleted={todayCompleted}
+                completedSession={completedSession}
+                bonusDone={bonusDone}
+                onLogActivity={() => setShowLogActivity(true)}
+                onBonusSession={() => setShowBonusPicker(true)}
+                onWhyNot={() => setShowWhyNot(true)}
               />
             )}
             {view === "plan" && (
@@ -2972,6 +3312,34 @@ export default function App() {
 
       {showOnboarding && !showWaiver && (
         <OnboardingModal token={token} onComplete={handleOnboardingComplete} />
+      )}
+
+      {showLogActivity && (
+        <LogActivityModal
+          onSave={handleLogActivity}
+          onClose={() => setShowLogActivity(false)}
+        />
+      )}
+
+      {showBonusPicker && (
+        <BonusMinutePicker
+          onSelect={handleBonusSelect}
+          onClose={() => setShowBonusPicker(false)}
+        />
+      )}
+
+      {showWhyNot && (
+        <WhyNotModal
+          onRegen={handleWhyNotRegen}
+          onRestDay={handleRestDay}
+          onClose={() => setShowWhyNot(false)}
+        />
+      )}
+
+      {activityToast && (
+        <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 14, padding: "12px 24px", fontSize: 14, fontWeight: 800, color: C.emerald, zIndex: 200, boxShadow: "0 8px 30px rgba(0,0,0,0.4)" }}>
+          {activityToast}
+        </div>
       )}
     </div>
   );
