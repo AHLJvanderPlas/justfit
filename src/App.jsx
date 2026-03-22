@@ -2148,6 +2148,14 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
     setDragOffset(0);
   }, [exIdx]);
 
+  // ── Rest haptics at 10s and 5s ───────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== "resting") return;
+    if (restRemaining === 10 || restRemaining === 5) {
+      if (navigator.vibrate) navigator.vibrate(60);
+    }
+  }, [phase, restRemaining]);
+
   // ── Exercise complete auto-advance (2s) ──────────────────────────────────────
   useEffect(() => {
     if (phase !== "exerciseComplete") return;
@@ -2575,39 +2583,67 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
         )}
 
         {/* ── RESTING PHASE ── */}
-        {phase === "resting" && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 24, textAlign: "center" }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-              Set {currentSet - 1} of {totalSets} complete ✓
-            </div>
+        {phase === "resting" && (() => {
+          const restColor = restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald;
+          const progressPct = restTotal > 0 ? Math.min(100, ((restTotal - restRemaining) / restTotal) * 100) : 100;
+          const nextExName = currentSet <= totalSets ? cur?.name : exercises[exIdx + 1]?.name;
+          const isLastSet = currentSet > totalSets;
 
-            <div style={{ fontSize: 13, fontWeight: 700, color: C.muted, letterSpacing: "0.08em", textTransform: "uppercase" }}>REST</div>
+          function adjustRest(delta) {
+            setRestRemaining((r) => Math.max(10, Math.min(180, r + delta)));
+            setRestTotal((t) => Math.max(10, Math.min(180, t + delta)));
+          }
 
-            {/* Countdown */}
-            <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald, transition: "color 0.5s", animation: restRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
-              {String(Math.floor(restRemaining / 60)).padStart(1, "0")}:{String(restRemaining % 60).padStart(2, "0")}
-            </div>
-
-            {/* Rest progress bar */}
-            <div style={{ width: "100%", maxWidth: 320, height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${((restTotal - restRemaining) / restTotal) * 100}%`, background: restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald, borderRadius: 3, transition: "width 1s linear, background 0.5s" }} />
-            </div>
-
-            {/* Next up */}
-            {currentSet <= totalSets && (
-              <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
-                Next set: {targetReps} × {cur?.name}
+          return (
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px 40px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", minHeight: "calc(100vh - 80px)", justifyContent: "center" }}>
+              {/* Set complete label */}
+              <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                Set {currentSet - 1} of {totalSets} complete ✓
               </div>
-            )}
 
-            <button
-              onClick={handleSkipRest}
-              style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
-            >
-              Skip rest →
-            </button>
-          </div>
-        )}
+              <div style={{ fontSize: 11, fontWeight: 900, color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase" }}>REST</div>
+
+              {/* Big countdown */}
+              <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: restColor, transition: "color 0.4s", animation: restRemaining <= 5 ? "pulse 0.8s infinite" : "none", minWidth: 160 }}>
+                {String(Math.floor(restRemaining / 60)).padStart(1, "0")}:{String(restRemaining % 60).padStart(2, "0")}
+              </div>
+
+              {/* −15s / Skip / +15s */}
+              <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+                <button
+                  onClick={() => adjustRest(-15)}
+                  style={{ padding: "12px 18px", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", minHeight: 48 }}
+                >
+                  −15s
+                </button>
+                <button
+                  onClick={handleSkipRest}
+                  style={{ padding: "12px 24px", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", minHeight: 48 }}
+                >
+                  Skip rest →
+                </button>
+                <button
+                  onClick={() => adjustRest(15)}
+                  style={{ padding: "12px 18px", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", minHeight: 48 }}
+                >
+                  +15s
+                </button>
+              </div>
+
+              {/* Progress bar */}
+              <div style={{ width: "100%", maxWidth: 320, height: 6, background: "rgba(255,255,255,0.08)", borderRadius: 3, overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${progressPct}%`, background: restColor, borderRadius: 3, transition: "width 1s linear, background 0.4s" }} />
+              </div>
+
+              {/* Next up */}
+              {nextExName && (
+                <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
+                  {isLastSet ? `Next: ${nextExName}` : `Next set: ${isTimeBased ? `${adjustedDuration ?? cur?.target_duration_sec}s` : `${targetReps} ×`} ${nextExName}`}
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         {/* ── EXERCISE COMPLETE PHASE ── */}
         {phase === "exerciseComplete" && (
