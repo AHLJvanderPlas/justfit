@@ -871,6 +871,13 @@ Calculated server-side from executions table:
 | Delete workout from history | ✅ Live — trash icon on each row, confirmation modal (type DELETE), onRequestDelete in execution.js; deleting today's only session resets todayCompleted + bonusDone state and localStorage |
 | Bonus session intensity cap | ✅ Live — bonus_session flag in plan.js, micro ≤15min, moderate cap >15min, saved as session_type=bonus; bonus plans are returned in-memory (not saved to day_plans) to avoid unique(user_id,date) constraint |
 | Pregnancy mode setup | ✅ Live — setup steps (medical clearance + due date) now render inline in Profile section when user clicks "Enable pregnancy mode →"; advisory mentions 9-month pregnancy + 3-month postnatal period; removed always-visible "Expecting?" card |
+| "All reps done" shortcut button | ✅ Live — button below tap zone in rep-counting phase; calls handleSetDone(targetReps) to skip individual tapping and proceed directly to rest timer |
+| Responsive dashboard layout | ✅ Live — on screens < 600px: session card full-width first, compact horizontal score strip below; useNarrow hook with resize listener; desktop layout unchanged |
+| Plan regeneration UPSERT fix | ✅ Fixed — ON CONFLICT(user_id, date) DO UPDATE replaces ON CONFLICT(id); regenerating plan after deleting today's workout no longer 500s |
+| Session state reconciliation on load | ✅ Fixed — after fetching history on app load, todayCompleted/bonusDone are cleared if no executions exist for today; fixes stale "Session Complete" after page reload post-deletion |
+| Pregnancy/postnatal deactivate | ✅ Live — "Deactivate" button on the pregnancy/postnatal status row in Settings; immediately calls API to reset mode to standard + cycle tracking to off |
+| Sex-change warning modal | ✅ Live — switching sex from Female to Male/Non-binary while pregnancy or smart cycle tracking is active shows a confirmation modal listing what will be deactivated; confirms before wiping settings |
+| Weight unit toggle button | ✅ Fixed — kg/lbs selector is now a single tap-to-toggle button (was two buttons that overflowed the container on mobile); applied in Settings, ProfileEditor, and Onboarding |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
