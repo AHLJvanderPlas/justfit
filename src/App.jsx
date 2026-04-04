@@ -4072,7 +4072,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   };
 
   return (
-    <div style={{ maxWidth: 480 }}>
+    <div>
       <div style={{ marginBottom: 36 }}>
         <h1
           style={{
@@ -4084,51 +4084,6 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Settings
         </h1>
-      </div>
-
-      {/* ── Appearance ─────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Appearance
-        </div>
-        <Glass style={{ padding: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 }}>
-            Accent colour
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {ACCENT_COLORS.map((ac) => {
-              const selected = accentHex === ac.hex;
-              return (
-                <button
-                  key={ac.id}
-                  title={ac.name}
-                  onClick={() => {
-                    setAccentHex(ac.hex);
-                    localStorage.setItem("jf_accent", ac.hex);
-                    applyAccent(ac.hex);
-                  }}
-                  style={{
-                    width: 36, height: 36,
-                    borderRadius: "50%",
-                    background: ac.hex,
-                    border: selected ? `3px solid ${C.text}` : "3px solid transparent",
-                    outline: selected ? `2px solid ${ac.hex}` : "none",
-                    outlineOffset: 2,
-                    cursor: "pointer",
-                    padding: 0,
-                    boxShadow: selected ? `0 0 0 1px ${ac.hex}` : "none",
-                    transition: "transform 0.12s, box-shadow 0.12s",
-                    transform: selected ? "scale(1.15)" : "scale(1)",
-                    flexShrink: 0,
-                  }}
-                />
-              );
-            })}
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
-            {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
-          </div>
-        </Glass>
       </div>
 
       {/* ── Your Profile ────────────────────────────────────── */}
@@ -4618,6 +4573,51 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           >
             {userId?.slice(0, 16)}...
           </span>
+        </Glass>
+      </div>
+
+      {/* ── Appearance ─────────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Appearance
+        </div>
+        <Glass style={{ padding: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 }}>
+            Accent colour
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {ACCENT_COLORS.map((ac) => {
+              const selected = accentHex === ac.hex;
+              return (
+                <button
+                  key={ac.id}
+                  title={ac.name}
+                  onClick={() => {
+                    setAccentHex(ac.hex);
+                    localStorage.setItem("jf_accent", ac.hex);
+                    applyAccent(ac.hex);
+                  }}
+                  style={{
+                    width: 36, height: 36,
+                    borderRadius: "50%",
+                    background: ac.hex,
+                    border: selected ? `3px solid ${C.text}` : "3px solid transparent",
+                    outline: selected ? `2px solid ${ac.hex}` : "none",
+                    outlineOffset: 2,
+                    cursor: "pointer",
+                    padding: 0,
+                    boxShadow: selected ? `0 0 0 1px ${ac.hex}` : "none",
+                    transition: "transform 0.12s, box-shadow 0.12s",
+                    transform: selected ? "scale(1.15)" : "scale(1)",
+                    flexShrink: 0,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
+            {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
+          </div>
         </Glass>
       </div>
 
