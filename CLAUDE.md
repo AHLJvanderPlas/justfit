@@ -379,7 +379,7 @@ Pregnancy/postnatal accent colours (not in C, used inline):
 ### Views (internal state, no router)
 - `today` — Dashboard with consistency score + today's session card
 - `history` — List of past executions from API
-- `awards` — Hall of Fame, 6 awards shown
+- `awards` — Hall of Fame, 26 awards shown
 - `settings` — Subscription toggle, app preferences, logout
 
 ### Key app-level state
@@ -847,7 +847,7 @@ Calculated server-side from executions table:
 | D1 schema + migrations | ✅ Live (0001–0011) |
 | Exercise library (~150 exercises) | ✅ Seeded in D1 (migrations 0001–0010) |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
-| Awards (12 awards) | ✅ Seeded in D1 |
+| Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
 | Planner engine v1.6.0 (R510–R544) | ✅ Live — template-based, profile-aware, pregnancy/postnatal rules |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
