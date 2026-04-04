@@ -6,13 +6,41 @@ const C = {
   bgCard: "rgba(255,255,255,0.04)",
   border: "rgba(255,255,255,0.08)",
   borderHover: "rgba(255,255,255,0.14)",
-  emerald: "#10b981",
-  emeraldDim: "rgba(16,185,129,0.15)",
-  emeraldBorder: "rgba(16,185,129,0.3)",
+  emerald: "var(--accent)",
+  emeraldDim: "var(--accent-dim)",
+  emeraldBorder: "var(--accent-border)",
   text: "#f8fafc",
   muted: "#64748b",
   subtle: "#334155",
 };
+
+// ─── ACCENT COLOUR SYSTEM ─────────────────────────────────────────────────────
+const ACCENT_COLORS = [
+  { id: "emerald", hex: "#10b981", name: "Emerald"  },
+  { id: "violet",  hex: "#8b5cf6", name: "Violet"   },
+  { id: "sky",     hex: "#0ea5e9", name: "Sky"       },
+  { id: "rose",    hex: "#f43f5e", name: "Rose"      },
+  { id: "amber",   hex: "#f59e0b", name: "Amber"     },
+  { id: "indigo",  hex: "#6366f1", name: "Indigo"    },
+  { id: "lime",    hex: "#84cc16", name: "Lime"      },
+  { id: "cyan",    hex: "#06b6d4", name: "Cyan"      },
+  { id: "orange",  hex: "#f97316", name: "Orange"    },
+  { id: "fuchsia", hex: "#d946ef", name: "Fuchsia"   },
+  { id: "coral",   hex: "#fb7185", name: "Coral"     },
+];
+function hexToRgbParts(hex) {
+  return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
+}
+function applyAccent(hex) {
+  const rgb = hexToRgbParts(hex);
+  const root = document.documentElement;
+  root.style.setProperty("--accent",        hex);
+  root.style.setProperty("--accent-rgb",    rgb);
+  root.style.setProperty("--accent-dim",    `rgba(${rgb},0.15)`);
+  root.style.setProperty("--accent-border", `rgba(${rgb},0.3)`);
+}
+// Apply saved accent before first render (avoids flash of default colour)
+applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
 
 // ─── GUEST USER ID ────────────────────────────────────────────────────────────
 // Persisted in localStorage until real auth is built
@@ -180,8 +208,8 @@ function GhostCounter() {
         display: "flex",
         alignItems: "center",
         gap: 6,
-        background: "rgba(16,185,129,0.08)",
-        border: "1px solid rgba(16,185,129,0.2)",
+        background: "rgba(var(--accent-rgb),0.08)",
+        border: "1px solid rgba(var(--accent-rgb),0.2)",
         borderRadius: 999,
         padding: "6px 14px",
         fontSize: 12,
@@ -249,7 +277,7 @@ const Toggle = ({ label, sub, active, onToggle }) => (
       borderRadius: 16,
       width: "100%",
       textAlign: "left",
-      background: active ? "rgba(16,185,129,0.08)" : "rgba(255,255,255,0.03)",
+      background: active ? "rgba(var(--accent-rgb),0.08)" : "rgba(255,255,255,0.03)",
       border: `1px solid ${active ? C.emeraldBorder : C.border}`,
       cursor: "pointer",
       transition: "all 0.15s",
@@ -333,7 +361,7 @@ const ScaleInput = ({ label, value, onChange }) => (
             cursor: "pointer",
             transition: "all 0.15s",
             boxShadow:
-              value === v ? "0 4px 20px rgba(16,185,129,0.25)" : "none",
+              value === v ? "0 4px 20px rgba(var(--accent-rgb),0.25)" : "none",
           }}
         >
           {v}
@@ -423,7 +451,7 @@ function EUWaiverModal({ onAccept }) {
             fontSize: 15,
             letterSpacing: "0.04em",
             cursor: "pointer",
-            boxShadow: "0 8px 32px rgba(16,185,129,0.35)",
+            boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.35)",
           }}
         >
           I Understand — Continue
@@ -639,7 +667,7 @@ function OnboardingModal({ token, onComplete }) {
 
               {/* Cycle tracking card — female only */}
               {sex === "female" && !cycleSetupDone && (
-                <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(16,185,129,0.04)", padding: 20, marginBottom: 8 }}>
+                <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--accent-rgb),0.04)", padding: 20, marginBottom: 8 }}>
                   {!showCycleSetup ? (
                     <>
                       <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
@@ -706,7 +734,7 @@ function OnboardingModal({ token, onComplete }) {
                 </div>
               )}
               {sex === "female" && cycleSetupDone && (
-                <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)" }}>
+                <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.08)" }}>
                   {cycleTrackingMode === "smart" ? "✓ Cycle tracking enabled" : "Cycle tracking skipped — enable anytime in Settings."}
                 </div>
               )}
@@ -837,7 +865,7 @@ function OnboardingModal({ token, onComplete }) {
               flex: 2, padding: 14, borderRadius: 16, border: "none",
               background: canAdvance ? C.emerald : C.subtle,
               color: "#fff", fontWeight: 900, fontSize: 15, cursor: canAdvance ? "pointer" : "not-allowed",
-              boxShadow: canAdvance ? "0 8px 32px rgba(16,185,129,0.35)" : "none",
+              boxShadow: canAdvance ? "0 8px 32px rgba(var(--accent-rgb),0.35)" : "none",
               opacity: saving ? 0.7 : 1,
             }}
           >
@@ -1032,7 +1060,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 
                 {/* Standard — cycle tracking */}
                 {bodyModeSelection === "standard" && !cycleSetupDone && (
-                  <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(16,185,129,0.04)", padding: 20 }}>
+                  <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--accent-rgb),0.04)", padding: 20 }}>
                     {!showCycleSetup ? (
                       <>
                         <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
@@ -1081,7 +1109,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                   </div>
                 )}
                 {bodyModeSelection === "standard" && cycleSetupDone && (
-                  <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)" }}>
+                  <div style={{ fontSize: 12, color: C.emerald, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.08)" }}>
                     {(cycleTrackingMode ?? profileData?.cycle?.tracking_mode) === "smart"
                       ? "✓ Cycle tracking enabled"
                       : "Cycle tracking off — enable anytime in Settings."}
@@ -1091,7 +1119,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
             )}
 
             <button onClick={() => setStep(1)} disabled={!canAdvance}
-              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: canAdvance ? C.emerald : "rgba(16,185,129,0.2)", border: "none", color: canAdvance ? "#fff" : C.muted, cursor: canAdvance ? "pointer" : "default", letterSpacing: "-0.01em" }}>
+              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: canAdvance ? C.emerald : "rgba(var(--accent-rgb),0.2)", border: "none", color: canAdvance ? "#fff" : C.muted, cursor: canAdvance ? "pointer" : "default", letterSpacing: "-0.01em" }}>
               Next →
             </button>
           </>
@@ -1109,7 +1137,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
               </p>
             </div>
 
-            <div style={{ background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ background: "rgba(var(--accent-rgb),0.06)", border: "1px solid rgba(var(--accent-rgb),0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, marginBottom: 2 }}>What's new</div>
               {[
                 "Swipeable instruction cards for every exercise",
@@ -1147,7 +1175,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
             </div>
 
             <button onClick={handleConfirm} disabled={saving}
-              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: saving ? "rgba(16,185,129,0.4)" : C.emerald, border: "none", color: "#fff", cursor: saving ? "default" : "pointer", letterSpacing: "-0.01em" }}>
+              style={{ width: "100%", padding: "17px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: saving ? "rgba(var(--accent-rgb),0.4)" : C.emerald, border: "none", color: "#fff", cursor: saving ? "default" : "pointer", letterSpacing: "-0.01em" }}>
               {saving ? "Saving…" : "Confirmed — let's go →"}
             </button>
           </>
@@ -1614,7 +1642,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle }) {
               border: "none",
               color: "#fff",
               cursor: "pointer",
-              boxShadow: "0 8px 30px rgba(16,185,129,0.3)",
+              boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.3)",
             }}
           >
             Apply Today's Plan
@@ -1673,7 +1701,7 @@ function LogActivityModal({ onSave, onClose }) {
         <button
           disabled={!type || !duration}
           onClick={() => onSave(type.value, duration)}
-          style={{ width: "100%", padding: 16, borderRadius: 16, fontSize: 15, fontWeight: 900, background: (!type || !duration) ? C.subtle : C.emerald, border: "none", color: (!type || !duration) ? C.muted : "#fff", cursor: (!type || !duration) ? "not-allowed" : "pointer", boxShadow: (!type || !duration) ? "none" : "0 8px 30px rgba(16,185,129,0.3)" }}
+          style={{ width: "100%", padding: 16, borderRadius: 16, fontSize: 15, fontWeight: 900, background: (!type || !duration) ? C.subtle : C.emerald, border: "none", color: (!type || !duration) ? C.muted : "#fff", cursor: (!type || !duration) ? "not-allowed" : "pointer", boxShadow: (!type || !duration) ? "none" : "0 8px 30px rgba(var(--accent-rgb),0.3)" }}
         >
           Save Activity
         </button>
@@ -1723,10 +1751,10 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   const beforeNight = new Date().getHours() < 20;
 
   return (
-    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(16,185,129,0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(16,185,129,0.4)", borderRadius: 20 }}>
+    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
       {/* Checkmark */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, boxShadow: "0 0 20px rgba(16,185,129,0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+        <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, boxShadow: "0 0 20px rgba(var(--accent-rgb),0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
         </div>
         <div>
@@ -1825,7 +1853,7 @@ function PregnancyProgressBanner({ cycle }) {
     const showMilestone = milestone && !dismissed[milestoneKey];
 
     const pct = Math.min(100, Math.round((week / 40) * 100));
-    const T_COLORS = { 1: "#10b981", 2: "#fbbf24", 3: "#f97316" };
+    const T_COLORS = { 1: "var(--accent)", 2: "#fbbf24", 3: "#f97316" };
     const barColor = T_COLORS[trimester] ?? "#fbbf24";
 
     return (
@@ -1999,7 +2027,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(16,185,129,0.7)", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
                   Consistency
                 </span>
               </div>
@@ -2022,7 +2050,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                   </svg>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(16,185,129,0.7)", textTransform: "uppercase" }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
                   Consistency
                 </span>
               </div>
@@ -2059,7 +2087,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             display: "flex",
             flexDirection: "column",
             background:
-              "linear-gradient(135deg, rgba(16,185,129,0.08) 0%, rgba(2,6,23,0.6) 60%)",
+              "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(2,6,23,0.6) 60%)",
             border: `1px solid ${C.emeraldBorder}`,
           }}
         >
@@ -2232,7 +2260,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   boxShadow:
                     plan.slot_type === "rest"
                       ? "none"
-                      : "0 8px 30px rgba(16,185,129,0.3)",
+                      : "0 8px 30px rgba(var(--accent-rgb),0.3)",
                 }}
               >
                 {plan.slot_type === "rest" ? (
@@ -2929,7 +2957,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
               <button
                 onClick={() => setPhase("working")}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(16,185,129,0.3)", letterSpacing: "-0.01em", flexShrink: 0 }}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em", flexShrink: 0 }}
               >
                 Ready — let's go →
               </button>
@@ -3013,15 +3041,15 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 const isComplete = repCount >= targetReps;
                 const dotCount = Math.min(10, targetReps);
                 const tapBg = tapFlash
-                  ? "rgba(16,185,129,0.25)"
+                  ? "rgba(var(--accent-rgb),0.25)"
                   : isComplete
-                  ? "rgba(16,185,129,0.15)"
-                  : "rgba(16,185,129,0.08)";
+                  ? "rgba(var(--accent-rgb),0.15)"
+                  : "rgba(var(--accent-rgb),0.08)";
                 const tapBorder = tapFlash
-                  ? "rgba(16,185,129,0.55)"
+                  ? "rgba(var(--accent-rgb),0.55)"
                   : isComplete
-                  ? "rgba(16,185,129,0.4)"
-                  : "rgba(16,185,129,0.2)";
+                  ? "rgba(var(--accent-rgb),0.4)"
+                  : "rgba(var(--accent-rgb),0.2)";
                 const tapLabel = isComplete ? "SET COMPLETE" : tapFlash ? "COUNTED!" : "TAP TO COUNT REP";
 
                 return (
@@ -3059,7 +3087,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                           {tapLabel}
                         </span>
                         {!isComplete && (
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(16,185,129,0.15)", border: "1.5px solid rgba(16,185,129,0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(var(--accent-rgb),0.15)", border: "1.5px solid rgba(var(--accent-rgb),0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                           </div>
                         )}
@@ -3914,6 +3942,8 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [showSexWarning, setShowSexWarning] = useState(false);
   const [pendingSex, setPendingSex] = useState(null);
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
+  // Accent colour
+  const [accentHex, setAccentHex] = useState(localStorage.getItem("jf_accent") ?? "#10b981");
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -4056,6 +4086,52 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         </h1>
       </div>
 
+      {/* ── Appearance ─────────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Appearance
+        </div>
+        <Glass style={{ padding: 24 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 }}>
+            Accent colour
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {ACCENT_COLORS.map((ac) => {
+              const selected = accentHex === ac.hex;
+              return (
+                <button
+                  key={ac.id}
+                  title={ac.name}
+                  onClick={() => {
+                    setAccentHex(ac.hex);
+                    localStorage.setItem("jf_accent", ac.hex);
+                    applyAccent(ac.hex);
+                  }}
+                  style={{
+                    width: 36, height: 36,
+                    borderRadius: "50%",
+                    background: ac.hex,
+                    border: selected ? `3px solid ${C.text}` : "3px solid transparent",
+                    outline: selected ? `2px solid ${ac.hex}` : "none",
+                    outlineOffset: 2,
+                    cursor: "pointer",
+                    padding: 0,
+                    boxShadow: selected ? `0 0 0 1px ${ac.hex}` : "none",
+                    transition: "transform 0.12s, box-shadow 0.12s",
+                    transform: selected ? "scale(1.15)" : "scale(1)",
+                    flexShrink: 0,
+                  }}
+                />
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
+            {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
+          </div>
+        </Glass>
+      </div>
+
+      {/* ── Your Profile ────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           Your Profile
@@ -4353,7 +4429,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                   </div>
                 )}
                 {cycleTrackingMode === "smart" && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                     <span style={{ fontSize: 16 }}>🔄</span>
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>Smart cycle tracking</span>
                   </div>
@@ -4397,7 +4473,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            background: prefs.isPro ? "rgba(16,185,129,0.06)" : C.bgCard,
+            background: prefs.isPro ? "rgba(var(--accent-rgb),0.06)" : C.bgCard,
             border: `1px solid ${prefs.isPro ? C.emeraldBorder : C.border}`,
           }}
         >
@@ -4484,8 +4560,8 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               {passkeyMsg && (
                 <div style={{
                   fontSize: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 14,
-                  background: passkeyMsg.startsWith("✓") ? "rgba(16,185,129,0.1)" : "rgba(226,76,74,0.1)",
-                  border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(16,185,129,0.3)" : "rgba(226,76,74,0.3)"}`,
+                  background: passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.1)" : "rgba(226,76,74,0.1)",
+                  border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.3)" : "rgba(226,76,74,0.3)"}`,
                   color: passkeyMsg.startsWith("✓") ? C.emerald : "#f87171",
                 }}>
                   {passkeyMsg}
@@ -4898,9 +4974,9 @@ function PlanWeekView({ history }) {
                 background: isToday
                   ? C.emeraldDim
                   : done
-                    ? "rgba(16,185,129,0.06)"
+                    ? "rgba(var(--accent-rgb),0.06)"
                     : "rgba(255,255,255,0.02)",
-                border: `1px solid ${isToday ? C.emeraldBorder : done ? "rgba(16,185,129,0.2)" : C.border}`,
+                border: `1px solid ${isToday ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`,
               }}
             >
               <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", color: isToday ? C.emerald : C.muted, textTransform: "uppercase" }}>
@@ -5007,7 +5083,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "#10b981" : "#64748b"}
+        stroke={a ? "var(--accent)" : "#64748b"}
         strokeWidth="2"
       >
         <rect width="18" height="18" x="3" y="4" rx="2" />
@@ -5022,7 +5098,7 @@ const NAV_ITEMS = [
     id: "plan",
     label: "Plan",
     icon: (a) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "#10b981" : "#64748b"} strokeWidth="2">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2">
         <rect width="18" height="18" x="3" y="4" rx="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
         <line x1="8" y1="2" x2="8" y2="6" />
@@ -5040,7 +5116,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "#10b981" : "#64748b"}
+        stroke={a ? "var(--accent)" : "#64748b"}
         strokeWidth="2"
       >
         <path d="M3 3v5h5" />
@@ -5058,7 +5134,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "#10b981" : "#64748b"}
+        stroke={a ? "var(--accent)" : "#64748b"}
         strokeWidth="2"
       >
         <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
@@ -5079,7 +5155,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "#10b981" : "#64748b"}
+        stroke={a ? "var(--accent)" : "#64748b"}
         strokeWidth="2"
       >
         <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -5498,7 +5574,7 @@ export default function App() {
         @keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
         ::-webkit-scrollbar { width: 0; }
         textarea { font-family: inherit; color: inherit; }
-        button:focus-visible { outline: 2px solid #10b981; outline-offset: 2px; }
+        button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
       `}</style>
 
       <div
@@ -5526,7 +5602,7 @@ export default function App() {
                   fontWeight: 900,
                   fontSize: 14,
                   color: "#fff",
-                  boxShadow: "0 4px 20px rgba(16,185,129,0.3)",
+                  boxShadow: "0 4px 20px rgba(var(--accent-rgb),0.3)",
                 }}
               >
                 JF
