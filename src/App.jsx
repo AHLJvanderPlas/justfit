@@ -484,6 +484,39 @@ const EQUIPMENT_OPTIONS = [
   { value: "pull_up_bar", label: "Pull-up bar", sub: "Door-mounted or free-standing" },
 ];
 
+const ALL_EQUIPMENT = [
+  { value: "running_shoes",      label: "Running shoes" },
+  { value: "yoga_mat",           label: "Yoga mat" },
+  { value: "dumbbell",           label: "Dumbbells" },
+  { value: "resistance_bands",   label: "Resistance bands" },
+  { value: "jump_rope",          label: "Jump rope" },
+  { value: "exercise_mat",       label: "Exercise mat" },
+  { value: "foam_roller",        label: "Foam roller" },
+  { value: "kettlebell",         label: "Kettlebell" },
+  { value: "pull_up_bar",        label: "Pull-up bar" },
+  { value: "adjustable_bench",   label: "Adjustable bench" },
+  { value: "stability_ball",     label: "Stability ball" },
+  { value: "ankle_weights",      label: "Ankle weights" },
+  { value: "barbell",            label: "Barbell" },
+  { value: "weight_plates",      label: "Weight plates" },
+  { value: "push_up_handles",    label: "Push-up handles" },
+  { value: "medicine_ball",      label: "Medicine ball" },
+  { value: "fitness_tracker",    label: "Fitness tracker" },
+  { value: "indoor_bike",        label: "Indoor bike trainer" },
+  { value: "exercise_bike",      label: "Stationary bike" },
+  { value: "rowing_machine",     label: "Rowing machine" },
+  { value: "treadmill",          label: "Treadmill" },
+  { value: "suspension_trainer", label: "Suspension trainer" },
+  { value: "step_platform",      label: "Step platform" },
+  { value: "power_tower",        label: "Power tower" },
+  { value: "punching_bag",       label: "Punching bag" },
+  { value: "smith_machine",      label: "Smith machine" },
+  { value: "elliptical",         label: "Elliptical trainer" },
+  { value: "squat_rack",         label: "Home squat rack" },
+  { value: "bench_press_rack",   label: "Bench press rack" },
+  { value: "multi_gym",          label: "Multi-gym machine" },
+];
+
 const SEX_OPTIONS = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
@@ -3949,13 +3982,20 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
   const [planSaving, setPlanSaving] = useState(false);
 
-  const togglePlanEquip = (val) => {
-    if (val === "none") {
-      setPlanEquipment(["none"]);
+  const [equipEditMode, setEquipEditMode] = useState(false);
+  const [equipDragItem, setEquipDragItem] = useState(null);
+  const [equipDropZone, setEquipDropZone] = useState(null);
+
+  const moveEquip = (value, toActive) => {
+    if (toActive) {
+      setPlanEquipment((prev) => {
+        const without = prev.filter((v) => v !== "none");
+        return without.includes(value) ? without : [...without, value];
+      });
     } else {
       setPlanEquipment((prev) => {
-        const without = prev.filter((e) => e !== "none");
-        return without.includes(val) ? without.filter((e) => e !== val) : [...without, val];
+        const next = prev.filter((v) => v !== value && v !== "none");
+        return next.length === 0 ? ["none"] : next;
       });
     }
   };
@@ -4155,44 +4195,114 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
 
           {/* Equipment */}
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
-            Available equipment
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
+              Available equipment
+            </div>
+            <button
+              onClick={() => setEquipEditMode((v) => !v)}
+              style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: equipEditMode ? C.emerald : C.muted }}
+            >
+              {equipEditMode ? "Done" : "Edit"}
+            </button>
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-            The planner only suggests exercises you can actually do at home or in the gym.
+            The planner only suggests exercises you can actually do. Tap Edit to change your kit.
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
-            {EQUIPMENT_OPTIONS.map((eq) => {
-              const sel = planEquipment.includes(eq.value);
-              return (
-                <button
-                  key={eq.value}
-                  onClick={() => togglePlanEquip(eq.value)}
-                  style={{
-                    display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "12px 16px", borderRadius: 14, textAlign: "left",
-                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                    cursor: "pointer",
-                  }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: sel ? C.emerald : C.text }}>{eq.label}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{eq.sub}</div>
+
+          {!equipEditMode ? (
+            /* ── Collapsed: show active chips only ── */
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, minHeight: 32 }}>
+              {planEquipment.filter((v) => v !== "none").length === 0 ? (
+                <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>No equipment — bodyweight only</span>
+              ) : (
+                planEquipment.filter((v) => v !== "none").map((val) => {
+                  const eq = ALL_EQUIPMENT.find((e) => e.value === val);
+                  return eq ? (
+                    <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                      {eq.label}
+                    </span>
+                  ) : null;
+                })
+              )}
+            </div>
+          ) : (
+            /* ── Expanded: two-panel drag UI ── */
+            <div style={{ marginBottom: 20 }}>
+              {/* Your equipment panel */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setEquipDropZone("active"); }}
+                onDragLeave={() => setEquipDropZone(null)}
+                onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, true); setEquipDragItem(null); setEquipDropZone(null); }}
+                style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  Your equipment
+                  <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                    {planEquipment.filter((v) => v !== "none").length}
+                  </span>
+                </div>
+                {planEquipment.filter((v) => v !== "none").length === 0 ? (
+                  <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>Drag items here or tap ✓ below</div>
+                ) : (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {planEquipment.filter((v) => v !== "none").map((val) => {
+                      const eq = ALL_EQUIPMENT.find((e) => e.value === val);
+                      return eq ? (
+                        <div
+                          key={val}
+                          draggable
+                          onDragStart={(e) => { setEquipDragItem(val); e.dataTransfer.effectAllowed = "move"; }}
+                          onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
+                          style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
+                        >
+                          {eq.label}
+                          <button
+                            onClick={() => moveEquip(val, false)}
+                            style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                            title="Remove"
+                          >×</button>
+                        </div>
+                      ) : null;
+                    })}
                   </div>
-                  <div style={{
-                    width: 20, height: 20, borderRadius: "50%",
-                    background: sel ? C.emerald : "transparent",
-                    border: `2px solid ${sel ? C.emerald : C.subtle}`,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                    flexShrink: 0,
-                  }}>
-                    {sel && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                )}
+              </div>
+
+              {/* Not in use panel */}
+              <div
+                onDragOver={(e) => { e.preventDefault(); setEquipDropZone("inactive"); }}
+                onDragLeave={() => setEquipDropZone(null)}
+                onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, false); setEquipDragItem(null); setEquipDropZone(null); }}
+                style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(255,255,255,0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(255,255,255,0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+              >
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                  Not in use
+                  <span style={{ background: "rgba(255,255,255,0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                    {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
+                  </span>
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).map((eq) => (
+                    <div
+                      key={eq.value}
+                      draggable
+                      onDragStart={(e) => { setEquipDragItem(eq.value); e.dataTransfer.effectAllowed = "move"; }}
+                      onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
+                    >
+                      {eq.label}
+                      <button
+                        onClick={() => moveEquip(eq.value, true)}
+                        style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                        title="Add"
+                      >✓</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           <button
             disabled={planSaving}
