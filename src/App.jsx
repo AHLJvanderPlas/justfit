@@ -3981,6 +3981,12 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
   const [planSaving, setPlanSaving] = useState(false);
+  const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
+  const [weeklySchedule, setWeeklySchedule] = useState(() => {
+    const saved = prefs.preferences?.weekly_schedule;
+    const d = prefs.session_duration_min ?? 30;
+    return saved ?? { mon: d, tue: d, wed: d, thu: d, fri: d, sat: 0, sun: 0 };
+  });
 
   const [equipEditMode, setEquipEditMode] = useState(false);
   const [equipDragItem, setEquipDragItem] = useState(null);
@@ -4008,12 +4014,12 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         experience_level: prefs.experience_level ?? "beginner",
         session_duration_min: planDuration,
         days_per_week_target: prefs.days_per_week_target ?? 3,
-        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment },
+        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule },
       });
       onUpdate((p) => ({
         ...p,
         session_duration_min: planDuration,
-        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment },
+        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule },
       }));
     } catch {}
     setPlanSaving(false);
@@ -4174,7 +4180,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
             Sets the default length of your daily plan. You can always adjust on the day.
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
             {[15, 20, 30, 45, 60].map((d) => (
               <button
                 key={d}
@@ -4191,6 +4197,55 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               </button>
             ))}
           </div>
+
+          {/* Advanced schedule toggle */}
+          <button
+            onClick={() => setShowAdvancedSchedule((v) => !v)}
+            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 0", marginBottom: 20, background: "none", border: "none", cursor: "pointer", color: showAdvancedSchedule ? C.emerald : C.muted, fontSize: 12, fontWeight: 700 }}
+          >
+            <span style={{ fontSize: 10, transition: "transform 0.2s", display: "inline-block", transform: showAdvancedSchedule ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
+            Advanced schedule — set time per day
+          </button>
+
+          {showAdvancedSchedule && (
+            <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+              {[
+                { key: "mon", label: "Mon" },
+                { key: "tue", label: "Tue" },
+                { key: "wed", label: "Wed" },
+                { key: "thu", label: "Thu" },
+                { key: "fri", label: "Fri" },
+                { key: "sat", label: "Sat" },
+                { key: "sun", label: "Sun" },
+              ].map(({ key, label }) => (
+                <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 32, fontSize: 11, fontWeight: 900, color: weeklySchedule[key] === 0 ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+                    {label}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, flex: 1 }}>
+                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "60m" }].map(({ v, l }) => {
+                      const sel = weeklySchedule[key] === v;
+                      const isRest = v === 0;
+                      return (
+                        <button
+                          key={v}
+                          onClick={() => setWeeklySchedule((s) => ({ ...s, [key]: v }))}
+                          style={{
+                            padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer",
+                            border: `1px solid ${sel ? (isRest ? "rgba(255,255,255,0.15)" : C.emeraldBorder) : C.border}`,
+                            background: sel ? (isRest ? "rgba(255,255,255,0.07)" : C.emeraldDim) : "rgba(255,255,255,0.02)",
+                            color: sel ? (isRest ? C.muted : C.emerald) : C.subtle,
+                          }}
+                        >
+                          {l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
 
           <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
 

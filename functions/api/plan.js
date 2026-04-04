@@ -85,7 +85,16 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    const plan = runPlanner(date, checkin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
+    // Inject per-day time_budget from weekly schedule when no check-in override
+    const weeklySchedule = prefs?.preferences?.weekly_schedule;
+    const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date(date + 'T12:00:00').getDay()];
+    const scheduledDuration = weeklySchedule?.[dayKey];
+    let effectiveCheckin = checkin ?? {};
+    if (effectiveCheckin.time_budget == null && scheduledDuration != null) {
+      effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
+    }
+
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
