@@ -3944,6 +3944,40 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
   // Accent colour
   const [accentHex, setAccentHex] = useState(localStorage.getItem("jf_accent") ?? "#10b981");
+  // Daily planning preferences
+  const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
+  const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
+  const [planSaving, setPlanSaving] = useState(false);
+
+  const togglePlanEquip = (val) => {
+    if (val === "none") {
+      setPlanEquipment(["none"]);
+    } else {
+      setPlanEquipment((prev) => {
+        const without = prev.filter((e) => e !== "none");
+        return without.includes(val) ? without.filter((e) => e !== val) : [...without, val];
+      });
+    }
+  };
+
+  const handlePlanSave = async () => {
+    setPlanSaving(true);
+    try {
+      await api.saveProfile(token, {
+        training_goal: prefs.training_goal ?? "health",
+        experience_level: prefs.experience_level ?? "beginner",
+        session_duration_min: planDuration,
+        days_per_week_target: prefs.days_per_week_target ?? 3,
+        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment },
+      });
+      onUpdate((p) => ({
+        ...p,
+        session_duration_min: planDuration,
+        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment },
+      }));
+    } catch {}
+    setPlanSaving(false);
+  };
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -4084,6 +4118,95 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Settings
         </h1>
+      </div>
+
+      {/* ── Daily Planning ──────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Daily Planning
+        </div>
+        <Glass style={{ padding: 24 }}>
+
+          {/* Session duration */}
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+            Available time per session
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+            Sets the default length of your daily plan. You can always adjust on the day.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+            {[15, 20, 30, 45, 60].map((d) => (
+              <button
+                key={d}
+                onClick={() => setPlanDuration(d)}
+                style={{
+                  padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
+                  border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
+                  background: planDuration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                  color: planDuration === d ? C.emerald : C.muted,
+                  cursor: "pointer",
+                }}
+              >
+                {d} min
+              </button>
+            ))}
+          </div>
+
+          <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
+
+          {/* Equipment */}
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+            Available equipment
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+            The planner only suggests exercises you can actually do at home or in the gym.
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+            {EQUIPMENT_OPTIONS.map((eq) => {
+              const sel = planEquipment.includes(eq.value);
+              return (
+                <button
+                  key={eq.value}
+                  onClick={() => togglePlanEquip(eq.value)}
+                  style={{
+                    display: "flex", alignItems: "center", justifyContent: "space-between",
+                    padding: "12px 16px", borderRadius: 14, textAlign: "left",
+                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    cursor: "pointer",
+                  }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: sel ? C.emerald : C.text }}>{eq.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{eq.sub}</div>
+                  </div>
+                  <div style={{
+                    width: 20, height: 20, borderRadius: "50%",
+                    background: sel ? C.emerald : "transparent",
+                    border: `2px solid ${sel ? C.emerald : C.subtle}`,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    {sel && <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#fff" }} />}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          <button
+            disabled={planSaving}
+            onClick={handlePlanSave}
+            style={{
+              width: "100%", padding: 14, borderRadius: 14,
+              background: planSaving ? "rgba(255,255,255,0.03)" : C.emerald,
+              border: "none", color: planSaving ? C.muted : "#fff",
+              fontWeight: 900, fontSize: 14, cursor: planSaving ? "not-allowed" : "pointer",
+            }}
+          >
+            {planSaving ? "Saving…" : "Save preferences"}
+          </button>
+        </Glass>
       </div>
 
       {/* ── Your Profile ────────────────────────────────────── */}
