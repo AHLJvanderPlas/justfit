@@ -4500,7 +4500,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         />
       </div>
 
-      <div>
+      <div style={{ marginBottom: 32 }}>
         {/* Security — Passkey */}
         {passkeySupported && (
           <div style={{ marginBottom: 32 }}>
@@ -4552,27 +4552,16 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Account
         </div>
-        <Glass
-          style={{
-            padding: 20,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-          }}
-        >
-          <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
-            Guest ID
-          </span>
-          <span
-            style={{
-              fontSize: 10,
-              fontWeight: 700,
-              color: C.muted,
-              fontFamily: "monospace",
-            }}
-          >
-            {userId?.slice(0, 16)}...
-          </span>
+        <Glass style={{ padding: 20 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Guest ID</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>
+              {userId?.slice(0, 16)}...
+            </span>
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+            This is your unique account identifier. JustFit uses it to link your workouts, plan, and score to your account — privately and securely, without exposing your email.
+          </div>
         </Glass>
       </div>
 
