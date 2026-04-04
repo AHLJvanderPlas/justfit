@@ -884,6 +884,8 @@ Calculated server-side from executions table:
 
 ---
 
+| Accent colour picker | ✅ Live — 11 colours (Emerald/Violet/Sky/Rose/Amber/Indigo/Lime/Cyan/Orange/Fuchsia/Coral); CSS custom properties (--accent, --accent-rgb, --accent-dim, --accent-border) on :root; stored in localStorage jf_accent; applied before first render; Appearance section at top of Settings |
+
 ## Known Bugs to Fix
 
 None currently. 🟢
