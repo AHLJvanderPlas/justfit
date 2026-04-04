@@ -4914,8 +4914,48 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
 }
 
 // ─── WEEKLY PLAN VIEW ─────────────────────────────────────────────────────────
-function PlanWeekView({ history }) {
+function estimateMins(p) {
+  if (!p || p.slot_type === "rest") return null;
+  const steps = p.steps ?? [];
+  if (!steps.length) return p.slot_type === "micro" ? 12 : 20;
+  const totalSec = steps.reduce((s, step) => {
+    const sets = step.sets ?? 3;
+    const active = step.target_duration_sec
+      ? step.target_duration_sec * sets
+      : (step.target_reps ?? 10) * sets * 3;
+    const rest = (step.rest_sec ?? 45) * Math.max(0, sets - 1);
+    return s + active + rest;
+  }, 0);
+  return Math.max(5, Math.round(totalSec / 60));
+}
+
+function PlanWeekView({ history, plan, userId }) {
   const today = new Date().toISOString().split("T")[0];
+  const [upcomingPlans, setUpcomingPlans] = useState([]);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+
+  const upcomingDates = Array.from({ length: 5 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() + i + 1);
+    return d.toISOString().split("T")[0];
+  });
+
+  useEffect(() => {
+    if (!userId) { setLoadingUpcoming(false); return; }
+    const cacheKey = `jf_upcoming_${today}`;
+    const cached = sessionStorage.getItem(cacheKey);
+    if (cached) {
+      try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch {}
+    }
+    Promise.all(
+      upcomingDates.map((date) => api.generatePlan(userId, date, null).catch(() => null))
+    ).then((plans) => {
+      const result = upcomingDates.map((date, i) => ({ date, plan: plans[i] }));
+      sessionStorage.setItem(cacheKey, JSON.stringify(result));
+      setUpcomingPlans(result);
+      setLoadingUpcoming(false);
+    });
+  }, [userId]);
 
   // Build last 7 days
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -4991,6 +5031,88 @@ function PlanWeekView({ history }) {
             </div>
           );
         })}
+      </div>
+
+      {/* Today's plan */}
+      {plan && plan.slot_type !== "rest" && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+            Today's Plan
+          </div>
+          <Glass style={{ padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: plan.steps?.length ? 10 : 0 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 3 }}>
+                  {plan.session_name || "Today's session"}
+                </div>
+                <div style={{ fontSize: 12, color: C.muted }}>
+                  {(() => { const d = new Date(today + "T12:00:00"); return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()}`; })()}
+                </div>
+              </div>
+              {estimateMins(plan) && (
+                <div style={{ padding: "4px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 12, fontWeight: 800, color: C.emerald, flexShrink: 0 }}>
+                  ~{estimateMins(plan)} min
+                </div>
+              )}
+            </div>
+            {plan.steps?.length > 0 && (
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
+                {plan.steps.slice(0, 5).map((s) => s.name).join(" · ")}
+                {plan.steps.length > 5 && ` · +${plan.steps.length - 5} more`}
+              </div>
+            )}
+          </Glass>
+        </div>
+      )}
+
+      {/* Coming up */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Coming Up
+        </div>
+        {loadingUpcoming ? (
+          <Glass style={{ padding: 20, textAlign: "center" }}>
+            <div style={{ fontSize: 13, color: C.muted }}>Predicting upcoming sessions…</div>
+          </Glass>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {upcomingPlans.map(({ date, plan: p }) => {
+              const d = new Date(date + "T12:00:00");
+              const mins = estimateMins(p);
+              const isRest = !p || p.slot_type === "rest";
+              const exercises = p?.steps?.slice(0, 4).map((s) => s.name) ?? [];
+              const extra = Math.max(0, (p?.steps?.length ?? 0) - 4);
+              return (
+                <Glass key={date} style={{ padding: "14px 18px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: exercises.length && !isRest ? 8 : 0 }}>
+                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
+                        {dayNames[d.getDay()]}
+                      </span>
+                      <span style={{ fontSize: 12, color: C.muted }}>
+                        {monthNames[d.getMonth()]} {d.getDate()}
+                      </span>
+                    </div>
+                    {isRest ? (
+                      <div style={{ padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
+                        Rest day
+                      </div>
+                    ) : mins ? (
+                      <div style={{ padding: "3px 10px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 11, fontWeight: 800, color: C.emerald }}>
+                        ~{mins} min
+                      </div>
+                    ) : null}
+                  </div>
+                  {!isRest && exercises.length > 0 && (
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                      {exercises.join(" · ")}{extra > 0 ? ` · +${extra} more` : ""}
+                    </div>
+                  )}
+                </Glass>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Sessions this week */}
@@ -5676,7 +5798,7 @@ export default function App() {
               </>
             )}
             {view === "plan" && (
-              <PlanWeekView history={history} />
+              <PlanWeekView history={history} plan={plan} userId={userId} />
             )}
             {view === "history" && (
               <HistoryView history={history} isLoading={isLoadingHistory} onDeleteExecution={handleDeleteExecution} />
