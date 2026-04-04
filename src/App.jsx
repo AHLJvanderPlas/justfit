@@ -3705,6 +3705,33 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [profileWeightUnit, setProfileWeightUnit] = useState("kg");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveMsg, setProfileSaveMsg] = useState("");
+  const [showSexWarning, setShowSexWarning] = useState(false);
+  const [pendingSex, setPendingSex] = useState(null);
+  const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
+
+  const handleDeactivateBodyMode = async () => {
+    setBodyModeDeactivating(true);
+    try {
+      await api.saveProfile(token, { cycle: { mode: "standard", tracking_mode: "off" } });
+      setBodyMode("standard");
+      setCycleTrackingMode("off");
+      onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard", tracking_mode: "off" } }));
+    } catch {}
+    setBodyModeDeactivating(false);
+  };
+
+  const handleConfirmSexChange = async () => {
+    const newSex = pendingSex;
+    setProfileSex(newSex);
+    setBodyMode("standard");
+    setCycleTrackingMode("off");
+    setShowSexWarning(false);
+    setPendingSex(null);
+    try {
+      await api.saveProfile(token, { sex: newSex, cycle: { mode: "standard", tracking_mode: "off" } });
+      onUpdate((p) => ({ ...p, sex: newSex, cycle: { ...(p.cycle ?? {}), mode: "standard", tracking_mode: "off" } }));
+    } catch {}
+  };
 
   const handleProfileSave = async () => {
     setProfileSaving(true);
@@ -3847,7 +3874,16 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               {SEX_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  onClick={() => setProfileSex(opt.value)}
+                  onClick={() => {
+                    const leavingFemale = profileSex === "female" && opt.value !== "female";
+                    const hasFemaleSettings = bodyMode !== "standard" || cycleTrackingMode === "smart";
+                    if (leavingFemale && hasFemaleSettings) {
+                      setPendingSex(opt.value);
+                      setShowSexWarning(true);
+                    } else {
+                      setProfileSex(opt.value);
+                    }
+                  }}
                   style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
                 >
                   {opt.label}
@@ -4039,14 +4075,34 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               )}
 
               {bodyMode === "pregnant" && (
-                <div style={{ padding: "10px 14px", borderRadius: 14, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", color: "#f59e0b", fontWeight: 700, fontSize: 14 }}>
-                  Pregnancy mode active
-                  {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · Due {pregnancyDueDate}</span>}
+                <div style={{ borderRadius: 14, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ color: "#f59e0b", fontWeight: 700, fontSize: 14 }}>
+                      Pregnancy mode active
+                      {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · Due {pregnancyDueDate}</span>}
+                    </span>
+                    <button
+                      onClick={handleDeactivateBodyMode}
+                      disabled={bodyModeDeactivating}
+                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
+                    >
+                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                    </button>
+                  </div>
                 </div>
               )}
               {bodyMode === "postnatal" && (
-                <div style={{ padding: "10px 14px", borderRadius: 14, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)", color: "#f43f5e", fontWeight: 700, fontSize: 14 }}>
-                  Postnatal mode active
+                <div style={{ borderRadius: 14, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)", overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ color: "#f43f5e", fontWeight: 700, fontSize: 14 }}>Postnatal mode active</span>
+                    <button
+                      onClick={handleDeactivateBodyMode}
+                      disabled={bodyModeDeactivating}
+                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.1)", color: "#f43f5e", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
+                    >
+                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -4064,6 +4120,56 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
             {profileSaveMsg && <span style={{ fontSize: 13, fontWeight: 700, color: profileSaveMsg.includes("fail") ? "#f87171" : C.emerald }}>{profileSaveMsg}</span>}
           </div>
         </Glass>
+
+        {/* Sex-change warning modal */}
+        {showSexWarning && (
+          <div
+            onClick={() => setShowSexWarning(false)}
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+          >
+            <div
+              onClick={(e) => e.stopPropagation()}
+              style={{ width: "100%", maxWidth: 380, background: "#0a1628", border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}
+            >
+              <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
+                Deactivate female settings?
+              </div>
+              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 20 }}>
+                Switching to <strong style={{ color: C.text }}>{pendingSex === "male" ? "Male" : "Non-binary"}</strong> will deactivate:
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+                {bodyMode !== "standard" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                    <span style={{ fontSize: 16 }}>🤰</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                      {bodyMode === "pregnant" ? "Pregnancy mode" : "Postnatal mode"}
+                    </span>
+                  </div>
+                )}
+                {cycleTrackingMode === "smart" && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                    <span style={{ fontSize: 16 }}>🔄</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>Smart cycle tracking</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", gap: 10 }}>
+                <button
+                  onClick={() => { setShowSexWarning(false); setPendingSex(null); }}
+                  style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 800, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer" }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmSexChange}
+                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "#ef4444", border: "none", color: "#fff", cursor: "pointer" }}
+                >
+                  Yes, deactivate
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ marginBottom: 32 }}>
