@@ -477,42 +477,75 @@ function EUWaiverModal({ onAccept }) {
 
 // ─── ONBOARDING MODAL ─────────────────────────────────────────────────────────
 const GOAL_ICONS = {
+  // Heart with ECG pulse line
   health: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <polygon points="14,4 26,4 26,14 36,14 36,26 26,26 26,36 14,36 14,26 4,26 4,14 14,14"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M20 33C20 33 5 24 5 15C5 9 9 6 14 6C17 6 19 8 20 11C21 8 23 6 26 6C31 6 35 9 35 15C35 24 20 33 20 33Z"/>
+      <polyline points="7,18 12,18 15,11 18,26 21,8 24,22 27,18 33,18"/>
     </svg>
   ),
+  // Horizontal dumbbell with triple-plate detail
   strength: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <polygon points="20,3 8,18 16,18 16,37 24,37 24,18 32,18"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <line x1="13" y1="20" x2="27" y2="20" strokeWidth="2.5"/>
+      <rect x="4" y="13" width="4" height="14" rx="2"/>
+      <rect x="8" y="15" width="3" height="10" rx="1.5"/>
+      <rect x="11" y="17.5" width="2" height="5" rx="0.5"/>
+      <rect x="27" y="17.5" width="2" height="5" rx="0.5"/>
+      <rect x="29" y="15" width="3" height="10" rx="1.5"/>
+      <rect x="32" y="13" width="4" height="14" rx="2"/>
     </svg>
   ),
+  // Weight scale with gauge and footprints
   fat_loss: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M20 3 C26 8 32 15 30 23 C28 30 24 36 20 38 C16 36 12 30 10 23 C8 15 14 8 20 3 Z"/>
-      <path d="M20 15 C22 19 22 26 20 31 C18 26 18 19 20 15 Z"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <rect x="3" y="9" width="34" height="28" rx="5"/>
+      <path d="M10 22 A10 10 0 0 0 30 22"/>
+      <line x1="20" y1="22" x2="13" y2="15"/>
+      <circle cx="20" cy="22" r="1.5"/>
+      <ellipse cx="13" cy="30" rx="4" ry="5"/>
+      <ellipse cx="27" cy="30" rx="4" ry="5"/>
     </svg>
   ),
+  // Figure doing overhead barbell press
   muscle_gain: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <polygon points="4,14 14,14 14,18 26,18 26,14 36,14 36,26 26,26 26,22 14,22 14,26 4,26"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <line x1="5" y1="6" x2="35" y2="6"/>
+      <rect x="3" y="3" width="4" height="6" rx="1.5"/>
+      <rect x="33" y="3" width="4" height="6" rx="1.5"/>
+      <circle cx="20" cy="15" r="4"/>
+      <path d="M20 19 L20 30"/>
+      <path d="M20 22 L10 6"/>
+      <path d="M20 22 L30 6"/>
+      <path d="M20 30 L15 38"/>
+      <path d="M20 30 L25 38"/>
     </svg>
   ),
+  // Dynamic running figure with ground and speed trail
   endurance: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <polyline points="4,10 15,20 4,30"/>
-      <polyline points="14,10 25,20 14,30"/>
-      <polyline points="24,10 35,20 24,30"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <circle cx="29" cy="8" r="4"/>
+      <path d="M27 12 L19 23"/>
+      <path d="M24 16 L14 20 L10 24"/>
+      <path d="M24 16 L31 13 L36 11"/>
+      <path d="M19 23 L13 31 L8 33"/>
+      <path d="M19 23 L24 31 L30 37"/>
+      <line x1="3" y1="37" x2="36" y2="37"/>
+      <polyline points="3,34 8,37 14,31 20,37"/>
     </svg>
   ),
+  // Person in lotus meditation pose
   mobility: (
-    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
-      <circle cx="20" cy="7" r="3.5"/>
-      <line x1="20" y1="11" x2="20" y2="24"/>
-      <polyline points="8,19 20,15 32,19"/>
-      <polyline points="20,24 14,36"/>
-      <polyline points="20,24 26,36"/>
-      <line x1="14" y1="36" x2="26" y2="36"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
+      <circle cx="20" cy="7" r="4"/>
+      <line x1="20" y1="11" x2="20" y2="22"/>
+      <path d="M17 14 C13 17 10 21 9 26"/>
+      <path d="M23 14 C27 17 30 21 31 26"/>
+      <circle cx="9" cy="27" r="1.5"/>
+      <circle cx="31" cy="27" r="1.5"/>
+      <path d="M20 22 C15 22 9 25 8 31 C7 35 11 37 16 36"/>
+      <path d="M20 22 C25 22 31 25 32 31 C33 35 29 37 24 36"/>
+      <line x1="16" y1="36" x2="24" y2="36"/>
     </svg>
   ),
 };
