@@ -6487,23 +6487,12 @@ export default function App() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <div
-                style={{
-                  width: 38,
-                  height: 38,
-                  borderRadius: 12,
-                  background: C.emerald,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: 900,
-                  fontSize: 14,
-                  color: "#fff",
-                  boxShadow: "0 4px 20px rgba(var(--accent-rgb),0.3)",
-                }}
-              >
-                JF
-              </div>
+              <svg width="38" height="38" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
+                <rect x="2" y="2" width="60" height="60" rx="14" fill="var(--accent)"/>
+                <g transform="translate(8 4) scale(2.2)">
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#ffffff"/>
+                </g>
+              </svg>
               <span
                 style={{
                   fontWeight: 900,
