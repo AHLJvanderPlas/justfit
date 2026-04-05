@@ -4787,14 +4787,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                   </div>
                   {isObese && (
                     <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, fontWeight: 700, marginBottom: 8 }}>
+                        Consistency and will always produce results — every session counts.
+                      </div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
                         JustFit uses your BMI to protect your joints — at this range, the planner will substitute low-impact alternatives for running and high-impact cardio to reduce injury risk as you build fitness.
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginTop: 8, fontStyle: "italic" }}>
                         We are not a medical app. Always seek advice from a qualified health professional before starting or changing your exercise routine.
-                      </div>
-                      <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, marginTop: 8, fontWeight: 700 }}>
-                        Consistency and will always produce results — every session counts.
                       </div>
                     </div>
                   )}
