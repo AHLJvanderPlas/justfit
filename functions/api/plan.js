@@ -1005,23 +1005,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ── Exercise ordering: outdoor always last, indoor cardio second-to-last ────
-  if (steps.length > 1) {
-    const isOutdoor = s => {
-      const tags = JSON.parse(s.tags_json || '[]');
-      const equip = JSON.parse(s.alternatives_json ? '[]' : '[]'); // use tags only
-      return tags.includes('outdoor');
-    };
-    const isIndoorCardio = s => {
-      const tags = JSON.parse(s.tags_json || '[]');
-      return tags.includes('cardio') && !tags.includes('outdoor');
-    };
-    const core  = steps.filter(s => !isOutdoor(s) && !isIndoorCardio(s));
-    const indoorCardio = steps.filter(s => isIndoorCardio(s));
-    const outdoor = steps.filter(s => isOutdoor(s));
-    steps = [...core, ...indoorCardio, ...outdoor];
-    if (indoorCardio.length || outdoor.length) {
-      trace.push(`Ordering — core: ${core.length}, indoor cardio: ${indoorCardio.length}, outdoor: ${outdoor.length}`);
-    }
+  const isOutdoorStep = s => JSON.parse(s.tags_json || '[]').includes('outdoor');
+  const isIndoorCardioStep = s => {
+    const tags = JSON.parse(s.tags_json || '[]');
+    return tags.includes('cardio') && !tags.includes('outdoor');
+  };
+  const coreSteps        = steps.filter(s => !isOutdoorStep(s) && !isIndoorCardioStep(s));
+  const indoorCardioSteps = steps.filter(s => isIndoorCardioStep(s));
+  const outdoorSteps     = steps.filter(s => isOutdoorStep(s));
+  const orderedSteps = [...coreSteps, ...indoorCardioSteps, ...outdoorSteps];
+  if (indoorCardioSteps.length || outdoorSteps.length) {
+    trace.push(`Ordering — core: ${coreSteps.length}, indoor cardio: ${indoorCardioSteps.length}, outdoor: ${outdoorSteps.length}`);
   }
 
   return {
@@ -1035,7 +1029,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     pregnancy_week: pregnancyContext?.week ?? null,
     trimester: pregnancyContext?.trimester ?? null,
     postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
-    steps,
+    steps: orderedSteps,
     rule_trace: trace,
   };
 }
