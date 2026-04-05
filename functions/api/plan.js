@@ -529,6 +529,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     ? weightKg / ((heightCm / 100) ** 2)
     : null;
 
+  let volumeMultiplier = 1.0;
+  let sessionNotes = null;
+
   // R545/R546: BMI-aware running caution
   // Running exercises identified by equipment_required containing 'running_shoes'
   // or treadmill + high_impact tag (treadmill running).
@@ -587,9 +590,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   const cycleDay = cycleContext?.day ?? null;
   const cycleLengthDays = cycleContext?.cycle_length_days ?? 28;
   const periodToday = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
-
-  let volumeMultiplier = 1.0;
-  let sessionNotes = null;
 
   // Only apply cycle rules when NOT in pregnancy/postnatal mode
   const isStandardMode = !pregnancyContext || pregnancyContext.mode === undefined;
