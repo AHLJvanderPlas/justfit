@@ -94,14 +94,15 @@ export async function onRequestPost({ request, env }) {
       effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
     }
 
-    // Subtract time overhead when enabled
+    // Subtract time overhead when enabled — picks short profile (≤30 min) or long profile (>30 min)
     const overhead = prefs?.preferences?.time_overhead;
     if (overhead?.enabled) {
-      const presetTotal = Object.values(overhead.presets ?? {}).reduce((s, v) => s + (v || 0), 0);
-      const customTotal = (overhead.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+      const rawBudget = effectiveCheckin.time_budget ?? prefs?.session_duration_min ?? 30;
+      const profile = rawBudget <= 30 ? (overhead.short ?? overhead) : (overhead.long ?? overhead);
+      const presetTotal = Object.values(profile.presets ?? {}).reduce((s, v) => s + (v || 0), 0);
+      const customTotal = (profile.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
       const totalOverhead = presetTotal + customTotal;
       if (totalOverhead > 0) {
-        const rawBudget = effectiveCheckin.time_budget ?? prefs?.session_duration_min ?? 30;
         effectiveCheckin = { ...effectiveCheckin, time_budget: Math.max(5, rawBudget - totalOverhead) };
       }
     }

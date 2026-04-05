@@ -3982,13 +3982,13 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
   const [planSaving, setPlanSaving] = useState(false);
-  const [timeOverhead, setTimeOverhead] = useState(() =>
-    prefs.preferences?.time_overhead ?? {
-      enabled: false,
-      presets: { change_clothes: 0, prepare_equipment: 0, clean_equipment: 0, shower: 0 },
-      custom: [],
-    }
-  );
+  const [timeOverhead, setTimeOverhead] = useState(() => {
+    const saved = prefs.preferences?.time_overhead;
+    const emptyProfile = { presets: { change_clothes: 0, prepare_equipment: 0, clean_equipment: 0, shower: 0 }, custom: [] };
+    // Migrate old single-profile format (had top-level presets/custom)
+    if (saved && saved.presets) return { enabled: saved.enabled ?? false, short: emptyProfile, long: { presets: saved.presets, custom: saved.custom ?? [] } };
+    return saved ?? { enabled: false, short: emptyProfile, long: { ...emptyProfile, custom: [] } };
+  });
   const [overheadEditMode, setOverheadEditMode] = useState(false);
   const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
@@ -4308,37 +4308,38 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           {/* ── Time overhead ── */}
           {(() => {
             const presetDefs = [
-              { key: "change_clothes",     label: "Change clothes" },
-              { key: "prepare_equipment",  label: "Prepare equipment" },
-              { key: "clean_equipment",    label: "Clean equipment" },
-              { key: "shower",             label: "Shower" },
+              { key: "change_clothes",    label: "Change clothes" },
+              { key: "prepare_equipment", label: "Prepare equipment" },
+              { key: "clean_equipment",   label: "Clean equipment" },
+              { key: "shower",            label: "Shower" },
             ];
-            const presetTotal = presetDefs.reduce((s, { key }) => s + (timeOverhead.presets?.[key] || 0), 0);
-            const customTotal = (timeOverhead.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
-            const totalOverhead = presetTotal + customTotal;
-            const effectiveMins = Math.max(5, planDuration - (timeOverhead.enabled ? totalOverhead : 0));
+            const profileTotal = (profile) =>
+              presetDefs.reduce((s, { key }) => s + (profile?.presets?.[key] || 0), 0) +
+              (profile?.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+            const shortTotal = profileTotal(timeOverhead.short);
+            const longTotal  = profileTotal(timeOverhead.long);
 
-            const stepMin = (key, delta) =>
+            const stepMin = (profile, key, delta) =>
               setTimeOverhead((o) => ({
                 ...o,
-                presets: { ...o.presets, [key]: Math.max(0, Math.min(60, (o.presets?.[key] || 0) + delta)) },
+                [profile]: { ...o[profile], presets: { ...o[profile].presets, [key]: Math.max(0, Math.min(60, (o[profile].presets?.[key] || 0) + delta)) } },
               }));
-            const stepCustom = (idx, delta) =>
+            const stepCustom = (profile, idx, delta) =>
               setTimeOverhead((o) => {
-                const c = [...(o.custom ?? [])];
+                const c = [...(o[profile].custom ?? [])];
                 c[idx] = { ...c[idx], minutes: Math.max(0, Math.min(60, (c[idx].minutes || 0) + delta)) };
-                return { ...o, custom: c };
+                return { ...o, [profile]: { ...o[profile], custom: c } };
               });
-            const renameCustom = (idx, label) =>
+            const renameCustom = (profile, idx, lbl) =>
               setTimeOverhead((o) => {
-                const c = [...(o.custom ?? [])];
-                c[idx] = { ...c[idx], label };
-                return { ...o, custom: c };
+                const c = [...(o[profile].custom ?? [])];
+                c[idx] = { ...c[idx], label: lbl };
+                return { ...o, [profile]: { ...o[profile], custom: c } };
               });
-            const removeCustom = (idx) =>
-              setTimeOverhead((o) => ({ ...o, custom: (o.custom ?? []).filter((_, i) => i !== idx) }));
-            const addCustom = () =>
-              setTimeOverhead((o) => ({ ...o, custom: [...(o.custom ?? []), { label: "", minutes: 0 }] }));
+            const removeCustom = (profile, idx) =>
+              setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: (o[profile].custom ?? []).filter((_, i) => i !== idx) } }));
+            const addCustom = (profile) =>
+              setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: [...(o[profile].custom ?? []), { label: "", minutes: 0 }] } }));
 
             const StepRow = ({ label, value, onMinus, onPlus }) => (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
@@ -4351,12 +4352,45 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               </div>
             );
 
+            const ProfileSection = ({ profileKey, title }) => {
+              const profile = timeOverhead[profileKey] ?? { presets: {}, custom: [] };
+              return (
+                <div style={{ marginBottom: 8 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 16 }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
+                    <div style={{ flex: 1, height: 1, background: C.border }} />
+                  </div>
+                  {presetDefs.map(({ key, label }) => (
+                    <StepRow key={key} label={label} value={profile.presets?.[key] || 0}
+                      onMinus={() => stepMin(profileKey, key, -5)} onPlus={() => stepMin(profileKey, key, 5)} />
+                  ))}
+                  {(profile.custom ?? []).map((c, idx) => (
+                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <input
+                        value={c.label}
+                        onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
+                        placeholder="e.g. Drive to gym"
+                        style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
+                      />
+                      <button onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                      <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
+                      <button onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                      <button onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: "#f87171", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
+                    </div>
+                  ))}
+                  {(profile.custom ?? []).length < 3 && (
+                    <button onClick={() => addCustom(profileKey)} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted }}>
+                      + Add custom block
+                    </button>
+                  )}
+                </div>
+              );
+            };
+
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-                    Time overhead
-                  </div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>Time overhead</div>
                   <button
                     onClick={() => setOverheadEditMode((v) => !v)}
                     style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: overheadEditMode ? C.emerald : C.muted }}
@@ -4366,71 +4400,35 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 </div>
 
                 {!overheadEditMode ? (
-                  /* ── Collapsed ── */
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                    {timeOverhead.enabled && totalOverhead > 0
-                      ? <span><span style={{ color: C.emerald, fontWeight: 800 }}>{totalOverhead} min</span> overhead · <span style={{ color: C.emerald, fontWeight: 800 }}>{effectiveMins} min</span> of actual training</span>
-                      : <span style={{ color: C.subtle, fontStyle: "italic" }}>Not set — full window used for training</span>}
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
+                    {timeOverhead.enabled && (shortTotal > 0 || longTotal > 0) ? (
+                      <span>
+                        {shortTotal > 0 && <span>Quick session: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> overhead</span>}
+                        {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtle }}> · </span>}
+                        {longTotal > 0 && <span>Full session: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> overhead</span>}
+                      </span>
+                    ) : (
+                      <span style={{ color: C.subtle, fontStyle: "italic" }}>Not set — full window used for training</span>
+                    )}
                   </div>
                 ) : (
-                  /* ── Expanded ── */
                   <div>
                     {/* Enable toggle */}
                     <div
                       onClick={() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled }))}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 16, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
                     >
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>Include overhead in planning</div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Subtracts total overhead from your available training window</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Subtracts overhead from your available training window</div>
                       </div>
                       <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
                         <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
                       </div>
                     </div>
 
-                    {/* Preset rows */}
-                    {presetDefs.map(({ key, label }) => (
-                      <StepRow key={key} label={label} value={timeOverhead.presets?.[key] || 0}
-                        onMinus={() => stepMin(key, -5)} onPlus={() => stepMin(key, 5)} />
-                    ))}
-
-                    {/* Custom rows */}
-                    {(timeOverhead.custom ?? []).map((c, idx) => (
-                      <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                        <input
-                          value={c.label}
-                          onChange={(e) => renameCustom(idx, e.target.value)}
-                          placeholder="e.g. Drive to gym"
-                          style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
-                        />
-                        <button onClick={() => stepCustom(idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
-                        <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
-                        <button onClick={() => stepCustom(idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
-                        <button onClick={() => removeCustom(idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: "#f87171", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
-                      </div>
-                    ))}
-
-                    {/* Add custom block */}
-                    {(timeOverhead.custom ?? []).length < 3 && (
-                      <button
-                        onClick={addCustom}
-                        style={{ marginTop: 10, padding: "6px 14px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted }}
-                      >
-                        + Add custom block
-                      </button>
-                    )}
-
-                    {/* Summary */}
-                    {totalOverhead > 0 && (
-                      <div style={{ marginTop: 14, padding: "10px 14px", borderRadius: 12, background: timeOverhead.enabled ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}>
-                        <div style={{ fontSize: 12, color: timeOverhead.enabled ? C.emerald : C.muted, fontWeight: 700 }}>
-                          {timeOverhead.enabled
-                            ? `${totalOverhead} min overhead → ${effectiveMins} min training from your ${planDuration} min window`
-                            : `${totalOverhead} min total overhead (not currently applied to planning)`}
-                        </div>
-                      </div>
-                    )}
+                    <ProfileSection profileKey="short" title="Quick session  ≤ 30 min" />
+                    <ProfileSection profileKey="long"  title="Full session  > 30 min" />
                   </div>
                 )}
               </div>
