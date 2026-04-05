@@ -4778,12 +4778,26 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                 : bmi < 30 ? { label: "Overweight", color: "#f59e0b" }
                 : bmi < 35 ? { label: "Obese I", color: "#f97316" }
                 : { label: "Obese II", color: "#f87171" };
+              const isObese = bmi >= 30;
               return (
-                <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                  <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>BMI</span>
-                  <span style={{ fontSize: 13, fontWeight: 900, color }}>
-                    {bmi.toFixed(1)} <span style={{ fontWeight: 600, fontSize: 11 }}>— {label}</span>
-                  </span>
+                <div style={{ marginTop: 16 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>BMI</div>
+                  <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color, fontSize: 15, fontWeight: 900, boxSizing: "border-box" }}>
+                    {bmi.toFixed(1)} <span style={{ fontWeight: 600, fontSize: 13 }}>— {label}</span>
+                  </div>
+                  {isObese && (
+                    <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
+                        JustFit uses your BMI to protect your joints — at this range, the planner will substitute low-impact alternatives for running and high-impact cardio to reduce injury risk as you build fitness.
+                      </div>
+                      <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginTop: 8, fontStyle: "italic" }}>
+                        We are not a medical app. Always seek advice from a qualified health professional before starting or changing your exercise routine.
+                      </div>
+                      <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, marginTop: 8, fontWeight: 700 }}>
+                        Consistency and will always produce results — every session counts.
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })()}
