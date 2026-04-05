@@ -94,6 +94,18 @@ export async function onRequestPost({ request, env }) {
       effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
     }
 
+    // Subtract time overhead when enabled
+    const overhead = prefs?.preferences?.time_overhead;
+    if (overhead?.enabled) {
+      const presetTotal = Object.values(overhead.presets ?? {}).reduce((s, v) => s + (v || 0), 0);
+      const customTotal = (overhead.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+      const totalOverhead = presetTotal + customTotal;
+      if (totalOverhead > 0) {
+        const rawBudget = effectiveCheckin.time_budget ?? prefs?.session_duration_min ?? 30;
+        effectiveCheckin = { ...effectiveCheckin, time_budget: Math.max(5, rawBudget - totalOverhead) };
+      }
+    }
+
     const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
