@@ -599,7 +599,7 @@ function OnboardingModal({ token, onComplete }) {
   };
 
   const canAdvance = step === 0 ? !!sex : true;
-  const DURATION_OPTIONS = [15, 20, 30, 45, 60];
+  const DURATION_OPTIONS = [15, 20, 30, 45, 60, 90, 120];
 
   return (
     <div
@@ -4239,7 +4239,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
 
           {!showAdvancedSchedule ? (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-              {[15, 20, 30, 45, 60].map((d) => (
+              {[15, 20, 30, 45, 60, 90, 120].map((d) => (
                 <button
                   key={d}
                   onClick={() => setPlanDuration(d)}
