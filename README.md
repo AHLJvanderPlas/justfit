@@ -18,18 +18,24 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 ## Features
 
-- Daily adaptive workout plans — deterministic rule-based planner v1.6.0 (rules R510–R544)
-- Full coaching UX: instruction cards (swipeable), rep-by-rep tap counting, **"All reps done"** shortcut, rest countdown timer, difficulty controls (±2 reps / ±10s), exercise substitution, perceived exertion rating
-- Pregnancy & postnatal mode: planner rules R530–R544, adapted rest timers (+15s), breathing reminders, pelvic floor coaching; inline Settings setup (medical clearance + due date); deactivate button; sex-change safety warning modal
+- Daily adaptive workout plans — deterministic rule-based planner v1.7.0 (rules R510–R544)
+- **Check-in optional** — plan generates from settings alone when check-in is skipped or mode is manual; existing plan loaded from D1 on page reload (no re-generation)
+- Full coaching UX: instruction cards (swipeable, no auto-advance), rep-by-rep tap counting, **"All reps done"** shortcut, rest countdown, difficulty controls (±2 reps / ±10s), exercise substitution, perceived exertion rating
+- **Equipment-aware planner** — selectable equipment includes dumbbells, resistance bands, pull-up bar, treadmill, stationary bike, indoor bike trainer, rowing machine; `null` equipment defaults to bodyweight-only; `chair` always treated as available
+- **Exercise ordering** — core exercises first, indoor cardio second-to-last, outdoor exercises always last
+- Pregnancy & postnatal mode: planner rules R530–R544, adapted rest timers (+15s), breathing reminders, pelvic floor coaching; inline Settings setup; deactivate button; sex-change safety warning modal
 - Consistency score (0–100): active days ×10 + resilience bonus (low PE sessions) + continuity bonus (streaks)
+- **Cross-device session sync** — history reconciled on load; session completed on another device shows as done immediately
 - Wake Lock API — screen stays on during workout
 - Rich `actual_json` tracking per step: reps per set, actual rest taken, target adjustments, substitutions, skip flag
 - Passkey / Face ID (WebAuthn ES256), magic link login, password reset, forgot password flow
-- Bonus sessions — ephemeral plan (not saved to D1), intensity-capped, startable after completing today's session
+- Bonus sessions — ephemeral plan (not saved to D1), intensity-capped, visible until 23:00
 - Delete workout from history — resets today's completed state and all related localStorage keys
 - Responsive dashboard: full-width session card + compact score strip on mobile (< 600px)
 - Weight unit toggle (kg ↔ lbs) — single tap-to-toggle button
-- PWA — installable, dark theme (`#020617`), emerald accent (`#10b981`)
+- **11-colour accent picker** — synced to D1, applied on every device at load
+- SVG polygon goal icons (stroke style matching lightning bolt logo) with watermark positioning
+- PWA — installable, dark theme (`#020617`), default accent emerald (`#10b981`)
 - Ghost Partner counter (circadian formula, updates every 60s)
 - Weekly plan view (7-day session strip)
 - EU liability waiver on first use

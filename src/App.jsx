@@ -4325,16 +4325,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
       title: "How JustFit Works",
       sections: [
         {
-          heading: "Daily Check-In",
-          body: "Each day, you tell JustFit how you're doing: sleep, energy, mood, stress, and any practical constraints (no gym, travelling, short on time, pain). This takes under 30 seconds and drives your entire session plan.",
+          heading: "Daily Calibration (Optional)",
+          body: "Each day, you can tell JustFit how you're doing: sleep, energy, mood, stress, and any practical constraints (no gym, travelling, short on time, pain). This takes under 30 seconds and makes your session even more personalised.\n\nIf you skip the check-in or set it to manual, JustFit still generates a plan based on your goal, experience level, equipment, and schedule — automatically, without any input needed.",
         },
         {
           heading: "The Planner Engine",
-          body: "A rule-based engine (not AI) analyses your check-in alongside your goal, experience level, body profile, and cycle context to generate a personalised session. Rules include:\n\n• Low sleep → intensity reduced\n• High stress → session shifts to mobility\n• Pain reported → rest day assigned\n• Travelling → bodyweight-only exercises\n• BMI ≥ 30 → low-impact alternatives replace running\n• Pregnancy / postnatal → safe exercise selection and volume limits",
+          body: "A rule-based engine (not AI) analyses your situation alongside your goal, experience level, body profile, and cycle context to generate a personalised session. Rules include:\n\n• Low sleep → intensity reduced\n• High stress → session shifts to mobility\n• Pain reported → rest day assigned\n• Travelling or no gear → bodyweight-only exercises\n• BMI ≥ 30 → low-impact alternatives replace running\n• Pregnancy / postnatal → safe exercise selection and volume limits\n• Equipment profile → only exercises matching your available kit\n• Outdoor exercises always scheduled last in a session",
         },
         {
           heading: "Goals & Experience",
-          body: "Set your training goal (fat loss, muscle gain, endurance, strength, health, mobility, or mixed) and experience level (beginner, intermediate, advanced). These drive exercise count, sets, rest periods, intensity, and session naming.",
+          body: "Set your training goal (general health, lose weight, build strength, build muscle, endurance, or mobility & flex) and experience level (beginner to advanced). These drive exercise count, sets, rest periods, intensity, and session naming.",
         },
         {
           heading: "Cycle & Body Awareness",
