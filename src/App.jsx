@@ -1003,7 +1003,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
             <div style={{ height: "100%", background: C.emerald, borderRadius: 99, width: step === 0 ? "50%" : "100%", transition: "width 0.3s" }} />
           </div>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase", color: C.emerald }}>
-            Major update · Step {step + 1} of 2
+            Step {step + 1} of 2
           </div>
         </div>
 
@@ -1213,38 +1213,19 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
           </>
         )}
 
-        {/* ── Step 1: What's new + goal ── */}
+        {/* ── Step 1: Goal ── */}
         {step === 1 && (
           <>
             <div>
               <div style={{ fontSize: 24, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", lineHeight: 1.2, marginBottom: 8 }}>
-                JustFit just got a proper coaching interface.
+                What's your training goal?
               </div>
               <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, margin: 0 }}>
-                Your workouts now have step-by-step coaching, rep tracking, rest timers, and difficulty controls — right on screen.
+                Your plan adapts to this every day. Pick the one that fits best right now — you can change it anytime in Settings.
               </p>
             </div>
 
-            <div style={{ background: "rgba(var(--accent-rgb),0.06)", border: "1px solid rgba(var(--accent-rgb),0.15)", borderRadius: 16, padding: "18px 20px", display: "flex", flexDirection: "column", gap: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, marginBottom: 2 }}>What's new</div>
-              {[
-                "Swipeable instruction cards for every exercise",
-                "Tap to count reps — no more guessing",
-                "Rest timers with −15s / +15s controls",
-                "Adjust reps or duration mid-set",
-                "Swap exercises for alternatives instantly",
-                "Wake lock — screen stays on during workouts",
-              ].map((item, i) => (
-                <div key={i} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                  <span style={{ color: C.emerald, fontSize: 14, flexShrink: 0, marginTop: 1 }}>✓</span>
-                  <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
-                </div>
-              ))}
-            </div>
-
             <div>
-              <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 6 }}>Is your goal still on track?</div>
-              <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>Your plan adapts to this every day. Tap to change if things have shifted.</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                 {GOALS.map((g) => (
                   <button key={g.value} onClick={() => setGoal(g.value)}
