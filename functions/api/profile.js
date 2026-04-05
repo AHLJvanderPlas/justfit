@@ -72,7 +72,7 @@ export async function onRequestGet({ request, env }) {
          FROM user_preferences WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT sex, weight_kg FROM user_profile WHERE user_id = ? LIMIT 1`
+        `SELECT sex, weight_kg, height_cm FROM user_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
         `SELECT tracking_mode, cycle_length_days, last_period_start,
@@ -110,6 +110,7 @@ export async function onRequestGet({ request, env }) {
       // Body-aware fields
       sex: profile?.sex ?? null,
       weight_kg: profile?.weight_kg ?? null,
+      height_cm: profile?.height_cm ?? null,
       cycle: cycleRow ? {
         // Standard cycle
         tracking_mode: cycleRow.tracking_mode,
@@ -154,6 +155,7 @@ export async function onRequestPost({ request, env }) {
       // Body-aware fields
       sex,
       weight_kg,
+      height_cm,
       cycle,
     } = body;
 
@@ -190,8 +192,8 @@ export async function onRequestPost({ request, env }) {
       ).run();
     }
 
-    // ── user_profile (sex + weight) ───────────────────────────────────────────
-    if (sex !== undefined || weight_kg !== undefined) {
+    // ── user_profile (sex + weight + height) ─────────────────────────────────
+    if (sex !== undefined || weight_kg !== undefined || height_cm !== undefined) {
       const profileExists = await env.DB.prepare(
         `SELECT user_id FROM user_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first();
@@ -199,8 +201,9 @@ export async function onRequestPost({ request, env }) {
       if (profileExists) {
         const updates = [];
         const vals = [];
-        if (sex !== undefined) { updates.push('sex = ?'); vals.push(sex); }
+        if (sex !== undefined)       { updates.push('sex = ?');       vals.push(sex); }
         if (weight_kg !== undefined) { updates.push('weight_kg = ?'); vals.push(weight_kg); }
+        if (height_cm !== undefined) { updates.push('height_cm = ?'); vals.push(height_cm); }
         updates.push('updated_at_ms = ?');
         vals.push(now, user.userId);
         await env.DB.prepare(
@@ -208,9 +211,9 @@ export async function onRequestPost({ request, env }) {
         ).bind(...vals).run();
       } else {
         await env.DB.prepare(`
-          INSERT INTO user_profile (user_id, sex, weight_kg, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, ?, ?)
-        `).bind(user.userId, sex ?? null, weight_kg ?? null, now, now).run();
+          INSERT INTO user_profile (user_id, sex, weight_kg, height_cm, created_at_ms, updated_at_ms)
+          VALUES (?, ?, ?, ?, ?, ?)
+        `).bind(user.userId, sex ?? null, weight_kg ?? null, height_cm ?? null, now, now).run();
       }
     }
 

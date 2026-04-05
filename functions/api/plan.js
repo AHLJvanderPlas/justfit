@@ -26,7 +26,7 @@ export async function onRequestPost({ request, env }) {
       ).all(),
       user_id
         ? env.DB.prepare(
-            `SELECT sex, weight_kg FROM user_profile WHERE user_id = ? LIMIT 1`
+            `SELECT sex, weight_kg, height_cm FROM user_profile WHERE user_id = ? LIMIT 1`
           ).bind(user_id).first()
         : Promise.resolve(null),
     ]);
@@ -44,8 +44,9 @@ export async function onRequestPost({ request, env }) {
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
-      sex: user_profile?.sex ?? userProfileRow?.sex ?? null,
+      sex:       user_profile?.sex       ?? userProfileRow?.sex       ?? null,
       weight_kg: user_profile?.weight_kg ?? userProfileRow?.weight_kg ?? null,
+      height_cm: user_profile?.height_cm ?? userProfileRow?.height_cm ?? null,
     };
 
     // Resolve cycle + pregnancy context from DB when user_id is present
@@ -521,10 +522,66 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R545/R546: BMI-aware running caution
+  // Running exercises identified by equipment_required containing 'running_shoes'
+  // or treadmill + high_impact tag (treadmill running).
+  // ------------------------------------------------------------------
+  const isRunningEx = (ex) => {
+    const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+    const tags  = JSON.parse(ex.tags_json || '[]');
+    return equip.includes('running_shoes') ||
+      (equip.includes('treadmill') && tags.includes('high_impact'));
+  };
+
+  if (bmi !== null && bmi >= 30 && slot_type !== 'rest') {
+    const hasPain     = (checkIn?.pain_level ?? 0) >= 1;
+    const isNovice    = expLevel === 'beginner';
+    // Strict tier: BMI ≥ 35, OR BMI ≥ 30 with pain or knee-injury signal
+    const strictMode  = bmi >= 35 || (bmi >= 30 && hasPain);
+    // Moderate tier: BMI 30–35, no pain, not a complete novice to running
+    const moderateMode = !strictMode && bmi >= 30;
+
+    if (strictMode) {
+      // R545 — Remove all running; fall back to low-impact cardio
+      const beforeCount = pool.length;
+      pool = pool.filter(ex => !isRunningEx(ex));
+      // If that left no cardio at all, add low-impact cardio back in
+      if (!pool.some(ex => ex.category === 'cardio')) {
+        const lowImpact = exercises.filter(ex =>
+          ex.category === 'cardio' &&
+          JSON.parse(ex.tags_json || '[]').includes('low_impact') &&
+          !isRunningEx(ex)
+        );
+        pool = [...pool, ...lowImpact];
+      }
+      const note = bmi >= 35
+        ? `BMI ${bmi.toFixed(0)}+: Running is removed from today's plan. Cycling, rowing, and brisk walking deliver excellent cardio with far less joint load. Build leg and glute strength first — that's the real foundation for running.`
+        : `BMI ${bmi.toFixed(0)} + current discomfort: Swapping running for low-impact cardio today. Listen to your body — pain that changes your gait is a signal to stop.`;
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+      if (intensity === 'high') intensity = 'moderate';
+      trace.push(`R545 — BMI ${bmi.toFixed(1)} (strict) — running filtered out (${beforeCount - pool.length} removed), low-impact cardio preferred`);
+    } else if (moderateMode) {
+      // R546 — Keep running but cap intensity + add gradual build-up note
+      if (intensity === 'high') intensity = 'moderate';
+      const note = isNovice
+        ? `BMI ${bmi.toFixed(0)}: Starting with walk-run intervals is the smart play. Aim to increase total running by no more than 10% per week. Strength work for your calves, quads, and glutes will make every run easier.`
+        : `BMI ${bmi.toFixed(0)}: Build gradually — no more than 10% more running per week. A run-walk plan works well at this stage. Strength training alongside running significantly reduces injury risk.`;
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+      trace.push(`R546 — BMI ${bmi.toFixed(1)} (moderate caution) — run-walk progression recommended, intensity capped at moderate`);
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Body-aware rules (R520–R525) — standard cycle only
   // ------------------------------------------------------------------
   const sex = bodyProfile?.sex ?? null;
   const weightKg = bodyProfile?.weight_kg ?? null;
+  const heightCm = bodyProfile?.height_cm ?? null;
+  // BMI — only calculable when both weight and height are known
+  const bmi = (weightKg && heightCm && heightCm > 0)
+    ? weightKg / ((heightCm / 100) ** 2)
+    : null;
+  if (bmi !== null) trace.push(`BMI: ${bmi.toFixed(1)}`);
   const phase = cycleContext?.phase ?? null;
   const cycleDay = cycleContext?.day ?? null;
   const cycleLengthDays = cycleContext?.cycle_length_days ?? 28;

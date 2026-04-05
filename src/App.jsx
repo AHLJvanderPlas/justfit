@@ -3994,6 +3994,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   const [profileSex, setProfileSex] = useState(prefs.sex ?? null);
   const [profileWeight, setProfileWeight] = useState(prefs.weight_kg ? String(prefs.weight_kg) : "");
   const [profileWeightUnit, setProfileWeightUnit] = useState("kg");
+  const [profileHeight, setProfileHeight] = useState(prefs.height_cm ? String(prefs.height_cm) : "");
+  const [profileHeightUnit, setProfileHeightUnit] = useState("cm");
   const [profileSaving, setProfileSaving] = useState(false);
   const [profileSaveMsg, setProfileSaveMsg] = useState("");
   const [showSexWarning, setShowSexWarning] = useState(false);
@@ -4090,9 +4092,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
         const w = parseFloat(profileWeight);
         if (!isNaN(w)) weight_kg = profileWeightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
       }
+      let height_cm = null;
+      if (profileHeight) {
+        const h = parseFloat(profileHeight);
+        if (!isNaN(h)) height_cm = profileHeightUnit === "in" ? Math.round(h * 2.54 * 10) / 10 : h;
+      }
       const payload = {
         sex: profileSex,
         weight_kg,
+        height_cm,
         preferences: { ...(prefs.preferences ?? {}), display_name: displayName },
       };
       if (profileSex === "female") {
@@ -4732,6 +4740,53 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                 {profileWeightUnit}
               </button>
             </div>
+          </div>
+
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Height</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number"
+                value={profileHeight}
+                onChange={(e) => setProfileHeight(e.target.value)}
+                placeholder={profileHeightUnit === "cm" ? "e.g. 175" : "e.g. 69"}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+              />
+              <button
+                onClick={() => {
+                  if (profileHeightUnit === "cm") {
+                    setProfileHeightUnit("in");
+                    if (profileHeight) setProfileHeight(String(Math.round(parseFloat(profileHeight) / 2.54)));
+                  } else {
+                    setProfileHeightUnit("cm");
+                    if (profileHeight) setProfileHeight(String(Math.round(parseFloat(profileHeight) * 2.54)));
+                  }
+                }}
+                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
+              >
+                {profileHeightUnit}
+              </button>
+            </div>
+            {/* BMI display — shown when both weight and height are filled */}
+            {(() => {
+              const wkg = (() => { const w = parseFloat(profileWeight); if (isNaN(w)) return null; return profileWeightUnit === "lbs" ? w * 0.453592 : w; })();
+              const hcm = (() => { const h = parseFloat(profileHeight); if (isNaN(h)) return null; return profileHeightUnit === "in" ? h * 2.54 : h; })();
+              if (!wkg || !hcm || hcm === 0) return null;
+              const bmi = wkg / ((hcm / 100) ** 2);
+              const { label, color } = bmi < 18.5 ? { label: "Underweight", color: "#60a5fa" }
+                : bmi < 25 ? { label: "Normal", color: C.emerald }
+                : bmi < 30 ? { label: "Overweight", color: "#f59e0b" }
+                : bmi < 35 ? { label: "Obese I", color: "#f97316" }
+                : { label: "Obese II", color: "#f87171" };
+              return (
+                <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <span style={{ fontSize: 12, color: C.muted, fontWeight: 600 }}>BMI</span>
+                  <span style={{ fontSize: 13, fontWeight: 900, color }}>
+                    {bmi.toFixed(1)} <span style={{ fontWeight: 600, fontSize: 11 }}>— {label}</span>
+                  </span>
+                </div>
+              );
+            })()}
           </div>
 
           {/* Female-only: cycle tracking */}
