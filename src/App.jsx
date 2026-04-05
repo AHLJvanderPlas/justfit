@@ -6490,7 +6490,7 @@ export default function App() {
               <svg width="38" height="38" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
                 <rect x="2" y="2" width="60" height="60" rx="14" fill="var(--accent)"/>
                 <g transform="translate(8 4) scale(2.2)">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="#ffffff"/>
+                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
                 </g>
               </svg>
               <span
