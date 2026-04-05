@@ -4267,7 +4267,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           </div>
 
           {/* Session duration — Standard / Advanced selector */}
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4, borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 20 }}>
             Available time per session
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
@@ -4679,9 +4679,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           </div>
 
           {/* Guest ID */}
-          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}`, borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "monospace", marginBottom: 6 }}>{userId?.slice(0, 16)}...</div>
+            <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>
+              {userId}
+            </div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
               Your unique identifier — links your workouts, plan, and score to your account privately and securely.
             </div>
