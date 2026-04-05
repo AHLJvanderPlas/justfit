@@ -4599,6 +4599,30 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </div>
           )}
 
+          {/* Daily Adaptive Replan */}
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Daily Adaptive Replan</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+                  {prefs.isPro ? "Regenerates plan each morning" : "Upgrade to Pro to unlock"}
+                </div>
+              </div>
+              {prefs.isPro ? (
+                <Toggle
+                  label=""
+                  sub=""
+                  active={!!prefs.daily_replan}
+                  onToggle={() => onUpdate({ ...prefs, daily_replan: !prefs.daily_replan })}
+                />
+              ) : (
+                <div style={{ padding: "6px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
+                  Pro only
+                </div>
+              )}
+            </div>
+          </div>
+
           <button
             disabled={planSaving}
             onClick={handlePlanSave}
@@ -4620,6 +4644,20 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           Your Profile
         </div>
         <Glass style={{ padding: 24 }}>
+          {/* Subscription row */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+            <div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
+            </div>
+            <button
+              onClick={() => onUpdate({ ...prefs, isPro: !prefs.isPro })}
+              style={{ padding: "8px 16px", borderRadius: 12, fontWeight: 900, fontSize: 12, background: prefs.isPro ? "rgba(255,255,255,0.06)" : "#fff", border: prefs.isPro ? `1px solid ${C.border}` : "none", color: prefs.isPro ? C.muted : "#000", cursor: "pointer", textTransform: "uppercase" }}
+            >
+              {prefs.isPro ? "Downgrade" : "Upgrade"}
+            </button>
+          </div>
+
           {/* Display name */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Display name</div>
@@ -4944,89 +4982,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </div>
           </div>
         )}
-      </div>
-
-      <div style={{ marginBottom: 32 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 900,
-            letterSpacing: "0.15em",
-            color: C.emerald,
-            textTransform: "uppercase",
-            marginBottom: 16,
-          }}
-        >
-          Subscription
-        </div>
-        <Glass
-          style={{
-            padding: 24,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: prefs.isPro ? "rgba(var(--accent-rgb),0.06)" : C.bgCard,
-            border: `1px solid ${prefs.isPro ? C.emeraldBorder : C.border}`,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 22,
-                fontWeight: 900,
-                color: C.text,
-                letterSpacing: "-0.03em",
-              }}
-            >
-              {prefs.isPro ? "PRO" : "BASE"} PASS
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-              {prefs.isPro
-                ? "Adaptive AI planning enabled"
-                : "Core features active"}
-            </div>
-          </div>
-          <button
-            onClick={() => onUpdate({ ...prefs, isPro: !prefs.isPro })}
-            style={{
-              padding: "10px 20px",
-              borderRadius: 14,
-              fontWeight: 900,
-              fontSize: 12,
-              background: "#fff",
-              border: "none",
-              color: "#000",
-              cursor: "pointer",
-              textTransform: "uppercase",
-            }}
-          >
-            {prefs.isPro ? "Downgrade" : "Upgrade"}
-          </button>
-        </Glass>
-      </div>
-
-      <div style={{ marginBottom: 32 }}>
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 900,
-            letterSpacing: "0.15em",
-            color: C.emerald,
-            textTransform: "uppercase",
-            marginBottom: 16,
-          }}
-        >
-          Application
-        </div>
-        <Toggle
-          label="Daily Adaptive Replan"
-          sub="Pro only — regenerates plan each morning"
-          active={prefs.daily_replan && prefs.isPro}
-          onToggle={() =>
-            prefs.isPro &&
-            onUpdate({ ...prefs, daily_replan: !prefs.daily_replan })
-          }
-        />
       </div>
 
       <div style={{ marginBottom: 32 }}>
