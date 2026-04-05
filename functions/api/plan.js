@@ -128,7 +128,7 @@ export async function onRequestPost({ request, env }) {
         await env.DB.prepare(`
           INSERT INTO day_plans
             (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.6.0', ?, ?, ?)
+          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.7.0', ?, ?, ?)
           ON CONFLICT(user_id, date) DO UPDATE SET
             plan_json = excluded.plan_json,
             updated_at_ms = excluded.updated_at_ms
@@ -196,14 +196,84 @@ function seededShuffle(arr, seed) {
 // Goal → exercise category mapping
 // ---------------------------------------------------------------------------
 const GOAL_CATEGORY = {
-  fat_loss: 'cardio',
-  muscle_gain: 'strength',
-  endurance: 'cardio',
-  strength: 'strength',
-  health: 'strength',
-  mobility: 'mobility',
-  mixed: 'strength',
+  fat_loss:     'cardio',
+  muscle_gain:  'strength',
+  endurance:    'cardio',
+  strength:     'strength',
+  health:       'strength',
+  mobility:     'mobility',
+  mixed:        'strength',
 };
+
+// ---------------------------------------------------------------------------
+// Goal → starting intensity (before check-in rules override)
+// ---------------------------------------------------------------------------
+const GOAL_INTENSITY = {
+  fat_loss:     'moderate', // calorie burn without burning out
+  muscle_gain:  'high',     // high effort = muscle stimulus
+  endurance:    'moderate', // sustainable, aerobic zone
+  strength:     'high',     // max effort for strength gains
+  health:       'moderate', // comfortable, sustainable
+  mobility:     'low',      // relaxed, range-of-motion focus
+  mixed:        'moderate',
+};
+
+// ---------------------------------------------------------------------------
+// Goal → base sets for a normal main session
+// ---------------------------------------------------------------------------
+const GOAL_SETS_BASE = {
+  fat_loss:     3, // circuit — many exercises, moderate sets
+  muscle_gain:  4, // hypertrophy range
+  endurance:    2, // fewer sets, time-based cardio blocks
+  strength:     4, // strength range
+  health:       3, // standard
+  mobility:     2, // hold-based, not really set-driven
+  mixed:        3,
+};
+
+// ---------------------------------------------------------------------------
+// Goal → rest multiplier applied on top of getDefaultRest()
+// ---------------------------------------------------------------------------
+const GOAL_REST_MULT = {
+  fat_loss:     0.70, // short rest = metabolic demand
+  muscle_gain:  1.50, // full recovery for hypertrophy
+  endurance:    0.70, // keep heart rate elevated
+  strength:     1.50, // full recovery for max effort
+  health:       1.00,
+  mobility:     0.80, // brief pause between stretches
+  mixed:        1.00,
+};
+
+// ---------------------------------------------------------------------------
+// Goal → exercise-count modifier on top of budget-based count
+// ---------------------------------------------------------------------------
+const GOAL_COUNT_MOD = {
+  fat_loss:     1,  // circuit style — more variety
+  muscle_gain: -1,  // fewer exercises, more sets
+  endurance:    1,  // more exercises / cardio blocks
+  strength:    -1,  // fewer exercises, heavier focus
+  health:       0,
+  mobility:     0,
+  mixed:        0,
+};
+
+// ---------------------------------------------------------------------------
+// Goal → session name pool (seeded-shuffled daily for variety)
+// ---------------------------------------------------------------------------
+const GOAL_SESSION_NAMES = {
+  fat_loss:    ['Burn Session', 'Fat Loss Circuit', 'Metabolic Boost', 'Cardio Burn'],
+  muscle_gain: ['Build Session', 'Hypertrophy Block', 'Strength & Size', 'Muscle Focus'],
+  endurance:   ['Endurance Push', 'Aerobic Block', 'Cardio Session', 'Stamina Work'],
+  strength:    ['Strength Session', 'Power Block', 'Heavy Work', 'Strength Focus'],
+  mobility:    ['Mobility Flow', 'Flexibility Session', 'Movement Practice', 'Stretch & Recover'],
+  health:      ['Daily Training', 'Health Session', 'Full Body', 'Balanced Session'],
+  mixed:       ['Full Body Circuit', 'Mixed Training', 'Variety Session', 'All-Round Work'],
+};
+
+// Gym equipment recognised when gym_today is true
+const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_bar',
+  'bench','kettlebell','resistance_band','exercise_bike','rowing_machine','treadmill',
+  'indoor_bike','running_shoes'];
 
 // ---------------------------------------------------------------------------
 // Template selector
@@ -309,7 +379,13 @@ function getDefaultRest(exercise, slotType) {
 // ---------------------------------------------------------------------------
 function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession) {
   const trace = [];
-  let intensity = 'moderate';
+  const goal = prefs?.training_goal ?? 'health';
+  const expLevel = prefs?.experience_level ?? 'intermediate';
+
+  // Starting intensity comes from the user's goal — rules below may override downward
+  let intensity = GOAL_INTENSITY[goal] ?? 'moderate';
+  trace.push(`R500 — Goal: ${goal} → initial intensity: ${intensity}`);
+
   let slot_type = 'main';
   let pool = [...exercises];
 
@@ -406,6 +482,42 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       return equip.every(e => e === 'none' || userEquip.includes(e));
     });
     trace.push(`R516 — Equipment filter from profile → ${pool.length} exercises remain`);
+  }
+
+  // ------------------------------------------------------------------
+  // R517: Mood adjustment
+  // ------------------------------------------------------------------
+  const mood = checkIn?.mood ?? null;
+  if (mood !== null) {
+    if (mood <= 4) {
+      // Low mood (UI score ≤2) — pull toward recovery
+      if (intensity === 'high') intensity = 'moderate';
+      else if (intensity === 'moderate') intensity = 'low';
+      trace.push(`R517 — Low mood (${mood}/10) → intensity reduced, recovery bias`);
+    } else if (mood <= 6) {
+      // Below-average mood (UI score ≤3) — soften one step if already high
+      if (intensity === 'high') intensity = 'moderate';
+      trace.push(`R517 — Below-average mood (${mood}/10) → intensity moderated`);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // R518: Gym today — expand available equipment
+  // ------------------------------------------------------------------
+  if (checkIn?.gym_today) {
+    // Re-filter pool allowing all gym equipment on top of bodyweight
+    pool = exercises.filter(ex => {
+      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+      return equip.every(e => GYM_EQUIPMENT.includes(e));
+    });
+    // Re-apply clothing/travel restrictions on top of gym pool
+    if (checkIn?.no_gear || checkIn?.traveling) {
+      pool = pool.filter(ex => {
+        const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+        return equip.includes('none');
+      });
+    }
+    trace.push(`R518 — Gym today → gym equipment unlocked (${pool.length} exercises available)`);
   }
 
   // ------------------------------------------------------------------
@@ -609,21 +721,42 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   if (!filtered.length) filtered = [...exercises];
   const shuffled = seededShuffle(filtered, date);
 
-  // How many exercises to include
+  // How many exercises to include — base from budget, adjusted by goal + experience
   const postnatalPhase = pregnancyContext?.postnatal_phase;
   const isGentleMode = postnatalPhase === 'immediate' || postnatalPhase === 'early';
-  const count = slot_type === 'micro' || isGentleMode ? 2
-    : budget >= 90 ? 8
-    : budget >= 60 ? 7
-    : budget >= 45 ? 6
-    : budget > 35  ? 5
-    : budget > 20  ? 4
-    : 3;
+  let count;
+  if (slot_type === 'micro' || isGentleMode) {
+    count = 2;
+  } else {
+    const baseCount = budget >= 90 ? 8
+      : budget >= 60 ? 7
+      : budget >= 45 ? 6
+      : budget > 35  ? 5
+      : budget > 20  ? 4
+      : 3;
+    const goalMod = GOAL_COUNT_MOD[goal] ?? 0;
+    const expMod = expLevel === 'advanced' ? 1 : expLevel === 'beginner' ? -1 : 0;
+    count = Math.max(2, Math.min(10, baseCount + goalMod + expMod));
+    if (goalMod !== 0 || expMod !== 0) {
+      trace.push(`R501 — Exercise count: ${baseCount} base + ${goalMod} goal + ${expMod} experience = ${count}`);
+    }
+  }
   const selection = shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
   // Build steps
   // ------------------------------------------------------------------
+  // Experience → rep/duration scale and set modifier
+  const expRepScale   = { beginner: 0.8, intermediate: 1.0, advanced: 1.2 };
+  const expSetMod     = { beginner: -1,  intermediate: 0,   advanced:  1  };
+  const repScale  = expRepScale[expLevel]  ?? 1.0;
+  const setOffset = expSetMod[expLevel]    ?? 0;
+
+  // Goal → base sets (before experience offset)
+  const goalSetsBase = GOAL_SETS_BASE[goal] ?? 3;
+  // Goal → rest multiplier
+  const goalRestMult = GOAL_REST_MULT[goal] ?? 1.0;
+
   const steps = slot_type === 'rest' ? [] : selection.map(ex => {
     const metrics = JSON.parse(ex.metrics_json || '{}');
     const supportsReps = metrics.supports?.includes('reps');
@@ -631,29 +764,42 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const baseDuration = metrics.base_duration_sec ?? 30;
     let reps = supportsReps ? 10 : undefined;
     let duration = !supportsReps ? baseDuration : undefined;
-    // Long cardio blocks (>5 min) are a single continuous effort — no sets
+
+    // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
     const isLongCardio = !supportsReps && baseDuration > 300;
-    const sets = (slot_type === 'micro' || isGentleMode) ? 1
-      : isLongCardio ? 1
-      : budget >= 60 ? 4
-      : 3;
+
+    // Sets: goal base + experience offset, clamped [1, 5]
+    let sets;
+    if (slot_type === 'micro' || isGentleMode || isLongCardio) {
+      sets = 1;
+    } else {
+      sets = Math.max(1, Math.min(5, goalSetsBase + setOffset));
+    }
 
     // R512: Low energy → volume × 0.6
     if ((checkIn?.energy ?? 10) <= 3) {
-      if (reps) { reps = Math.floor(reps * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
+      if (reps)     { reps     = Math.floor(reps     * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
       if (duration) { duration = Math.floor(duration * 0.6); trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
     }
 
-    // Scale by experience level
-    const expScale = { beginner: 0.8, intermediate: 1.0, advanced: 1.2 };
-    const scale = expScale[prefs?.experience_level] ?? 1.0;
-    if (scale !== 1.0 && reps) reps = Math.round(reps * scale);
+    // R502: Experience level scales reps AND duration
+    if (repScale !== 1.0) {
+      if (reps)     reps     = Math.round(reps     * repScale);
+      if (duration && !isLongCardio) duration = Math.round(duration * repScale);
+    }
 
     // Apply volume multiplier (R521, R536)
     if (volumeMultiplier !== 1.0) {
-      if (reps) reps = Math.round(reps * volumeMultiplier);
+      if (reps)     reps     = Math.round(reps     * volumeMultiplier);
       if (duration) duration = Math.round(duration * volumeMultiplier);
     }
+
+    // Clamp reps to sensible range
+    if (reps) reps = Math.max(3, Math.min(30, reps));
+
+    // Rest: base from exercise tags + goal multiplier (rounded to nearest 5s)
+    const baseRest = getDefaultRest(ex, slot_type);
+    const adjustedRest = Math.round(baseRest * goalRestMult / 5) * 5;
 
     const media = ex.media_json ? JSON.parse(ex.media_json) : {};
     return {
@@ -665,7 +811,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       target_reps: reps,
       target_duration_sec: duration,
       sets,
-      rest_sec: getDefaultRest(ex, slot_type),
+      rest_sec: adjustedRest,
       instructions_json: ex.instructions_json ?? null,
       alternatives_json: ex.alternatives_json ?? null,
       gif_url: media.gif_url ?? null,
@@ -781,11 +927,19 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (postnatalPhase === 'immediate' || postnatalPhase === 'early') session_name = 'A gentle moment';
     else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
     else session_name = 'Today\'s recovery';
+  } else if (slot_type === 'rest') {
+    session_name = 'Active Rest';
+  } else if (slot_type === 'micro') {
+    session_name = 'Micro Session';
   } else {
-    const fallbackNames = { main: 'Daily Training', micro: 'Micro Session', rest: 'Active Rest' };
-    session_name = slot_type === 'rest'
-      ? 'Active Rest'
-      : template?.name ?? fallbackNames[slot_type];
+    // Use goal-specific name pool, seeded by date for daily variety
+    const goalNames = GOAL_SESSION_NAMES[goal];
+    if (goalNames?.length) {
+      const idx = Math.abs([...date].reduce((h, c) => Math.imul(31, h) + c.charCodeAt(0) | 0, 0)) % goalNames.length;
+      session_name = goalNames[idx];
+    } else {
+      session_name = template?.name ?? 'Daily Training';
+    }
   }
 
   return {
