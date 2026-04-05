@@ -3996,20 +3996,21 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   const [profileWeightUnit, setProfileWeightUnit] = useState("kg");
   const [profileHeight, setProfileHeight] = useState(prefs.height_cm ? String(prefs.height_cm) : "");
   const [profileHeightUnit, setProfileHeightUnit] = useState("cm");
-  const [profileSaving, setProfileSaving] = useState(false);
-  const [profileSaveMsg, setProfileSaveMsg] = useState("");
+  const [saveStatus, setSaveStatus] = useState(""); // "" | "saving" | "saved" | "error"
+  const planAutoSaveRef = useRef(false);
+  const profileAutoSaveRef = useRef(false);
+  const accentAutoSaveRef = useRef(false);
   const [showSexWarning, setShowSexWarning] = useState(false);
   const [pendingSex, setPendingSex] = useState(null);
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
   // Info pages overlay
   const [showInfoPage, setShowInfoPage] = useState(null); // null | "vision" | "how_it_works" | "terms" | "disclaimer"
   // Accent colour
-  const [accentHex, setAccentHex] = useState(localStorage.getItem("jf_accent") ?? "#10b981");
+  const [accentHex, setAccentHex] = useState(prefs.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981");
   // Daily planning preferences
   const [checkinMode, setCheckinMode] = useState(prefs.preferences?.checkin_mode ?? "once_a_day");
   const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
-  const [planSaving, setPlanSaving] = useState(false);
   const [timeOverhead, setTimeOverhead] = useState(() => {
     const saved = prefs.preferences?.time_overhead;
     const emptyProfile = { presets: { change_clothes: 0, prepare_equipment: 0, clean_equipment: 0, shower: 0 }, custom: [] };
@@ -4043,24 +4044,66 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     }
   };
 
-  const handlePlanSave = async () => {
-    setPlanSaving(true);
-    try {
-      await api.saveProfile(token, {
-        training_goal: prefs.training_goal ?? "health",
-        experience_level: prefs.experience_level ?? "beginner",
-        session_duration_min: planDuration,
-        days_per_week_target: prefs.days_per_week_target ?? 3,
-        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead },
-      });
-      onUpdate((p) => ({
-        ...p,
-        session_duration_min: planDuration,
-        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead },
-      }));
-    } catch {}
-    setPlanSaving(false);
-  };
+  // ── Auto-save: plan preferences ──
+  useEffect(() => {
+    if (!planAutoSaveRef.current) { planAutoSaveRef.current = true; return; }
+    setSaveStatus("saving");
+    const equip = planEquipment.join(",");
+    const sched = JSON.stringify(weeklySchedule);
+    const over  = JSON.stringify(timeOverhead);
+    const t = setTimeout(async () => {
+      try {
+        await api.saveProfile(token, {
+          training_goal: prefs.training_goal ?? "health",
+          experience_level: prefs.experience_level ?? "beginner",
+          session_duration_min: planDuration,
+          days_per_week_target: prefs.days_per_week_target ?? 3,
+          preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead },
+        });
+        onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead } }));
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus(""), 2000);
+      } catch { setSaveStatus("error"); }
+    }, 600);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planDuration, planEquipment.join(","), JSON.stringify(weeklySchedule), checkinMode, JSON.stringify(timeOverhead)]);
+
+  // ── Auto-save: profile ──
+  useEffect(() => {
+    if (!profileAutoSaveRef.current) { profileAutoSaveRef.current = true; return; }
+    setSaveStatus("saving");
+    const t = setTimeout(async () => {
+      try {
+        let weight_kg = null;
+        if (profileWeight) { const w = parseFloat(profileWeight); if (!isNaN(w)) weight_kg = profileWeightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w; }
+        let height_cm = null;
+        if (profileHeight) { const h = parseFloat(profileHeight); if (!isNaN(h)) height_cm = profileHeightUnit === "in" ? Math.round(h * 2.54 * 10) / 10 : h; }
+        const payload = { sex: profileSex, weight_kg, height_cm, preferences: { ...(prefs.preferences ?? {}), display_name: displayName } };
+        if (profileSex === "female") {
+          payload.cycle = cycleTrackingMode === "smart"
+            ? { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined, mode: bodyMode }
+            : { tracking_mode: "off", mode: bodyMode };
+        }
+        await api.saveProfile(token, payload);
+        onUpdate((p) => ({ ...p, sex: profileSex, weight_kg, height_cm, preferences: { ...(p.preferences ?? {}), display_name: displayName } }));
+        setSaveStatus("saved");
+        setTimeout(() => setSaveStatus(""), 2000);
+      } catch { setSaveStatus("error"); }
+    }, 800);
+    return () => clearTimeout(t);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [displayName, profileSex, profileWeight, profileWeightUnit, profileHeight, profileHeightUnit, cycleTrackingMode, cycleLength, lastPeriodStart, bodyMode]);
+
+  // ── Auto-save: accent colour ──
+  useEffect(() => {
+    if (!accentAutoSaveRef.current) { accentAutoSaveRef.current = true; return; }
+    localStorage.setItem("jf_accent", accentHex);
+    api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), accent: accentHex } })
+      .then(() => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), accent: accentHex } })))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accentHex]);
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -4086,46 +4129,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     } catch {}
   };
 
-  const handleProfileSave = async () => {
-    setProfileSaving(true);
-    try {
-      let weight_kg = null;
-      if (profileWeight) {
-        const w = parseFloat(profileWeight);
-        if (!isNaN(w)) weight_kg = profileWeightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
-      }
-      let height_cm = null;
-      if (profileHeight) {
-        const h = parseFloat(profileHeight);
-        if (!isNaN(h)) height_cm = profileHeightUnit === "in" ? Math.round(h * 2.54 * 10) / 10 : h;
-      }
-      const payload = {
-        sex: profileSex,
-        weight_kg,
-        height_cm,
-        preferences: { ...(prefs.preferences ?? {}), display_name: displayName },
-      };
-      if (profileSex === "female") {
-        payload.cycle = cycleTrackingMode === "smart"
-          ? { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined, mode: bodyMode }
-          : { tracking_mode: "off", mode: bodyMode };
-      }
-      await api.saveProfile(token, payload);
-      onUpdate((p) => ({
-        ...p,
-        sex: profileSex,
-        weight_kg,
-        preferences: { ...(p.preferences ?? {}), display_name: displayName },
-        ...(profileSex === "female" ? { cycle: { ...(p.cycle ?? {}), tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart } } : {}),
-      }));
-      setProfileSaveMsg("Saved ✓");
-      setTimeout(() => setProfileSaveMsg(""), 2000);
-    } catch {
-      setProfileSaveMsg("Save failed");
-      setTimeout(() => setProfileSaveMsg(""), 2000);
-    }
-    setProfileSaving(false);
-  };
 
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
@@ -4805,19 +4808,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </div>
           </div>
 
-          <button
-            disabled={planSaving}
-            onClick={handlePlanSave}
-            style={{
-              width: "100%", padding: "10px 14px", borderRadius: 10,
-              background: planSaving ? "rgba(255,255,255,0.03)" : "var(--accent-dim)",
-              border: `1px solid ${planSaving ? C.border : "var(--accent-border)"}`,
-              color: planSaving ? C.muted : "var(--accent)",
-              fontWeight: 700, fontSize: 13, cursor: planSaving ? "not-allowed" : "pointer",
-            }}
-          >
-            {planSaving ? "Saving…" : "Save preferences"}
-          </button>
+          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
+          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
         </Glass>
       </div>
 
@@ -5167,17 +5160,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </div>
           )}
 
-          {/* Save row */}
-          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            <button
-              onClick={handleProfileSave}
-              disabled={profileSaving}
-              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, background: profileSaving ? "rgba(255,255,255,0.03)" : "var(--accent-dim)", border: `1px solid ${profileSaving ? C.border : "var(--accent-border)"}`, color: profileSaving ? C.muted : "var(--accent)", cursor: profileSaving ? "default" : "pointer" }}
-            >
-              {profileSaving ? "Saving…" : "Save profile"}
-            </button>
-            {profileSaveMsg && <span style={{ fontSize: 13, fontWeight: 700, color: profileSaveMsg.includes("fail") ? "#f87171" : C.emerald }}>{profileSaveMsg}</span>}
-          </div>
+          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
+          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
         </Glass>
 
         {/* Sex-change warning modal */}
@@ -5290,7 +5275,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                   title={ac.name}
                   onClick={() => {
                     setAccentHex(ac.hex);
-                    localStorage.setItem("jf_accent", ac.hex);
                     applyAccent(ac.hex);
                   }}
                   style={{
@@ -6129,7 +6113,12 @@ export default function App() {
 
   // After profile load: advance to ready, or show goal recheck for existing users on new version
   function handleProfileLoaded(data) {
-    if (data.sex) setPrefs((p) => ({ ...p, sex: data.sex, weight_kg: data.weight_kg ?? p.weight_kg, cycle: data.cycle ?? p.cycle, mode: data.cycle?.mode ?? p.mode }));
+    // Apply accent from server if present
+    if (data.preferences?.accent) {
+      localStorage.setItem("jf_accent", data.preferences.accent);
+      applyAccent(data.preferences.accent);
+    }
+    setPrefs((p) => ({ ...p, ...data, exists: undefined }));
     if (localStorage.getItem("jf_version") !== APP_VERSION) {
       setProfileData(data);
       setShowGoalRecheck(true);
@@ -6154,6 +6143,7 @@ export default function App() {
       }
     }).catch(() => setOnboardingReady(true));
   }, []);
+
 
   const handleWaiverAccept = () => {
     localStorage.setItem("jf_waiver", "1");
