@@ -476,13 +476,54 @@ function EUWaiverModal({ onAccept }) {
 }
 
 // ─── ONBOARDING MODAL ─────────────────────────────────────────────────────────
+const GOAL_ICONS = {
+  health: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <polygon points="14,4 26,4 26,14 36,14 36,26 26,26 26,36 14,36 14,26 4,26 4,14 14,14"/>
+    </svg>
+  ),
+  strength: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <polygon points="20,3 8,18 16,18 16,37 24,37 24,18 32,18"/>
+    </svg>
+  ),
+  fat_loss: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M20 3 C26 8 32 15 30 23 C28 30 24 36 20 38 C16 36 12 30 10 23 C8 15 14 8 20 3 Z"/>
+      <path d="M20 15 C22 19 22 26 20 31 C18 26 18 19 20 15 Z"/>
+    </svg>
+  ),
+  muscle_gain: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <polygon points="4,14 14,14 14,18 26,18 26,14 36,14 36,26 26,26 26,22 14,22 14,26 4,26"/>
+    </svg>
+  ),
+  endurance: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <polyline points="4,10 15,20 4,30"/>
+      <polyline points="14,10 25,20 14,30"/>
+      <polyline points="24,10 35,20 24,30"/>
+    </svg>
+  ),
+  mobility: (
+    <svg width="48" height="48" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round">
+      <circle cx="20" cy="7" r="3.5"/>
+      <line x1="20" y1="11" x2="20" y2="24"/>
+      <polyline points="8,19 20,15 32,19"/>
+      <polyline points="20,24 14,36"/>
+      <polyline points="20,24 26,36"/>
+      <line x1="14" y1="36" x2="26" y2="36"/>
+    </svg>
+  ),
+};
+
 const GOALS = [
-  { value: "health", label: "General Health", icon: "❤️" },
-  { value: "strength", label: "Build Strength", icon: "💪" },
-  { value: "fat_loss", label: "Lose Weight", icon: "🔥" },
-  { value: "muscle_gain", label: "Build Muscle", icon: "🏋️" },
-  { value: "endurance", label: "Endurance", icon: "🏃" },
-  { value: "mobility", label: "Mobility & Flex", icon: "🧘" },
+  { value: "health",      label: "General Health" },
+  { value: "strength",    label: "Build Strength" },
+  { value: "fat_loss",    label: "Lose Weight"    },
+  { value: "muscle_gain", label: "Build Muscle"   },
+  { value: "endurance",   label: "Endurance"      },
+  { value: "mobility",    label: "Mobility & Flex"},
 ];
 
 const EXPERIENCE = [
@@ -803,16 +844,19 @@ function OnboardingModal({ token, onComplete }) {
                     key={g.value}
                     onClick={() => setGoal(g.value)}
                     style={{
-                      padding: "16px 12px",
-                      borderRadius: 16,
+                      position: "relative", overflow: "hidden",
+                      padding: "14px 12px", minHeight: 92,
+                      borderRadius: 16, display: "flex", flexDirection: "column", justifyContent: "flex-end",
                       border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
                       background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
                       color: goal === g.value ? C.emerald : C.muted,
                       fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
                     }}
                   >
-                    <div style={{ fontSize: 22, marginBottom: 6 }}>{g.icon}</div>
-                    <div>{g.label}</div>
+                    <div style={{ position: "absolute", left: "66%", top: "33%", transform: "translate(-50%,-50%)", opacity: goal === g.value ? 0.7 : 0.22, pointerEvents: "none" }}>
+                      {GOAL_ICONS[g.value]}
+                    </div>
+                    <div style={{ position: "relative", zIndex: 1 }}>{g.label}</div>
                   </button>
                 ))}
               </div>
@@ -1242,14 +1286,18 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                 {GOALS.map((g) => (
                   <button key={g.value} onClick={() => setGoal(g.value)}
                     style={{
-                      padding: "14px 12px", borderRadius: 14,
+                      position: "relative", overflow: "hidden",
+                      padding: "14px 12px", minHeight: 92,
+                      borderRadius: 14, display: "flex", flexDirection: "column", justifyContent: "flex-end",
                       border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
                       background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
                       color: goal === g.value ? C.emerald : C.muted,
                       fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
                     }}>
-                    <div style={{ fontSize: 20, marginBottom: 4 }}>{g.icon}</div>
-                    <div>{g.label}</div>
+                    <div style={{ position: "absolute", left: "66%", top: "33%", transform: "translate(-50%,-50%)", opacity: goal === g.value ? 0.7 : 0.22, pointerEvents: "none" }}>
+                      {GOAL_ICONS[g.value]}
+                    </div>
+                    <div style={{ position: "relative", zIndex: 1 }}>{g.label}</div>
                   </button>
                 ))}
               </div>
@@ -2415,8 +2463,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         return (
           <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-                {goal.icon}
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+                {React.cloneElement(GOAL_ICONS[goal.value], { width: 22, height: 22 })}
               </div>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
@@ -4442,8 +4490,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             return (
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
-                    {goal.icon}
+                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                    {React.cloneElement(GOAL_ICONS[goal.value], { width: 22, height: 22 })}
                   </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
