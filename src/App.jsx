@@ -156,6 +156,14 @@ const api = {
     return data.plan;
   },
 
+  async getTodayPlan(userId, date) {
+    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`);
+    const data = await res.json();
+    if (!data.plan) return null;
+    const planObj = typeof data.plan.plan_json === "string" ? JSON.parse(data.plan.plan_json) : data.plan.plan_json;
+    return { id: data.plan.id, ...planObj };
+  },
+
   async getLastCheckin(userId) {
     const res = await fetch(`/api/checkin?user_id=${userId}`);
     const data = await res.json();
@@ -6263,16 +6271,39 @@ export default function App() {
       .catch(() => setIsLoadingHistory(false));
   }, [userId, onboardingReady]);
 
-  // Show check-in based on mode (only after onboarding done)
+  // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
     if (!onboardingReady) return;
     const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
+    const alreadyCheckedInToday = localStorage.getItem("jf_checkin_date") === today;
+    const willShowCheckIn =
+      mode === "every_time" ||
+      (mode === "once_a_day" && !alreadyCheckedInToday);
+
     if (mode === "every_time") {
       setShowCheckIn(true);
-    } else if (mode === "once_a_day") {
-      if (localStorage.getItem("jf_checkin_date") !== today) setShowCheckIn(true);
+    } else if (mode === "once_a_day" && !alreadyCheckedInToday) {
+      setShowCheckIn(true);
     }
     // "manual" — never auto-show
+
+    if (!willShowCheckIn) {
+      // No check-in modal — load existing plan or generate from settings only
+      setIsGenerating(true);
+      api.getTodayPlan(userId, today)
+        .then((existing) => {
+          if (existing) {
+            setPlan(existing);
+            setIsGenerating(false);
+          } else {
+            return api.generatePlan(userId, today, null)
+              .then(setPlan)
+              .catch(() => {})
+              .finally(() => setIsGenerating(false));
+          }
+        })
+        .catch(() => setIsGenerating(false));
+    }
   }, [onboardingReady]);
 
   const handleCheckIn = useCallback(
@@ -6296,6 +6327,21 @@ export default function App() {
     },
     [userId, today],
   );
+
+  const handleSkipCheckIn = useCallback(async () => {
+    setShowCheckIn(false);
+    setView("today");
+    localStorage.setItem("jf_checkin_date", today);
+    setIsGenerating(true);
+    try {
+      const newPlan = await api.generatePlan(userId, today, null);
+      setPlan(newPlan);
+    } catch (e) {
+      console.error("Plan generation failed:", e);
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [userId, today]);
 
   const handleComplete = useCallback(
     async (durationSec, perceivedExertion, stepsActual) => {
@@ -6598,7 +6644,7 @@ export default function App() {
       {showCheckIn && (
         <CheckInModal
           onSave={handleCheckIn}
-          onClose={() => setShowCheckIn(false)}
+          onClose={handleSkipCheckIn}
           isPro={!!prefs.isPro}
           sex={prefs.sex}
           cycle={prefs.cycle}
