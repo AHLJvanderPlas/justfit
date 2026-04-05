@@ -1219,9 +1219,9 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 }
 
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
-const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90];
+const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
-function CheckInModal({ onSave, onClose, isPro, sex, cycle }) {
+function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget }) {
   const bodyMode = cycle?.mode ?? "standard";
   const showPeriodToggle = sex === "female" && bodyMode === "standard";
   const [d, setD] = useState({
@@ -1229,7 +1229,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle }) {
     sleep_hours: 7,
     motivation: 3,
     stress: 3,
-    time_budget: 30,
+    time_budget: defaultTimeBudget ?? 30,
     no_clothing: false,
     no_gear: false,
     no_time: false,
@@ -6163,6 +6163,11 @@ export default function App() {
           isPro={!!prefs.isPro}
           sex={prefs.sex}
           cycle={prefs.cycle}
+          defaultTimeBudget={(() => {
+            const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+            const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
+            return (scheduled && scheduled > 0) ? scheduled : (prefs.session_duration_min ?? 30);
+          })()}
         />
       )}
 
