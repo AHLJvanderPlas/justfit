@@ -3969,7 +3969,7 @@ const PHASE_LABELS = {
 
 const CYCLE_LENGTHS_SETTINGS = [21, 24, 26, 28, 30, 32, 35];
 
-function SettingsView({ prefs, onUpdate, userId, token }) {
+function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -5386,7 +5386,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 </div>
               </div>
               <button
-                onClick={() => setShowGoalRecheck(true)}
+                onClick={() => onChangeGoal?.()}
                 style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
               >
                 Change goal
@@ -6327,7 +6327,7 @@ export default function App() {
               />
             )}
             {view === "settings" && (
-              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} />
+              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onChangeGoal={() => setShowGoalRecheck(true)} />
             )}
           </>
         )}
