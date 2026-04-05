@@ -522,6 +522,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // BMI — calculated here so R545/R546 and cycle rules can both use it
+  const weightKg = bodyProfile?.weight_kg ?? null;
+  const heightCm = bodyProfile?.height_cm ?? null;
+  const bmi = (weightKg && heightCm && heightCm > 0)
+    ? weightKg / ((heightCm / 100) ** 2)
+    : null;
+
   // R545/R546: BMI-aware running caution
   // Running exercises identified by equipment_required containing 'running_shoes'
   // or treadmill + high_impact tag (treadmill running).
@@ -575,12 +582,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // Body-aware rules (R520–R525) — standard cycle only
   // ------------------------------------------------------------------
   const sex = bodyProfile?.sex ?? null;
-  const weightKg = bodyProfile?.weight_kg ?? null;
-  const heightCm = bodyProfile?.height_cm ?? null;
-  // BMI — only calculable when both weight and height are known
-  const bmi = (weightKg && heightCm && heightCm > 0)
-    ? weightKg / ((heightCm / 100) ** 2)
-    : null;
   if (bmi !== null) trace.push(`BMI: ${bmi.toFixed(1)}`);
   const phase = cycleContext?.phase ?? null;
   const cycleDay = cycleContext?.day ?? null;
