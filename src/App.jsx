@@ -4781,7 +4781,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           {/* Daily Adaptive Replan */}
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
             <div
-              onClick={() => prefs.isPro && onUpdate({ ...prefs, daily_replan: !prefs.daily_replan })}
+              onClick={() => {
+                if (!prefs.isPro) return;
+                const newVal = !prefs.daily_replan;
+                onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
+                api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
+              }}
               style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 12px", borderRadius: 12, cursor: prefs.isPro ? "pointer" : "default",
@@ -4828,7 +4833,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
             </div>
             <button
-              onClick={() => onUpdate({ ...prefs, isPro: !prefs.isPro })}
+              onClick={() => {
+                const newVal = !prefs.isPro;
+                onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
+                api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
+              }}
               style={{ padding: "8px 16px", borderRadius: 12, fontWeight: 900, fontSize: 12, background: prefs.isPro ? "rgba(255,255,255,0.06)" : "#fff", border: prefs.isPro ? `1px solid ${C.border}` : "none", color: prefs.isPro ? C.muted : "#000", cursor: "pointer", textTransform: "uppercase" }}
             >
               {prefs.isPro ? "Downgrade" : "Upgrade"}
@@ -6118,7 +6127,11 @@ export default function App() {
       localStorage.setItem("jf_accent", data.preferences.accent);
       applyAccent(data.preferences.accent);
     }
-    setPrefs((p) => ({ ...p, ...data, exists: undefined }));
+    setPrefs((p) => ({
+      ...p, ...data, exists: undefined,
+      isPro: data.preferences?.isPro ?? p.isPro ?? false,
+      daily_replan: data.preferences?.daily_replan ?? p.daily_replan ?? false,
+    }));
     if (localStorage.getItem("jf_version") !== APP_VERSION) {
       setProfileData(data);
       setShowGoalRecheck(true);
