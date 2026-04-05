@@ -4206,42 +4206,57 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
             })}
           </div>
 
-          {/* Session duration */}
+          {/* Session duration — Standard / Advanced selector */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
             Available time per session
           </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
             Sets the default length of your daily plan. You can always adjust on the day.
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 16 }}>
-            {[15, 20, 30, 45, 60].map((d) => (
-              <button
-                key={d}
-                onClick={() => setPlanDuration(d)}
-                style={{
-                  padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
-                  border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
-                  background: planDuration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                  color: planDuration === d ? C.emerald : C.muted,
-                  cursor: "pointer",
-                }}
-              >
-                {d} min
-              </button>
-            ))}
+          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+            {[
+              { id: false, label: "Standard", sub: "One duration for all days" },
+              { id: true,  label: "Advanced", sub: "Set time per day of week" },
+            ].map(({ id, label, sub }) => {
+              const sel = showAdvancedSchedule === id;
+              return (
+                <button
+                  key={String(id)}
+                  onClick={() => setShowAdvancedSchedule(id)}
+                  style={{
+                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
+                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
+                  <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
+                </button>
+              );
+            })}
           </div>
 
-          {/* Advanced schedule toggle */}
-          <button
-            onClick={() => setShowAdvancedSchedule((v) => !v)}
-            style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 0", marginBottom: 20, background: "none", border: "none", cursor: "pointer", color: showAdvancedSchedule ? C.emerald : C.muted, fontSize: 12, fontWeight: 700 }}
-          >
-            <span style={{ fontSize: 10, transition: "transform 0.2s", display: "inline-block", transform: showAdvancedSchedule ? "rotate(90deg)" : "rotate(0deg)" }}>▶</span>
-            Advanced schedule — set time per day
-          </button>
-
-          {showAdvancedSchedule && (
-            <div style={{ marginBottom: 20, display: "flex", flexDirection: "column", gap: 6 }}>
+          {!showAdvancedSchedule ? (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+              {[15, 20, 30, 45, 60].map((d) => (
+                <button
+                  key={d}
+                  onClick={() => setPlanDuration(d)}
+                  style={{
+                    padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
+                    border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
+                    background: planDuration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    color: planDuration === d ? C.emerald : C.muted,
+                    cursor: "pointer",
+                  }}
+                >
+                  {d} min
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 6 }}>
               {[
                 { key: "mon", label: "Mon" },
                 { key: "tue", label: "Tue" },
