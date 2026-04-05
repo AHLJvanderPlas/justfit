@@ -214,7 +214,7 @@ function GhostCounter() {
         padding: "6px 14px",
         fontSize: 12,
         fontWeight: 700,
-        color: "#6ee7b7",
+        color: "var(--accent)",
       }}
     >
       <span
@@ -222,7 +222,7 @@ function GhostCounter() {
           width: 6,
           height: 6,
           borderRadius: "50%",
-          background: C.emerald,
+          background: "var(--accent)",
           display: "inline-block",
           animation: "pulse 2s ease-in-out infinite",
         }}
