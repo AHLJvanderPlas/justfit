@@ -466,21 +466,25 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   // R516: No Gear / Travel (bodyweight only)
   // ------------------------------------------------------------------
+  // 'chair' is treated as always-available (everyone has a chair)
+  const ALWAYS_AVAILABLE = new Set(['none', 'chair']);
   const userEquip = prefs?.preferences?.available_equipment ?? null;
+  // Default: if equipment is not configured, treat as bodyweight-only (safe default)
+  const effectiveEquip = (userEquip && userEquip.length > 0) ? userEquip : ['none'];
   const forceBodyweight = checkIn?.no_gear || checkIn?.traveling;
-  const profileBodyweightOnly = userEquip && userEquip.length === 1 && userEquip[0] === 'none';
+  const profileBodyweightOnly = effectiveEquip.length === 1 && effectiveEquip[0] === 'none';
 
   if (forceBodyweight || profileBodyweightOnly) {
     pool = pool.filter(ex => {
       const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.includes('none');
+      return equip.every(e => ALWAYS_AVAILABLE.has(e));
     });
     const reason = forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
     trace.push(`R516 — Bodyweight only (${reason}) → ${pool.length} exercises remain`);
-  } else if (userEquip && userEquip.length > 0) {
+  } else {
     pool = pool.filter(ex => {
       const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => e === 'none' || userEquip.includes(e));
+      return equip.every(e => ALWAYS_AVAILABLE.has(e) || effectiveEquip.includes(e));
     });
     trace.push(`R516 — Equipment filter from profile → ${pool.length} exercises remain`);
   }
@@ -997,6 +1001,26 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       session_name = goalNames[idx];
     } else {
       session_name = template?.name ?? 'Daily Training';
+    }
+  }
+
+  // ── Exercise ordering: outdoor always last, indoor cardio second-to-last ────
+  if (steps.length > 1) {
+    const isOutdoor = s => {
+      const tags = JSON.parse(s.tags_json || '[]');
+      const equip = JSON.parse(s.alternatives_json ? '[]' : '[]'); // use tags only
+      return tags.includes('outdoor');
+    };
+    const isIndoorCardio = s => {
+      const tags = JSON.parse(s.tags_json || '[]');
+      return tags.includes('cardio') && !tags.includes('outdoor');
+    };
+    const core  = steps.filter(s => !isOutdoor(s) && !isIndoorCardio(s));
+    const indoorCardio = steps.filter(s => isIndoorCardio(s));
+    const outdoor = steps.filter(s => isOutdoor(s));
+    steps = [...core, ...indoorCardio, ...outdoor];
+    if (indoorCardio.length || outdoor.length) {
+      trace.push(`Ordering — core: ${core.length}, indoor cardio: ${indoorCardio.length}, outdoor: ${outdoor.length}`);
     }
   }
 

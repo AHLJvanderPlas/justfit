@@ -900,6 +900,26 @@ None currently. 🟢
 
 ---
 
+## Product TODO List
+
+Improvements identified but not yet built. Ordered roughly by impact.
+
+### Workout UX
+- **Level-appropriate cues** — Cues prefixed with `💡💡` in the DB indicate level-specific advice (Beginner / Intermediate / Advanced). In WorkoutView, filter cues by `experience_level` from prefs: show only the matching level's `💡💡` cues plus all single-`💡` cues. Requires a prefix convention in the data.
+- **"Why" + training target section** — Add a `why` field and a `muscle_target` / `cardio_target` field to `instructions_json` per exercise. Show in the instruction phase below the step cards. For now can be derived from `category` + `tags_json` without DB changes (e.g. strength + "core" tag → "Targets: Core & Stability").
+- **Minimum 3 instruction steps** — Exercises with fewer than 3 instruction steps feel sparse. Either enrich the DB data, or auto-generate a fallback ("Focus on form", "Quality > speed", "You've got this") if `rawSteps.length < 3`.
+- **BMI-aware pace guidance** — For cardio exercises, when user is in the obese BMI range, show lower pace ranges or a dedicated slow-build-up note. Could be a posture-like `bmi_note` field in `instructions_json`, or a rule in WorkoutView that replaces the standard cues.
+- **Images in instruction cards** — Future: show exercise GIF/image alongside the step text. `gif_url` already exists on plan steps; just needs a collapsible image area in the instruction card.
+
+### After Session
+- **Log activity flow after session** — On the session complete card, the "Log activity" button logs a manual activity. Consider also showing extra-time input there so the user can immediately get a bonus plan suggestion without having to tap "Bonus session" separately.
+
+### Data Quality
+- **Enrich exercise instruction steps** — Several exercises (especially short bodyweight ones) have only 1–2 steps. Target minimum 3 concise steps + 2 cues for every exercise.
+- **Add `why` and `muscle_target` to all exercises** — New fields in `instructions_json`. Could be seeded via a migration script.
+
+---
+
 ## Coding Conventions
 
 - **Functions**: plain JS (`.js`), no TypeScript, no bundler, no imports from npm

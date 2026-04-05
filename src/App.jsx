@@ -492,10 +492,14 @@ const EXPERIENCE = [
 ];
 
 const EQUIPMENT_OPTIONS = [
-  { value: "none", label: "No equipment", sub: "Bodyweight only" },
-  { value: "dumbbell", label: "Dumbbells", sub: "Adjustable or fixed" },
+  { value: "none",           label: "No equipment",     sub: "Bodyweight only" },
+  { value: "dumbbell",       label: "Dumbbells",         sub: "Adjustable or fixed" },
   { value: "resistance_bands", label: "Resistance bands", sub: "Light to heavy bands" },
-  { value: "pull_up_bar", label: "Pull-up bar", sub: "Door-mounted or free-standing" },
+  { value: "pull_up_bar",    label: "Pull-up bar",       sub: "Door-mounted or free-standing" },
+  { value: "treadmill",      label: "Treadmill",         sub: "Home or gym treadmill" },
+  { value: "exercise_bike",  label: "Stationary bike",   sub: "Upright or spin bike" },
+  { value: "indoor_bike",    label: "Indoor bike trainer", sub: "Road bike on trainer" },
+  { value: "rowing_machine", label: "Rowing machine",    sub: "Ergometer or water rower" },
 ];
 
 const ALL_EQUIPMENT = [
@@ -1832,7 +1836,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   const sessionLabel = completedSession?.name ?? "Session";
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const scoreBump = score > prevScore;
-  const beforeNight = new Date().getHours() < 20;
+  const beforeNight = new Date().getHours() < 23;
 
   return (
     <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
@@ -2619,12 +2623,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerRunning, timerRemaining]);
 
-  // ── Instruction auto-advance (5s) ────────────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "instruction") return;
-    const id = setTimeout(() => setPhase("working"), 5000);
-    return () => clearTimeout(id);
-  }, [phase, exIdx]);
+  // Auto-advance removed — user reads instructions at their own pace
 
   // ── Reset instruction card when exercise changes ──────────────────────────────
   useEffect(() => {
@@ -3031,7 +3030,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                       return (
                         <div key={i} style={{ minWidth: "100%", flexShrink: 0 }}>
                           <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: "28px 24px", minHeight: 140, display: "flex", alignItems: "center" }}>
-                            <p style={{ fontSize: 18, fontWeight: 700, color: cardColor, lineHeight: 1.6, margin: 0 }}>{card.text}</p>
+                            <p style={{ fontSize: 18, fontWeight: 700, color: cardColor, lineHeight: 1.6, margin: 0, wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "pre-wrap" }}>{card.text}</p>
                           </div>
                         </div>
                       );
