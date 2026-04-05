@@ -599,7 +599,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // How many exercises to include
   const postnatalPhase = pregnancyContext?.postnatal_phase;
   const isGentleMode = postnatalPhase === 'immediate' || postnatalPhase === 'early';
-  const count = slot_type === 'micro' || isGentleMode ? 2 : budget > 35 ? 5 : budget > 20 ? 4 : 3;
+  const count = slot_type === 'micro' || isGentleMode ? 2
+    : budget >= 90 ? 8
+    : budget >= 60 ? 7
+    : budget >= 45 ? 6
+    : budget > 35  ? 5
+    : budget > 20  ? 4
+    : 3;
   const selection = shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
@@ -610,7 +616,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const supportsReps = metrics.supports?.includes('reps');
     let reps = supportsReps ? 10 : undefined;
     let duration = !supportsReps ? 30 : undefined;
-    const sets = (slot_type === 'micro' || isGentleMode) ? 1 : 3;
+    const sets = (slot_type === 'micro' || isGentleMode) ? 1
+      : budget >= 60 ? 4
+      : 3;
 
     // R512: Low energy → volume × 0.6
     if ((checkIn?.energy ?? 10) <= 3) {
