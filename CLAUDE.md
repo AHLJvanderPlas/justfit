@@ -4,8 +4,16 @@ These rules apply to EVERY task in EVERY session, without exception.
 
 ## After every change
 - Always run `git add . && git commit -m "..." && git push` after completing each task
+- Then build and deploy directly: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
+
+## Deploy workflow (GitHub auto-deploy suspended)
+- Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
+- Deploy via wrangler directly: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- Wrangler must be logged in to `ahljvanderplas@gmail.com` (account: JustFit.cc, ID: ce96b957f7de20cc5d388eba856fa8dc)
+- Check with: `npx wrangler whoami` — if wrong account, run `npx wrangler logout` then `npx wrangler login`
+- D1 migrations: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
 
 ## After every session
 - Update `CLAUDE.md` to reflect any new features built, bugs fixed, or status changes
