@@ -3061,7 +3061,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           }
 
           return (
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 20px 32px", display: "flex", flexDirection: "column", minHeight: "calc(100vh - 80px)", gap: 20 }}>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 80px)", gap: 20 }}>
               {/* Exercise name + target */}
               <div style={{ textAlign: "center" }}>
                 {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
@@ -3308,7 +3308,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
             )}
 
             {/* Bottom actions */}
-            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px 24px" }}>
+            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px max(24px, env(safe-area-inset-bottom))" }}>
               <div style={{ maxWidth: 528, margin: "0 auto", display: "flex", gap: 10 }}>
                 <button
                   onClick={handleSkipExercise}
@@ -3346,7 +3346,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           }
 
           return (
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px 40px", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", minHeight: "calc(100vh - 80px)", justifyContent: "center" }}>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px max(40px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", minHeight: "calc(100dvh - 80px)", justifyContent: "center" }}>
               {/* Set complete label */}
               <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
                 Set {currentSet - 1} of {totalSets} complete ✓
@@ -3425,7 +3425,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
         {/* ── SESSION FEEDBACK PHASE ── */}
         {phase === "sessionFeedback" && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "64px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 32, textAlign: "center" }}>
+          <div style={{ maxWidth: 560, margin: "0 auto", padding: "64px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 32, textAlign: "center" }}>
             <div>
               <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>Session done!</div>
               <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>How did that feel?</p>
@@ -6147,7 +6147,7 @@ function Nav({ view, setView }) {
         borderTop: `1px solid ${C.border}`,
         backdropFilter: "blur(20px)",
         zIndex: 50,
-        paddingBottom: 16,
+        paddingBottom: "max(16px, env(safe-area-inset-bottom))",
       }}
     >
       <div
