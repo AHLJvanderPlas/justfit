@@ -4601,22 +4601,28 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
 
           {/* Daily Adaptive Replan */}
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Daily Adaptive Replan</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>
+            <div
+              onClick={() => prefs.isPro && onUpdate({ ...prefs, daily_replan: !prefs.daily_replan })}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 12px", borderRadius: 12, cursor: prefs.isPro ? "pointer" : "default",
+                background: prefs.isPro && prefs.daily_replan ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                border: `1px solid ${prefs.isPro && prefs.daily_replan ? C.emeraldBorder : C.border}`,
+                opacity: prefs.isPro ? 1 : 0.45,
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: prefs.isPro && prefs.daily_replan ? C.emerald : C.text }}>Daily Adaptive Replan</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
                   {prefs.isPro ? "Regenerates plan each morning" : "Upgrade to Pro to unlock"}
                 </div>
               </div>
               {prefs.isPro ? (
-                <Toggle
-                  label=""
-                  sub=""
-                  active={!!prefs.daily_replan}
-                  onToggle={() => onUpdate({ ...prefs, daily_replan: !prefs.daily_replan })}
-                />
+                <div style={{ width: 36, height: 20, borderRadius: 999, background: prefs.daily_replan ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                  <div style={{ position: "absolute", top: 2, left: prefs.daily_replan ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
+                </div>
               ) : (
-                <div style={{ padding: "6px 12px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
+                <div style={{ padding: "4px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
                   Pro only
                 </div>
               )}
@@ -4627,10 +4633,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             disabled={planSaving}
             onClick={handlePlanSave}
             style={{
-              width: "100%", padding: 14, borderRadius: 14,
-              background: planSaving ? "rgba(255,255,255,0.03)" : C.emerald,
-              border: "none", color: planSaving ? C.muted : "#fff",
-              fontWeight: 900, fontSize: 14, cursor: planSaving ? "not-allowed" : "pointer",
+              width: "100%", padding: "10px 14px", borderRadius: 10,
+              background: planSaving ? "rgba(255,255,255,0.03)" : "var(--accent-dim)",
+              border: `1px solid ${planSaving ? C.border : "var(--accent-border)"}`,
+              color: planSaving ? C.muted : "var(--accent)",
+              fontWeight: 700, fontSize: 13, cursor: planSaving ? "not-allowed" : "pointer",
             }}
           >
             {planSaving ? "Saving…" : "Save preferences"}
@@ -4645,6 +4652,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
         </div>
         <Glass style={{ padding: 24 }}>
           {/* Subscription row */}
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Subscription</div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
             <div>
               <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
@@ -4925,7 +4933,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             <button
               onClick={handleProfileSave}
               disabled={profileSaving}
-              style={{ flex: 1, padding: "12px 20px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: C.emerald, border: "none", color: "#000", cursor: profileSaving ? "default" : "pointer", opacity: profileSaving ? 0.6 : 1 }}
+              style={{ flex: 1, padding: "10px 14px", borderRadius: 10, fontWeight: 700, fontSize: 13, background: profileSaving ? "rgba(255,255,255,0.03)" : "var(--accent-dim)", border: `1px solid ${profileSaving ? C.border : "var(--accent-border)"}`, color: profileSaving ? C.muted : "var(--accent)", cursor: profileSaving ? "default" : "pointer" }}
             >
               {profileSaving ? "Saving…" : "Save profile"}
             </button>
