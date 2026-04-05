@@ -6278,6 +6278,7 @@ export default function App() {
   const handleCheckIn = useCallback(
     async (data) => {
       setShowCheckIn(false);
+      setView("today");
       localStorage.setItem("jf_checkin_date", today);
       setIsGenerating(true);
       try {
