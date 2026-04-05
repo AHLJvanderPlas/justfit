@@ -2353,6 +2353,30 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         </div>
       </div>
 
+      {/* Training intention card */}
+      {(() => {
+        const goal = GOALS.find((g) => g.value === (prefs.training_goal ?? "health")) ?? GOALS[0];
+        const exp  = EXPERIENCE.find((e) => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
+        return (
+          <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {goal.icon}
+              </div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{goal.label}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                {exp.label}
+              </span>
+            </div>
+          </Glass>
+        );
+      })()}
+
       {/* Rule trace */}
       {plan?.rule_trace?.length > 0 && (
         <Glass style={{ padding: 20 }}>
