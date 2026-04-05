@@ -517,6 +517,14 @@ const GOAL_ICONS = {
   ),
 };
 
+function GoalIcon({ value, size = 48 }) {
+  const icon = GOAL_ICONS[value];
+  if (!icon) return null;
+  // Re-render the icon SVG with overridden width/height
+  const svgProps = { ...icon.props, width: size, height: size };
+  return <icon.type {...svgProps} />;
+}
+
 const GOALS = [
   { value: "health",      label: "General Health" },
   { value: "strength",    label: "Build Strength" },
@@ -2464,7 +2472,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
-                {React.cloneElement(GOAL_ICONS[goal.value], { width: 22, height: 22 })}
+                <GoalIcon value={goal.value} size={22} />
               </div>
               <div>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
@@ -4491,7 +4499,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                   <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                    {React.cloneElement(GOAL_ICONS[goal.value], { width: 22, height: 22 })}
+                    <GoalIcon value={goal.value} size={22} />
                   </div>
                   <div>
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
