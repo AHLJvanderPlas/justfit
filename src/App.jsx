@@ -4632,6 +4632,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             />
           </div>
 
+          {/* Guest ID */}
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "monospace", marginBottom: 6 }}>{userId?.slice(0, 16)}...</div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              Your unique identifier — links your workouts, plan, and score to your account privately and securely.
+            </div>
+          </div>
+
           {/* Sex */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Sex</div>
@@ -5059,30 +5068,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </Glass>
           </div>
         )}
-
-        <div
-          style={{
-            fontSize: 10,
-            fontWeight: 900,
-            letterSpacing: "0.15em",
-            color: C.emerald,
-            textTransform: "uppercase",
-            marginBottom: 16,
-          }}
-        >
-          Account
-        </div>
-        <Glass style={{ padding: 20 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-            <span style={{ fontSize: 13, fontWeight: 700, color: C.text }}>Guest ID</span>
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, fontFamily: "monospace" }}>
-              {userId?.slice(0, 16)}...
-            </span>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-            This is your unique account identifier. JustFit uses it to link your workouts, plan, and score to your account — privately and securely, without exposing your email.
-          </div>
-        </Glass>
       </div>
 
       {/* ── Appearance ─────────────────────────────────────── */}
