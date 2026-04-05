@@ -2312,7 +2312,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     >
                       {s.target_reps
                         ? `${s.target_reps} reps`
-                        : `${s.target_duration}s`}
+                        : `${s.target_duration_sec}s`}
                     </span>
                   </div>
                 ))}
@@ -6256,15 +6256,35 @@ export default function App() {
       .then((h) => {
         setHistory(h);
         setIsLoadingHistory(false);
-        // Reconcile: if no executions exist for today, clear completed state
-        const hasToday = h.some((ex) => ex.date === today);
+        // Reconcile completed state against server history (handles cross-device sync)
+        const todayExecutions = h.filter((ex) => ex.date === today);
+        const hasToday = todayExecutions.length > 0;
         if (!hasToday) {
+          // Completed on no device — clear local state
           setTodayCompleted(false);
           setCompletedSession(null);
           localStorage.removeItem(`jf_completed_${today}`);
           localStorage.removeItem(`jf_completed_session_${today}`);
           setBonusDone(false);
           localStorage.removeItem(`jf_bonus_${today}`);
+        } else {
+          // Completed on some device — mark done on this device too
+          const mainSession = todayExecutions.find((ex) => ex.execution_type !== "bonus") ?? todayExecutions[0];
+          const bonusSession = todayExecutions.find((ex) => ex.execution_type === "bonus");
+          setTodayCompleted(true);
+          localStorage.setItem(`jf_completed_${today}`, "1");
+          if (mainSession && !localStorage.getItem(`jf_completed_session_${today}`)) {
+            const reconstructed = {
+              name: mainSession.execution_type ?? "Session",
+              duration_sec: mainSession.total_duration_sec ?? 0,
+            };
+            setCompletedSession(reconstructed);
+            localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(reconstructed));
+          }
+          if (bonusSession) {
+            setBonusDone(true);
+            localStorage.setItem(`jf_bonus_${today}`, "1");
+          }
         }
       })
       .catch(() => setIsLoadingHistory(false));
