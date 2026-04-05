@@ -5231,38 +5231,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
         )}
       </div>
 
-      {/* ── Information ─────────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Information
-        </div>
-        <Glass style={{ padding: 20 }}>
-          {[
-            { key: "vision", label: "Vision, Mission & Philosophy", sub: "What JustFit stands for and why consistency wins" },
-            { key: "how_it_works", label: "How It Works", sub: "Features, the planner engine, scoring, and coaching" },
-            { key: "terms", label: "Terms & Conditions", sub: "Usage rules and governing law" },
-            { key: "disclaimer", label: "Disclaimer & Liability Waiver", sub: "Health risks, medical advice, and your responsibility" },
-          ].map(({ key, label, sub }, i, arr) => (
-            <button
-              key={key}
-              onClick={() => setShowInfoPage(key)}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                width: "100%", padding: "12px 0", background: "none", border: "none", cursor: "pointer",
-                borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none",
-                textAlign: "left",
-              }}
-            >
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{label}</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{sub}</div>
-              </div>
-              <span style={{ color: C.muted, fontSize: 18, marginLeft: 12, flexShrink: 0 }}>›</span>
-            </button>
-          ))}
-        </Glass>
-      </div>
-
       <div style={{ marginBottom: 32 }}>
         {/* Security — Passkey */}
         {passkeySupported && (
@@ -5346,6 +5314,38 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
             {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
           </div>
+        </Glass>
+      </div>
+
+      {/* ── Information ─────────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Information
+        </div>
+        <Glass style={{ padding: 20 }}>
+          {[
+            { key: "vision", label: "Vision, Mission & Philosophy", sub: "What JustFit stands for and why consistency wins" },
+            { key: "how_it_works", label: "How It Works", sub: "Features, the planner engine, scoring, and coaching" },
+            { key: "terms", label: "Terms & Conditions", sub: "Usage rules and governing law" },
+            { key: "disclaimer", label: "Disclaimer & Liability Waiver", sub: "Health risks, medical advice, and your responsibility" },
+          ].map(({ key, label, sub }, i, arr) => (
+            <button
+              key={key}
+              onClick={() => setShowInfoPage(key)}
+              style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                width: "100%", padding: "12px 0", background: "none", border: "none", cursor: "pointer",
+                borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none",
+                textAlign: "left",
+              }}
+            >
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{label}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{sub}</div>
+              </div>
+              <span style={{ color: C.muted, fontSize: 18, marginLeft: 12, flexShrink: 0 }}>›</span>
+            </button>
+          ))}
         </Glass>
       </div>
 
