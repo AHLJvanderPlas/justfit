@@ -1978,7 +1978,7 @@ function useNarrow(bp = 600) {
   return narrow;
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs }) {
   const isMobile = useNarrow();
   const intensityColor = {
     low: "#6ee7b7",
@@ -6310,6 +6310,7 @@ export default function App() {
                   onLogActivity={() => setShowLogActivity(true)}
                   onBonusSession={() => setShowBonusPicker(true)}
                   onWhyNot={() => setShowWhyNot(true)}
+                  prefs={prefs}
                 />
               </>
             )}
