@@ -156,6 +156,12 @@ const api = {
     return data.plan;
   },
 
+  async getLastCheckin(userId) {
+    const res = await fetch(`/api/checkin?user_id=${userId}`);
+    const data = await res.json();
+    return (data.checkins ?? [])[0] ?? null;
+  },
+
   async getProfile(token) {
     const res = await fetch("/api/profile", {
       headers: { Authorization: `Bearer ${token}` },
@@ -1221,27 +1227,34 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
-function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget }) {
+function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, lastCheckin }) {
   const bodyMode = cycle?.mode ?? "standard";
   const showPeriodToggle = sex === "female" && bodyMode === "standard";
-  const [d, setD] = useState({
-    energy: 3,
-    sleep_hours: 7,
-    motivation: 3,
-    stress: 3,
-    time_budget: defaultTimeBudget ?? 30,
-    no_clothing: false,
-    no_gear: false,
-    no_time: false,
-    gym_today: false,
-    traveling: false,
-    pain_level: 0,
-    period_today: false,
-    free_text: "",
-    // Pregnancy signals
-    pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
-    // Postnatal signals
-    postnatal_signals: { running_today: false, heaviness: false },
+  const [d, setD] = useState(() => {
+    // First-check-in defaults (from design spec)
+    const defaults = {
+      energy: 4, sleep_hours: 8, motivation: 4, stress: 1,
+      time_budget: defaultTimeBudget ?? 30,
+      no_clothing: false, no_gear: false, no_time: false,
+      gym_today: false, traveling: false, pain_level: 0,
+      period_today: false, free_text: "",
+      pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
+      postnatal_signals: { running_today: false, heaviness: false },
+    };
+    if (!lastCheckin) return defaults;
+    // Pre-fill vitals from last check-in; reset situational toggles
+    const cj = typeof lastCheckin.checkin_json === "string"
+      ? JSON.parse(lastCheckin.checkin_json)
+      : (lastCheckin.checkin_json ?? {});
+    return {
+      ...defaults,
+      energy:      lastCheckin.energy      ? Math.round(lastCheckin.energy / 2)   : defaults.energy,
+      sleep_hours: lastCheckin.sleep_hours ?? defaults.sleep_hours,
+      motivation:  cj.motivation           ? Math.round(cj.motivation / 2)        : defaults.motivation,
+      stress:      lastCheckin.stress      ? Math.round(lastCheckin.stress / 2)   : defaults.stress,
+      pain_level:  cj.pain_level ?? 0,
+      // time_budget comes from schedule (defaultTimeBudget), not last check-in
+    };
   });
   const upd = (patch) => setD((prev) => ({ ...prev, ...patch }));
   const updPregnancySignal = (key, val) => setD((prev) => ({ ...prev, pregnancy_signals: { ...prev.pregnancy_signals, [key]: val } }));
@@ -6105,6 +6118,7 @@ export default function App() {
   const [showGoalRecheck, setShowGoalRecheck] = useState(false);
   const [profileData, setProfileData] = useState(null);
   const [onboardingReady, setOnboardingReady] = useState(false);
+  const [lastCheckin, setLastCheckin] = useState(null);
 
   const [prefs, setPrefs] = useState(() => {
     try {
@@ -6132,6 +6146,8 @@ export default function App() {
       isPro: data.preferences?.isPro ?? p.isPro ?? false,
       daily_replan: data.preferences?.daily_replan ?? p.daily_replan ?? false,
     }));
+    // Fetch last check-in to pre-fill next check-in modal
+    api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
     if (localStorage.getItem("jf_version") !== APP_VERSION) {
       setProfileData(data);
       setShowGoalRecheck(true);
@@ -6571,6 +6587,7 @@ export default function App() {
             const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
             return (scheduled && scheduled > 0) ? scheduled : (prefs.session_duration_min ?? 30);
           })()}
+          lastCheckin={lastCheckin}
         />
       )}
 
