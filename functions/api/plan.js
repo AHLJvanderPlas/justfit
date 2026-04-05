@@ -614,9 +614,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   const steps = slot_type === 'rest' ? [] : selection.map(ex => {
     const metrics = JSON.parse(ex.metrics_json || '{}');
     const supportsReps = metrics.supports?.includes('reps');
+    // base_duration_sec lets conditioning exercises specify their own duration (e.g. 1200 = 20 min)
+    const baseDuration = metrics.base_duration_sec ?? 30;
     let reps = supportsReps ? 10 : undefined;
-    let duration = !supportsReps ? 30 : undefined;
+    let duration = !supportsReps ? baseDuration : undefined;
+    // Long cardio blocks (>5 min) are a single continuous effort — no sets
+    const isLongCardio = !supportsReps && baseDuration > 300;
     const sets = (slot_type === 'micro' || isGentleMode) ? 1
+      : isLongCardio ? 1
       : budget >= 60 ? 4
       : 3;
 
