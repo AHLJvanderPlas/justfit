@@ -3978,6 +3978,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   // Accent colour
   const [accentHex, setAccentHex] = useState(localStorage.getItem("jf_accent") ?? "#10b981");
   // Daily planning preferences
+  const [checkinMode, setCheckinMode] = useState(prefs.preferences?.checkin_mode ?? "once_a_day");
   const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
   const [planSaving, setPlanSaving] = useState(false);
@@ -4014,12 +4015,12 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         experience_level: prefs.experience_level ?? "beginner",
         session_duration_min: planDuration,
         days_per_week_target: prefs.days_per_week_target ?? 3,
-        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule },
+        preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode },
       });
       onUpdate((p) => ({
         ...p,
         session_duration_min: planDuration,
-        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule },
+        preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode },
       }));
     } catch {}
     setPlanSaving(false);
@@ -4172,6 +4173,38 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           Daily Planning
         </div>
         <Glass style={{ padding: 24 }}>
+
+          {/* Check-in mode */}
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+            Daily check-in
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+            Controls when the Daily Intelligence Prompt appears.
+          </div>
+          <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
+            {[
+              { id: "every_time", label: "Every time",  sub: "On every open" },
+              { id: "once_a_day", label: "Once a day",  sub: "First open only" },
+              { id: "manual",     label: "Manual",       sub: "You decide" },
+            ].map(({ id, label, sub }) => {
+              const sel = checkinMode === id;
+              return (
+                <button
+                  key={id}
+                  onClick={() => setCheckinMode(id)}
+                  style={{
+                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
+                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                  }}
+                >
+                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
+                  <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
+                </button>
+              );
+            })}
+          </div>
 
           {/* Session duration */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
@@ -4769,14 +4802,6 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Application
         </div>
-        <Toggle
-          label="Daily Intelligence Prompt"
-          sub="Show check-in on first open"
-          active={prefs.auto_prompt}
-          onToggle={() =>
-            onUpdate({ ...prefs, auto_prompt: !prefs.auto_prompt })
-          }
-        />
         <Toggle
           label="Daily Adaptive Replan"
           sub="Pro only — regenerates plan each morning"
@@ -5733,7 +5758,8 @@ export default function App() {
     setShowGoalRecheck(false);
     setPrefs((p) => ({ ...p, training_goal: newGoal }));
     setOnboardingReady(true);
-    if (prefs.auto_prompt !== false) setShowCheckIn(true);
+    const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
+    if (mode !== "manual") setShowCheckIn(true);
   };
 
   const handleOnboardingComplete = (completedProfileData) => {
@@ -5743,7 +5769,8 @@ export default function App() {
     if (completedProfileData) {
       setPrefs((p) => ({ ...p, ...completedProfileData }));
     }
-    if (prefs.auto_prompt !== false) setShowCheckIn(true);
+    const mode = (completedProfileData?.preferences?.checkin_mode) ?? prefs.preferences?.checkin_mode ?? "once_a_day";
+    if (mode !== "manual") setShowCheckIn(true);
   };
 
   // Load score and history from API on mount (only after onboarding done)
@@ -5773,15 +5800,22 @@ export default function App() {
       .catch(() => setIsLoadingHistory(false));
   }, [userId, onboardingReady]);
 
-  // Show check-in on first open if enabled (only after onboarding done)
+  // Show check-in based on mode (only after onboarding done)
   useEffect(() => {
     if (!onboardingReady) return;
-    if (prefs.auto_prompt !== false) setShowCheckIn(true);
+    const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
+    if (mode === "every_time") {
+      setShowCheckIn(true);
+    } else if (mode === "once_a_day") {
+      if (localStorage.getItem("jf_checkin_date") !== today) setShowCheckIn(true);
+    }
+    // "manual" — never auto-show
   }, [onboardingReady]);
 
   const handleCheckIn = useCallback(
     async (data) => {
       setShowCheckIn(false);
+      localStorage.setItem("jf_checkin_date", today);
       setIsGenerating(true);
       try {
         // Auto-log period if toggled and cycle tracking is active
