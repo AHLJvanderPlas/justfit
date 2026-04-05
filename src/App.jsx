@@ -6652,7 +6652,7 @@ export default function App() {
               />
             )}
             {view === "settings" && (
-              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onChangeGoal={() => setShowGoalRecheck(true)} />
+              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onChangeGoal={() => { setProfileData(prefs); setShowGoalRecheck(true); }} />
             )}
           </>
         )}
