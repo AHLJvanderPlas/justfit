@@ -926,6 +926,12 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
   const [sex, setSex] = useState(profileData?.sex ?? null);
   const [weightInput, setWeightInput] = useState(profileData?.weight_kg ? String(profileData.weight_kg) : "");
   const [weightUnit, setWeightUnit] = useState("kg");
+  const [heightInput, setHeightInput] = useState(profileData?.height_cm ? String(profileData.height_cm) : "");
+  const [heightUnit, setHeightUnit] = useState("cm");
+  // Fitness level 1–5: beginner→2, intermediate→3, advanced→4
+  const expToLevel = { beginner: 2, intermediate: 3, advanced: 4 };
+  const levelToExp = (l) => l <= 2 ? "beginner" : l === 3 ? "intermediate" : "advanced";
+  const [fitnessLevel, setFitnessLevel] = useState(expToLevel[profileData?.experience_level] ?? 2);
   const [bodyModeSelection, setBodyModeSelection] = useState(profileData?.cycle?.mode ?? "standard");
   const [pregnancyDueDate, setPregnancyDueDate] = useState(profileData?.cycle?.pregnancy_due_date ?? "");
   const [postnatalBirthDate, setPostnatalBirthDate] = useState(profileData?.cycle?.postnatal_birth_date ?? "");
@@ -950,6 +956,11 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
         const w = parseFloat(weightInput);
         if (!isNaN(w)) weight_kg = weightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
       }
+      let height_cm = null;
+      if (heightInput) {
+        const h = parseFloat(heightInput);
+        if (!isNaN(h)) height_cm = heightUnit === "in" ? Math.round(h * 2.54 * 10) / 10 : h;
+      }
 
       let cycle;
       if (sex === "female") {
@@ -966,12 +977,13 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 
       await api.saveProfile(token, {
         training_goal: goal,
-        experience_level: profileData?.experience_level ?? "beginner",
+        experience_level: levelToExp(fitnessLevel),
         session_duration_min: profileData?.session_duration_min ?? 30,
         days_per_week_target: profileData?.days_per_week_target ?? 3,
         preferences: profileData?.preferences ?? {},
         sex,
         weight_kg,
+        height_cm,
         ...(cycle !== undefined ? { cycle } : {}),
       });
     } catch (e) {
@@ -1045,19 +1057,56 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                 Your weight <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
               </div>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="number"
-                  placeholder="—"
-                  value={weightInput}
-                  onChange={(e) => setWeightInput(e.target.value)}
-                  style={{ width: 80, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit" }}
-                />
-                <button
-                  onClick={() => setWeightUnit(u => u === "kg" ? "lbs" : "kg")}
-                  style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 12, cursor: "pointer", minWidth: 48, flexShrink: 0 }}
-                >
+                <input type="number" placeholder="—" value={weightInput} onChange={(e) => setWeightInput(e.target.value)}
+                  style={{ width: 80, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={() => setWeightUnit(u => u === "kg" ? "lbs" : "kg")}
+                  style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 12, cursor: "pointer", minWidth: 48, flexShrink: 0 }}>
                   {weightUnit}
                 </button>
+              </div>
+            </div>
+
+            {/* Height */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                Your height <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+              </div>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input type="number" placeholder="—" value={heightInput} onChange={(e) => setHeightInput(e.target.value)}
+                  style={{ width: 80, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit" }} />
+                <button onClick={() => {
+                  if (heightUnit === "cm") {
+                    setHeightUnit("in");
+                    if (heightInput) setHeightInput(String(Math.round(parseFloat(heightInput) / 2.54)));
+                  } else {
+                    setHeightUnit("cm");
+                    if (heightInput) setHeightInput(String(Math.round(parseFloat(heightInput) * 2.54)));
+                  }
+                }} style={{ padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 12, cursor: "pointer", minWidth: 48, flexShrink: 0 }}>
+                  {heightUnit}
+                </button>
+              </div>
+            </div>
+
+            {/* Fitness level */}
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                How sporty are you?
+              </div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+                {[1,2,3,4,5].map((n) => (
+                  <button key={n} onClick={() => setFitnessLevel(n)} style={{
+                    flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 900, fontSize: 14,
+                    border: `1px solid ${fitnessLevel === n ? C.emeraldBorder : C.border}`,
+                    background: fitnessLevel === n ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    color: fitnessLevel === n ? C.emerald : C.muted, cursor: "pointer",
+                  }}>{n}</button>
+                ))}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: C.muted, fontWeight: 600 }}>
+                <span>Beginner</span>
+                <span>Moderate</span>
+                <span>Sporter</span>
               </div>
             </div>
 
