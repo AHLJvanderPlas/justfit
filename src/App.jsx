@@ -4335,13 +4335,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     <div>
       {/* ── Info page overlay ────────────────────────────────── */}
       {infoPage && (
-        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "24px 20px 48px" }}>
-          <button
-            onClick={() => setShowInfoPage(null)}
-            style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0, marginBottom: 28 }}
-          >
-            ← Back
-          </button>
+        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "80px 20px 48px" }}>
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 61, background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "16px 20px" }}>
+            <button
+              onClick={() => setShowInfoPage(null)}
+              style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0 }}
+            >
+              ← Back
+            </button>
+          </div>
           <h2 style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 28, lineHeight: 1.2 }}>
             {infoPage.title}
           </h2>
