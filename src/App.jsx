@@ -521,17 +521,23 @@ const GOAL_ICONS = {
       <path d="M20 30 L25 38"/>
     </svg>
   ),
-  // Dynamic running figure with ground and speed trail
+  // Dynamic running figure with zigzag ground (like reference icon)
   endurance: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <circle cx="29" cy="8" r="4"/>
-      <path d="M27 12 L19 23"/>
-      <path d="M24 16 L14 20 L10 24"/>
-      <path d="M24 16 L31 13 L36 11"/>
-      <path d="M19 23 L13 31 L8 33"/>
-      <path d="M19 23 L24 31 L30 37"/>
-      <line x1="3" y1="37" x2="36" y2="37"/>
-      <polyline points="3,34 8,37 14,31 20,37"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
+      {/* Head — circle ring */}
+      <circle cx="27" cy="7" r="3.5"/>
+      {/* Torso — diagonal, slight curve */}
+      <path d="M25 11 C23 15 20 18 17 23"/>
+      {/* Back arm — sweeps up and back */}
+      <path d="M21 14 C17 11 13 9 9 12"/>
+      {/* Front arm — forward */}
+      <path d="M21 14 L29 19"/>
+      {/* Front leg — knee raised high */}
+      <path d="M17 23 L22 27 L22 34"/>
+      {/* Back leg — extended behind */}
+      <path d="M17 23 L10 30 L5 35"/>
+      {/* Ground zigzag — bold lightning trail */}
+      <polyline points="3,38 11,26 17,36 27,21 33,30 38,24"/>
     </svg>
   ),
   // Person in lotus meditation pose
