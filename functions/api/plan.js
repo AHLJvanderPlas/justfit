@@ -108,7 +108,24 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session);
+    // Fetch progression state for the planner (ignored for bonus sessions to keep them light)
+    let progressionState = null;
+    if (user_id && !bonus_session) {
+      const progRow = await env.DB.prepare(
+        `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
+      ).bind(user_id).first();
+      if (progRow) {
+        progressionState = {
+          scores: JSON.parse(progRow.scores_json),
+          chartMode: prefs?.preferences?.progression_chart_mode
+            ?? { health:'balanced', strength:'power', fat_loss:'endurance',
+                 muscle_gain:'power', endurance:'endurance', mobility:'mobility' }[prefs?.training_goal ?? 'health']
+            ?? 'balanced',
+        };
+      }
+    }
+
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -191,6 +208,72 @@ function seededShuffle(arr, seed) {
     [out[i], out[j]] = [out[j], out[i]];
   }
   return out;
+}
+
+// ---------------------------------------------------------------------------
+// Progression — muscle-to-axis mapping (inline copy, keep in sync with progression.js)
+// ---------------------------------------------------------------------------
+const PROG_MUSCLE_TO_AXIS = {
+  chest: 'push', pectorals: 'push', pectoral: 'push',
+  triceps: 'push', tricep: 'push',
+  deltoids: 'push', shoulders: 'push', shoulder: 'push',
+  'anterior deltoid': 'push', 'front deltoid': 'push',
+  back: 'pull', lats: 'pull', lat: 'pull', 'latissimus dorsi': 'pull',
+  rhomboids: 'pull', rhomboid: 'pull',
+  trapezius: 'pull', traps: 'pull', trap: 'pull',
+  biceps: 'pull', bicep: 'pull',
+  'rear deltoid': 'pull', 'posterior deltoid': 'pull',
+  'rotator cuff': 'pull', 'upper back': 'pull', 'mid back': 'pull',
+  quadriceps: 'legs', quads: 'legs', quad: 'legs',
+  hamstrings: 'legs', hamstring: 'legs',
+  glutes: 'legs', glute: 'legs', gluteus: 'legs', 'gluteus maximus': 'legs',
+  calves: 'legs', calf: 'legs', gastrocnemius: 'legs', soleus: 'legs',
+  'hip flexors': 'legs', 'hip flexor': 'legs',
+  adductors: 'legs', adductor: 'legs', abductors: 'legs', abductor: 'legs',
+  abs: 'core', abdominals: 'core', abdominal: 'core',
+  obliques: 'core', oblique: 'core',
+  'transverse abdominis': 'core', 'transversus abdominis': 'core',
+  'lower back': 'core', 'erector spinae': 'core', erectors: 'core',
+  core: 'core',
+};
+
+const PROG_CATEGORY_FALLBACK = {
+  strength: 'core', cardio: 'conditioning',
+  mobility: 'mobility', recovery: 'mobility', mixed: 'core', skill: 'core',
+};
+
+// Progression — goal target profiles (inline copy)
+const PROG_GOAL_TARGETS = {
+  health:      { push: 60, pull: 60, legs: 60, core: 60, conditioning: 55, mobility: 55 },
+  strength:    { push: 80, pull: 80, legs: 80, core: 65, conditioning: 40, mobility: 40 },
+  fat_loss:    { push: 50, pull: 50, legs: 60, core: 55, conditioning: 80, mobility: 45 },
+  muscle_gain: { push: 75, pull: 75, legs: 75, core: 65, conditioning: 40, mobility: 35 },
+  endurance:   { push: 45, pull: 45, legs: 65, core: 60, conditioning: 85, mobility: 50 },
+  mobility:    { push: 40, pull: 40, legs: 45, core: 55, conditioning: 35, mobility: 85 },
+};
+
+const PROG_AXIS_CATEGORY = {
+  push: 'strength', pull: 'strength', legs: 'strength',
+  core: 'strength', conditioning: 'cardio', mobility: 'mobility',
+};
+
+function progGetExerciseAxis(exercise) {
+  const muscles = JSON.parse(exercise.primary_muscles_json || '[]');
+  for (const m of muscles) {
+    const axis = PROG_MUSCLE_TO_AXIS[m.toLowerCase()];
+    if (axis) return axis;
+  }
+  return PROG_CATEGORY_FALLBACK[exercise.category] ?? 'core';
+}
+
+function progGetDisplayScore(scores, axis, chartMode) {
+  if (!scores) return 15;
+  if (axis === 'mobility') return Math.round(scores.mobility?.mobility ?? 15);
+  const ax = scores[axis] ?? {};
+  if (chartMode === 'power')     return Math.round(ax.power     ?? 15);
+  if (chartMode === 'endurance') return Math.round(ax.endurance ?? 15);
+  if (chartMode === 'balanced')  return Math.round(((ax.power ?? 15) + (ax.endurance ?? 15)) / 2);
+  return Math.round(ax.power ?? 15);
 }
 
 // ---------------------------------------------------------------------------
@@ -378,7 +461,7 @@ function getDefaultRest(exercise, slotType) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState) {
   const trace = [];
   const goal = prefs?.training_goal ?? 'health';
   const expLevel = prefs?.experience_level ?? 'intermediate';
@@ -781,7 +864,77 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let filtered = pool.filter(ex => ex.category === targetCategory);
   if (!filtered.length) filtered = pool;
   if (!filtered.length) filtered = [...exercises];
-  const shuffled = seededShuffle(filtered, date);
+  let shuffled = seededShuffle(filtered, date);
+
+  // ==================================================================
+  // PROGRESSION RULES (R550–R560) — only in standard non-bonus sessions
+  // ==================================================================
+  if (progressionState?.scores && !bonusSession && !inSpecialMode && slot_type !== 'rest') {
+    const progScores  = progressionState.scores;
+    const chartMode   = progressionState.chartMode ?? 'balanced';
+    const targets     = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
+    const axes        = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
+
+    trace.push('R550 — Progression profile loaded');
+
+    // Compute gaps vs goal target
+    const gaps = axes.map(axis => ({
+      axis,
+      current: progGetDisplayScore(progScores, axis, chartMode),
+      target:  targets[axis] ?? 50,
+      gap:     Math.max(0, (targets[axis] ?? 50) - progGetDisplayScore(progScores, axis, chartMode)),
+    })).filter(g => g.gap >= 8).sort((a, b) => b.gap - a.gap);
+
+    const topGap = gaps[0];
+
+    // R551 — Weak-axis compensation: reorder pool to surface exercises for the biggest gap axis
+    if (topGap && !inSpecialMode) {
+      const gapAxis = topGap.axis;
+      const gapCategory = PROG_AXIS_CATEGORY[gapAxis] ?? targetCategory;
+
+      // If the gap axis maps to a different category than currently planned, augment filtered pool
+      if (gapCategory !== targetCategory && targetCategory !== 'mobility') {
+        const gapPool = pool.filter(ex => ex.category === gapCategory);
+        if (gapPool.length >= 2) {
+          const gapShuffled = seededShuffle(gapPool, date + gapAxis);
+          // Blend: take up to 2 gap-axis exercises, then fill with normal pool
+          shuffled = [...gapShuffled.slice(0, 2), ...shuffled];
+          trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — added ${Math.min(2, gapShuffled.length)} ${gapCategory} exercise(s) to front of pool`);
+        }
+      }
+
+      // Reorder within the filtered pool: exercises targeting the gap axis come first
+      if (gapCategory === targetCategory) {
+        const forGap  = shuffled.filter(ex => progGetExerciseAxis(ex) === gapAxis);
+        const forOther = shuffled.filter(ex => progGetExerciseAxis(ex) !== gapAxis);
+        shuffled = [...forGap, ...forOther];
+        trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — prioritised ${forGap.length} exercise(s) in pool`);
+      }
+    }
+
+    // R552 — Mode-aware volume note (adds to session_notes)
+    if (chartMode === 'power' && intensity === 'low') {
+      trace.push('R552 — Chart mode is Power but intensity is low today — progression gain will be minimal');
+    }
+
+    // R553 — Mobility decay maintenance
+    const mobilityScore = progGetDisplayScore(progScores, 'mobility', 'mobility');
+    const mob = progScores.mobility;
+    const daysSinceMobility = mob?.last_mobility_stimulus_at_ms
+      ? Math.floor((Date.now() - mob.last_mobility_stimulus_at_ms) / 86_400_000)
+      : 999;
+    if (daysSinceMobility >= 7 && goal !== 'mobility' && slot_type !== 'rest') {
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') +
+        'Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.';
+      trace.push(`R553 — Mobility score decaying (${daysSinceMobility} days) — maintenance note added`);
+    }
+
+    // R554 — Planner explainability: emit the top gap as a user-facing note
+    if (topGap && topGap.gap >= 15) {
+      const axisLabel = { push:'Push', pull:'Pull', legs:'Legs', core:'Core', conditioning:'Cardio', mobility:'Mobility' }[topGap.axis] ?? topGap.axis;
+      trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
+    }
+  }
 
   // How many exercises to include — base from budget, adjusted by goal + experience
   const postnatalPhase = pregnancyContext?.postnatal_phase;

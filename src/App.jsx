@@ -195,6 +195,30 @@ const api = {
     });
     return res.json();
   },
+
+  async getProgression(token) {
+    const res = await fetch("/api/progression", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async saveProgressionPrefs(token, prefs) {
+    const res = await fetch("/api/progression", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(prefs),
+    });
+    return res.json();
+  },
+
+  async recomputeProgression(token) {
+    const res = await fetch("/api/progression?action=recompute", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
 };
 
 // ─── GHOST COUNTER ────────────────────────────────────────────────────────────
@@ -3493,18 +3517,364 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   );
 }
 
-// ─── HISTORY VIEW ─────────────────────────────────────────────────────────────
-function HistoryView() {
+// ─── RADAR CHART ──────────────────────────────────────────────────────────────
+const RADAR_AXES = ["push", "pull", "legs", "core", "conditioning", "mobility"];
+const RADAR_LABELS = { push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cardio", mobility: "Mobility" };
+
+function radarPoint(cx, cy, r, index, total) {
+  const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
+  return { x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) };
+}
+
+function radarPolygon(cx, cy, maxR, scores) {
+  return RADAR_AXES.map((axis, i) => {
+    const fraction = Math.max(0, Math.min(100, scores[axis] ?? 0)) / 100;
+    const pt = radarPoint(cx, cy, maxR * fraction, i, RADAR_AXES.length);
+    return `${pt.x},${pt.y}`;
+  }).join(" ");
+}
+
+function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
+  const cx = size / 2, cy = size / 2, maxR = size * 0.37;
+  const gridLevels = [0.25, 0.5, 0.75, 1.0];
+  const labelOffset = 22;
+
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible" }}>
+      {/* Grid rings */}
+      {gridLevels.map((lvl, gi) => (
+        <polygon
+          key={gi}
+          points={RADAR_AXES.map((_, i) => {
+            const pt = radarPoint(cx, cy, maxR * lvl, i, RADAR_AXES.length);
+            return `${pt.x},${pt.y}`;
+          }).join(" ")}
+          fill="none"
+          stroke="rgba(255,255,255,0.06)"
+          strokeWidth="1"
+        />
+      ))}
+      {/* Spokes */}
+      {RADAR_AXES.map((_, i) => {
+        const pt = radarPoint(cx, cy, maxR, i, RADAR_AXES.length);
+        return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />;
+      })}
+      {/* Goal target polygon */}
+      {goalScores && (
+        <polygon
+          points={radarPolygon(cx, cy, maxR, goalScores)}
+          fill={`${accentHex}18`}
+          stroke={`${accentHex}55`}
+          strokeWidth="1.5"
+          strokeDasharray="4 3"
+        />
+      )}
+      {/* Current score polygon */}
+      <polygon
+        points={radarPolygon(cx, cy, maxR, scores)}
+        fill={`${accentHex}28`}
+        stroke={accentHex}
+        strokeWidth="2"
+      />
+      {/* Score dots */}
+      {RADAR_AXES.map((axis, i) => {
+        const fraction = Math.max(0, Math.min(100, scores[axis] ?? 0)) / 100;
+        const pt = radarPoint(cx, cy, maxR * fraction, i, RADAR_AXES.length);
+        return <circle key={axis} cx={pt.x} cy={pt.y} r="4" fill={accentHex} stroke={C.bg} strokeWidth="2" />;
+      })}
+      {/* Axis labels */}
+      {RADAR_AXES.map((axis, i) => {
+        const pt = radarPoint(cx, cy, maxR + labelOffset, i, RADAR_AXES.length);
+        const score = Math.round(scores[axis] ?? 0);
+        return (
+          <text
+            key={axis}
+            x={pt.x}
+            y={pt.y}
+            textAnchor="middle"
+            dominantBaseline="central"
+            fontSize="10"
+            fontWeight="800"
+            fontFamily="system-ui, sans-serif"
+            fill={C.muted}
+          >
+            {RADAR_LABELS[axis]}
+            {"\n"}
+            <tspan x={pt.x} dy="13" fontSize="11" fontWeight="900" fill={C.text}>{score}</tspan>
+          </text>
+        );
+      })}
+    </svg>
+  );
+}
+
+// ─── PROGRESSION VIEW ──────────────────────────────────────────────────────────
+const GOAL_LABELS_MAP = {
+  health: "General Health", strength: "Build Strength", fat_loss: "Lose Weight",
+  muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
+};
+
+function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate }) {
+  const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
+  const [showCompare, setShowCompare] = useState(true);
+  const [chartMode, setChartMode] = useState(null); // null = use API default
+  const [recomputing, setRecomputing] = useState(false);
+  const [recomputeMsg, setRecomputeMsg] = useState("");
+
+  const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
+  const goal = progression?.goal ?? prefs?.training_goal ?? "health";
+
+  // Get display scores for the selected chart mode
+  const displayScores = progression?.scores_by_mode?.[effectiveChartMode] ?? progression?.scores ?? {};
+  const goalScores    = progression?.goal_profile?.targets ?? null;
+
+  const CHART_MODES = [
+    { id: "power",     label: "Power"    },
+    { id: "endurance", label: "Endurance"},
+    { id: "balanced",  label: "Balanced" },
+    { id: "mobility",  label: "Mobility" },
+  ];
+
+  const handleChartModeChange = (mode) => {
+    setChartMode(mode);
+    api.saveProgressionPrefs(token, { progression_chart_mode: mode }).catch(() => {});
+  };
+
+  const handleRecompute = async () => {
+    setRecomputing(true);
+    try {
+      await api.recomputeProgression(token);
+      const updated = await api.getProgression(token);
+      if (updated?.ok) {
+        onProgressionUpdate(updated);
+        setRecomputeMsg("Scores recomputed from your full history.");
+      }
+    } catch { setRecomputeMsg("Recompute failed."); }
+    setRecomputing(false);
+    setTimeout(() => setRecomputeMsg(""), 4000);
+  };
+
+  if (isLoading) {
+    return (
+      <div>
+        <div style={{ marginBottom: 36 }}>
+          <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>Progress</h1>
+        </div>
+        <Glass style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Loading your progression…</div>
+        </Glass>
+      </div>
+    );
+  }
+
   return (
     <div>
-      <div style={{ marginBottom: 36 }}>
-        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>
-          Progress
-        </h1>
+      {/* Header */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 4 }}>Progress</h1>
+        {progression && (
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
+            Goal: <span style={{ color: C.emerald, fontWeight: 700 }}>{GOAL_LABELS_MAP[goal] ?? goal}</span>
+            {" · "}Goal fit: <span style={{ color: C.emerald, fontWeight: 700 }}>{progression.goal_fit ?? 0}%</span>
+          </div>
+        )}
       </div>
-      <Glass style={{ padding: 60, textAlign: "center" }}>
-        <p style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Coming soon.</p>
-      </Glass>
+
+      {!progression ? (
+        <Glass style={{ padding: 48, textAlign: "center" }}>
+          <div style={{ fontSize: 22, marginBottom: 10 }}>🏋️</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>No progression data yet</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Complete your first workout and your training profile will appear here.</div>
+        </Glass>
+      ) : (
+        <>
+          {/* ── Chart mode tabs ── */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
+            {CHART_MODES.map((m) => {
+              const active = effectiveChartMode === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => handleChartModeChange(m.id)}
+                  style={{
+                    padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                    border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                    background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                    color: active ? C.emerald : C.muted,
+                  }}
+                >
+                  {m.label}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setShowCompare((v) => !v)}
+              style={{
+                marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
+                background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                color: showCompare ? C.emerald : C.muted,
+              }}
+            >
+              {showCompare ? "Goal on" : "Goal off"}
+            </button>
+          </div>
+
+          {/* ── Radar chart ── */}
+          <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+            <RadarChart
+              scores={displayScores}
+              goalScores={showCompare ? goalScores : null}
+              accentHex={accentHex}
+              size={220}
+            />
+            <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                <div style={{ width: 16, height: 3, borderRadius: 2, background: accentHex }} />
+                <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Current</span>
+              </div>
+              {showCompare && (
+                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <div style={{ width: 16, height: 3, borderRadius: 2, background: `${accentHex}55`, borderTop: "2px dashed", borderColor: `${accentHex}55` }} />
+                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Goal target</span>
+                </div>
+              )}
+            </div>
+          </Glass>
+
+          {/* ── Goal fit score ── */}
+          <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
+              <svg width="60" height="60" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
+                <circle
+                  cx="30" cy="30" r="24" fill="none"
+                  stroke={accentHex} strokeWidth="5"
+                  strokeDasharray={`${(progression.goal_fit / 100) * 150.8} 150.8`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 30 30)"
+                />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{progression.goal_fit}%</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
+              </div>
+            </div>
+          </Glass>
+
+          {/* ── Key insights ── */}
+          {progression.insights && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+                Key Insights
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
+                {[
+                  { key: "strongest", label: "Strongest", icon: "💪", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
+                  { key: "weakest",   label: "Weakest",   icon: "📈", val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
+                ].map(({ key, label, icon, val, sub }) => val ? (
+                  <Glass key={key} style={{ padding: "14px 16px" }}>
+                    <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
+                    <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>Score: {sub}</div>
+                  </Glass>
+                ) : null)}
+              </div>
+
+              {progression.insights.biggest_gap && (
+                <Glass style={{ padding: "14px 16px", marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>🎯</div>
+                    <div>
+                      <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>Focus this week: {progression.insights.biggest_gap.label}</div>
+                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{progression.insights.biggest_gap.gap} points behind your goal target — the planner is already on it.</div>
+                    </div>
+                  </div>
+                </Glass>
+              )}
+
+              {(progression.insights.insight_text ?? []).map((txt, i) => (
+                <Glass key={i} style={{ padding: "14px 16px", marginBottom: 8 }}>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{txt}</div>
+                </Glass>
+              ))}
+            </div>
+          )}
+
+          {/* ── Planner explanation ── */}
+          {(progression.planner_explanation ?? []).length > 0 && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+                How the Planner Adapts
+              </div>
+              <Glass style={{ padding: 20 }}>
+                {progression.planner_explanation.map((line, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < progression.planner_explanation.length - 1 ? 12 : 0 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 3, background: C.emerald, flexShrink: 0, marginTop: 6 }} />
+                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{line}</div>
+                  </div>
+                ))}
+              </Glass>
+            </div>
+          )}
+
+          {/* ── Axis breakdown table ── */}
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+              Axis Breakdown
+            </div>
+            <Glass style={{ padding: "8px 0" }}>
+              {RADAR_AXES.map((axis, i) => {
+                const current = Math.round(displayScores[axis] ?? 0);
+                const target  = Math.round(goalScores?.[axis] ?? 50);
+                const gap     = Math.max(0, target - current);
+                const pct     = current;
+                return (
+                  <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
+                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                        <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
+                        {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
+                      </div>
+                    </div>
+                    <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
+                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: C.emerald, width: `${pct}%`, transition: "width 0.5s ease" }} />
+                      {showCompare && (
+                        <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${C.emerald}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </Glass>
+          </div>
+
+          {/* ── Debug: Recompute ── */}
+          <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
+              Advanced
+            </div>
+            <button
+              onClick={handleRecompute}
+              disabled={recomputing}
+              style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
+            >
+              {recomputing ? "Recomputing…" : "Rebuild scores from history"}
+            </button>
+            {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{recomputeMsg}</div>}
+            <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+              Recalculates your progression scores from scratch using your full workout history. Use this if you retune formulas or migrate accounts.
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -4020,6 +4390,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   const [equipEditMode, setEquipEditMode] = useState(false);
   const [equipDragItem, setEquipDragItem] = useState(null);
   const [equipDropZone, setEquipDropZone] = useState(null);
+  // Sport preferences
+  const sportAutoSaveRef = useRef(false);
+  const [sportPrefs, setSportPrefs] = useState(() => {
+    const saved = prefs.preferences?.sport_prefs;
+    return saved ?? { sports: [], primary: "none" };
+  });
 
   const moveEquip = (value, toActive) => {
     if (toActive) {
@@ -4095,6 +4471,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [accentHex]);
+
+  // ── Auto-save: sport preferences ──
+  useEffect(() => {
+    if (!sportAutoSaveRef.current) { sportAutoSaveRef.current = true; return; }
+    api.saveProgressionPrefs(token, { sport_prefs: sportPrefs })
+      .then(() => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), sport_prefs: sportPrefs } })))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [JSON.stringify(sportPrefs)]);
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -4807,6 +5192,75 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
           {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
           {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
+        </Glass>
+      </div>
+
+      {/* ── Endurance Sports ────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Endurance Sports
+        </div>
+        <Glass style={{ padding: 24 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.6 }}>
+            Tell the planner which sports you enjoy. It will include sport-supportive strength and conditioning work.
+          </div>
+          {[
+            { id: "running",  label: "Running" },
+            { id: "cycling",  label: "Cycling" },
+            { id: "rowing",   label: "Rowing" },
+            { id: "swimming", label: "Swimming" },
+            { id: "walking",  label: "Walking & Hiking" },
+            { id: "cardio",   label: "Mixed Cardio" },
+          ].map((sport) => {
+            const active = sportPrefs.sports?.includes(sport.id);
+            return (
+              <div
+                key={sport.id}
+                onClick={() => {
+                  setSportPrefs((prev) => {
+                    const sports = prev.sports ?? [];
+                    const next = active ? sports.filter((s) => s !== sport.id) : [...sports, sport.id];
+                    const primary = next.includes(prev.primary) ? prev.primary : (next[0] ?? "none");
+                    return { ...prev, sports: next, primary };
+                  });
+                }}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  padding: "11px 14px", borderRadius: 14, cursor: "pointer", marginBottom: 8,
+                  background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                }}
+              >
+                <span style={{ fontSize: 14, fontWeight: 700, color: active ? C.emerald : C.text }}>{sport.label}</span>
+                <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${active ? C.emerald : C.subtle}`, background: active ? C.emerald : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  {active && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
+                </div>
+              </div>
+            );
+          })}
+
+          {(sportPrefs.sports?.length ?? 0) >= 2 && (
+            <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                Primary sport
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {(sportPrefs.sports ?? []).map((sid) => {
+                  const label = { running: "Running", cycling: "Cycling", rowing: "Rowing", swimming: "Swimming", walking: "Walking & Hiking", cardio: "Mixed Cardio" }[sid] ?? sid;
+                  const isPrimary = sportPrefs.primary === sid;
+                  return (
+                    <button
+                      key={sid}
+                      onClick={() => setSportPrefs((p) => ({ ...p, primary: sid }))}
+                      style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(255,255,255,0.04)", color: isPrimary ? "#fff" : C.muted }}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </Glass>
       </div>
 
@@ -6117,6 +6571,8 @@ export default function App() {
   const [history, setHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const [isLoadingHistory, setIsLoadingHistory] = useState(false);
+  const [progression, setProgression] = useState(null);
+  const [isLoadingProgression, setIsLoadingProgression] = useState(false);
 
   // Post-workout state
   const [todayCompleted, setTodayCompleted] = useState(
@@ -6230,13 +6686,19 @@ export default function App() {
     if (mode !== "manual") setShowCheckIn(true);
   };
 
-  // Load score and history from API on mount (only after onboarding done)
+  // Load score, history, and progression from API on mount (only after onboarding done)
   useEffect(() => {
     if (!onboardingReady) return;
     api
       .getScore(userId)
       .then(setScore)
       .catch(() => {});
+    setIsLoadingProgression(true);
+    api
+      .getProgression(token)
+      .then((data) => { if (data?.ok) setProgression(data); })
+      .catch(() => {})
+      .finally(() => setIsLoadingProgression(false));
     setIsLoadingHistory(true);
     api
       .getHistory(userId)
@@ -6629,7 +7091,13 @@ export default function App() {
               <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} />
             )}
             {view === "history" && (
-              <HistoryView history={history} isLoading={isLoadingHistory} onDeleteExecution={handleDeleteExecution} />
+              <HistoryView
+                progression={progression}
+                isLoading={isLoadingProgression}
+                token={token}
+                prefs={prefs}
+                onProgressionUpdate={(updated) => setProgression(updated)}
+              />
             )}
             {view === "awards" && (
               <AwardsView
