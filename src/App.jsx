@@ -477,81 +477,76 @@ function EUWaiverModal({ onAccept }) {
 
 // ─── ONBOARDING MODAL ─────────────────────────────────────────────────────────
 const GOAL_ICONS = {
-  // Heart with ECG pulse line
+  // Filled heart + ECG cutout line
   health: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <path d="M20 33C20 33 5 24 5 15C5 9 9 6 14 6C17 6 19 8 20 11C21 8 23 6 26 6C31 6 35 9 35 15C35 24 20 33 20 33Z"/>
-      <polyline points="7,18 12,18 15,11 18,26 21,8 24,22 27,18 33,18"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" strokeLinejoin="round" strokeLinecap="round">
+      <path d="M20 33C20 33 5 24 5 15C5 9 9 6 14 6C17 6 19 8 20 11C21 8 23 6 26 6C31 6 35 9 35 15C35 24 20 33 20 33Z"
+        fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <polyline points="7,18 12,18 15,11 18,26 21,8 24,22 27,18 33,18"
+        stroke="rgba(2,6,23,0.65)" strokeWidth="2" fill="none"/>
     </svg>
   ),
-  // Horizontal dumbbell with triple-plate detail
+  // Filled dumbbell: all weight plates + bar as rects
   strength: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <line x1="13" y1="20" x2="27" y2="20" strokeWidth="2.5"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round">
       <rect x="4" y="13" width="4" height="14" rx="2"/>
       <rect x="8" y="15" width="3" height="10" rx="1.5"/>
       <rect x="11" y="17.5" width="2" height="5" rx="0.5"/>
+      <rect x="13" y="18.5" width="14" height="3" rx="1.5"/>
       <rect x="27" y="17.5" width="2" height="5" rx="0.5"/>
       <rect x="29" y="15" width="3" height="10" rx="1.5"/>
       <rect x="32" y="13" width="4" height="14" rx="2"/>
     </svg>
   ),
-  // Weight scale with gauge and footprints
+  // Filled scale body + feet; gauge arc + needle as cutouts
   fat_loss: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <rect x="3" y="9" width="34" height="28" rx="5"/>
-      <path d="M10 22 A10 10 0 0 0 30 22"/>
-      <line x1="20" y1="22" x2="13" y2="15"/>
-      <circle cx="20" cy="22" r="1.5"/>
-      <ellipse cx="13" cy="30" rx="4" ry="5"/>
-      <ellipse cx="27" cy="30" rx="4" ry="5"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" strokeLinejoin="round" strokeLinecap="round">
+      <rect x="3" y="9" width="34" height="28" rx="5" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <path d="M10 22 A10 10 0 0 0 30 22" stroke="rgba(2,6,23,0.65)" strokeWidth="2"/>
+      <line x1="20" y1="22" x2="13" y2="15" stroke="rgba(2,6,23,0.65)" strokeWidth="2"/>
+      <circle cx="20" cy="22" r="1.5" fill="rgba(2,6,23,0.65)" stroke="none"/>
+      <ellipse cx="13" cy="30" rx="4" ry="5" fill="currentColor" stroke="rgba(2,6,23,0.45)" strokeWidth="1.5"/>
+      <ellipse cx="27" cy="30" rx="4" ry="5" fill="currentColor" stroke="rgba(2,6,23,0.45)" strokeWidth="1.5"/>
     </svg>
   ),
-  // Figure doing overhead barbell press
+  // Filled barbell + filled head + chunky-stroke figure (overhead press)
   muscle_gain: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <line x1="5" y1="6" x2="35" y2="6"/>
-      <rect x="3" y="3" width="4" height="6" rx="1.5"/>
-      <rect x="33" y="3" width="4" height="6" rx="1.5"/>
-      <circle cx="20" cy="15" r="4"/>
-      <path d="M20 19 L20 30"/>
-      <path d="M20 22 L10 6"/>
-      <path d="M20 22 L30 6"/>
-      <path d="M20 30 L15 38"/>
-      <path d="M20 30 L25 38"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" strokeLinejoin="round" strokeLinecap="round">
+      <rect x="9" y="4.5" width="22" height="3" rx="1.5" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <rect x="3" y="3" width="7" height="6" rx="2" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <rect x="30" y="3" width="7" height="6" rx="2" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <circle cx="20" cy="15" r="4" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <path d="M20 19 L20 30" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M20 22 L10 6" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M20 22 L30 6" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M20 30 L15 38" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M20 30 L25 38" stroke="currentColor" strokeWidth="3.5"/>
     </svg>
   ),
-  // Dynamic running figure with zigzag ground (like reference icon)
+  // Filled head + chunky-stroke running figure + zigzag ground
   endurance: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round">
-      {/* Head — circle ring */}
-      <circle cx="27" cy="7" r="3.5"/>
-      {/* Torso — diagonal, slight curve */}
-      <path d="M25 11 C23 15 20 18 17 23"/>
-      {/* Back arm — sweeps up and back */}
-      <path d="M21 14 C17 11 13 9 9 12"/>
-      {/* Front arm — forward */}
-      <path d="M21 14 L29 19"/>
-      {/* Front leg — knee raised high */}
-      <path d="M17 23 L22 27 L22 34"/>
-      {/* Back leg — extended behind */}
-      <path d="M17 23 L10 30 L5 35"/>
-      {/* Ground zigzag — bold lightning trail */}
-      <polyline points="3,38 11,26 17,36 27,21 33,30 38,24"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" strokeLinejoin="round" strokeLinecap="round">
+      <circle cx="27" cy="7" r="3.5" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <path d="M25 11 C23 15 20 18 17 23" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M21 14 C17 11 13 9 9 12" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M21 14 L29 19" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M17 23 L22 27 L22 34" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M17 23 L10 30 L5 35" stroke="currentColor" strokeWidth="3.5"/>
+      <polyline points="3,38 11,26 17,36 27,21 33,30 38,24" stroke="currentColor" strokeWidth="3.5"/>
     </svg>
   ),
-  // Person in lotus meditation pose
+  // Filled head + chunky-stroke lotus pose
   mobility: (
-    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" strokeLinecap="round">
-      <circle cx="20" cy="7" r="4"/>
-      <line x1="20" y1="11" x2="20" y2="22"/>
-      <path d="M17 14 C13 17 10 21 9 26"/>
-      <path d="M23 14 C27 17 30 21 31 26"/>
-      <circle cx="9" cy="27" r="1.5"/>
-      <circle cx="31" cy="27" r="1.5"/>
-      <path d="M20 22 C15 22 9 25 8 31 C7 35 11 37 16 36"/>
-      <path d="M20 22 C25 22 31 25 32 31 C33 35 29 37 24 36"/>
-      <line x1="16" y1="36" x2="24" y2="36"/>
+    <svg width="56" height="56" viewBox="0 0 40 40" fill="none" strokeLinejoin="round" strokeLinecap="round">
+      <circle cx="20" cy="7" r="4" fill="currentColor" stroke="rgba(2,6,23,0.4)" strokeWidth="1.5"/>
+      <line x1="20" y1="11" x2="20" y2="22" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M17 14 C13 17 10 21 9 26" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M23 14 C27 17 30 21 31 26" stroke="currentColor" strokeWidth="3.5"/>
+      <circle cx="9" cy="27" r="2.5" fill="currentColor"/>
+      <circle cx="31" cy="27" r="2.5" fill="currentColor"/>
+      <path d="M20 22 C15 22 9 25 8 31 C7 35 11 37 16 36" stroke="currentColor" strokeWidth="3.5"/>
+      <path d="M20 22 C25 22 31 25 32 31 C33 35 29 37 24 36" stroke="currentColor" strokeWidth="3.5"/>
+      <line x1="16" y1="36" x2="24" y2="36" stroke="currentColor" strokeWidth="3.5"/>
     </svg>
   ),
 };
