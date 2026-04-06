@@ -3826,60 +3826,66 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             );
           })()}
 
-          {/* ── Key insights ── */}
-          {progression.insights && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-                Key Insights
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
-                {[
-                  { key: "strongest", label: "Strongest", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
-                  { key: "weakest",   label: "Weakest",   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
-                ].map(({ key, label, val, sub }) => val ? (
-                  <Glass key={key} style={{ padding: "14px 16px" }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
-                    <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
-                    <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>Score: {sub}</div>
-                  </Glass>
-                ) : null)}
+          {/* ── Key insights + planner explanation (one card) ── */}
+          {(progression.insights || (progression.planner_explanation ?? []).length > 0) && (
+            <Glass style={{ padding: 0, marginBottom: 16, overflow: "hidden" }}>
+
+              {/* Section header */}
+              <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase" }}>Key Insights</div>
               </div>
 
-              {progression.insights.biggest_gap && (
-                <Glass style={{ padding: "14px 16px", marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>🎯</div>
-                    <div>
-                      <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>Focus this week: {progression.insights.biggest_gap.label}</div>
-                      <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{progression.insights.biggest_gap.gap} points behind your goal target — the planner is already on it.</div>
+              {/* Strongest / Weakest */}
+              {progression.insights && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderBottom: `1px solid ${C.border}` }}>
+                  {[
+                    { key: "strongest", label: "Strongest", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
+                    { key: "weakest",   label: "Weakest",   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
+                  ].map(({ key, label, val, sub }, idx) => val ? (
+                    <div key={key} style={{ padding: "16px 20px", borderRight: idx === 0 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
+                      <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>Score: {sub}</div>
                     </div>
-                  </div>
-                </Glass>
+                  ) : null)}
+                </div>
               )}
 
-              {(progression.insights.insight_text ?? []).map((txt, i) => (
-                <Glass key={i} style={{ padding: "14px 16px", marginBottom: 8 }}>
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{txt}</div>
-                </Glass>
-              ))}
-            </div>
-          )}
-
-          {/* ── Planner explanation ── */}
-          {(progression.planner_explanation ?? []).length > 0 && (
-            <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-                How the Planner Adapts
-              </div>
-              <Glass style={{ padding: 20 }}>
-                {progression.planner_explanation.map((line, i) => (
-                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < progression.planner_explanation.length - 1 ? 12 : 0 }}>
-                    <div style={{ width: 6, height: 6, borderRadius: 3, background: C.emerald, flexShrink: 0, marginTop: 6 }} />
-                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{line}</div>
+              {/* Focus this week */}
+              {progression.insights?.biggest_gap && (
+                <div style={{ padding: "16px 20px", borderBottom: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 15 }}>🎯</div>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>Focus this week: {progression.insights.biggest_gap.label}</div>
+                    <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{progression.insights.biggest_gap.gap} points behind your goal target — the planner is already on it.</div>
                   </div>
-                ))}
-              </Glass>
-            </div>
+                </div>
+              )}
+
+              {/* Insight text rows */}
+              {(progression.insights?.insight_text ?? []).map((txt, i, arr) => (
+                <div key={i} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 || (progression.planner_explanation ?? []).length > 0 ? `1px solid ${C.border}` : "none" }}>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{txt}</div>
+                </div>
+              ))}
+
+              {/* How the Planner Adapts */}
+              {(progression.planner_explanation ?? []).length > 0 && (
+                <>
+                  <div style={{ padding: "14px 20px", borderBottom: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase" }}>How the Planner Adapts</div>
+                  </div>
+                  <div style={{ padding: "16px 20px" }}>
+                    {progression.planner_explanation.map((line, i) => (
+                      <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < progression.planner_explanation.length - 1 ? 12 : 0 }}>
+                        <div style={{ width: 6, height: 6, borderRadius: 3, background: C.emerald, flexShrink: 0, marginTop: 6 }} />
+                        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{line}</div>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              )}
+            </Glass>
           )}
 
           {/* ── Axis breakdown table ── */}
