@@ -3639,7 +3639,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate }) {
+function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, onChangeGoal }) {
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -3696,13 +3696,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
     <div>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 4 }}>Progress</h1>
-        {progression && (
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5 }}>
-            Goal: <span style={{ color: C.emerald, fontWeight: 700 }}>{GOAL_LABELS_MAP[goal] ?? goal}</span>
-            {" · "}Goal fit: <span style={{ color: C.emerald, fontWeight: 700 }}>{progression.goal_fit ?? 0}%</span>
-          </div>
-        )}
+        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>Progress</h1>
       </div>
 
       {!progression ? (
@@ -3773,30 +3767,64 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
           </Glass>
 
-          {/* ── Goal fit score ── */}
-          <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
-            <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
-              <svg width="60" height="60" viewBox="0 0 60 60">
-                <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
-                <circle
-                  cx="30" cy="30" r="24" fill="none"
-                  stroke={accentHex} strokeWidth="5"
-                  strokeDasharray={`${(progression.goal_fit / 100) * 150.8} 150.8`}
-                  strokeLinecap="round"
-                  transform="rotate(-90 30 30)"
-                />
-              </svg>
-              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{progression.goal_fit}%</span>
-              </div>
-            </div>
-            <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
-              </div>
-            </div>
-          </Glass>
+          {/* ── Goal Fit card (with goal selector) ── */}
+          {(() => {
+            const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
+            const exp = EXPERIENCE.find((e) => e.value === (prefs?.experience_level ?? "beginner")) ?? EXPERIENCE[0];
+            return (
+              <Glass style={{ padding: 20, marginBottom: 16 }}>
+                {/* Goal row */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                      <GoalIcon value={currentGoal.value} size={20} />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+                      <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                        {exp.label}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    onClick={() => onChangeGoal?.()}
+                    style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+                  >
+                    Change goal
+                  </button>
+                </div>
+
+                {/* Divider */}
+                <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+
+                {/* Goal fit row */}
+                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+                  <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
+                    <svg width="60" height="60" viewBox="0 0 60 60">
+                      <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
+                      <circle
+                        cx="30" cy="30" r="24" fill="none"
+                        stroke={accentHex} strokeWidth="5"
+                        strokeDasharray={`${(progression.goal_fit / 100) * 150.8} 150.8`}
+                        strokeLinecap="round"
+                        transform="rotate(-90 30 30)"
+                      />
+                    </svg>
+                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{progression.goal_fit}%</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                      {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
+                    </div>
+                  </div>
+                </div>
+              </Glass>
+            );
+          })()}
 
           {/* ── Key insights ── */}
           {progression.insights && (
@@ -4865,34 +4893,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           Daily Planning
         </div>
         <Glass style={{ padding: 24 }}>
-
-          {/* Training goal row */}
-          {(() => {
-            const goal = GOALS.find((g) => g.value === (prefs.training_goal ?? "health")) ?? GOALS[0];
-            const exp  = EXPERIENCE.find((e) => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
-            return (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                    <GoalIcon value={goal.value} size={22} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{goal.label}</div>
-                    <span style={{ marginTop: 4, display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                      {exp.label}
-                    </span>
-                  </div>
-                </div>
-                <button
-                  onClick={() => onChangeGoal?.()}
-                  style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  Change goal
-                </button>
-              </div>
-            );
-          })()}
 
           {/* Check-in mode */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
@@ -7265,6 +7265,7 @@ export default function App() {
                 token={token}
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
+                onChangeGoal={() => { setProfileData(prefs); setShowGoalRecheck(true); }}
               />
             )}
             {view === "awards" && (
