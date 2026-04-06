@@ -609,6 +609,31 @@ const ALL_EQUIPMENT = [
   { value: "multi_gym",          label: "Multi-gym machine" },
 ];
 
+const ALL_SPORTS = [
+  { id: "running",      label: "Running" },
+  { id: "cycling",      label: "Cycling" },
+  { id: "swimming",     label: "Swimming" },
+  { id: "walking",      label: "Walking & Hiking" },
+  { id: "rowing",       label: "Rowing" },
+  { id: "triathlon",    label: "Triathlon" },
+  { id: "skating",      label: "Inline Skating" },
+  { id: "mtb",          label: "Mountain Biking" },
+  { id: "ice_skating",  label: "Ice Skating" },
+  { id: "trail_run",    label: "Trail Running" },
+  { id: "kayaking",     label: "Kayaking & Canoeing" },
+  { id: "spinning",     label: "Indoor Cycling" },
+  { id: "nordic_walk",  label: "Nordic Walking" },
+  { id: "sup",          label: "Paddleboarding (SUP)" },
+  { id: "open_water",   label: "Open Water Swimming" },
+  { id: "climbing",     label: "Climbing & Bouldering" },
+  { id: "kitesurfing",  label: "Kitesurfing" },
+  { id: "duathlon",     label: "Duathlon" },
+  { id: "obstacle",     label: "Obstacle Racing" },
+  { id: "cardio",       label: "Mixed Cardio" },
+  { id: "golf",         label: "Golf" },
+  { id: "tennis",       label: "Tennis" },
+];
+
 const SEX_OPTIONS = [
   { label: "Male", value: "male" },
   { label: "Female", value: "female" },
@@ -4462,6 +4487,20 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     const saved = prefs.preferences?.sport_prefs;
     return saved ?? { sports: [], primary: "none" };
   });
+  const [sportEditMode, setSportEditMode] = useState(false);
+  const [sportDragItem, setSportDragItem] = useState(null);
+  const [sportDropZone, setSportDropZone] = useState(null);
+
+  const moveSport = (id, toActive) => {
+    setSportPrefs((prev) => {
+      const sports = prev.sports ?? [];
+      const next = toActive
+        ? (sports.includes(id) ? sports : [...sports, id])
+        : sports.filter((s) => s !== id);
+      const primary = next.includes(prev.primary) ? prev.primary : (next[0] ?? "none");
+      return { ...prev, sports: next, primary };
+    });
+  };
 
   const moveEquip = (value, toActive) => {
     if (toActive) {
@@ -5220,8 +5259,140 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             </div>
           )}
 
-          {/* Daily Adaptive Replan */}
+          {/* ── Sports ── */}
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
+                Sports & Activities
+              </div>
+              <button
+                onClick={() => setSportEditMode((v) => !v)}
+                style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: sportEditMode ? C.emerald : C.muted }}
+              >
+                {sportEditMode ? "Done" : "Edit"}
+              </button>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+              Tell the planner which sports you do. It will adapt conditioning and strength sessions to support them.
+            </div>
+
+            {!sportEditMode ? (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
+                {(sportPrefs.sports ?? []).length === 0 ? (
+                  <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>No sports selected</span>
+                ) : (
+                  (sportPrefs.sports ?? []).map((id) => {
+                    const sp = ALL_SPORTS.find((s) => s.id === id);
+                    return sp ? (
+                      <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                        {sp.label}
+                      </span>
+                    ) : null;
+                  })
+                )}
+              </div>
+            ) : (
+              <div>
+                {/* Your sports panel */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setSportDropZone("active"); }}
+                  onDragLeave={() => setSportDropZone(null)}
+                  onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, true); setSportDragItem(null); setSportDropZone(null); }}
+                  style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    Your sports
+                    <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                      {(sportPrefs.sports ?? []).length}
+                    </span>
+                  </div>
+                  {(sportPrefs.sports ?? []).length === 0 ? (
+                    <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>Tap ✓ below to add a sport</div>
+                  ) : (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {(sportPrefs.sports ?? []).map((id) => {
+                        const sp = ALL_SPORTS.find((s) => s.id === id);
+                        return sp ? (
+                          <div
+                            key={id}
+                            draggable
+                            onDragStart={(e) => { setSportDragItem(id); e.dataTransfer.effectAllowed = "move"; }}
+                            onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
+                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
+                          >
+                            {sp.label}
+                            <button
+                              onClick={() => moveSport(id, false)}
+                              style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                              title="Remove"
+                            >×</button>
+                          </div>
+                        ) : null;
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Not in use panel */}
+                <div
+                  onDragOver={(e) => { e.preventDefault(); setSportDropZone("inactive"); }}
+                  onDragLeave={() => setSportDropZone(null)}
+                  onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, false); setSportDragItem(null); setSportDropZone(null); }}
+                  style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(255,255,255,0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(255,255,255,0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+                >
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    Not in use
+                    <span style={{ background: "rgba(255,255,255,0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                      {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
+                    </span>
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).map((sp) => (
+                      <div
+                        key={sp.id}
+                        draggable
+                        onDragStart={(e) => { setSportDragItem(sp.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
+                      >
+                        {sp.label}
+                        <button
+                          onClick={() => moveSport(sp.id, true)}
+                          style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                          title="Add"
+                        >✓</button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Primary sport picker (if 2+) */}
+                {(sportPrefs.sports ?? []).length >= 2 && (
+                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Primary sport</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {(sportPrefs.sports ?? []).map((id) => {
+                        const sp = ALL_SPORTS.find((s) => s.id === id);
+                        const isPrimary = sportPrefs.primary === id;
+                        return sp ? (
+                          <button
+                            key={id}
+                            onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
+                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(255,255,255,0.04)", color: isPrimary ? "#fff" : C.muted }}
+                          >
+                            {sp.label}
+                          </button>
+                        ) : null;
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Daily Adaptive Replan */}
+          <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
             <div
               onClick={() => {
                 if (!prefs.isPro) return;
@@ -5258,75 +5429,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
           {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
           {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
-        </Glass>
-      </div>
-
-      {/* ── Endurance Sports ────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Endurance Sports
-        </div>
-        <Glass style={{ padding: 24 }}>
-          <div style={{ fontSize: 13, color: C.muted, marginBottom: 18, lineHeight: 1.6 }}>
-            Tell the planner which sports you enjoy. It will include sport-supportive strength and conditioning work.
-          </div>
-          {[
-            { id: "running",  label: "Running" },
-            { id: "cycling",  label: "Cycling" },
-            { id: "rowing",   label: "Rowing" },
-            { id: "swimming", label: "Swimming" },
-            { id: "walking",  label: "Walking & Hiking" },
-            { id: "cardio",   label: "Mixed Cardio" },
-          ].map((sport) => {
-            const active = sportPrefs.sports?.includes(sport.id);
-            return (
-              <div
-                key={sport.id}
-                onClick={() => {
-                  setSportPrefs((prev) => {
-                    const sports = prev.sports ?? [];
-                    const next = active ? sports.filter((s) => s !== sport.id) : [...sports, sport.id];
-                    const primary = next.includes(prev.primary) ? prev.primary : (next[0] ?? "none");
-                    return { ...prev, sports: next, primary };
-                  });
-                }}
-                style={{
-                  display: "flex", alignItems: "center", justifyContent: "space-between",
-                  padding: "11px 14px", borderRadius: 14, cursor: "pointer", marginBottom: 8,
-                  background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                }}
-              >
-                <span style={{ fontSize: 14, fontWeight: 700, color: active ? C.emerald : C.text }}>{sport.label}</span>
-                <div style={{ width: 22, height: 22, borderRadius: 6, border: `2px solid ${active ? C.emerald : C.subtle}`, background: active ? C.emerald : "transparent", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  {active && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="3"><polyline points="20 6 9 17 4 12" /></svg>}
-                </div>
-              </div>
-            );
-          })}
-
-          {(sportPrefs.sports?.length ?? 0) >= 2 && (
-            <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
-                Primary sport
-              </div>
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                {(sportPrefs.sports ?? []).map((sid) => {
-                  const label = { running: "Running", cycling: "Cycling", rowing: "Rowing", swimming: "Swimming", walking: "Walking & Hiking", cardio: "Mixed Cardio" }[sid] ?? sid;
-                  const isPrimary = sportPrefs.primary === sid;
-                  return (
-                    <button
-                      key={sid}
-                      onClick={() => setSportPrefs((p) => ({ ...p, primary: sid }))}
-                      style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(255,255,255,0.04)", color: isPrimary ? "#fff" : C.muted }}
-                    >
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </Glass>
       </div>
 
