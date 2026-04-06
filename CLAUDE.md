@@ -890,6 +890,9 @@ Calculated server-side from executions table:
 | Equipment selector (machines) | ✅ Live — treadmill, stationary bike, indoor bike, rowing machine added to EQUIPMENT_OPTIONS; null equipment defaults to bodyweight-only in R516 |
 | Goal SVG icons | ✅ Live — 6 outlined polygon icons (health=cross, strength=arrow, fat_loss=flame, muscle=dumbbell, endurance=chevrons, mobility=figure); positioned at 2/3 from left / 1/3 from top; used in goal picker + Dashboard + Settings |
 | Goal recheck pre-fill from Settings | ✅ Fixed — passes current prefs as profileData when opened from Settings, not just on app-version check |
+| Progression tab | ✅ Live — full feature: scoring engine (diminishing-return gains + exponential decay per mode), 6-axis body profile (Push/Pull/Legs/Core/Cardio/Mobility), custom SVG hexagonal radar chart, goal fit ring, key insights (strongest/weakest/biggest gap), axis breakdown bars, planner explanation, chart mode tabs (Power/Endurance/Balanced/Mobility), goal target compare overlay, rebuild-from-history debug button; DB: migration 0014 (user_progression + user_progression_events); API: /api/progression (GET + POST + POST?action=recompute); progression updated on every workout completion in execution.js; planner R550-R560 rules for weak-axis bias + mobility maintenance |
+| Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST |
+| Planner R550–R560 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
