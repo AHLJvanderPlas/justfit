@@ -3629,10 +3629,10 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
   const goalScores    = progression?.goal_profile?.targets ?? null;
 
   const CHART_MODES = [
-    { id: "power",     label: "Power"    },
-    { id: "endurance", label: "Endurance"},
-    { id: "balanced",  label: "Balanced" },
-    { id: "mobility",  label: "Mobility" },
+    { id: "power",     label: "Power",     desc: "Maximum strength output per muscle group" },
+    { id: "endurance", label: "Endurance", desc: "Capacity for sustained effort per muscle group" },
+    { id: "balanced",  label: "Balanced",  desc: "Average of Power and Endurance scores" },
+    { id: "mobility",  label: "Mobility",  desc: "Flexibility and movement quality scores" },
   ];
 
   const handleChartModeChange = (mode) => {
@@ -3720,6 +3720,12 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </button>
           </div>
 
+          {/* ── Mode description ── */}
+          <div style={{ marginBottom: 14, paddingLeft: 2 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
+            <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
+          </div>
+
           {/* ── Radar chart ── */}
           <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
             <RadarChart
@@ -3775,12 +3781,11 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 12 }}>
                 {[
-                  { key: "strongest", label: "Strongest", icon: "💪", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
-                  { key: "weakest",   label: "Weakest",   icon: "📈", val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
-                ].map(({ key, label, icon, val, sub }) => val ? (
+                  { key: "strongest", label: "Strongest", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
+                  { key: "weakest",   label: "Weakest",   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
+                ].map(({ key, label, val, sub }) => val ? (
                   <Glass key={key} style={{ padding: "14px 16px" }}>
-                    <div style={{ fontSize: 18, marginBottom: 6 }}>{icon}</div>
-                    <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 2 }}>{label}</div>
+                    <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
                     <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
                     <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>Score: {sub}</div>
                   </Glass>
@@ -3880,7 +3885,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
 }
 
 // ─── AWARDS VIEW ──────────────────────────────────────────────────────────────
-function AwardsView({ history, score, isPro }) {
+function AwardsView({ history, score, isPro, progression }) {
   const n = history.length;
 
   // Derived metrics used across multiple awards
@@ -4127,6 +4132,67 @@ function AwardsView({ history, score, isPro }) {
       icon: "🎯",
       unlocked: score >= 70,
       req: "Score 70+",
+    },
+    // ── Progression profile ───────────────────────────────────────────────────
+    {
+      id: "prog_first",
+      title: "First Profile",
+      desc: "Your training profile has been built. The system now knows you.",
+      icon: "🧬",
+      unlocked: !!progression,
+      req: "Build a training profile",
+    },
+    {
+      id: "prog_rising",
+      title: "Rising",
+      desc: "At least one axis has climbed above a score of 35. Growth is real.",
+      icon: "📊",
+      unlocked: (() => {
+        const bal = progression?.scores_by_mode?.balanced;
+        if (!bal) return false;
+        return Object.values(bal).some(v => v >= 35);
+      })(),
+      req: "Any axis score ≥ 35",
+    },
+    {
+      id: "prog_milestone",
+      title: "Axis Milestone",
+      desc: "One of your body axes has crossed 50. You're building real capacity.",
+      icon: "🎖️",
+      unlocked: (() => {
+        const bal = progression?.scores_by_mode?.balanced;
+        if (!bal) return false;
+        return Object.values(bal).some(v => v >= 50);
+      })(),
+      req: "Any axis score ≥ 50",
+    },
+    {
+      id: "prog_peak",
+      title: "Peak Performer",
+      desc: "A score of 75 on at least one axis. Elite level reached.",
+      icon: "🏔️",
+      unlocked: (() => {
+        const bal = progression?.scores_by_mode?.balanced;
+        if (!bal) return false;
+        return Object.values(bal).some(v => v >= 75);
+      })(),
+      req: "Any axis score ≥ 75",
+    },
+    {
+      id: "prog_goal_fit",
+      title: "Goal Seeker",
+      desc: "Your profile matches your goal by 50% or more. The plan is working.",
+      icon: "🎯",
+      unlocked: (progression?.goal_fit ?? 0) >= 50,
+      req: "Goal fit ≥ 50%",
+    },
+    {
+      id: "prog_aligned",
+      title: "Aligned",
+      desc: "80% goal fit achieved. Your training is precisely dialled in.",
+      icon: "🔮",
+      unlocked: (progression?.goal_fit ?? 0) >= 80,
+      req: "Goal fit ≥ 80%",
     },
     // ── Special ───────────────────────────────────────────────────────────────
     {
@@ -7104,6 +7170,7 @@ export default function App() {
                 history={history}
                 score={score}
                 isPro={!!prefs.isPro}
+                progression={progression}
               />
             )}
             {view === "settings" && (
