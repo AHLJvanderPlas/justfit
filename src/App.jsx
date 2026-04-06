@@ -3767,61 +3767,55 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
           </Glass>
 
-          {/* ── Goal Fit card (with goal selector) ── */}
+          {/* ── Goal Fit card ── */}
+          <Glass style={{ padding: 20, marginBottom: 12, display: "flex", alignItems: "center", gap: 16 }}>
+            <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
+              <svg width="60" height="60" viewBox="0 0 60 60">
+                <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
+                <circle
+                  cx="30" cy="30" r="24" fill="none"
+                  stroke={accentHex} strokeWidth="5"
+                  strokeDasharray={`${(progression.goal_fit / 100) * 150.8} 150.8`}
+                  strokeLinecap="round"
+                  transform="rotate(-90 30 30)"
+                />
+              </svg>
+              <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{progression.goal_fit}%</span>
+              </div>
+            </div>
+            <div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
+              </div>
+            </div>
+          </Glass>
+
+          {/* ── Training Goal card ── */}
           {(() => {
             const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
             const exp = EXPERIENCE.find((e) => e.value === (prefs?.experience_level ?? "beginner")) ?? EXPERIENCE[0];
             return (
-              <Glass style={{ padding: 20, marginBottom: 16 }}>
-                {/* Goal row */}
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                      <GoalIcon value={currentGoal.value} size={20} />
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
-                      <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                        {exp.label}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => onChangeGoal?.()}
-                    style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-                  >
-                    Change goal
-                  </button>
-                </div>
-
-                {/* Divider */}
-                <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
-
-                {/* Goal fit row */}
-                <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-                  <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
-                    <svg width="60" height="60" viewBox="0 0 60 60">
-                      <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
-                      <circle
-                        cx="30" cy="30" r="24" fill="none"
-                        stroke={accentHex} strokeWidth="5"
-                        strokeDasharray={`${(progression.goal_fit / 100) * 150.8} 150.8`}
-                        strokeLinecap="round"
-                        transform="rotate(-90 30 30)"
-                      />
-                    </svg>
-                    <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                      <span style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{progression.goal_fit}%</span>
-                    </div>
+              <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                    <GoalIcon value={currentGoal.value} size={20} />
                   </div>
                   <div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
-                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                      {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
-                    </div>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+                    <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                      {exp.label}
+                    </span>
                   </div>
                 </div>
+                <button
+                  onClick={() => onChangeGoal?.()}
+                  style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
+                >
+                  Change goal
+                </button>
               </Glass>
             );
           })()}
