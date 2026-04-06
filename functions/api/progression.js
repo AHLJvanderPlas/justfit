@@ -148,7 +148,7 @@ function getDisplayScore(scores, axis, chartMode) {
 }
 
 // Compute insights: strongest, weakest, most decayed, fastest improving
-function computeInsights(scores, goal, chartMode, nowMs) {
+function computeInsights(scores, goal, chartMode, nowMs, createdAtMs) {
   const profile = GOAL_TARGET_PROFILES[goal];
   const targets  = profile?.targets ?? {};
 
@@ -167,15 +167,17 @@ function computeInsights(scores, goal, chartMode, nowMs) {
     if (gap > biggestGapVal)    { biggestGapVal = gap;    biggestGap = axis; }
 
     // Find most decayed axis (furthest from last stimulus)
+    // Cap elapsed at (nowMs - createdAtMs) so null timestamps don't produce epoch-based giant numbers
     const ax = scores[axis];
     if (ax) {
+      const profileAgeMs = createdAtMs ? (nowMs - createdAtMs) : 0;
       const lastMs = axis === 'mobility'
-        ? (ax.last_mobility_stimulus_at_ms ?? 0)
+        ? (ax.last_mobility_stimulus_at_ms ?? (nowMs - profileAgeMs))
         : Math.min(
             ax.last_power_stimulus_at_ms     ?? nowMs,
             ax.last_endurance_stimulus_at_ms ?? nowMs,
           );
-      const elapsed = nowMs - lastMs;
+      const elapsed = Math.min(nowMs - lastMs, profileAgeMs);
       if (elapsed > mostDecayedMs) { mostDecayedMs = elapsed; mostDecayed = axis; }
     }
   }
@@ -258,7 +260,7 @@ async function getUser(request, env) {
 
 async function getOrCreateProgression(userId, env) {
   const row = await env.DB.prepare(
-    `SELECT scores_json, sport_scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
+    `SELECT scores_json, sport_scores_json, last_computed_at_ms, created_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
   ).bind(userId).first();
 
   if (row) {
@@ -266,6 +268,7 @@ async function getOrCreateProgression(userId, env) {
       scores: JSON.parse(row.scores_json),
       sportScores: row.sport_scores_json ? JSON.parse(row.sport_scores_json) : null,
       lastComputedAtMs: row.last_computed_at_ms,
+      createdAtMs: row.created_at_ms,
       existed: true,
     };
   }
@@ -278,7 +281,7 @@ async function getOrCreateProgression(userId, env) {
     VALUES (?, ?, NULL, ?, ?, ?)
   `).bind(userId, JSON.stringify(scores), now, now, now).run();
 
-  return { scores, sportScores: null, lastComputedAtMs: now, existed: false };
+  return { scores, sportScores: null, lastComputedAtMs: now, createdAtMs: now, existed: false };
 }
 
 // ─── MUSCLE → AXIS LOOKUP ────────────────────────────────────────────────────
@@ -503,7 +506,7 @@ export async function onRequestGet({ request, env }) {
     const nowMs = Date.now();
 
     // Fetch progression + preferences in parallel
-    const [{ scores: rawScores, sportScores, existed }, prefs] = await Promise.all([
+    const [{ scores: rawScores, sportScores, createdAtMs, existed }, prefs] = await Promise.all([
       getOrCreateProgression(user.userId, env),
       env.DB.prepare(
         `SELECT training_goal, preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
@@ -520,7 +523,7 @@ export async function onRequestGet({ request, env }) {
 
     const profile   = GOAL_TARGET_PROFILES[goal] ?? GOAL_TARGET_PROFILES.health;
     const goalFit   = computeGoalFit(scores, goal, chartMode);
-    const insights  = computeInsights(scores, goal, chartMode, nowMs);
+    const insights  = computeInsights(scores, goal, chartMode, nowMs, createdAtMs);
     const plannerExplanation = buildPlannerExplanation(scores, goal, chartMode);
 
     // Build display scores (axis → number)
