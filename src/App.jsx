@@ -3494,133 +3494,17 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 }
 
 // ─── HISTORY VIEW ─────────────────────────────────────────────────────────────
-function HistoryView({ history, isLoading, onDeleteExecution }) {
-  const [deleteTarget, setDeleteTarget] = useState(null); // execution object
-  const [deleteInput, setDeleteInput] = useState("");
-  const [deleting, setDeleting] = useState(false);
-  const [deleteToast, setDeleteToast] = useState("");
-
-  const handleDeleteConfirm = async () => {
-    if (deleteInput !== "DELETE") return;
-    setDeleting(true);
-    try {
-      await onDeleteExecution(deleteTarget.id);
-      setDeleteToast("Session removed");
-      setTimeout(() => setDeleteToast(""), 3000);
-    } catch {
-      setDeleteToast("Delete failed — try again");
-      setTimeout(() => setDeleteToast(""), 3000);
-    }
-    setDeleting(false);
-    setDeleteTarget(null);
-    setDeleteInput("");
-  };
-
+function HistoryView() {
   return (
     <div>
       <div style={{ marginBottom: 36 }}>
         <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>
-          History
+          Progress
         </h1>
-        <p style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
-          {history.length} sessions completed
-        </p>
       </div>
-
-      {deleteToast && (
-        <div style={{ marginBottom: 16, padding: "10px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
-          {deleteToast}
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-        {isLoading ? (
-          <Glass style={{ padding: 60, textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: C.muted }}>Loading history...</p>
-          </Glass>
-        ) : history.length === 0 ? (
-          <Glass style={{ padding: 60, textAlign: "center" }}>
-            <p style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>
-              Your workout history will appear here.
-            </p>
-          </Glass>
-        ) : (
-          [...history].reverse().map((h) => (
-            <Glass
-              key={h.id}
-              style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}
-            >
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
-                </div>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-                    {new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                    {h.execution_type || "workout"} · {h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}
-                  </div>
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, background: C.emeraldDim, padding: "4px 10px", borderRadius: 8 }}>
-                  Done
-                </span>
-                <button
-                  onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
-                  style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                  aria-label="Delete session"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                  </svg>
-                </button>
-              </div>
-            </Glass>
-          ))
-        )}
-      </div>
-
-      {/* Delete confirmation modal */}
-      {deleteTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,6,23,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Delete session?</div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: "#f87171" }}>DELETE</strong> to confirm.
-            </div>
-            <input
-              type="text"
-              value={deleteInput}
-              onChange={(e) => setDeleteInput(e.target.value)}
-              placeholder="Type DELETE"
-              autoFocus
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
-            />
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => { setDeleteTarget(null); setDeleteInput(""); }}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDeleteConfirm}
-                disabled={deleteInput !== "DELETE" || deleting}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
-              >
-                {deleting ? "Deleting…" : "Delete"}
-              </button>
-            </div>
-          </Glass>
-        </div>
-      )}
+      <Glass style={{ padding: 60, textAlign: "center" }}>
+        <p style={{ fontSize: 14, color: C.muted, fontStyle: "italic" }}>Coming soon.</p>
+      </Glass>
     </div>
   );
 }
@@ -5756,10 +5640,30 @@ function estimateMins(p) {
   return Math.max(5, Math.round(totalSec / 60));
 }
 
-function PlanWeekView({ history, plan, userId }) {
+function PlanWeekView({ history, plan, userId, onDeleteExecution }) {
   const today = new Date().toISOString().split("T")[0];
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteToast, setDeleteToast] = useState("");
+
+  const handleDeleteConfirm = async () => {
+    if (deleteInput !== "DELETE") return;
+    setDeleting(true);
+    try {
+      await onDeleteExecution(deleteTarget.id);
+      setDeleteToast("Session removed");
+      setTimeout(() => setDeleteToast(""), 3000);
+    } catch {
+      setDeleteToast("Delete failed — try again");
+      setTimeout(() => setDeleteToast(""), 3000);
+    }
+    setDeleting(false);
+    setDeleteTarget(null);
+    setDeleteInput("");
+  };
 
   const upcomingDates = Array.from({ length: 5 }, (_, i) => {
     const d = new Date();
@@ -5942,69 +5846,95 @@ function PlanWeekView({ history, plan, userId }) {
         )}
       </div>
 
-      {/* Sessions this week */}
+      {/* All history */}
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
         Completed Sessions
       </div>
 
-      {days.filter((d) => doneByDate[d]).length === 0 ? (
-        <Glass style={{ padding: 28, textAlign: "center" }}>
-          <div style={{ fontSize: 32, marginBottom: 12 }}>🏃</div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>No sessions yet this week</div>
-          <div style={{ fontSize: 13, color: C.muted }}>Complete today's session to start your streak.</div>
-        </Glass>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {days
-            .filter((d) => doneByDate[d])
-            .reverse()
-            .map((date) => {
-              const ex = doneByDate[date];
-              const d = new Date(date + "T12:00:00");
-              const mins = ex.total_duration_sec ? Math.round(ex.total_duration_sec / 60) : null;
-              return (
-                <Glass key={date} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 3 }}>
-                      {ex.execution_type || "Training Session"}
-                    </div>
-                    <div style={{ fontSize: 12, color: C.muted }}>
-                      {dayNames[d.getDay()]}, {monthNames[d.getMonth()]} {d.getDate()}
-                    </div>
-                  </div>
-                  <div style={{ textAlign: "right" }}>
-                    {mins && (
-                      <div style={{ fontSize: 18, fontWeight: 900, color: C.emerald }}>{mins}<span style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}> min</span></div>
-                    )}
-                    {ex.perceived_exertion && (
-                      <div style={{ fontSize: 11, color: C.muted }}>RPE {ex.perceived_exertion}</div>
-                    )}
-                  </div>
-                </Glass>
-              );
-            })}
+      {deleteToast && (
+        <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
+          {deleteToast}
         </div>
       )}
 
-      {/* Weekly summary */}
-      {days.filter((d) => doneByDate[d]).length > 0 && (
-        <Glass style={{ padding: 20, marginTop: 16, display: "flex", justifyContent: "space-around", textAlign: "center" }}>
-          {[
-            { label: "Sessions", value: days.filter((d) => doneByDate[d]).length },
-            { label: "Days left", value: days.filter((d) => d >= today && !doneByDate[d]).length },
-            {
-              label: "Total min",
-              value: days
-                .filter((d) => doneByDate[d] && doneByDate[d].total_duration_sec)
-                .reduce((s, d) => s + Math.round(doneByDate[d].total_duration_sec / 60), 0) || "—",
-            },
-          ].map(({ label, value }) => (
-            <div key={label}>
-              <div style={{ fontSize: 22, fontWeight: 900, color: C.emerald }}>{value}</div>
-              <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, textTransform: "uppercase", letterSpacing: "0.08em", marginTop: 3 }}>{label}</div>
-            </div>
-          ))}
+      {!history || history.length === 0 ? (
+        <Glass style={{ padding: 28, textAlign: "center" }}>
+          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Your workout history will appear here.</div>
         </Glass>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+          {[...history].reverse().map((h) => (
+            <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                    <polyline points="20 6 9 17 4 12" />
+                  </svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                    {new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                    {h.execution_type || "workout"} · {h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}
+                  </div>
+                </div>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, background: C.emeraldDim, padding: "4px 10px", borderRadius: 8 }}>
+                  Done
+                </span>
+                <button
+                  onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
+                  style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                  aria-label="Delete session"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                    <polyline points="3 6 5 6 21 6" />
+                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                    <path d="M10 11v6M14 11v6" />
+                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                  </svg>
+                </button>
+              </div>
+            </Glass>
+          ))}
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteTarget && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,6,23,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Delete session?</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: "#f87171" }}>DELETE</strong> to confirm.
+            </div>
+            <input
+              type="text"
+              value={deleteInput}
+              onChange={(e) => setDeleteInput(e.target.value)}
+              placeholder="Type DELETE"
+              autoFocus
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
+            />
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => { setDeleteTarget(null); setDeleteInput(""); }}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDeleteConfirm}
+                disabled={deleteInput !== "DELETE" || deleting}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
+              >
+                {deleting ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </Glass>
+        </div>
       )}
     </div>
   );
@@ -6047,7 +5977,7 @@ const NAV_ITEMS = [
   },
   {
     id: "history",
-    label: "History",
+    label: "Progress",
     icon: (a) => (
       <svg
         width="22"
@@ -6696,7 +6626,7 @@ export default function App() {
               </>
             )}
             {view === "plan" && (
-              <PlanWeekView history={history} plan={plan} userId={userId} />
+              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} />
             )}
             {view === "history" && (
               <HistoryView history={history} isLoading={isLoadingHistory} onDeleteExecution={handleDeleteExecution} />
