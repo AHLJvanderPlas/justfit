@@ -6844,6 +6844,8 @@ export default function App() {
     setOnboardingReady(true);
     const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
     if (mode !== "manual") setShowCheckIn(true);
+    // Refresh progression so goal_fit, insights, and goal_profile reflect the new goal
+    api.getProgression(token).then((data) => { if (data?.ok) setProgression(data); }).catch(() => {});
   };
 
   const handleOnboardingComplete = (completedProfileData) => {
