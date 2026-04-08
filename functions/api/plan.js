@@ -359,6 +359,15 @@ const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_ba
   'bench','kettlebell','resistance_band','exercise_bike','rowing_machine','treadmill',
   'indoor_bike','running_shoes'];
 
+const RUN_PROGRAMS = {
+  5:  [2, 3, 4, 5, 6, 7, 8, 9],
+  10: [9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15],
+  15: [12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17, 17, 17, 17],
+  20: [15, 15, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19],
+  30: [16, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21],
+};
+const RUN_WARMUP_TAG = 'run_warmup';
+
 // ---------------------------------------------------------------------------
 // Template selector
 // ---------------------------------------------------------------------------
@@ -453,6 +462,7 @@ function getDefaultRest(exercise, slotType) {
   if (slotType === 'micro') return 20;
   if (tags.includes('pelvic_floor')) return 30;
   if (tags.includes('mobility')) return 20;
+  if (tags.includes('run_warmup')) return 10;
   // Run intervals encode their walk-recovery duration in metrics_json
   const metrics = exercise?.metrics_json ? JSON.parse(exercise.metrics_json) : {};
   if (metrics.custom_rest_sec != null) return metrics.custom_rest_sec;
@@ -475,6 +485,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   let slot_type = 'main';
   let pool = [...exercises];
+  pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
 
   // Filter out already-done exercises (bonus session deduplication)
   if (completedIds?.length) {
@@ -840,6 +851,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // Handled after step building
   }
 
+  const inSpecialMode = pregnancyContext?.mode === 'pregnant' || pregnancyContext?.mode === 'postnatal';
+
   // ------------------------------------------------------------------
   // R555 — Safe running build-up: replace generic long runs with
   //        a level-appropriate run/walk interval exercise.
@@ -875,10 +888,36 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R556 — Running Coach Program: force dedicated run sessions on
+  //        Mon/Wed/Fri when user is enrolled.
+  // ------------------------------------------------------------------
+  let runProgramOverride = null;
+  const runCoach = prefs?.preferences?.run_coach;
+  const runProgramActive = runCoach?.enrolled && !runCoach?.completed
+    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest';
+
+  if (runProgramActive) {
+    const todayDOW = new Date(date + 'T12:00:00').getDay();
+    if ([1, 3, 5].includes(todayDOW)) {
+      const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
+      const weekIdx = Math.min((runCoach.week ?? 1) - 1, programWeeks.length - 1);
+      const prescribedLevel = programWeeks[weekIdx];
+      const runSlug = prescribedLevel <= 6
+        ? `run-interval-level-${prescribedLevel}`
+        : `run-continuous-level-${prescribedLevel}`;
+      const runEx = exercises.find(ex => ex.slug === runSlug);
+      const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      if (runEx && warmUps.length) {
+        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: prescribedLevel };
+        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, Level ${prescribedLevel} (${runEx.name}) — forced run session`);
+      }
+    }
+  }
+
+  // ------------------------------------------------------------------
   // Determine target category from goal + rules
   // ------------------------------------------------------------------
   let targetCategory;
-  const inSpecialMode = pregnancyContext?.mode === 'pregnant' || pregnancyContext?.mode === 'postnatal';
 
   if (slot_type === 'rest') {
     targetCategory = 'mobility';
@@ -993,7 +1032,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       trace.push(`R501 — Exercise count: ${baseCount} base + ${goalMod} goal + ${expMod} experience = ${count}`);
     }
   }
-  const selection = shuffled.slice(0, count);
+  const selection = runProgramOverride
+    ? [...runProgramOverride.warmUps, runProgramOverride.runEx]
+    : shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
   // Build steps
@@ -1011,6 +1052,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   const steps = slot_type === 'rest' ? [] : selection.map(ex => {
     const metrics = JSON.parse(ex.metrics_json || '{}');
+    const exTags = JSON.parse(ex.tags_json || '[]');
+    const isRunWarmup = exTags.includes('run_warmup');
     const supportsReps = metrics.supports?.includes('reps');
     // base_duration_sec lets conditioning exercises specify their own duration (e.g. 1200 = 20 min)
     const baseDuration = metrics.base_duration_sec ?? 30;
@@ -1039,7 +1082,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // R502: Experience level scales reps AND duration
     if (repScale !== 1.0) {
       if (reps)     reps     = Math.round(reps     * repScale);
-      if (duration && !isLongCardio) duration = Math.round(duration * repScale);
+      if (duration && !isLongCardio && !isRunWarmup) duration = Math.round(duration * repScale);
     }
 
     // Apply volume multiplier (R521, R536)
@@ -1091,7 +1134,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   // R525 — Sex baseline: ensure ≥1 mobility exercise in main sessions
   // ------------------------------------------------------------------
-  if (sex === 'female' && slot_type === 'main' && steps.length && isStandardMode) {
+  if (sex === 'female' && slot_type === 'main' && steps.length && isStandardMode && !runProgramOverride) {
     const hasMobility = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
       return ex?.category === 'mobility';
@@ -1182,6 +1225,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (postnatalPhase === 'immediate' || postnatalPhase === 'early') session_name = 'A gentle moment';
     else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
     else session_name = 'Today\'s recovery';
+  } else if (runProgramOverride) {
+    session_name = `Running Day · Week ${runProgramOverride.week}`;
   } else if (slot_type === 'rest') {
     session_name = 'Active Rest';
   } else if (slot_type === 'micro') {
@@ -1224,5 +1269,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
     steps: orderedSteps,
     rule_trace: trace,
+    run_program: runProgramOverride
+      ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5 }
+      : null,
   };
 }

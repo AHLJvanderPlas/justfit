@@ -2343,6 +2343,11 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   >
                     {plan.session_name}
                   </div>
+                  {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
+                    <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                      Run Day · Week {plan.run_program.week}
+                    </span>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -4666,6 +4671,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     return saved ?? { sports: [], primary: "none" };
   });
   const [sportEditMode, setSportEditMode] = useState(false);
+  const [runTargetSelect, setRunTargetSelect] = useState(
+    prefs.preferences?.run_coach?.target_km ?? 5
+  );
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
 
@@ -5541,26 +5549,128 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             )}
           </div>
 
-          {/* ── Running Coach (Option B — roadmap) ── */}
+          {/* ── Running Coach Program ── */}
           {planEquipment.includes("running_shoes") && (
             <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              {(() => {
+                const rcState = prefs.preferences?.run_coach ?? null;
+                const isEnrolled = rcState?.enrolled === true && !rcState?.completed;
+                const unlockedTargets = rcState?.unlocked_targets ?? [];
+                const TARGETS = [5, 10, 15, 20, 30];
+                const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+                const isTargetAvailable = (t) => {
+                  const prevMap = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 };
+                  const prev = prevMap[t];
+                  return !prev || unlockedTargets.includes(String(prev));
+                };
+                const saveRunCoach = (newRc) => {
+                  const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
+                  onUpdate((p) => ({ ...p, preferences: newPrefs }));
+                  api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
+                };
+
+                const header = (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
                     </svg>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.muted }}>Running Coach Program</div>
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", background: C.subtle, color: C.muted, borderRadius: 4, padding: "2px 6px" }}>Coming soon</span>
+                    <div style={{ fontSize: 13, fontWeight: 900, color: C.text }}>Running Coach Program</div>
                   </div>
-                  <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.6 }}>
-                    An 8-week structured build-up program — actively schedules run sessions and tracks your progress toward continuous running.
-                  </div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6, lineHeight: 1.6 }}>
-                    Safe intervals are already active — your conditioning score automatically sets the right level each session.
-                  </div>
-                </div>
-              </div>
+                );
+
+                if (rcState?.completed) {
+                  const nextTarget = TARGETS.find(t => !unlockedTargets.includes(String(t)) && isTargetAvailable(t));
+                  return (
+                    <>
+                      {header}
+                      <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.08)", border: `1px solid ${C.emeraldBorder}`, marginBottom: 12 }}>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: C.emerald }}>🏃 {rcState.target_km}km program complete!</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>You built up to running {rcState.target_km}km. Time for the next challenge.</div>
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                        {TARGETS.map(t => {
+                          const done = unlockedTargets.includes(String(t));
+                          const available = isTargetAvailable(t);
+                          return (
+                            <div key={t} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, border: `1px solid ${done ? C.emeraldBorder : C.border}`, background: done ? "rgba(var(--accent-rgb),0.1)" : "rgba(255,255,255,0.03)", color: done ? C.emerald : available ? C.muted : C.subtle, cursor: available && !done ? "pointer" : "default" }} onClick={() => available && !done && setRunTargetSelect(t)}>
+                              {done ? "✓ " : !available ? "🔒 " : ""}{t}km
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {nextTarget && (
+                        <button onClick={() => saveRunCoach({ enrolled: true, target_km: nextTarget, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })} style={{ padding: "10px 18px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
+                          Start {nextTarget}km Program →
+                        </button>
+                      )}
+                    </>
+                  );
+                }
+
+                if (isEnrolled) {
+                  const totalWeeks = PROGRAM_WEEKS[rcState.target_km ?? 5] ?? 8;
+                  const currentWeek = rcState.week ?? 1;
+                  const sessionInWeek = rcState.session_in_week ?? 0;
+                  const totalSessions = totalWeeks * 3;
+                  const doneSessions = (currentWeek - 1) * 3 + sessionInWeek;
+                  const pct = Math.min(100, Math.round(doneSessions / totalSessions * 100));
+                  return (
+                    <>
+                      {header}
+                      <div style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 2 }}>{rcState.target_km}km Target · Week {currentWeek} of {totalWeeks}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
+                      </div>
+                      <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 14 }}>
+                        <div style={{ width: `${pct}%`, height: "100%", background: C.emerald, borderRadius: 999, transition: "width 0.4s ease" }} />
+                      </div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                        {TARGETS.map(t => {
+                          const done = unlockedTargets.includes(String(t));
+                          const isCurrent = t === (rcState.target_km ?? 5);
+                          const available = isTargetAvailable(t);
+                          return (
+                            <div key={t} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, border: `1px solid ${isCurrent ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.03)", color: isCurrent ? C.emerald : done ? C.muted : !available ? C.subtle : C.muted }}>
+                              {done ? "✓ " : !available ? "🔒 " : ""}{t}km
+                            </div>
+                          );
+                        })}
+                      </div>
+                      <button onClick={() => saveRunCoach({ ...rcState, enrolled: false })} style={{ padding: "7px 14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                        End program
+                      </button>
+                    </>
+                  );
+                }
+
+                // Not enrolled
+                return (
+                  <>
+                    {header}
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
+                      A structured build-up program — actively schedules run sessions Mon, Wed &amp; Fri with warm-up exercises. Unlocks distance targets one by one.
+                    </div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
+                      {TARGETS.map(t => {
+                        const available = isTargetAvailable(t);
+                        const done = unlockedTargets.includes(String(t));
+                        const isSelected = t === runTargetSelect;
+                        return (
+                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
+                            {done ? "✓ " : !available ? "🔒 " : ""}{t}km
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 14 }}>
+                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · 3 sessions/week · Safe build-up from run/walk intervals to continuous running
+                    </div>
+                    <button onClick={() => saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })} style={{ padding: "10px 18px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
+                      Start {runTargetSelect}km Program →
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           )}
 

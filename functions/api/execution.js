@@ -8,6 +8,7 @@
 // progression.js, update these constants too.
 
 const PROG_DEFAULT_BASELINE = 15;
+const RUN_PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
 const PROG_DEFAULT_SCORE    = 15;
 const PROG_MAX_STIMULUS_PER_AXIS = 6;
 
@@ -241,6 +242,13 @@ export async function onRequestPost({ request, env }) {
       console.error('Progression update failed (non-fatal):', progErr.message);
     }
 
+    // ── 4. Advance run coach progression ─────────────────────────────────────
+    try {
+      await advanceRunCoach(user_id, steps, env, now);
+    } catch (err) {
+      console.error('Run coach advance failed (non-fatal):', err.message);
+    }
+
     return Response.json({ ok: true, execution_id: id });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -306,6 +314,60 @@ async function updateProgression(userId, executionId, sessionType, durationSec, 
     JSON.stringify(stimulus),
     nowMs
   ).run();
+}
+
+// ─── Run Coach progression ─────────────────────────────────────────────────
+
+async function advanceRunCoach(userId, steps, env, nowMs) {
+  if (!userId || !steps?.length) return;
+
+  const exerciseIds = [...new Set(steps.map(s => s.exercise_id).filter(Boolean))];
+  if (!exerciseIds.length) return;
+
+  const placeholders = exerciseIds.map(() => '?').join(',');
+  const runExCheck = await env.DB.prepare(
+    `SELECT id FROM exercises WHERE id IN (${placeholders})
+     AND (tags_json LIKE '%run_interval%' OR tags_json LIKE '%run_continuous%') LIMIT 1`
+  ).bind(...exerciseIds).first();
+  if (!runExCheck) return;
+
+  const prefsRow = await env.DB.prepare(
+    `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+  ).bind(userId).first();
+  if (!prefsRow?.preferences_json) return;
+
+  const prefs = JSON.parse(prefsRow.preferences_json);
+  const rc = prefs.run_coach;
+  if (!rc?.enrolled || rc?.completed) return;
+
+  const totalWeeks = RUN_PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+  let week = rc.week ?? 1;
+  let sessionInWeek = (rc.session_in_week ?? 0) + 1;
+  let completed = false;
+  let unlockedTargets = rc.unlocked_targets ?? [];
+
+  if (sessionInWeek >= 3) {
+    sessionInWeek = 0;
+    week += 1;
+  }
+  if (week > totalWeeks) {
+    completed = true;
+    const targetKey = String(rc.target_km ?? 5);
+    if (!unlockedTargets.includes(targetKey)) unlockedTargets = [...unlockedTargets, targetKey];
+    week = totalWeeks;
+  }
+
+  const updatedRc = {
+    ...rc,
+    week,
+    session_in_week: sessionInWeek,
+    completed,
+    unlocked_targets: unlockedTargets,
+    last_run_at_ms: nowMs,
+  };
+  await env.DB.prepare(
+    `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
+  ).bind(JSON.stringify({ ...prefs, run_coach: updatedRc }), nowMs, userId).run();
 }
 
 // ─── GET: Fetch execution history ─────────────────────────────────────────────
