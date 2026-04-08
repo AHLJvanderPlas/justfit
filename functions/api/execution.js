@@ -249,6 +249,13 @@ export async function onRequestPost({ request, env }) {
       console.error('Run coach advance failed (non-fatal):', err.message);
     }
 
+    // ── 4b. Advance cycling coach progression ────────────────────────────────
+    try {
+      await advanceCyclingCoach(user_id, steps, env, now);
+    } catch (err) {
+      console.error('Cycling coach advance failed (non-fatal):', err.message);
+    }
+
     // ── 5. Track polarised endurance type (zone2 / hiit) for R558 balance ────
     try {
       await updatePolarisedEnduranceType(user_id, steps, env, now);
@@ -395,6 +402,56 @@ async function advanceRunCoach(userId, steps, env, nowMs) {
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, run_coach: updatedRc }), nowMs, userId).run();
+}
+
+// ─── Cycling Coach progression ────────────────────────────────────────────────
+
+async function advanceCyclingCoach(userId, steps, env, nowMs) {
+  if (!userId || !steps?.length) return;
+
+  // Only advance when a cycling coach synthetic step was in this session
+  const hasCyclingStep = steps.some(s =>
+    typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_')
+  );
+  if (!hasCyclingStep) return;
+
+  const prefsRow = await env.DB.prepare(
+    `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+  ).bind(userId).first();
+  if (!prefsRow?.preferences_json) return;
+
+  const prefs = JSON.parse(prefsRow.preferences_json);
+  const cc = prefs.cycling_coach;
+  if (!cc?.active) return;
+
+  const TOTAL_WEEKS = 8;
+  let week = cc.week ?? 1;
+  let sessionInWeek = cc.session_in_week ?? 0;
+  let completed = cc.completed ?? false;
+
+  // Regression: >10 day gap → step back one week
+  const daysSinceLastRide = cc.last_ride_at_ms
+    ? Math.floor((nowMs - cc.last_ride_at_ms) / 86_400_000) : 0;
+  if (daysSinceLastRide > 10 && week > 1) {
+    week = Math.max(1, week - 1);
+    sessionInWeek = 0;
+    console.log(`[cycling-coach] Regressed to week ${week} after ${daysSinceLastRide}-day break`);
+  }
+
+  sessionInWeek = sessionInWeek + 1;
+  if (sessionInWeek >= 3) {
+    sessionInWeek = 0;
+    week += 1;
+  }
+  if (week > TOTAL_WEEKS) {
+    completed = true;
+    week = TOTAL_WEEKS;
+  }
+
+  const updatedCc = { ...cc, week, session_in_week: sessionInWeek, completed, last_ride_at_ms: nowMs };
+  await env.DB.prepare(
+    `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
+  ).bind(JSON.stringify({ ...prefs, cycling_coach: updatedCc }), nowMs, userId).run();
 }
 
 // ─── Polarised endurance type tracker ────────────────────────────────────────

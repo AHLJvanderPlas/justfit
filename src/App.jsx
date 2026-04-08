@@ -594,6 +594,8 @@ const ALL_EQUIPMENT = [
   { value: "push_up_handles",    label: "Push-up handles" },
   { value: "medicine_ball",      label: "Medicine ball" },
   { value: "fitness_tracker",    label: "Fitness tracker" },
+  { value: "road_bike",          label: "Road / racing bike" },
+  { value: "mountain_bike",      label: "Mountain bike" },
   { value: "indoor_bike",        label: "Indoor bike trainer" },
   { value: "exercise_bike",      label: "Stationary bike" },
   { value: "rowing_machine",     label: "Rowing machine" },
@@ -2348,6 +2350,11 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       {plan.run_program.session_type ?? "Run Day"} · Week {plan.run_program.week}
                     </span>
                   )}
+                  {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
+                    <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                      🚴 {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
+                    </span>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -2656,6 +2663,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   // Alternatives
   const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
   const [showBreathingReminder, setShowBreathingReminder] = useState(false);
+  const [rpeValue, setRpeValue] = useState(5);
   const breathingTimerRef = useRef(null);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [altExercises, setAltExercises] = useState([]);
@@ -3601,40 +3609,104 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
         )}
 
         {/* ── SESSION FEEDBACK PHASE ── */}
-        {phase === "sessionFeedback" && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "64px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 32, textAlign: "center" }}>
-            <div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>Session done!</div>
-              <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>How did that feel?</p>
-            </div>
+        {phase === "sessionFeedback" && (() => {
+          // Detect session type for contextual RPE labels
+          const sessionName = plan?.session_name ?? '';
+          const isCyclingSession = sessionName.toLowerCase().includes('cycling') ||
+            exercises.some(e => JSON.parse(e.tags_json||'[]').includes('cycling'));
+          const isRunSession = sessionName.toLowerCase().includes('run') ||
+            exercises.some(e => JSON.parse(e.tags_json||'[]').includes('running'));
+          const isStrengthSession = !isCyclingSession && !isRunSession &&
+            exercises.length > 0 &&
+            exercises.filter(e => e.category === 'strength').length > exercises.length / 2;
+          const isCardio = isCyclingSession || isRunSession ||
+            exercises.some(e => e.category === 'cardio' || JSON.parse(e.tags_json||'[]').includes('cardio'));
 
-            <div style={{ display: "flex", gap: 12, width: "100%" }}>
-              {[
-                { label: "Too hard", emoji: "😰", value: 8 },
-                { label: "Just right", emoji: "😌", value: 5 },
-                { label: "Too easy", emoji: "💪", value: 3 },
-              ].map(({ label, emoji, value }) => (
-                <button
-                  key={value}
-                  onClick={() => handleFinishSession(value)}
-                  style={{ flex: 1, padding: "20px 8px", borderRadius: 18, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 8, transition: "background 0.15s, border-color 0.15s" }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.09)"; e.currentTarget.style.borderColor = C.emeraldBorder; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = "rgba(255,255,255,0.04)"; e.currentTarget.style.borderColor = C.border; }}
-                >
-                  <span style={{ fontSize: 32 }}>{emoji}</span>
-                  <span>{label}</span>
-                </button>
-              ))}
-            </div>
+          // RPE label config based on session type
+          const getRpeConfig = (v) => {
+            if (isStrengthSession) {
+              if (v <= 3) return { label: "Too light", sub: "Add weight or reps next session", color: "#3b82f6" };
+              if (v <= 6) return { label: "Just right", sub: "Weight and reps were appropriate", color: C.emerald };
+              if (v <= 9) return { label: "Hard", sub: "At your limit — hold or progress slowly", color: "#f59e0b" };
+              return { label: "Too heavy", sub: "Reduce weight or reps next session", color: "#ef4444" };
+            }
+            // Cardio / general
+            if (v <= 2) return { label: "Very easy", sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: "#3b82f6" };
+            if (v <= 4) return { label: "Easy", sub: isCardio ? "Zone 2 · Comfortable, conversational" : "Low effort — could do much more", color: C.emerald };
+            if (v <= 6) return { label: "Moderate", sub: isCardio ? "Zone 3 · Breathing harder" : "Good effort", color: "#84cc16" };
+            if (v <= 8) return { label: "Hard", sub: isCardio ? "Zone 4–5 · Pushing your limits" : "Near your limit", color: "#f59e0b" };
+            return { label: "Maximum", sub: isCardio ? "Zone 5+ · At or near your limit" : "Max effort — could not have done more", color: "#ef4444" };
+          };
 
-            <button
-              onClick={() => handleFinishSession(null)}
-              style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
-            >
-              Skip rating
-            </button>
-          </div>
-        )}
+          const rpeConfig = getRpeConfig(rpeValue);
+          const sliderPct = ((rpeValue - 1) / 9) * 100;
+
+          return (
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
+              <div style={{ textAlign: "center" }}>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>Session done!</div>
+                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
+                  {isStrengthSession ? "How was the weight and effort?" : "Rate your effort (RPE)"}
+                </p>
+              </div>
+
+              {/* RPE number + label */}
+              <div style={{ textAlign: "center", width: "100%" }}>
+                <div style={{ fontSize: 72, fontWeight: 900, color: rpeConfig.color, lineHeight: 1, letterSpacing: "-0.03em", transition: "color 0.2s" }}>{rpeValue}</div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: rpeConfig.color, marginTop: 4, transition: "color 0.2s" }}>{rpeConfig.label}</div>
+                <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>{rpeConfig.sub}</div>
+              </div>
+
+              {/* Slider */}
+              <div style={{ width: "100%", padding: "0 4px" }}>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={rpeValue}
+                  onChange={e => { setRpeValue(+e.target.value); navigator.vibrate?.(12); }}
+                  style={{ width: "100%", height: 8, borderRadius: 999, accentColor: rpeConfig.color, cursor: "pointer", outline: "none" }}
+                />
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
+                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? "Too light" : "Very easy"}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>RPE 1–10</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? "Too heavy" : "Maximum"}</span>
+                </div>
+              </div>
+
+              {/* Zone indicator dots */}
+              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
+                {[1,2,3,4,5,6,7,8,9,10].map(n => {
+                  const cfg = getRpeConfig(n);
+                  return (
+                    <div
+                      key={n}
+                      onClick={() => { setRpeValue(n); navigator.vibrate?.(12); }}
+                      style={{ width: n === rpeValue ? 28 : 20, height: n === rpeValue ? 28 : 20, borderRadius: "50%", background: n === rpeValue ? cfg.color : "rgba(255,255,255,0.08)", border: n === rpeValue ? `2px solid ${cfg.color}` : `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", flexShrink: 0 }}
+                    >
+                      {n === rpeValue && <span style={{ fontSize: 9, fontWeight: 900, color: "#fff" }}>{n}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                onClick={() => handleFinishSession(rpeValue)}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: rpeConfig.color, border: "none", color: "#fff", cursor: "pointer", letterSpacing: "-0.01em", transition: "background 0.2s" }}
+              >
+                Log session →
+              </button>
+
+              <button
+                onClick={() => handleFinishSession(null)}
+                style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+              >
+                Skip rating
+              </button>
+            </div>
+          );
+        })()}
       </div>
 
       {/* ── ALTERNATIVES BOTTOM SHEET ── */}
@@ -4774,6 +4846,18 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   const [runTargetSelect, setRunTargetSelect] = useState(
     prefs.preferences?.run_coach?.target_km ?? 5
   );
+  const [cycleUnitSelect, setCycleUnitSelect] = useState(
+    prefs.preferences?.cycling_coach?.unit ?? 'watts'
+  );
+  const [cycleFtpInput, setCycleFtpInput] = useState(
+    String(prefs.preferences?.cycling_coach?.ftp_watts ?? 200)
+  );
+  const [cycleMaxHrInput, setCycleMaxHrInput] = useState(
+    String(prefs.preferences?.cycling_coach?.max_hr ?? 180)
+  );
+  const [cycleTargetFtpInput, setCycleTargetFtpInput] = useState(
+    String(prefs.preferences?.cycling_coach?.target_ftp ?? 250)
+  );
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
 
@@ -5711,6 +5795,97 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                       style={{ padding: "8px 16px", borderRadius: 10, background: C.emerald, border: "none", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer" }}
                     >
                       Activate {runTargetSelect}km Program →
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Cycling Coach Program ── */}
+          {(planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e))) && (() => {
+            const ccState = prefs.preferences?.cycling_coach ?? null;
+            const ccActive = ccState?.active === true && !ccState?.completed;
+            const saveCyclingCoach = (newCc) => {
+              const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: newCc };
+              onUpdate((p) => ({ ...p, preferences: newPrefs }));
+              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
+            };
+            const ftp = parseInt(cycleFtpInput) || 200;
+            const maxHr = parseInt(cycleMaxHrInput) || 180;
+            const targetFtp = parseInt(cycleTargetFtpInput) || 250;
+            return (
+              <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+                {/* Toggle row */}
+                <div
+                  onClick={() => ccActive && saveCyclingCoach({ ...ccState, active: false })}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: ccActive ? "pointer" : "default", background: ccActive ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${ccActive ? C.emeraldBorder : C.border}` }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: ccActive ? C.emerald : C.text }}>Cycling Coach Program</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                      {ccActive
+                        ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
+                        : "Structured FTP build — polarised, 3 sessions per week, any days"}
+                    </div>
+                  </div>
+                  <div style={{ width: 36, height: 20, borderRadius: 999, background: ccActive ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 2, left: ccActive ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
+                  </div>
+                </div>
+
+                {/* Setup form — only when not active */}
+                {!ccActive && (
+                  <div style={{ marginTop: 12, paddingLeft: 2, display: "flex", flexDirection: "column", gap: 10 }}>
+                    {/* Unit selector */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
+                          <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
+                            {u.label}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* FTP / Max HR inputs */}
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {cycleUnitSelect === 'watts' ? (
+                        <>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
+                            <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                          </div>
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
+                            <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                          </div>
+                        </>
+                      ) : (
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
+                          <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Preview */}
+                    <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
+                      8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
+                      {cycleUnitSelect === 'watts' && ftp > 0 && (
+                        <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>
+                      )}
+                      {cycleUnitSelect === 'hr' && maxHr > 0 && (
+                        <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>
+                      )}
+                    </div>
+
+                    <button
+                      onClick={() => saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false })}
+                      style={{ padding: "8px 16px", borderRadius: 10, background: C.emerald, border: "none", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer", alignSelf: "flex-start" }}
+                    >
+                      Start Cycling Coach →
                     </button>
                   </div>
                 )}

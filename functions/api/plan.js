@@ -421,7 +421,11 @@ const T = {
 // Gym equipment recognised when gym_today is true
 const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_bar',
   'bench','bench_press_rack','squat_rack','kettlebell','resistance_band','weight_plates',
-  'exercise_bike','rowing_machine','treadmill','indoor_bike','running_shoes','multi_gym'];
+  'exercise_bike','rowing_machine','treadmill','indoor_bike','running_shoes','multi_gym',
+  'road_bike','mountain_bike'];
+
+// Cycling equipment — triggers cycling coach rule
+const CYCLING_EQUIPMENT = ['road_bike','mountain_bike','indoor_bike','exercise_bike'];
 
 // Polarised running programs: each week entry = { hiit: level, zone2: level }
 // Mon & Fri sessions use hiit level (run/walk intervals), Wed uses zone2 level (continuous easy run).
@@ -1114,6 +1118,116 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R557 — Cycling Coach Program: prescribe structured cycling sessions
+  //        (polarised: Zone 2 + interval blocks) when cycling_coach is
+  //        active and the user has a cycling-capable equipment.
+  //        FTP-based (Watts) or HR-based — unit stored in cc.unit.
+  //        8-week program: 3 sessions/week, any days.
+  //        Sessions 1 & 3 = intervals; session 2 = Zone 2.
+  // ------------------------------------------------------------------
+
+  // 8-week interval progression [{ sets, workMin, recMin, pctFtp }]
+  const CYCLING_INTERVAL_PROG = [
+    { sets: 6, workMin: 1, recMin: 2, pctFtp: 115 }, // week 1
+    { sets: 6, workMin: 1, recMin: 2, pctFtp: 115 }, // week 2
+    { sets: 5, workMin: 3, recMin: 3, pctFtp: 108 }, // week 3
+    { sets: 5, workMin: 3, recMin: 3, pctFtp: 108 }, // week 4
+    { sets: 4, workMin: 5, recMin: 5, pctFtp: 105 }, // week 5
+    { sets: 4, workMin: 5, recMin: 5, pctFtp: 105 }, // week 6
+    { sets: 3, workMin: 8, recMin: 5, pctFtp: 103 }, // week 7
+    { sets: 3, workMin: 8, recMin: 5, pctFtp: 103 }, // week 8
+  ];
+  const CYCLING_Z2_PROG = [30, 30, 40, 40, 50, 50, 60, 60]; // Zone 2 duration by week (min)
+
+  let cyclingProgramOverride = null;
+  const cycleCoach = prefs?.preferences?.cycling_coach;
+  const hasCyclingEquipment = (userEquipment ?? []).some(e => CYCLING_EQUIPMENT.includes(e));
+  const cyclingProgramActive = cycleCoach?.active && hasCyclingEquipment
+    && !inSpecialMode && !runProgramOverride
+    && slot_type !== 'rest' && slot_type !== 'micro';
+
+  if (cyclingProgramActive) {
+    const ccSessionInWeek = cycleCoach.session_in_week ?? 0;
+    const lastRideDate = cycleCoach.last_ride_at_ms
+      ? new Date(cycleCoach.last_ride_at_ms).toISOString().slice(0, 10)
+      : null;
+    const enoughRest = !lastRideDate || lastRideDate < date;
+    const weekNotFull = ccSessionInWeek < 3;
+
+    if (enoughRest && weekNotFull) {
+      const weekIdx = Math.min((cycleCoach.week ?? 1) - 1, 7);
+      const unit = cycleCoach.unit ?? 'watts';
+      const ftp = cycleCoach.ftp_watts ?? 200;
+      const maxHr = cycleCoach.max_hr ?? 180;
+      const isZ2Session = ccSessionInWeek === 1; // session 2 of 3 is easy Z2
+
+      let sessionName, durationSec, setsCount, restSec, coachNote, sessionTag;
+
+      if (isZ2Session) {
+        const z2Min = CYCLING_Z2_PROG[weekIdx];
+        durationSec = z2Min * 60;
+        setsCount = 1;
+        restSec = 0;
+        sessionTag = 'zone2';
+        sessionName = `Cycling — Zone 2 · ${z2Min} min`;
+        if (unit === 'watts') {
+          const lo = Math.round(ftp * 0.55);
+          const hi = Math.round(ftp * 0.75);
+          coachNote = `Keep power at ${lo}–${hi}W (55–75% FTP). Comfortable and conversational — if you can't talk, back off. This builds your aerobic engine.`;
+        } else {
+          const lo = Math.round(maxHr * 0.68);
+          const hi = Math.round(maxHr * 0.83);
+          coachNote = `Keep heart rate at ${lo}–${hi} bpm (68–83% Max HR). Conversational pace. If you can't talk comfortably, slow down.`;
+        }
+      } else {
+        const prog = CYCLING_INTERVAL_PROG[weekIdx];
+        const totalIntervalSec = prog.sets * (prog.workMin + prog.recMin) * 60;
+        const warmupSec = 10 * 60; // 10 min warmup
+        durationSec = warmupSec + totalIntervalSec + 5 * 60; // + 5 min cooldown
+        setsCount = prog.sets;
+        restSec = prog.recMin * 60;
+        sessionTag = 'hiit';
+        sessionName = `Cycling — Intervals · ${prog.sets}×${prog.workMin}min`;
+        if (unit === 'watts') {
+          const target = Math.round(ftp * prog.pctFtp / 100);
+          const recPow = Math.round(ftp * 0.5);
+          coachNote = `${prog.sets}×${prog.workMin}min @ ~${target}W (${prog.pctFtp}% FTP). ${prog.recMin}min easy recovery at ${recPow}W between each. Hard but controlled — don't go all-out on rep 1. 10min warm-up + 5min cool-down included.`;
+        } else {
+          const hrTarget = Math.round(maxHr * 0.9);
+          const hrRec = Math.round(maxHr * 0.7);
+          coachNote = `${prog.sets}×${prog.workMin}min at Zone 5 (≥${hrTarget} bpm / ≥90% Max HR). ${prog.recMin}min recovery below ${hrRec} bpm between each. 10min warm-up + 5min cool-down included.`;
+        }
+      }
+
+      // Synthetic plan step — no DB exercise record needed
+      const cyclingEquipUsed = (userEquipment ?? []).find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
+      const cyclingStep = {
+        exercise_id: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}_w${cycleCoach.week ?? 1}`,
+        exercise_slug: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}`,
+        name: sessionName,
+        category: 'cardio',
+        tags_json: JSON.stringify(['cardio', 'cycling', sessionTag, 'outdoor']),
+        equipment_required_json: JSON.stringify([cyclingEquipUsed]),
+        target_reps: undefined,
+        target_duration_sec: durationSec,
+        sets: setsCount,
+        rest_sec: restSec,
+        instructions_json: null,
+        alternatives_json: null,
+        gif_url: null,
+        coaching_note: coachNote,
+      };
+
+      cyclingProgramOverride = {
+        step: cyclingStep,
+        week: cycleCoach.week ?? 1,
+        sessionType: isZ2Session ? 'Zone 2' : 'Intervals',
+      };
+      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/3, ${isZ2Session ? 'Zone 2' : `Intervals ${setsCount}×${isZ2Session ? '' : CYCLING_INTERVAL_PROG[weekIdx].workMin}min`} (unit: ${unit})`);
+    }
+  }
+
+  // ------------------------------------------------------------------
   // R558 — Polarised training: balance HIIT and Zone 2 in general
   //        endurance sessions. Removes the opposing endurance type from
   //        the pool so only the preferred type competes for selection.
@@ -1279,6 +1393,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
   const selection = runProgramOverride
     ? [...runProgramOverride.warmUps, runProgramOverride.runEx]
+    : cyclingProgramOverride
+    ? [] // cycling uses synthetic step, no DB exercises needed
     : shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
@@ -1295,7 +1411,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // Goal → rest multiplier
   const goalRestMult = GOAL_REST_MULT[goal] ?? 1.0;
 
-  const steps = slot_type === 'rest' ? [] : selection.map(ex => {
+  const steps = slot_type === 'rest' ? [] : cyclingProgramOverride ? [cyclingProgramOverride.step] : selection.map(ex => {
     const metrics = JSON.parse(ex.metrics_json || '{}');
     const exTags = JSON.parse(ex.tags_json || '[]');
     const isRunWarmup = exTags.includes('run_warmup');
@@ -1482,6 +1598,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     else session_name = 'Today\'s recovery';
   } else if (runProgramOverride) {
     session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
+  } else if (cyclingProgramOverride) {
+    session_name = `Cycling Day · Week ${cyclingProgramOverride.week} · ${cyclingProgramOverride.sessionType}`;
   } else if (slot_type === 'rest') {
     session_name = 'Active Rest';
   } else if (slot_type === 'micro') {
@@ -1526,6 +1644,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     rule_trace: trace,
     run_program: runProgramOverride
       ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
+      : null,
+    cycling_program: cyclingProgramOverride
+      ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
       : null,
   };
 }
