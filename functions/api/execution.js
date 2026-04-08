@@ -249,6 +249,13 @@ export async function onRequestPost({ request, env }) {
       console.error('Run coach advance failed (non-fatal):', err.message);
     }
 
+    // ── 5. Track polarised endurance type (zone2 / hiit) for R558 balance ────
+    try {
+      await updatePolarisedEnduranceType(user_id, steps, env, now);
+    } catch (err) {
+      console.error('Polarised type update failed (non-fatal):', err.message);
+    }
+
     return Response.json({ ok: true, execution_id: id });
   } catch (e) {
     return Response.json({ error: e.message }, { status: 500 });
@@ -368,6 +375,47 @@ async function advanceRunCoach(userId, steps, env, nowMs) {
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, run_coach: updatedRc }), nowMs, userId).run();
+}
+
+// ─── Polarised endurance type tracker ────────────────────────────────────────
+// After each workout, detects whether any completed exercise was tagged 'hiit' or
+// 'zone2', then stores the result as sport_prefs.last_endurance_type. R558 in
+// plan.js reads this to alternate between types on the next session.
+
+async function updatePolarisedEnduranceType(userId, steps, env, nowMs) {
+  if (!userId || !steps?.length) return;
+
+  const exerciseIds = [...new Set(steps.map(s => s.exercise_id).filter(Boolean))];
+  if (!exerciseIds.length) return;
+
+  const placeholders = exerciseIds.map(() => '?').join(',');
+  const rows = await env.DB.prepare(
+    `SELECT tags_json FROM exercises WHERE id IN (${placeholders})`
+  ).bind(...exerciseIds).all();
+
+  let hasHiit = false;
+  let hasZone2 = false;
+  for (const row of (rows?.results ?? [])) {
+    const tags = JSON.parse(row.tags_json || '[]');
+    if (tags.includes('hiit'))  hasHiit  = true;
+    if (tags.includes('zone2')) hasZone2 = true;
+  }
+  if (!hasHiit && !hasZone2) return;
+
+  const newType = hasHiit ? 'hiit' : 'zone2';
+
+  const prefsRow = await env.DB.prepare(
+    `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+  ).bind(userId).first();
+  if (!prefsRow?.preferences_json) return;
+
+  const prefs = JSON.parse(prefsRow.preferences_json);
+  if (!prefs.sport_prefs?.polarised_training) return; // only track when feature is on
+
+  prefs.sport_prefs = { ...prefs.sport_prefs, last_endurance_type: newType };
+  await env.DB.prepare(
+    `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
+  ).bind(JSON.stringify(prefs), nowMs, userId).run();
 }
 
 // ─── GET: Fetch execution history ─────────────────────────────────────────────

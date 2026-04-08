@@ -2345,7 +2345,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   </div>
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
                     <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
-                      Run Day · Week {plan.run_program.week}
+                      {plan.run_program.session_type ?? "Run Day"} · Week {plan.run_program.week}
                     </span>
                   )}
                   <div
@@ -3973,7 +3973,20 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                 <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
                   <div style={{ width: `${pct}%`, height: "100%", background: C.emerald, borderRadius: 999, transition: "width 0.5s ease" }} />
                 </div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 14 }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                  {[{n:1,day:"Mon",type:"Intervals"},{n:2,day:"Wed",type:"Zone 2"},{n:3,day:"Fri",type:"Intervals"}].map(s => {
+                    const done = sessionInWeek >= s.n;
+                    const next = sessionInWeek === s.n - 1;
+                    return (
+                      <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? C.emeraldDim : next ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", border: `1px solid ${done ? C.emeraldBorder : next ? C.border : "rgba(255,255,255,0.04)"}` }}>
+                        <div style={{ fontSize: 9, fontWeight: 900, color: done ? C.emerald : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
+                        <div style={{ fontSize: 9, color: done ? C.emerald : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
+                        {done && <div style={{ fontSize: 9, color: C.emerald }}>✓</div>}
+                      </div>
+                    );
+                  })}
+                </div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {[5, 10, 15, 20, 30].map(t => {
                     const done = unlockedTargets.includes(String(t));
@@ -5683,6 +5696,26 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               </div>
             );
           })()}
+
+          {/* ── Polarised Training ── */}
+          <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+            <div
+              onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
+              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: "pointer", background: sportPrefs.polarised_training ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${sportPrefs.polarised_training ? C.emeraldBorder : C.border}` }}
+            >
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: sportPrefs.polarised_training ? C.emerald : C.text }}>Polarised Training</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  {sportPrefs.polarised_training
+                    ? `Active · Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy" : "HIIT intervals"}`
+                    : "Alternates HIIT and Zone 2 for all endurance sessions"}
+                </div>
+              </div>
+              <div style={{ width: 36, height: 20, borderRadius: 999, background: sportPrefs.polarised_training ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                <div style={{ position: "absolute", top: 2, left: sportPrefs.polarised_training ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
+              </div>
+            </div>
+          </div>
 
           {/* Daily Adaptive Replan */}
           <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>

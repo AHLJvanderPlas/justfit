@@ -359,12 +359,38 @@ const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_ba
   'bench','kettlebell','resistance_band','exercise_bike','rowing_machine','treadmill',
   'indoor_bike','running_shoes'];
 
+// Polarised running programs: each week entry = { hiit: level, zone2: level }
+// Mon & Fri sessions use hiit level (run/walk intervals), Wed uses zone2 level (continuous easy run).
+// hiit levels 1–6 = run-interval-level-N, zone2 levels 7–21 = run-continuous-level-N
 const RUN_PROGRAMS = {
-  5:  [2, 3, 4, 5, 6, 7, 8, 9],
-  10: [9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15],
-  15: [12, 13, 13, 14, 14, 15, 15, 16, 16, 16, 17, 17, 17, 17],
-  20: [15, 15, 16, 16, 17, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19],
-  30: [16, 17, 17, 17, 18, 18, 18, 18, 19, 19, 19, 19, 19, 20, 20, 20, 20, 21, 21, 21],
+  5: [
+    {hiit:2,zone2:7},{hiit:3,zone2:7},{hiit:3,zone2:8},{hiit:4,zone2:8},
+    {hiit:4,zone2:9},{hiit:5,zone2:9},{hiit:5,zone2:9},{hiit:6,zone2:10},
+  ],
+  10: [
+    {hiit:3,zone2:8},{hiit:4,zone2:8},{hiit:4,zone2:9},{hiit:5,zone2:9},
+    {hiit:5,zone2:10},{hiit:6,zone2:10},{hiit:6,zone2:11},{hiit:6,zone2:11},
+    {hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},{hiit:6,zone2:13},
+  ],
+  15: [
+    {hiit:4,zone2:9},{hiit:5,zone2:10},{hiit:5,zone2:10},{hiit:6,zone2:11},
+    {hiit:6,zone2:11},{hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},
+    {hiit:6,zone2:13},{hiit:6,zone2:13},{hiit:6,zone2:14},{hiit:6,zone2:14},
+    {hiit:6,zone2:14},{hiit:6,zone2:14},
+  ],
+  20: [
+    {hiit:5,zone2:10},{hiit:5,zone2:11},{hiit:6,zone2:11},{hiit:6,zone2:12},
+    {hiit:6,zone2:12},{hiit:6,zone2:13},{hiit:6,zone2:13},{hiit:6,zone2:13},
+    {hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},
+    {hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},
+  ],
+  30: [
+    {hiit:5,zone2:11},{hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},
+    {hiit:6,zone2:13},{hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},
+    {hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},
+    {hiit:6,zone2:15},{hiit:6,zone2:16},{hiit:6,zone2:16},{hiit:6,zone2:16},
+    {hiit:6,zone2:16},{hiit:6,zone2:17},{hiit:6,zone2:17},{hiit:6,zone2:17},
+  ],
 };
 const RUN_WARMUP_TAG = 'run_warmup';
 
@@ -901,16 +927,39 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if ([1, 3, 5].includes(todayDOW)) {
       const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
       const weekIdx = Math.min((runCoach.week ?? 1) - 1, programWeeks.length - 1);
-      const prescribedLevel = programWeeks[weekIdx];
+      const weekConfig = programWeeks[weekIdx]; // { hiit: N, zone2: N }
+      // session_in_week pattern: 0=Mon (HIIT), 1=Wed (Zone 2), 2=Fri (HIIT)
+      const sessionInWeek = runCoach.session_in_week ?? 0;
+      const isZone2Session = sessionInWeek === 1;
+      const prescribedLevel = isZone2Session ? weekConfig.zone2 : weekConfig.hiit;
+      const sessionTypeLabel = isZone2Session ? 'Zone 2' : 'Intervals';
       const runSlug = prescribedLevel <= 6
         ? `run-interval-level-${prescribedLevel}`
         : `run-continuous-level-${prescribedLevel}`;
       const runEx = exercises.find(ex => ex.slug === runSlug);
       const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
       if (runEx && warmUps.length) {
-        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: prescribedLevel };
-        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, Level ${prescribedLevel} (${runEx.name}) — forced run session`);
+        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: prescribedLevel, sessionType: sessionTypeLabel };
+        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, ${sessionTypeLabel}, Level ${prescribedLevel} (${runEx.name})`);
       }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // R558 — Polarised training: balance HIIT and Zone 2 in general
+  //        endurance sessions. Removes the opposing endurance type from
+  //        the pool so only the preferred type competes for selection.
+  //        Activates when sport_prefs.polarised_training is enabled.
+  // ------------------------------------------------------------------
+  const polarisedOn = prefs?.preferences?.sport_prefs?.polarised_training;
+  if (polarisedOn && !runProgramOverride && !inSpecialMode && slot_type !== 'rest') {
+    const lastType = prefs?.preferences?.sport_prefs?.last_endurance_type ?? null;
+    const nextType = lastType === 'hiit' ? 'zone2' : 'hiit';
+    const opposingType = nextType === 'hiit' ? 'zone2' : 'hiit';
+    const preferredCount = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes(nextType)).length;
+    if (preferredCount > 0) {
+      pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(opposingType));
+      trace.push(`R558 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType} (${preferredCount} exercises), removed ${opposingType}`);
     }
   }
 
@@ -1226,7 +1275,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
     else session_name = 'Today\'s recovery';
   } else if (runProgramOverride) {
-    session_name = `Running Day · Week ${runProgramOverride.week}`;
+    session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
   } else if (slot_type === 'rest') {
     session_name = 'Active Rest';
   } else if (slot_type === 'micro') {
@@ -1270,7 +1319,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     steps: orderedSteps,
     rule_trace: trace,
     run_program: runProgramOverride
-      ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5 }
+      ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
       : null,
   };
 }
