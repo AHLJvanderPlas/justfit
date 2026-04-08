@@ -2394,7 +2394,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               </div>
 
               <div style={{ flex: 1, marginBottom: 20 }}>
-                {(plan.steps ?? []).slice(0, 3).map((s, i) => (
+                {(plan.steps ?? []).map((s, i) => (
                   <div
                     key={i}
                     style={{
