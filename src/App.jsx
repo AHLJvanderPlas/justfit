@@ -3220,10 +3220,20 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
             else if (delta > 60 && clampedStep > 0) setInstrStep((s) => s - 1);
           }
 
+          // Equipment for this exercise (filter trivial items)
+          const exEquip = JSON.parse(cur.equipment_required_json || '["none"]')
+            .filter(e => e !== "none" && e !== "chair");
+          const isFloorEx = tags.some(t => ["floor","supine","prone","mobility","pelvic_floor"].includes(t)) || cur.category === "mobility";
+          const showMatHint = isFloorEx && exEquip.length === 0; // suggest mat only when no other equipment
+
+          // Clean cues — strip the 💡 prefix if present
+          const cleanCues = cues.map(c => c.replace(/^💡+\s*/, "").trim());
+
           return (
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "28px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", minHeight: "calc(100dvh - 80px)", gap: 20 }}>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 16 }}>
+
               {/* Exercise name + target */}
-              <div style={{ textAlign: "center" }}>
+              <div style={{ textAlign: "center", marginBottom: 4 }}>
                 {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
                 <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
                   {cur.name}
@@ -3234,86 +3244,80 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                   </span>
                   <span style={{ fontSize: 13, color: C.muted }}>·</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
-                    {isTimeBased ? `${cur.target_duration_sec}s` : `${targetReps} reps`}
+                    {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
                   </span>
                 </div>
               </div>
 
-              {/* Swipeable instruction card */}
-              <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 12 }}>
-                {/* Step label + dots */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "0 4px" }}>
-                  <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted }}>
-                    {cards[clampedStep]?.accent ? "Important note" : rawSteps.length > 0 ? `Step ${clampedStep + 1} of ${totalCards}` : "Coaching cue"}
-                  </span>
-                  {totalCards > 1 && (
-                    <div style={{ display: "flex", gap: 6 }}>
-                      {cards.map((card, i) => {
-                        const dotColor = i === clampedStep
-                          ? (card.accent === "amber" ? "#f59e0b" : card.accent === "rose" ? "#f43f5e" : C.emerald)
-                          : "rgba(255,255,255,0.15)";
-                        return <div key={i} onClick={() => setInstrStep(i)} style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor, transition: "background 0.25s", cursor: "pointer" }} />;
-                      })}
+              {/* ── Card 1: Equipment (only when needed) ── */}
+              {(exEquip.length > 0 || showMatHint) && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Equipment</div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                    {exEquip.map(eq => (
+                      <span key={eq} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                        {ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ")}
+                      </span>
+                    ))}
+                    {showMatHint && (
+                      <span style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted }}>
+                        Yoga / exercise mat (optional)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* ── Card 2: Instructions — highlighted like today card ── */}
+              <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(2,6,23,0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>Instructions</div>
+
+                {/* Pregnancy / postnatal alert at top of instructions */}
+                {(pregnancyNote || postnatalNote) && (
+                  <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: postnatalNote ? "rgba(244,63,94,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${postnatalNote ? "rgba(244,63,94,0.3)" : "rgba(245,158,11,0.3)"}` }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: postnatalNote ? "#f43f5e" : "#f59e0b", margin: 0, lineHeight: 1.6 }}>
+                      {postnatalNote ?? pregnancyNote}
+                    </p>
+                  </div>
+                )}
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {rawSteps.length > 0 ? rawSteps.map((step, i) => (
+                    <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                        <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
+                      </div>
+                      <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>{step}</p>
+                    </div>
+                  )) : (
+                    <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>Focus on form. Quality over speed. You've got this.</p>
+                  )}
+                  {isPelvicFloor && (
+                    <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: "#f43f5e", margin: 0, lineHeight: 1.6 }}>Remember: the release is just as important as the squeeze. Full relaxation between each rep.</p>
                     </div>
                   )}
                 </div>
+              </div>
 
-                {/* Card carousel */}
-                <div
-                  style={{ overflow: "hidden", borderRadius: 20, cursor: totalCards > 1 ? "grab" : "default", userSelect: "none" }}
-                  onTouchStart={onTouchStart}
-                  onTouchMove={onTouchMove}
-                  onTouchEnd={onTouchEnd}
-                  onMouseDown={onMouseDown}
-                  onMouseMove={onMouseMove}
-                  onMouseUp={onMouseUp}
-                  onMouseLeave={onMouseUp}
-                >
-                  <div style={{ display: "flex", transform: `translateX(calc(-${clampedStep * 100}% + ${dragOffset}px))`, transition: isDragging ? "none" : "transform 0.28s cubic-bezier(0.34, 1.4, 0.64, 1)" }}>
-                    {cards.map((card, i) => {
-                      const isAmber = card.accent === "amber";
-                      const isRose = card.accent === "rose";
-                      const cardBg = isAmber ? "rgba(245,158,11,0.08)" : isRose ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.06)";
-                      const cardBorder = isAmber ? "rgba(245,158,11,0.3)" : isRose ? "rgba(244,63,94,0.3)" : "rgba(255,255,255,0.1)";
-                      const cardColor = isAmber ? "#f59e0b" : isRose ? "#f43f5e" : C.text;
-                      return (
-                        <div key={i} style={{ minWidth: "100%", flexShrink: 0 }}>
-                          <div style={{ background: cardBg, border: `1px solid ${cardBorder}`, borderRadius: 20, padding: "28px 24px", minHeight: 140, display: "flex", alignItems: "center" }}>
-                            <p style={{ fontSize: 18, fontWeight: 700, color: cardColor, lineHeight: 1.6, margin: 0, wordBreak: "break-word", overflowWrap: "break-word", whiteSpace: "pre-wrap" }}>{card.text}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                {/* Prev / Next nav (supplemental to swipe) */}
-                {totalCards > 1 && (
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <button onClick={() => setInstrStep((s) => Math.max(0, s - 1))} disabled={clampedStep === 0} style={{ fontSize: 13, fontWeight: 700, color: clampedStep === 0 ? "rgba(255,255,255,0.15)" : C.muted, background: "none", border: "none", cursor: clampedStep === 0 ? "default" : "pointer", padding: "8px 4px" }}>
-                      ← Prev
-                    </button>
-                    <button onClick={() => setInstrStep((s) => Math.min(totalCards - 1, s + 1))} disabled={clampedStep === totalCards - 1} style={{ fontSize: 13, fontWeight: 700, color: clampedStep === totalCards - 1 ? "rgba(255,255,255,0.15)" : C.muted, background: "none", border: "none", cursor: clampedStep === totalCards - 1 ? "default" : "pointer", padding: "8px 4px" }}>
-                      Next →
-                    </button>
-                  </div>
-                )}
-
-                {/* Cues — always visible below */}
-                {cues.length > 0 && (
-                  <div style={{ padding: "12px 4px" }}>
-                    {cues.map((c, i) => (
-                      <div key={i} style={{ fontSize: 13, color: C.muted, fontStyle: "italic", lineHeight: 1.6, marginBottom: i < cues.length - 1 ? 6 : 0 }}>
-                        💡 {c}
+              {/* ── Card 3: Why (cues) ── */}
+              {cleanCues.length > 0 && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Why this helps</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {cleanCues.map((cue, i) => (
+                      <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.muted, flexShrink: 0, marginTop: 8 }} />
+                        <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0 }}>{cue}</p>
                       </div>
                     ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <button
                 onClick={() => setPhase("working")}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em", flexShrink: 0 }}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em", flexShrink: 0, marginTop: 4 }}
               >
                 Ready — let's go →
               </button>
