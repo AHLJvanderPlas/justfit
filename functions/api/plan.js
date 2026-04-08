@@ -914,33 +914,77 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
-  // R556 — Running Coach Program: force dedicated run sessions on
-  //        Mon/Wed/Fri when user is enrolled.
+  // R556 — Running Coach Program: prescribe run sessions on any
+  //        training day when enrolled, with time-aware level selection.
+  //        Fires on any non-rest, non-micro day — custom schedules work.
+  //        Session level never regresses due to time constraints.
   // ------------------------------------------------------------------
   let runProgramOverride = null;
   const runCoach = prefs?.preferences?.run_coach;
   const runProgramActive = runCoach?.enrolled && !runCoach?.completed
-    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest';
+    && !inSpecialMode && !bmiStrictForRun
+    && slot_type !== 'rest' && slot_type !== 'micro';
 
   if (runProgramActive) {
-    const todayDOW = new Date(date + 'T12:00:00').getDay();
-    if ([1, 3, 5].includes(todayDOW)) {
+    const sessionInWeek = runCoach.session_in_week ?? 0;
+    // Allow any training day: just need a different calendar day since last run
+    // and fewer than 3 sessions completed this week in the program
+    const lastRunDate = runCoach.last_run_at_ms
+      ? new Date(runCoach.last_run_at_ms).toISOString().slice(0, 10)
+      : null;
+    const enoughRest = !lastRunDate || lastRunDate < date;
+    const weekNotFull = sessionInWeek < 3;
+
+    if (enoughRest && weekNotFull) {
       const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
       const weekIdx = Math.min((runCoach.week ?? 1) - 1, programWeeks.length - 1);
       const weekConfig = programWeeks[weekIdx]; // { hiit: N, zone2: N }
-      // session_in_week pattern: 0=Mon (HIIT), 1=Wed (Zone 2), 2=Fri (HIIT)
-      const sessionInWeek = runCoach.session_in_week ?? 0;
+      // session_in_week 1 = Zone 2 (mid-week easy run); 0 and 2 = HIIT
       const isZone2Session = sessionInWeek === 1;
       const prescribedLevel = isZone2Session ? weekConfig.zone2 : weekConfig.hiit;
       const sessionTypeLabel = isZone2Session ? 'Zone 2' : 'Intervals';
-      const runSlug = prescribedLevel <= 6
-        ? `run-interval-level-${prescribedLevel}`
-        : `run-continuous-level-${prescribedLevel}`;
+
+      // ── Time-aware exercise selection ─────────────────────────────
+      // Total run time for an exercise: fixed_sets × (base_duration + rest) or just base_duration
+      const getRunTotalSec = (ex) => {
+        const m = JSON.parse(ex?.metrics_json || '{}');
+        if (m.fixed_sets != null) return m.fixed_sets * ((m.base_duration_sec ?? 0) + (m.custom_rest_sec ?? 0));
+        return m.base_duration_sec ?? 0;
+      };
+      const sessionDurSec = (prefs?.session_duration_min ?? 60) * 60;
+      const warmupOverheadSec = 4 * 45; // 4 warmup exercises × ~45s each
+      const availableRunSec = Math.max(600, sessionDurSec - warmupOverheadSec);
+
+      // Find the highest level of the prescribed type that fits available time
+      // Level never goes below its type minimum — never regresses
+      const minLevel = isZone2Session ? 7 : 1;
+      let effectiveLevel = minLevel;
+      for (let lvl = minLevel; lvl <= prescribedLevel; lvl++) {
+        const slug = lvl <= 6 ? `run-interval-level-${lvl}` : `run-continuous-level-${lvl}`;
+        const candidate = exercises.find(e => e.slug === slug);
+        if (candidate && getRunTotalSec(candidate) <= availableRunSec) effectiveLevel = lvl;
+      }
+
+      const runSlug = effectiveLevel <= 6
+        ? `run-interval-level-${effectiveLevel}`
+        : `run-continuous-level-${effectiveLevel}`;
       const runEx = exercises.find(ex => ex.slug === runSlug);
       const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+
       if (runEx && warmUps.length) {
-        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: prescribedLevel, sessionType: sessionTypeLabel };
-        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, ${sessionTypeLabel}, Level ${prescribedLevel} (${runEx.name})`);
+        // Advisory note when session was shortened to fit available time
+        if (effectiveLevel < prescribedLevel) {
+          const shortMin = Math.round(getRunTotalSec(runEx) / 60);
+          const prescribedSlug = prescribedLevel <= 6 ? `run-interval-level-${prescribedLevel}` : `run-continuous-level-${prescribedLevel}`;
+          const fullMin = Math.round(getRunTotalSec(exercises.find(e => e.slug === prescribedSlug) ?? {}) / 60);
+          const budgetMin = Math.round(sessionDurSec / 60);
+          const note = `Today's run fits your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal, and you are delivering it. More time when you have it, same pace when you do not.`;
+          sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+          trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
+        }
+
+        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
+        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
       }
     }
   }
