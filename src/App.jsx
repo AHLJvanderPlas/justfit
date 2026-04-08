@@ -3320,6 +3320,14 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 </div>
               )}
 
+              {/* ── Card: Weight & rep strategy (weighted exercises only) ── */}
+              {cur.coaching_note && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Weight &amp; rep strategy</div>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{cur.coaching_note}</p>
+                </div>
+              )}
+
               <button
                 onClick={() => setPhase("working")}
                 style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em", flexShrink: 0, marginTop: 4 }}

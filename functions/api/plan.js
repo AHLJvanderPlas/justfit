@@ -322,10 +322,36 @@ const GOAL_REST_MULT = {
   fat_loss:     0.70, // short rest = metabolic demand
   muscle_gain:  1.50, // full recovery for hypertrophy
   endurance:    0.70, // keep heart rate elevated
-  strength:     1.50, // full recovery for max effort
+  strength:     2.50, // full recovery for max effort (best practice: 2–4 min → base 60s × 2.5 = 150s)
   health:       1.00,
   mobility:     0.80, // brief pause between stretches
   mixed:        1.00,
+};
+
+// ---------------------------------------------------------------------------
+// Goal → rep target for rep-based exercises (best practice per training block)
+// ---------------------------------------------------------------------------
+const GOAL_REPS = {
+  strength:    5,  // neural adaptation — 3–5 range, heavy load
+  muscle_gain: 10, // hypertrophy — 8–12 range
+  fat_loss:    15, // metabolic circuit — 12–20 range
+  endurance:   20, // muscular endurance — 15–25 range
+  health:      12, // general fitness — 8–15 range
+  mobility:    10, // hold/controlled — range less critical
+  mixed:       10, // balanced default
+};
+
+// ---------------------------------------------------------------------------
+// Goal → coaching note shown on weighted exercises
+// ---------------------------------------------------------------------------
+const GOAL_COACHING_NOTE = {
+  strength:    "Choose a weight where reps 4–5 feel like a genuine struggle. Rest fully (2–4 min). Add weight when all reps feel controlled.",
+  muscle_gain: "Last 2 reps should be hard. Push to failure on the final set. Increase weight when the last rep stops being challenging.",
+  fat_loss:    "Moderate weight, high reps — keep rest short. You should feel it but maintain form throughout.",
+  endurance:   "Light weight, high reps. Maintain form throughout. Never sacrifice technique for speed.",
+  health:      "Moderate weight — challenging but controlled. You should feel the effort without struggling with form.",
+  mobility:    "Minimal load. Focus on full range of motion, not resistance.",
+  mixed:       "Moderate effort. Last 2–3 reps should require focus. Adjust weight if it feels too easy.",
 };
 
 // ---------------------------------------------------------------------------
@@ -394,8 +420,8 @@ const T = {
 
 // Gym equipment recognised when gym_today is true
 const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_bar',
-  'bench','kettlebell','resistance_band','exercise_bike','rowing_machine','treadmill',
-  'indoor_bike','running_shoes'];
+  'bench','bench_press_rack','squat_rack','kettlebell','resistance_band','weight_plates',
+  'exercise_bike','rowing_machine','treadmill','indoor_bike','running_shoes','multi_gym'];
 
 // Polarised running programs: each week entry = { hiit: level, zone2: level }
 // Mon & Fri sessions use hiit level (run/walk intervals), Wed uses zone2 level (continuous easy run).
@@ -1276,7 +1302,16 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const supportsReps = metrics.supports?.includes('reps');
     // base_duration_sec lets conditioning exercises specify their own duration (e.g. 1200 = 20 min)
     const baseDuration = metrics.base_duration_sec ?? 30;
-    let reps = supportsReps ? 10 : undefined;
+    let reps = supportsReps ? (GOAL_REPS[goal] ?? 10) : undefined;
+
+    // Determine if this is a weighted (non-bodyweight) exercise for coaching guidance
+    const equipmentRequired = JSON.parse(ex.equipment_required_json || '["none"]');
+    const isWeighted = supportsReps && equipmentRequired.some(e =>
+      ['dumbbell', 'barbell', 'kettlebell', 'cable', 'machine', 'plate', 'resistance_band',
+       'bench', 'bench_press_rack', 'squat_rack', 'smith_machine', 'multi_gym', 'ankle_weights',
+       'weight_plates', 'stability_ball'].includes(e)
+    );
+    const coachingNote = isWeighted ? (GOAL_COACHING_NOTE[goal] ?? null) : null;
     let duration = !supportsReps ? baseDuration : undefined;
 
     // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
@@ -1332,6 +1367,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       instructions_json: ex.instructions_json ?? null,
       alternatives_json: ex.alternatives_json ?? null,
       gif_url: media.gif_url ?? null,
+      coaching_note: coachingNote,
     };
   });
 
