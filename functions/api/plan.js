@@ -354,6 +354,44 @@ const GOAL_SESSION_NAMES = {
   mixed:       ['Full Body Circuit', 'Mixed Training', 'Variety Session', 'All-Round Work'],
 };
 
+// ---------------------------------------------------------------------------
+// Safety & adaptation thresholds — single source of truth
+// All rule comparisons use these constants. Change here, changes everywhere.
+// Two thresholds intentionally differ: PAIN_REST (≥2) triggers a full rest day,
+// while PAIN_BMI_COFACTOR (≥1) triggers tighter BMI running restrictions.
+// Similarly STRESS_HIGH (≥7) triggers recovery bias, STRESS_LUTEAL (≥6) is a
+// softer luteal-phase threshold because hormonal sensitivity compounds stress.
+// ---------------------------------------------------------------------------
+const T = {
+  // Check-in thresholds
+  SLEEP_LOW:          5,    // hours ≤ this → intensity = low (R511)
+  STRESS_HIGH:        7,    // ≥ this → intensity = low (R513)
+  STRESS_LUTEAL:      6,    // ≥ this + late luteal → intensity = low (R523)
+  MOOD_LOW:           4,    // ≤ this → intensity step down (R517)
+  MOOD_MODERATE:      6,    // ≤ this → moderate cap if high (R517)
+  PAIN_REST:          2,    // ≥ this → rest day (R514)
+  PAIN_BMI_COFACTOR:  1,    // ≥ this + BMI ≥ 30 → strict running removal (R545)
+  ENERGY_LOW:         3,    // ≤ this → volume × 0.6 (R512)
+  ENERGY_FOLLICULAR:  6,    // ≥ this (+ sleep ok) → volume boost (R521)
+  SLEEP_FOLLICULAR:   5,    // ≥ this (+ energy ok) → volume boost (R521)
+  // BMI thresholds
+  BMI_MODERATE:       30,   // ≥ this → run-walk caution + note (R546)
+  BMI_STRICT:         35,   // ≥ this → running removed entirely (R545)
+  // Pregnancy thresholds
+  PREGNANCY_SUPINE_WEEK: 16, // ≥ this week → supine exercises excluded (R531)
+  // Conditioning score bands for safe running level selection (R555)
+  RUN_LEVEL_2: 20,
+  RUN_LEVEL_3: 30,
+  RUN_LEVEL_4: 45,
+  RUN_LEVEL_5: 60,
+  RUN_LEVEL_6: 75,
+  // Progression gap thresholds (R551, R554)
+  PROG_GAP_BIAS:      8,    // gap ≥ this → pool reordered toward gap axis
+  PROG_GAP_NOTE:      15,   // gap ≥ this → user-facing explainability note
+  // Mobility decay threshold (R553)
+  MOBILITY_DECAY_DAYS: 7,
+};
+
 // Gym equipment recognised when gym_today is true
 const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_bar',
   'bench','kettlebell','resistance_band','exercise_bike','rowing_machine','treadmill',
@@ -551,10 +589,22 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
+  // ── Intensity override stack ──────────────────────────────────────────────
+  // Rules below may ONLY REDUCE intensity, never increase it. Any future rule
+  // that needs to increase intensity MUST be placed before this block.
+  // Precedence (highest authority listed last — last write wins):
+  //   Goal baseline (R500)
+  //   < Sleep (R511)  < Stress (R513)  < Mood (R517)
+  //   < Period / late-luteal (R520, R523)
+  //   < Pregnancy T1/T2 (R530)  < Pregnancy T3 (R530)
+  // Volume boosters (R521 follicular) use volumeMultiplier, NOT intensity,
+  // so they cannot accidentally undo a safety cap.
+  // ─────────────────────────────────────────────────────────────────────────
+
   // ------------------------------------------------------------------
   // R511: Sleep Intensity Cap
   // ------------------------------------------------------------------
-  if ((checkIn?.sleep_hours ?? 8) <= 5) {
+  if ((checkIn?.sleep_hours ?? 8) <= T.SLEEP_LOW) {
     intensity = 'low';
     trace.push('R511 — Poor sleep → intensity capped at low');
   }
@@ -562,7 +612,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   // R513: Stress Recovery Bias
   // ------------------------------------------------------------------
-  if ((checkIn?.stress ?? 0) >= 7) {
+  if ((checkIn?.stress ?? 0) >= T.STRESS_HIGH) {
     intensity = 'low';
     trace.push('R513 — High stress → recovery bias');
   }
@@ -570,9 +620,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   // R514: Pain Safety Override
   // ------------------------------------------------------------------
-  if ((checkIn?.pain_level ?? 0) >= 2) {
+  if ((checkIn?.pain_level ?? 0) >= T.PAIN_REST) {
     slot_type = 'rest';
-    trace.push('R514 — Pain ≥2 → rest session');
+    trace.push(`R514 — Pain ≥${T.PAIN_REST} → rest session`);
   }
 
   // ------------------------------------------------------------------
@@ -617,12 +667,12 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   const mood = checkIn?.mood ?? null;
   if (mood !== null) {
-    if (mood <= 4) {
+    if (mood <= T.MOOD_LOW) {
       // Low mood (UI score ≤2) — pull toward recovery
       if (intensity === 'high') intensity = 'moderate';
       else if (intensity === 'moderate') intensity = 'low';
       trace.push(`R517 — Low mood (${mood}/10) → intensity reduced, recovery bias`);
-    } else if (mood <= 6) {
+    } else if (mood <= T.MOOD_MODERATE) {
       // Below-average mood (UI score ≤3) — soften one step if already high
       if (intensity === 'high') intensity = 'moderate';
       trace.push(`R517 — Below-average mood (${mood}/10) → intensity moderated`);
@@ -670,13 +720,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       (equip.includes('treadmill') && tags.includes('high_impact'));
   };
 
-  if (bmi !== null && bmi >= 30 && slot_type !== 'rest') {
-    const hasPain     = (checkIn?.pain_level ?? 0) >= 1;
+  if (bmi !== null && bmi >= T.BMI_MODERATE && slot_type !== 'rest') {
+    const hasPain     = (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR;
     const isNovice    = expLevel === 'beginner';
-    // Strict tier: BMI ≥ 35, OR BMI ≥ 30 with pain or knee-injury signal
-    const strictMode  = bmi >= 35 || (bmi >= 30 && hasPain);
-    // Moderate tier: BMI 30–35, no pain, not a complete novice to running
-    const moderateMode = !strictMode && bmi >= 30;
+    // Strict tier: BMI ≥ 35, OR BMI ≥ 30 with pain — running fully removed
+    const strictMode  = bmi >= T.BMI_STRICT || (bmi >= T.BMI_MODERATE && hasPain);
+    // Moderate tier: BMI 30–35, no pain — running allowed but intensity capped
+    const moderateMode = !strictMode && bmi >= T.BMI_MODERATE;
 
     if (strictMode) {
       // R545 — Remove all running; fall back to low-impact cardio
@@ -691,7 +741,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         );
         pool = [...pool, ...lowImpact];
       }
-      const note = bmi >= 35
+      const note = bmi >= T.BMI_STRICT
         ? `BMI ${bmi.toFixed(0)}+: Running is removed from today's plan. Cycling, rowing, and brisk walking deliver excellent cardio with far less joint load. Build leg and glute strength first — that's the real foundation for running.`
         : `BMI ${bmi.toFixed(0)} + current discomfort: Swapping running for low-impact cardio today. Listen to your body — pain that changes your gait is a signal to stop.`;
       sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
@@ -729,7 +779,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
 
     // R521 — Follicular energy boost
-    if (phase === 'follicular' && (checkIn?.energy ?? 10) >= 6 && (checkIn?.sleep_hours ?? 8) >= 5) {
+    if (phase === 'follicular' && (checkIn?.energy ?? 10) >= T.ENERGY_FOLLICULAR && (checkIn?.sleep_hours ?? 8) >= T.SLEEP_FOLLICULAR) {
       volumeMultiplier = 1.15;
       trace.push('R521 — Your energy is building — time to be strong');
     }
@@ -745,7 +795,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const isLateLuteal = cycleDay != null && cycleDay >= (cycleLengthDays - 5);
       if (isLateLuteal) {
         if (intensity === 'high') intensity = 'moderate';
-        if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= 6) intensity = 'low';
+        if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= T.STRESS_LUTEAL) intensity = 'low';
         trace.push('R523 — Winding down this week, staying consistent');
       }
     }
@@ -770,7 +820,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
 
     // R531 — Supine filter after week 16
-    if (week >= 16) {
+    if (week >= T.PREGNANCY_SUPINE_WEEK) {
       pool = pool.filter(ex => !hasTags(ex, 'supine'));
       trace.push(`R531 — Week ${week}: supine exercises filtered out`);
     }
@@ -818,9 +868,26 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // POSTNATAL RULES (R540–R544)
   // ==================================================================
   if (pregnancyContext?.mode === 'postnatal') {
-    const postnatalPhase = pregnancyContext.postnatal_phase ?? 'immediate';
+    const postnatalCleared = pregnancyContext.postnatal_cleared_for_exercise === 1;
+    let postnatalPhase = pregnancyContext.postnatal_phase ?? 'immediate';
     const birthType = pregnancyContext.postnatal_birth_type ?? null;
     const isCaesarean = birthType === 'caesarean';
+
+    // ------------------------------------------------------------------
+    // R539 — Postnatal clearance gate: if user has not confirmed exercise
+    //        clearance with a healthcare provider, hold at immediate-phase
+    //        restrictions regardless of how many days have elapsed.
+    //        Prevents auto-phase-advancement before medical sign-off.
+    // ------------------------------------------------------------------
+    if (!postnatalCleared && postnatalPhase !== 'immediate') {
+      postnatalPhase = 'immediate';
+      // Propagate to pregnancyContext so downstream code (targetCategory, isGentleMode,
+      // session name) consistently sees the held phase and not the time-derived phase.
+      pregnancyContext.postnatal_phase = 'immediate';
+      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') +
+        'Your session is kept gentle until you confirm exercise clearance with your healthcare provider. When you\'re cleared, update your status in Settings.';
+      trace.push('R539 — Postnatal clearance not confirmed — holding at immediate-phase restrictions');
+    }
 
     // R540 — Phase absolute rules: filter pool by allowed exercise tags
     if (postnatalPhase === 'immediate') {
@@ -886,9 +953,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   //        so decay from skipped sessions automatically reduces intensity.
   //        Does NOT fire in pregnancy/postnatal mode or BMI strict mode.
   // ------------------------------------------------------------------
-  const bmiStrictForRun = bmi !== null && (bmi >= 35 || (bmi >= 30 && (checkIn?.pain_level ?? 0) >= 1));
+  const bmiStrictForRun = bmi !== null && (bmi >= T.BMI_STRICT || (bmi >= T.BMI_MODERATE && (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR));
   const hasRunningShoes = (effectiveEquip.includes('running_shoes') || effectiveEquip.includes('treadmill'))
     && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest';
+
+  // WARN: if BMI is unknown and running would otherwise be assigned, R545/R546 are silently skipped.
+  // Users without height/weight in their profile receive no weight-aware safety guidance.
+  if (bmi === null && (hasRunningShoes || (runCoach?.enrolled && !runCoach?.completed && !inSpecialMode))) {
+    trace.push('WARN R545/R546 — BMI unknown (height or weight missing from profile): weight-aware running safety rules skipped');
+  }
 
   if (hasRunningShoes) {
     // Remove continuous long-run exercises — replaced by progressive intervals
@@ -900,11 +973,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     // Pick level from conditioning endurance score (defaults to 15 = Level 1 for new users)
     const condScore = progressionState?.scores?.conditioning?.endurance ?? 15;
-    const runLevel = condScore < 20 ? 1
-      : condScore < 30 ? 2
-      : condScore < 45 ? 3
-      : condScore < 60 ? 4
-      : condScore < 75 ? 5 : 6;
+    const runLevel = condScore < T.RUN_LEVEL_2 ? 1
+      : condScore < T.RUN_LEVEL_3 ? 2
+      : condScore < T.RUN_LEVEL_4 ? 3
+      : condScore < T.RUN_LEVEL_5 ? 4
+      : condScore < T.RUN_LEVEL_6 ? 5 : 6;
 
     const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
     if (intervalEx && !pool.some(ex => ex.id === intervalEx.id)) {
@@ -1030,9 +1103,20 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // Filter + seed-shuffle for variety across days
+  // Safety fallback order:
+  //   1. Exercises in target category from the (already safety-filtered) pool
+  //   2. Any exercise from the safety-filtered pool (wrong category but still safe)
+  //   3. Emergency: if pool itself is empty, use a safe subset — NEVER the full unfiltered library
+  //      for pregnancy/postnatal users, to avoid bypassing R531–R533 / R540 filters.
   let filtered = pool.filter(ex => ex.category === targetCategory);
   if (!filtered.length) filtered = pool;
-  if (!filtered.length) filtered = [...exercises];
+  if (!filtered.length) {
+    // Pool was emptied by safety filters — recover without discarding those filters.
+    filtered = inSpecialMode
+      ? exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'))
+      : [...exercises];
+    trace.push(`WARN R561 — Pool empty after all filters (target: ${targetCategory}); safe fallback applied (inSpecialMode: ${inSpecialMode})`);
+  }
   let shuffled = seededShuffle(filtered, date);
 
   // ==================================================================
@@ -1052,7 +1136,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       current: progGetDisplayScore(progScores, axis, chartMode),
       target:  targets[axis] ?? 50,
       gap:     Math.max(0, (targets[axis] ?? 50) - progGetDisplayScore(progScores, axis, chartMode)),
-    })).filter(g => g.gap >= 8).sort((a, b) => b.gap - a.gap);
+    })).filter(g => g.gap >= T.PROG_GAP_BIAS).sort((a, b) => b.gap - a.gap);
 
     const topGap = gaps[0];
 
@@ -1092,14 +1176,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const daysSinceMobility = mob?.last_mobility_stimulus_at_ms
       ? Math.floor((Date.now() - mob.last_mobility_stimulus_at_ms) / 86_400_000)
       : 999;
-    if (daysSinceMobility >= 7 && goal !== 'mobility' && slot_type !== 'rest') {
+    if (daysSinceMobility >= T.MOBILITY_DECAY_DAYS && goal !== 'mobility' && slot_type !== 'rest') {
       sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') +
         'Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.';
       trace.push(`R553 — Mobility score decaying (${daysSinceMobility} days) — maintenance note added`);
     }
 
     // R554 — Planner explainability: emit the top gap as a user-facing note
-    if (topGap && topGap.gap >= 15) {
+    if (topGap && topGap.gap >= T.PROG_GAP_NOTE) {
       const axisLabel = { push:'Push', pull:'Pull', legs:'Legs', core:'Core', conditioning:'Cardio', mobility:'Mobility' }[topGap.axis] ?? topGap.axis;
       trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
     }
@@ -1167,7 +1251,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
 
     // R512: Low energy → volume × 0.6
-    if ((checkIn?.energy ?? 10) <= 3) {
+    if ((checkIn?.energy ?? 10) <= T.ENERGY_LOW) {
       if (reps)     { reps     = Math.floor(reps     * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
       if (duration) { duration = Math.floor(duration * 0.6); trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
     }
