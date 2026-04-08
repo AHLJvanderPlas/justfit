@@ -4527,7 +4527,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     return saved ?? { enabled: false, short: emptyProfile, long: { ...emptyProfile, custom: [] } };
   });
   const [overheadEditMode, setOverheadEditMode] = useState(false);
-  const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(false);
+  const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(() => prefs.preferences?.schedule_advanced ?? false);
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
     const saved = prefs.preferences?.weekly_schedule;
     const d = prefs.session_duration_min ?? 30;
@@ -4586,16 +4586,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           experience_level: prefs.experience_level ?? "beginner",
           session_duration_min: planDuration,
           days_per_week_target: prefs.days_per_week_target ?? 3,
-          preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead },
+          preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule },
         });
-        onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead } }));
+        onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule } }));
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus(""), 2000);
       } catch { setSaveStatus("error"); }
     }, 600);
     return () => clearTimeout(t);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planDuration, planEquipment.join(","), JSON.stringify(weeklySchedule), checkinMode, JSON.stringify(timeOverhead)]);
+  }, [planDuration, planEquipment.join(","), JSON.stringify(weeklySchedule), checkinMode, JSON.stringify(timeOverhead), showAdvancedSchedule]);
 
   // ── Auto-save: profile ──
   useEffect(() => {
