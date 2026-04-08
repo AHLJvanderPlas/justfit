@@ -130,7 +130,9 @@ justfit/
 │   ├── 0008_cycle.sql       ← cycle_profile table (standard cycle tracking: tracking_mode, cycle_length_days, last_period_start)
 │   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
-│   └── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
+│   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
+│   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
+│   └── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -894,6 +896,7 @@ Calculated server-side from executions table:
 | Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST |
 | Planner R550–R560 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace |
 | Safe running build-up (Option A) | ✅ Live — R555 rule replaces generic long-run exercises with level-appropriate run/walk intervals when running_shoes in equipment; 6 levels driven by conditioning.endurance score (migration 0015); walk recovery encoded as custom_rest_sec so rest timer = walk; fixed_sets prescribes interval count; automatic decay from skipped sessions reduces level safely |
+| Running Coach Program (Option B) | ✅ Live — R556 rule; structured 5/10/15/20/30km targets (unlocked sequentially); 3 sessions/week Mon/Wed/Fri; warm-up exercises prepended on run days; session named "Running Day · Week N"; run_coach state in preferences_json; advanceRunCoach in execution.js advances week/session counters; 15 continuous run levels 7–21 (20min–180min) + 4 warm-up exercises in migration 0016; enrollment UI in Settings |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
@@ -922,22 +925,10 @@ Improvements identified but not yet built. Ordered roughly by impact.
 ### After Session
 - **Log activity flow after session** — On the session complete card, the "Log activity" button logs a manual activity. Consider also showing extra-time input there so the user can immediately get a bonus plan suggestion without having to tap "Bonus session" separately.
 
-### Running Coach Program (Option B — Roadmap)
-
-A structured 8-week opt-in program that actively schedules run sessions, visible in Settings when `running_shoes` is in equipment. Builds on Option A's interval exercises. Placeholder "Coming soon" card already in Settings UI.
-
-**Design spec:**
-- **Enrollment**: User opts in via Settings card → stored as `preferences_json.run_coach: { enrolled: true, week: 1, session: 1, enrolled_at_ms: ... }`
-- **Program structure**: 8 weeks × 3 sessions per week hardcoded in planner. Each week prescribes a specific run level (1→6) and session count, e.g. Week 1 = Level 2 × 3 sessions, Week 3 = Level 3 × 3 sessions, Week 8 = Level 6 → continuous 20-min run
-- **Active seeding**: On enrolled program days (Mon/Wed/Fri by default), planner forces a cardio session with the week's prescribed level, overriding goal category — user cannot miss runs without the planner noticing
-- **Progression**: Completing a session → `session += 1`; completing 3 sessions → `week += 1`, `session = 1`. Capped at week 8.
-- **Regression on skips**: If `session` has not advanced in >5 days, regress by 1 week (sets week back). Prevents users from starting week 5 after a 3-week break.
-- **Progress UI**: Small progress bar on Today card when enrolled. Week/session indicator. "Week N of 8" shown on session card. Full program view in Progress tab (optional).
-- **Completion**: After Week 8 Session 3, mark as completed. Show a milestone award. Unenroll to avoid repeated prompts.
-- **DB migration needed**: Add `run_program_state` column to `user_preferences` (JSON) OR use existing `preferences_json`.
-- **No new tables required** — store all state in `preferences_json.run_coach`.
-
-**Why this is different from Option A:** Option A is passive safety — it only fires when a cardio session happens to be selected. Option B is an active running coach that *drives* the schedule, ensuring 3 run sessions per week regardless of the day's plan goal.
+### Running Coach — Future Enhancements
+- **Regression on skips**: If >7 days since last run while enrolled, regress 1 week. Prevents users from re-starting week 8 after a 3-week break. Not yet implemented — the decay in conditioning.endurance score already partially handles this via R555.
+- **Milestone awards**: Complete a target distance → unlock a hall-of-fame award. Needs a migration to add 5 running awards.
+- **Program progress in Progress tab**: Show run program current week/level on the Progression screen alongside body scores.
 
 ### Data Quality
 - **Enrich exercise instruction steps** — Several exercises (especially short bodyweight ones) have only 1–2 steps. Target minimum 3 concise steps + 2 cues for every exercise.
