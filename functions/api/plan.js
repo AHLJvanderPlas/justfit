@@ -453,6 +453,9 @@ function getDefaultRest(exercise, slotType) {
   if (slotType === 'micro') return 20;
   if (tags.includes('pelvic_floor')) return 30;
   if (tags.includes('mobility')) return 20;
+  // Run intervals encode their walk-recovery duration in metrics_json
+  const metrics = exercise?.metrics_json ? JSON.parse(exercise.metrics_json) : {};
+  if (metrics.custom_rest_sec != null) return metrics.custom_rest_sec;
   if (tags.includes('cardio')) return 30;
   if (tags.includes('bodyweight')) return 45;
   return 60;
@@ -838,6 +841,40 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R555 — Safe running build-up: replace generic long runs with
+  //        a level-appropriate run/walk interval exercise.
+  //        Level is driven by conditioning.endurance progression score,
+  //        so decay from skipped sessions automatically reduces intensity.
+  //        Does NOT fire in pregnancy/postnatal mode or BMI strict mode.
+  // ------------------------------------------------------------------
+  const bmiStrictForRun = bmi !== null && (bmi >= 35 || (bmi >= 30 && (checkIn?.pain_level ?? 0) >= 1));
+  const hasRunningShoes = (effectiveEquip.includes('running_shoes') || effectiveEquip.includes('treadmill'))
+    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest';
+
+  if (hasRunningShoes) {
+    // Remove continuous long-run exercises — replaced by progressive intervals
+    const genericRunSlugs = new Set([
+      'easy-run-outdoor', 'run-intervals-outdoor', 'tempo-run-outdoor', 'treadmill-run-steady',
+    ]);
+    const before = pool.length;
+    pool = pool.filter(ex => !genericRunSlugs.has(ex.slug));
+
+    // Pick level from conditioning endurance score (defaults to 15 = Level 1 for new users)
+    const condScore = progressionState?.scores?.conditioning?.endurance ?? 15;
+    const runLevel = condScore < 20 ? 1
+      : condScore < 30 ? 2
+      : condScore < 45 ? 3
+      : condScore < 60 ? 4
+      : condScore < 75 ? 5 : 6;
+
+    const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
+    if (intervalEx && !pool.some(ex => ex.id === intervalEx.id)) {
+      pool = [intervalEx, ...pool];
+    }
+    trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${genericRunSlugs.size - (before - pool.length - (intervalEx ? 1 : 0))} generic runs replaced)`);
+  }
+
+  // ------------------------------------------------------------------
   // Determine target category from goal + rules
   // ------------------------------------------------------------------
   let targetCategory;
@@ -983,10 +1020,12 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
     const isLongCardio = !supportsReps && baseDuration > 300;
 
-    // Sets: goal base + experience offset, clamped [1, 5]
+    // Sets: fixed_sets from metrics (run intervals), or goal base + experience offset
     let sets;
     if (slot_type === 'micro' || isGentleMode || isLongCardio) {
       sets = 1;
+    } else if (metrics.fixed_sets) {
+      sets = metrics.fixed_sets; // e.g. run intervals prescribe their own interval count
     } else {
       sets = Math.max(1, Math.min(5, goalSetsBase + setOffset));
     }

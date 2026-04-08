@@ -5419,6 +5419,29 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             )}
           </div>
 
+          {/* ── Running Coach (Option B — roadmap) ── */}
+          {planEquipment.includes("running_shoes") && (
+            <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.muted} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+                    </svg>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.muted }}>Running Coach Program</div>
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", background: C.subtle, color: C.muted, borderRadius: 4, padding: "2px 6px" }}>Coming soon</span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.6 }}>
+                    An 8-week structured build-up program — actively schedules run sessions and tracks your progress toward continuous running.
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6, lineHeight: 1.6 }}>
+                    Safe intervals are already active — your conditioning score automatically sets the right level each session.
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Daily Adaptive Replan */}
           <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
             <div
