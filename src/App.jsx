@@ -3239,8 +3239,24 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           const isFloorEx = tags.some(t => ["floor","supine","prone","mobility","pelvic_floor"].includes(t)) || cur.category === "mobility";
           const showMatHint = isFloorEx && exEquip.length === 0; // suggest mat only when no other equipment
 
-          // Clean cues — strip the 💡 prefix if present
-          const cleanCues = cues.map(c => c.replace(/^💡+\s*/, "").trim());
+          // Split cues into level-specific (prefixed "Beginner:" etc.) and general
+          const expLevel = plan?.experience_level ?? 'intermediate';
+          const LEVEL_PREFIXES = ['Beginner', 'Intermediate', 'Advanced'];
+          const levelTarget = cues.find(c => {
+            const clean = c.replace(/^💡+\s*/, "").trim();
+            const matchPrefix = LEVEL_PREFIXES.find(p => clean.toLowerCase().startsWith(p.toLowerCase()));
+            return matchPrefix && matchPrefix.toLowerCase() === expLevel.toLowerCase();
+          });
+          const levelTargetText = levelTarget
+            ? levelTarget.replace(/^💡+\s*/, "").replace(/^(Beginner|Intermediate|Advanced):\s*/i, "").trim()
+            : null;
+          // General cues = those without a level prefix (skip all level-specific ones)
+          const cleanCues = cues
+            .filter(c => {
+              const clean = c.replace(/^💡+\s*/, "").trim();
+              return !LEVEL_PREFIXES.some(p => clean.toLowerCase().startsWith(p.toLowerCase() + ':'));
+            })
+            .map(c => c.replace(/^💡+\s*/, "").trim());
 
           return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -3313,7 +3329,17 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 </div>
               </div>
 
-              {/* ── Card 3: Why (cues) ── */}
+              {/* ── Card 3: Your target today (level-specific) ── */}
+              {levelTargetText && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
+                    Your target · {expLevel.charAt(0).toUpperCase() + expLevel.slice(1)}
+                  </div>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{levelTargetText}</p>
+                </div>
+              )}
+
+              {/* ── Card 4: Why (general cues only) ── */}
               {cleanCues.length > 0 && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Why this helps</div>

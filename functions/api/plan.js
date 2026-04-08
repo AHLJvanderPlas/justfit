@@ -1069,8 +1069,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const weekConfig = programWeeks[weekIdx]; // { hiit: N, zone2: N }
       // session_in_week 1 = Zone 2 (mid-week easy run); 0 and 2 = HIIT
       const isZone2Session = sessionInWeek === 1;
-      const prescribedLevel = isZone2Session ? weekConfig.zone2 : weekConfig.hiit;
       const sessionTypeLabel = isZone2Session ? 'Zone 2' : 'Intervals';
+
+      // ── Experience-level offset ────────────────────────────────────
+      // Beginners get 2 levels lower (shorter/easier exercise) so their
+      // zone2 session stays at interval level rather than a 25-min continuous run.
+      // Advanced runners get +1 level to keep it appropriately challenging.
+      // This ensures the same program week feels right for every runner.
+      const runExpOffset = expLevel === 'beginner' ? -2 : expLevel === 'advanced' ? 1 : 0;
+      const basePrescribed = isZone2Session ? weekConfig.zone2 : weekConfig.hiit;
+      const prescribedLevel = Math.max(1, basePrescribed + runExpOffset);
+      trace.push(`R556 — Experience offset: ${expLevel} → level ${basePrescribed}${runExpOffset !== 0 ? `+${runExpOffset}=${prescribedLevel}` : ''}`);
 
       // ── Time-aware exercise selection ─────────────────────────────
       // Total run time for an exercise: fixed_sets × (base_duration + rest) or just base_duration
@@ -1083,9 +1092,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const warmupOverheadSec = 4 * 45; // 4 warmup exercises × ~45s each
       const availableRunSec = Math.max(600, sessionDurSec - warmupOverheadSec);
 
-      // Find the highest level of the prescribed type that fits available time
-      // Level never goes below its type minimum — never regresses
-      const minLevel = isZone2Session ? 7 : 1;
+      // Find the highest level of the prescribed type that fits available time.
+      // For beginners: allow zone2 sessions to use interval levels (1–6) if the
+      // offset pushed the prescribed level below 7 — this is intentional.
+      const minLevel = (isZone2Session && prescribedLevel >= 7) ? 7 : 1;
       let effectiveLevel = minLevel;
       for (let lvl = minLevel; lvl <= prescribedLevel; lvl++) {
         const slug = lvl <= 6 ? `run-interval-level-${lvl}` : `run-continuous-level-${lvl}`;
@@ -1641,6 +1651,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     trimester: pregnancyContext?.trimester ?? null,
     postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
     steps: orderedSteps,
+    experience_level: expLevel ?? 'intermediate',
     rule_trace: trace,
     run_program: runProgramOverride
       ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
