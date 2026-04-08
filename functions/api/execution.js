@@ -349,9 +349,29 @@ async function advanceRunCoach(userId, steps, env, nowMs) {
 
   const totalWeeks = RUN_PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
   let week = rc.week ?? 1;
-  let sessionInWeek = (rc.session_in_week ?? 0) + 1;
+  let sessionInWeek = rc.session_in_week ?? 0;
   let completed = false;
   let unlockedTargets = rc.unlocked_targets ?? [];
+
+  // ── Regression on extended break ──────────────────────────────────────────
+  // Philosophy: Consistency first, but achievable targets.
+  // If the user hasn't run in >7 days, returning to their previous week could
+  // be too aggressive — the body needs to rebuild. Step back one week so the
+  // return session is appropriate for current fitness, not past fitness.
+  // This prevents injury from re-entering week 8 after a 3-week absence.
+  // R555 (conditioning score decay) also reduces run level, but this makes
+  // the week regression explicit and communicates it clearly in the trace.
+  const daysSinceLastRun = rc.last_run_at_ms
+    ? Math.floor((nowMs - rc.last_run_at_ms) / 86_400_000)
+    : 0;
+  if (daysSinceLastRun > 7 && week > 1) {
+    week = Math.max(1, week - 1);
+    sessionInWeek = 0; // restart the regressed week fresh
+    console.log(`[run-coach] Regressed to week ${week} after ${daysSinceLastRun}-day break`);
+  }
+
+  // Advance: this completed session counts as next session in current week
+  sessionInWeek = sessionInWeek + 1;
 
   if (sessionInWeek >= 3) {
     sessionInWeek = 0;

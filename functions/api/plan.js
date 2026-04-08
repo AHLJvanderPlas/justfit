@@ -547,6 +547,27 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let intensity = GOAL_INTENSITY[goal] ?? 'moderate';
   trace.push(`R500 — Goal: ${goal} → initial intensity: ${intensity}`);
 
+  // ------------------------------------------------------------------
+  // R500a: Intensity Preference — persistent user preference (1–10 scale)
+  // Stored as prefs.intensity_pref. Acts as a soft ceiling BEFORE check-in
+  // rules can override further downward. A user who consistently prefers
+  // gentler sessions should not be pushed high just because their goal is
+  // strength or muscle_gain. Philosophy: adjust the sport to your life.
+  //   pref 1–3 → cap at 'low'    (very gentle preference)
+  //   pref 4–5 → cap at 'moderate' (moderate preference, downgrade high→moderate)
+  //   pref 6–10 → no cap (goal-based intensity stands)
+  // ------------------------------------------------------------------
+  const intensityPref = prefs?.intensity_pref ?? null;
+  if (intensityPref !== null) {
+    if (intensityPref <= 3 && (intensity === 'high' || intensity === 'moderate')) {
+      intensity = 'low';
+      trace.push(`R500a — Intensity pref ${intensityPref}/10 → capped at low`);
+    } else if (intensityPref <= 5 && intensity === 'high') {
+      intensity = 'moderate';
+      trace.push(`R500a — Intensity pref ${intensityPref}/10 → capped at moderate`);
+    }
+  }
+
   let slot_type = 'main';
   let pool = [...exercises];
   pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
@@ -602,11 +623,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ─────────────────────────────────────────────────────────────────────────
 
   // ------------------------------------------------------------------
-  // R511: Sleep Intensity Cap
+  // R511: Sleep Intensity + Volume Cap
+  // Poor sleep impairs muscle recovery, coordination, and injury resistance.
+  // Both intensity AND volume are reduced: doing 85% of normal reps at low
+  // intensity is the safest choice. The body needs more rest, not more reps.
   // ------------------------------------------------------------------
   if ((checkIn?.sleep_hours ?? 8) <= T.SLEEP_LOW) {
     intensity = 'low';
-    trace.push('R511 — Poor sleep → intensity capped at low');
+    volumeMultiplier = Math.min(volumeMultiplier, 0.85);
+    trace.push(`R511 — Poor sleep (≤${T.SLEEP_LOW}h) → intensity capped at low, volume ×0.85`);
   }
 
   // ------------------------------------------------------------------
@@ -1068,15 +1093,32 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   //        the pool so only the preferred type competes for selection.
   //        Activates when sport_prefs.polarised_training is enabled.
   // ------------------------------------------------------------------
+  // ------------------------------------------------------------------
+  // R558 — Polarised training: balance HIIT and Zone 2 in general
+  //        endurance sessions. Removes the opposing endurance type from
+  //        the pool so only the preferred type competes for selection.
+  //        Activates when sport_prefs.polarised_training is enabled.
+  //
+  //        Priority rule (Philosophy 2 > Philosophy 8):
+  //        If life rules (sleep, stress, mood, period) have already forced
+  //        intensity to 'low', the body is signalling recovery. HIIT is
+  //        inappropriate — override to Zone 2 regardless of last type.
+  //        This ensures "Adjust the Sport to Your Life" takes precedence
+  //        over polarised training preferences.
+  // ------------------------------------------------------------------
   const polarisedOn = prefs?.preferences?.sport_prefs?.polarised_training;
   if (polarisedOn && !runProgramOverride && !inSpecialMode && slot_type !== 'rest') {
     const lastType = prefs?.preferences?.sport_prefs?.last_endurance_type ?? null;
-    const nextType = lastType === 'hiit' ? 'zone2' : 'hiit';
+    // Philosophy priority: if intensity was forced to low by a life rule, always prefer
+    // Zone 2 today — even if last session was Zone 2. Body recovery > training balance.
+    const lifeRuleReducedIntensity = intensity === 'low';
+    const nextType = lifeRuleReducedIntensity ? 'zone2' : (lastType === 'hiit' ? 'zone2' : 'hiit');
     const opposingType = nextType === 'hiit' ? 'zone2' : 'hiit';
     const preferredCount = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes(nextType)).length;
     if (preferredCount > 0) {
       pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(opposingType));
-      trace.push(`R558 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType} (${preferredCount} exercises), removed ${opposingType}`);
+      const reasonNote = lifeRuleReducedIntensity ? ' (life-rule override: intensity=low → zone2)' : '';
+      trace.push(`R558 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
     }
   }
 
