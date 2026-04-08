@@ -7323,9 +7323,13 @@ export default function App() {
           sex={prefs.sex}
           cycle={prefs.cycle}
           defaultTimeBudget={(() => {
-            const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
-            const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
-            return (scheduled && scheduled > 0) ? scheduled : (prefs.session_duration_min ?? 30);
+            const fallback = prefs.session_duration_min ?? 30;
+            if (prefs.preferences?.schedule_advanced) {
+              const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
+              const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
+              return (scheduled != null && scheduled > 0) ? scheduled : fallback;
+            }
+            return fallback;
           })()}
           lastCheckin={lastCheckin}
         />
