@@ -1062,6 +1062,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       name: ex.name,
       category: ex.category,
       tags_json: ex.tags_json ?? '[]',
+      equipment_required_json: ex.equipment_required_json ?? '["none"]',
       target_reps: reps,
       target_duration_sec: duration,
       sets,

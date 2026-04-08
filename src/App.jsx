@@ -2443,7 +2443,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     >
                       {s.target_reps
                         ? `${s.target_reps} reps`
-                        : `${s.target_duration_sec}s`}
+                        : formatExDuration(s.target_duration_sec)}
                     </span>
                   </div>
                 ))}
@@ -2636,7 +2636,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [currentSet, setCurrentSet] = useState(1);
   const [repCount, setRepCount] = useState(0);
   const [phase, setPhase] = useState(
-    !plan || plan.slot_type === "rest" ? "restDay" : totalExercises > 0 ? "instruction" : "sessionFeedback"
+    !plan || plan.slot_type === "rest" ? "restDay" : totalExercises > 0 ? "overview" : "sessionFeedback"
   );
   const [restRemaining, setRestRemaining] = useState(60);
   const [restTotal, setRestTotal] = useState(60);
@@ -3015,7 +3015,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
       )}
 
       {/* Session header */}
-      {phase !== "sessionFeedback" && (
+      {phase !== "sessionFeedback" && phase !== "overview" && (
         <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
@@ -3046,8 +3046,111 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
         </div>
       )}
 
+      {/* ── OVERVIEW PHASE ── */}
+      {phase === "overview" && (() => {
+        const allEquipment = [...new Set(
+          exercises.flatMap(s => JSON.parse(s.equipment_required_json || '["none"]'))
+        )].filter(e => e !== "none" && e !== "chair");
+        const estMins = estimateMins(plan);
+        return (
+          <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
+            {/* Overview header */}
+            <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
+              <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <button onClick={onBack} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
+                  ← Back
+                </button>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{plan.session_name}</div>
+                <div style={{ minWidth: 56 }} />
+              </div>
+            </div>
+
+            {/* Scrollable body */}
+            <div style={{ flex: 1, overflowY: "auto", padding: "24px 20px 120px" }}>
+              <div style={{ maxWidth: 560, margin: "0 auto" }}>
+
+                {/* Session headline */}
+                <div style={{ marginBottom: 28 }}>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{plan.session_name}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} exercises</span>
+                    <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
+                    {estMins && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{estMins} min</span>}
+                    <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
+                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: "#6ee7b7", moderate: C.emerald, high: "#f59e0b" }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
+                  </div>
+                </div>
+
+                {/* Equipment */}
+                {allEquipment.length > 0 && (
+                  <div style={{ marginBottom: 28 }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Bring with you</div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                      {allEquipment.map(eq => {
+                        const label = ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ");
+                        return (
+                          <span key={eq} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                            {label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Exercise list */}
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>Your session</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  {exercises.map((s, i) => {
+                    const instr = s.instructions_json ? JSON.parse(s.instructions_json) : null;
+                    const firstStep = instr?.steps?.[0] ?? null;
+                    const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
+                    const metricsRestSec = s.rest_sec;
+                    return (
+                      <div key={i} style={{ padding: "14px 16px", borderRadius: 16, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: firstStep ? 8 : 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                              <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
+                            </div>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{s.name}</span>
+                          </div>
+                          <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, flexShrink: 0, whiteSpace: "nowrap" }}>
+                            {isRunInterval
+                              ? `${s.sets}× · ${formatExDuration(s.target_duration_sec)} run / ${formatExDuration(metricsRestSec)} walk`
+                              : s.target_reps
+                                ? `${s.sets} × ${s.target_reps} reps`
+                                : `${s.sets} × ${formatExDuration(s.target_duration_sec)}`}
+                          </span>
+                        </div>
+                        {firstStep && (
+                          <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, paddingLeft: 32 }}>{firstStep}</div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Fixed Start Workout button */}
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: `16px 20px max(24px, env(safe-area-inset-bottom))`, background: `linear-gradient(to top, ${C.bg} 70%, transparent)` }}>
+              <div style={{ maxWidth: 560, margin: "0 auto" }}>
+                <button
+                  onClick={() => setPhase("instruction")}
+                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.35)" }}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                  Start Workout
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {/* Phase content */}
-      <div style={{ flex: 1, overflow: "auto" }}>
+      <div style={{ flex: 1, overflow: "auto", display: phase === "overview" ? "none" : undefined }}>
         {/* ── INSTRUCTION PHASE ── */}
         {phase === "instruction" && cur && (() => {
           const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
@@ -6297,6 +6400,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   );
 }
 
+// ─── TIME FORMATTING ──────────────────────────────────────────────────────────
+// For individual exercise durations in lists/cards
+function formatExDuration(sec) {
+  if (!sec) return null;
+  if (sec < 60) return `${sec}s`;
+  const rawMin = sec / 60;
+  if (rawMin > 20) return `${Math.ceil(rawMin / 5) * 5} min`;
+  return `${Math.ceil(rawMin)} min`;
+}
+
 // ─── WEEKLY PLAN VIEW ─────────────────────────────────────────────────────────
 function estimateMins(p) {
   if (!p || p.slot_type === "rest") return null;
@@ -6310,7 +6423,8 @@ function estimateMins(p) {
     const rest = (step.rest_sec ?? 45) * Math.max(0, sets - 1);
     return s + active + rest;
   }, 0);
-  return Math.max(5, Math.round(totalSec / 60));
+  const rawMin = Math.max(5, Math.ceil(totalSec / 60));
+  return rawMin > 20 ? Math.ceil(rawMin / 5) * 5 : rawMin;
 }
 
 function PlanWeekView({ history, plan, userId, onDeleteExecution }) {
