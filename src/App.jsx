@@ -3944,6 +3944,51 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
           </Glass>
 
+          {/* ── Running Coach card (Progress tab) ── */}
+          {prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed && (() => {
+            const rc = prefs.preferences.run_coach;
+            const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+            const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+            const week = rc.week ?? 1;
+            const sessionInWeek = rc.session_in_week ?? 0;
+            const pct = Math.min(100, Math.round(((week - 1) * 3 + sessionInWeek) / (totalWeeks * 3) * 100));
+            const unlockedTargets = rc.unlocked_targets ?? [];
+            return (
+              <Glass style={{ padding: 20, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 10, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                    </div>
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>Running Coach</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Program</div>
+                    </div>
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.02em" }}>Week {week}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>of {totalWeeks}</div>
+                  </div>
+                </div>
+                <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
+                  <div style={{ width: `${pct}%`, height: "100%", background: C.emerald, borderRadius: 999, transition: "width 0.5s ease" }} />
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 14 }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {[5, 10, 15, 20, 30].map(t => {
+                    const done = unlockedTargets.includes(String(t));
+                    const isCurrent = t === (rc.target_km ?? 5);
+                    return (
+                      <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.02)", color: isCurrent ? C.emerald : done ? C.muted : C.subtle }}>
+                        {done ? "✓ " : ""}{t}km
+                      </div>
+                    );
+                  })}
+                </div>
+              </Glass>
+            );
+          })()}
+
           {/* ── Training Goal card ── */}
           {(() => {
             const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
@@ -3973,7 +4018,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
           })()}
 
           {/* ── Key insights + planner explanation ── */}
-          {(progression.insights || (progression.planner_explanation ?? []).length > 0) && (
+          {(progression.insights || (progression.planner_explanation ?? []).length > 0 || (prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed)) && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
                 Key Insights
@@ -4033,6 +4078,35 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     ))}
                   </>
                 )}
+
+                {/* Running Coach insight */}
+                {prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed && (() => {
+                  const rc = prefs.preferences.run_coach;
+                  const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+                  const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+                  const todayDOW = new Date().getDay();
+                  const isRunDay = [1, 3, 5].includes(todayDOW);
+                  return (
+                    <>
+                      <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
+                            Running Coach — {rc.target_km}km, Week {rc.week ?? 1} of {totalWeeks}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                            {isRunDay
+                              ? "Today is a run day — warm-up exercises and your scheduled run are included in today's plan."
+                              : "Run sessions are scheduled Mon, Wed & Fri with warm-up exercises and a level-appropriate run."}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </Glass>
             </div>
           )}
@@ -5550,129 +5624,65 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
           </div>
 
           {/* ── Running Coach Program ── */}
-          {planEquipment.includes("running_shoes") && (
-            <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-              {(() => {
-                const rcState = prefs.preferences?.run_coach ?? null;
-                const isEnrolled = rcState?.enrolled === true && !rcState?.completed;
-                const unlockedTargets = rcState?.unlocked_targets ?? [];
-                const TARGETS = [5, 10, 15, 20, 30];
-                const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
-                const isTargetAvailable = (t) => {
-                  const prevMap = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 };
-                  const prev = prevMap[t];
-                  return !prev || unlockedTargets.includes(String(prev));
-                };
-                const saveRunCoach = (newRc) => {
-                  const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
-                  onUpdate((p) => ({ ...p, preferences: newPrefs }));
-                  api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
-                };
-
-                const header = (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
-                    </svg>
-                    <div style={{ fontSize: 13, fontWeight: 900, color: C.text }}>Running Coach Program</div>
-                  </div>
-                );
-
-                if (rcState?.completed) {
-                  const nextTarget = TARGETS.find(t => !unlockedTargets.includes(String(t)) && isTargetAvailable(t));
-                  return (
-                    <>
-                      {header}
-                      <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.08)", border: `1px solid ${C.emeraldBorder}`, marginBottom: 12 }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: C.emerald }}>🏃 {rcState.target_km}km program complete!</div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>You built up to running {rcState.target_km}km. Time for the next challenge.</div>
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                        {TARGETS.map(t => {
-                          const done = unlockedTargets.includes(String(t));
-                          const available = isTargetAvailable(t);
-                          return (
-                            <div key={t} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, border: `1px solid ${done ? C.emeraldBorder : C.border}`, background: done ? "rgba(var(--accent-rgb),0.1)" : "rgba(255,255,255,0.03)", color: done ? C.emerald : available ? C.muted : C.subtle, cursor: available && !done ? "pointer" : "default" }} onClick={() => available && !done && setRunTargetSelect(t)}>
-                              {done ? "✓ " : !available ? "🔒 " : ""}{t}km
-                            </div>
-                          );
-                        })}
-                      </div>
-                      {nextTarget && (
-                        <button onClick={() => saveRunCoach({ enrolled: true, target_km: nextTarget, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })} style={{ padding: "10px 18px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
-                          Start {nextTarget}km Program →
-                        </button>
-                      )}
-                    </>
-                  );
-                }
-
-                if (isEnrolled) {
-                  const totalWeeks = PROGRAM_WEEKS[rcState.target_km ?? 5] ?? 8;
-                  const currentWeek = rcState.week ?? 1;
-                  const sessionInWeek = rcState.session_in_week ?? 0;
-                  const totalSessions = totalWeeks * 3;
-                  const doneSessions = (currentWeek - 1) * 3 + sessionInWeek;
-                  const pct = Math.min(100, Math.round(doneSessions / totalSessions * 100));
-                  return (
-                    <>
-                      {header}
-                      <div style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 2 }}>{rcState.target_km}km Target · Week {currentWeek} of {totalWeeks}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
-                      </div>
-                      <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 14 }}>
-                        <div style={{ width: `${pct}%`, height: "100%", background: C.emerald, borderRadius: 999, transition: "width 0.4s ease" }} />
-                      </div>
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                        {TARGETS.map(t => {
-                          const done = unlockedTargets.includes(String(t));
-                          const isCurrent = t === (rcState.target_km ?? 5);
-                          const available = isTargetAvailable(t);
-                          return (
-                            <div key={t} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, border: `1px solid ${isCurrent ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.03)", color: isCurrent ? C.emerald : done ? C.muted : !available ? C.subtle : C.muted }}>
-                              {done ? "✓ " : !available ? "🔒 " : ""}{t}km
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <button onClick={() => saveRunCoach({ ...rcState, enrolled: false })} style={{ padding: "7px 14px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                        End program
-                      </button>
-                    </>
-                  );
-                }
-
-                // Not enrolled
-                return (
-                  <>
-                    {header}
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
-                      A structured build-up program — actively schedules run sessions Mon, Wed &amp; Fri with warm-up exercises. Unlocks distance targets one by one.
+          {planEquipment.includes("running_shoes") && (() => {
+            const rcState = prefs.preferences?.run_coach ?? null;
+            const isActive = rcState?.enrolled === true && !rcState?.completed;
+            const unlockedTargets = rcState?.unlocked_targets ?? [];
+            const saveRunCoach = (newRc) => {
+              const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
+              onUpdate((p) => ({ ...p, preferences: newPrefs }));
+              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
+            };
+            return (
+              <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
+                {/* Toggle row */}
+                <div
+                  onClick={() => isActive && saveRunCoach({ ...rcState, enrolled: false })}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: isActive ? "pointer" : "default", background: isActive ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${isActive ? C.emeraldBorder : C.border}` }}
+                >
+                  <div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: isActive ? C.emerald : C.text }}>Running Coach Program</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                      {isActive
+                        ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Mon · Wed · Fri`
+                        : "Structured run build-up — 3 sessions/week, Mon · Wed · Fri"}
                     </div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 14 }}>
-                      {TARGETS.map(t => {
-                        const available = isTargetAvailable(t);
+                  </div>
+                  <div style={{ width: 36, height: 20, borderRadius: 999, background: isActive ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                    <div style={{ position: "absolute", top: 2, left: isActive ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
+                  </div>
+                </div>
+
+                {/* Target selector — only when not active */}
+                {!isActive && (
+                  <div style={{ marginTop: 12, paddingLeft: 2 }}>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                      {[5, 10, 15, 20, 30].map(t => {
+                        const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
+                        const available = !prev || unlockedTargets.includes(String(prev));
                         const done = unlockedTargets.includes(String(t));
                         const isSelected = t === runTargetSelect;
                         return (
-                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
+                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
                             {done ? "✓ " : !available ? "🔒 " : ""}{t}km
                           </button>
                         );
                       })}
                     </div>
-                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 14 }}>
-                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · 3 sessions/week · Safe build-up from run/walk intervals to continuous running
+                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 10 }}>
+                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · 3 sessions/week
                     </div>
-                    <button onClick={() => saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })} style={{ padding: "10px 18px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontSize: 13, fontWeight: 900, cursor: "pointer" }}>
-                      Start {runTargetSelect}km Program →
+                    <button
+                      onClick={() => saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })}
+                      style={{ padding: "8px 16px", borderRadius: 10, background: C.emerald, border: "none", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer" }}
+                    >
+                      Activate {runTargetSelect}km Program →
                     </button>
-                  </>
-                );
-              })()}
-            </div>
-          )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Daily Adaptive Replan */}
           <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
