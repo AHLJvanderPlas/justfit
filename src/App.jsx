@@ -3973,9 +3973,9 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                 <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
                   <div style={{ width: `${pct}%`, height: "100%", background: C.emerald, borderRadius: 999, transition: "width 0.5s ease" }} />
                 </div>
-                <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Session {sessionInWeek} of 3 this week · Mon · Wed · Fri</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Session {sessionInWeek} of 3 this week — any 3 days you train</div>
                 <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                  {[{n:1,day:"Mon",type:"Intervals"},{n:2,day:"Wed",type:"Zone 2"},{n:3,day:"Fri",type:"Intervals"}].map(s => {
+                  {[{n:1,day:"Run 1",type:"Intervals"},{n:2,day:"Run 2",type:"Zone 2"},{n:3,day:"Run 3",type:"Intervals"}].map(s => {
                     const done = sessionInWeek >= s.n;
                     const next = sessionInWeek === s.n - 1;
                     return (
@@ -4097,8 +4097,11 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   const rc = prefs.preferences.run_coach;
                   const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
                   const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
-                  const todayDOW = new Date().getDay();
-                  const isRunDay = [1, 3, 5].includes(todayDOW);
+                  const sessionsLeft = 3 - sessionInWeek;
+                  const lastRunDate = rc.last_run_at_ms
+                    ? new Date(rc.last_run_at_ms).toISOString().slice(0, 10) : null;
+                  const todayStr = new Date().toISOString().slice(0, 10);
+                  const runReadyToday = (!lastRunDate || lastRunDate < todayStr) && sessionInWeek < 3;
                   return (
                     <>
                       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
@@ -4111,9 +4114,11 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                             Running Coach — {rc.target_km}km, Week {rc.week ?? 1} of {totalWeeks}
                           </div>
                           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-                            {isRunDay
-                              ? "Today is a run day — warm-up exercises and your scheduled run are included in today's plan."
-                              : "Run sessions are scheduled Mon, Wed & Fri with warm-up exercises and a level-appropriate run."}
+                            {runReadyToday
+                              ? `Run ${sessionInWeek + 1} of 3 this week — warm-up and your ${sessionInWeek === 1 ? "Zone 2 easy run" : "interval run"} are included in today's plan.`
+                              : sessionsLeft > 0
+                                ? `${sessionsLeft} run${sessionsLeft > 1 ? "s" : ""} left this week — train any day that suits you.`
+                                : "Week complete — great work. Your next running week starts when you're ready."}
                           </div>
                         </div>
                       </div>
@@ -4965,7 +4970,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
         },
         {
           heading: "Philosophy: Consistency > Intensity",
-          body: "The science is clear: showing up consistently at moderate effort produces better long-term results than sporadic bursts of maximum intensity. JustFit is built around this truth.\n\nWe do not reward pain. We reward presence. A ten-minute session on a hard day is worth more than a skipped session after a hard week. The app never tells you to push through — it meets you where you are.",
+          body: "The science is clear: showing up consistently at moderate effort produces better long-term results than sporadic bursts of maximum intensity. JustFit is built around this truth.\n\nWe do not reward pain. We reward presence. A ten-minute session on a hard day is worth more than a skipped session after a hard week. The app never tells you to push through — it meets you where you are.\n\nYour level never drops because you had a hard week. Your programme adapts to fit your life, not the other way around.",
+        },
+        {
+          heading: "Running Coach",
+          body: "The Running Coach is a structured programme that builds you toward a distance target — 5, 10, 15, 20, or 30 km — over 8 to 20 weeks. Three sessions per week, on any days that suit you.\n\nEach week alternates between HIIT interval runs (sessions 1 and 3) and a longer, easy Zone 2 run (session 2). If you miss more than 7 days, the programme steps back one week to keep effort appropriate for your current fitness — not your past fitness.\n\nIf your available time is shorter than the scheduled run, the level is automatically reduced to fit. Your progression is preserved. Consistency is always the goal.",
+        },
+        {
+          heading: "Polarised Training",
+          body: "Polarised training is the method used by elite endurance athletes: roughly 80% of sessions at low intensity (Zone 2 — conversational pace, aerobic base), and 20% at high intensity (HIIT — near-maximum effort, short intervals). The middle ground — moderate intensity — is largely avoided.\n\nWhen enabled, JustFit alternates your endurance sessions between HIIT and Zone 2 automatically. One important rule: if life signals (poor sleep, high stress, low mood, period day) have already pushed today toward recovery, Zone 2 is always chosen — even if it was last time's type. Your body's signals always take priority over training balance.",
         },
         {
           heading: "Why We Don't Use AI for Plans",
@@ -4986,7 +4999,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
         },
         {
           heading: "The Planner Engine",
-          body: "A rule-based engine (not AI) analyses your situation alongside your goal, experience level, body profile, and cycle context to generate a personalised session. Rules include:\n\n• Low sleep → intensity reduced\n• High stress → session shifts to mobility\n• Pain reported → rest day assigned\n• Travelling or no gear → bodyweight-only exercises\n• BMI ≥ 30 → low-impact alternatives replace running\n• Pregnancy / postnatal → safe exercise selection and volume limits\n• Equipment profile → only exercises matching your available kit\n• Outdoor exercises always scheduled last in a session",
+          body: "A rule-based engine (not AI) analyses your situation alongside your goal, experience level, body profile, and cycle context to generate a personalised session. Rules fire in priority order — life always wins over training preferences:\n\n• Pain reported → rest day assigned, no exceptions\n• Low sleep (≤5h) → intensity and volume both reduced\n• High stress → intensity lowered, session shifts toward mobility\n• Low mood or energy → intensity stepped down, volume adjusted\n• Travelling or no gear → bodyweight-only session\n• No time (≤10 min) → micro session, 2 exercises\n• BMI ≥ 35 → running replaced with low-impact cardio\n• BMI 30–35 → run-walk progression, intensity capped\n• Pregnancy → high-impact excluded, intensity capped by trimester, pelvic floor included\n• Postnatal → phase-gated recovery programme, exercise clearance required\n• Period day / menstrual phase → gentle session\n• Follicular phase + good sleep/energy → volume boost\n• Equipment profile → only exercises matching your available kit\n• Running Coach enrolled → structured run session prescribed (HIIT or Zone 2)\n• Polarised training on → alternates HIIT and Zone 2; Zone 2 always chosen on low-energy days\n• Outdoor exercises always scheduled last in a session",
         },
         {
           heading: "Goals & Experience",
@@ -5657,8 +5670,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                     <div style={{ fontSize: 13, fontWeight: 800, color: isActive ? C.emerald : C.text }}>Running Coach Program</div>
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
                       {isActive
-                        ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Mon · Wed · Fri`
-                        : "Structured run build-up — 3 sessions/week, Mon · Wed · Fri"}
+                        ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
+                        : "Progressive run programme — 3 sessions per week, any days you choose"}
                     </div>
                   </div>
                   <div style={{ width: 36, height: 20, borderRadius: 999, background: isActive ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
@@ -5683,7 +5696,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                       })}
                     </div>
                     <div style={{ fontSize: 11, color: C.subtle, marginBottom: 10 }}>
-                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · 3 sessions/week
+                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
                     </div>
                     <button
                       onClick={() => saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })}
@@ -5707,8 +5720,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                 <div style={{ fontSize: 13, fontWeight: 800, color: sportPrefs.polarised_training ? C.emerald : C.text }}>Polarised Training</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
                   {sportPrefs.polarised_training
-                    ? `Active · Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy" : "HIIT intervals"}`
-                    : "Alternates HIIT and Zone 2 for all endurance sessions"}
+                    ? `Active · Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
+                    : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
                 </div>
               </div>
               <div style={{ width: 36, height: 20, borderRadius: 999, background: sportPrefs.polarised_training ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
@@ -5737,7 +5750,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               <div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: prefs.isPro && prefs.daily_replan ? C.emerald : C.text }}>Daily Adaptive Replan</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  {prefs.isPro ? "Regenerates plan each morning" : "Upgrade to Pro to unlock"}
+                  {prefs.isPro ? "Recalibrates your plan each morning based on your check-in" : "Upgrade to Pro to unlock"}
                 </div>
               </div>
               {prefs.isPro ? (
