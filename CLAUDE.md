@@ -930,6 +930,9 @@ Improvements identified but not yet built. Ordered roughly by impact.
 - **Milestone awards**: Complete a target distance → unlock a hall-of-fame award. Needs a migration to add 5 running awards.
 - **Program progress in Progress tab**: Show run program current week/level on the Progression screen alongside body scores.
 
+### Women's Health — v2 Roadmap
+- **R526 — Perimenopause phase** *(explicitly out of scope for v1)*: The current cycle rules (R520–R525) assume standard menstruation. Perimenopause involves irregular cycles and hormone fluctuations without pregnancy. A future R526 could detect `cycle_profile.mode = 'perimenopause'` and adapt: longer recovery windows, lower stress threshold (T.STRESS_PERIMENOPAUSE), reduced intensity defaults, and exercise bias toward mobility and low-impact strength rather than HIIT. Would require a new `mode` value in the `cycle_profile` table and a Settings toggle alongside the existing pregnancy/postnatal setup.
+
 ### Data Quality
 - **Enrich exercise instruction steps** — Several exercises (especially short bodyweight ones) have only 1–2 steps. Target minimum 3 concise steps + 2 cues for every exercise.
 - **Add `why` and `muscle_target` to all exercises** — New fields in `instructions_json`. Could be seeded via a migration script.
