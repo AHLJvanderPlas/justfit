@@ -3250,6 +3250,23 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           const levelTargetText = levelTarget
             ? levelTarget.replace(/^💡+\s*/, "").replace(/^(Beginner|Intermediate|Advanced):\s*/i, "").trim()
             : null;
+
+          // Interval structure: detected by slug for run/walk intervals
+          // Shows "Run Xmin · Walk Ymin · × N rounds" as a concrete beginner-friendly target
+          const isRunInterval = (cur.exercise_slug ?? '').startsWith('run-interval-level-');
+          const formatIntervalTime = (sec) => {
+            if (!sec) return '?';
+            if (sec < 60) return `${sec}s`;
+            const m = Math.floor(sec / 60), s = sec % 60;
+            return s > 0 ? `${m}:${String(s).padStart(2,'0')}` : `${m} min`;
+          };
+          const intervalStructureText = isRunInterval && cur.sets > 1 && cur.target_duration_sec
+            ? `Run ${formatIntervalTime(cur.target_duration_sec)} · Walk ${formatIntervalTime(cur.rest_sec)} · × ${cur.sets} rounds`
+            : null;
+
+          // Final "Your target" content — prefer level-specific cue, fall back to interval structure
+          const targetCardText = levelTargetText ?? intervalStructureText;
+
           // General cues = those without a level prefix (skip all level-specific ones)
           const cleanCues = cues
             .filter(c => {
@@ -3329,13 +3346,17 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 </div>
               </div>
 
-              {/* ── Card 3: Your target today (level-specific) ── */}
-              {levelTargetText && (
+              {/* ── Card 3: Your target today (level-specific or interval structure) ── */}
+              {targetCardText && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
                     Your target · {expLevel.charAt(0).toUpperCase() + expLevel.slice(1)}
                   </div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{levelTargetText}</p>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText}</p>
+                  {/* For intervals: also show pace guidance from level-specific cue if we're showing the structure */}
+                  {intervalStructureText && levelTargetText && (
+                    <p style={{ fontSize: 13, color: C.emerald, margin: "6px 0 0", opacity: 0.75, lineHeight: 1.5 }}>{levelTargetText}</p>
+                  )}
                 </div>
               )}
 
@@ -7783,14 +7804,14 @@ export default function App() {
 
         {inBonusWorkout && bonusPlan ? (
           <WorkoutView
-            plan={bonusPlan}
+            plan={bonusPlan ? { ...bonusPlan, experience_level: prefs.experience_level ?? bonusPlan.experience_level } : bonusPlan}
             onComplete={handleBonusComplete}
             onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
             cycle={prefs.cycle}
           />
         ) : inWorkout ? (
           <WorkoutView
-            plan={plan}
+            plan={plan ? { ...plan, experience_level: prefs.experience_level ?? plan.experience_level } : plan}
             onComplete={handleComplete}
             onBack={() => setInWorkout(false)}
             cycle={prefs.cycle}
