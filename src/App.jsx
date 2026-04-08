@@ -2148,6 +2148,18 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
   };
   const ic = plan ? intensityColor[plan.intensity] || C.emerald : C.emerald;
 
+  // ── Estimated session time (workout + overhead) ──────────────────────────
+  const estMins = estimateMins(plan);
+  const timeOverhead = prefs?.preferences?.time_overhead;
+  const overheadPresetKeys = ["change_clothes", "prepare_equipment", "clean_equipment", "shower"];
+  const overheadProfileTotal = (profile) =>
+    overheadPresetKeys.reduce((s, k) => s + (profile?.presets?.[k] || 0), 0) +
+    (profile?.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+  const overheadMins = timeOverhead?.enabled
+    ? overheadProfileTotal(plan?.slot_type === "micro" ? timeOverhead.short : timeOverhead.long)
+    : 0;
+  const totalMins = estMins !== null ? estMins + overheadMins : null;
+
   return (
     <div>
       <div
@@ -2366,6 +2378,19 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     </span>
                   </div>
                 </div>
+                {totalMins && plan.slot_type !== "rest" && (
+                  <div style={{ textAlign: "right", flexShrink: 0 }}>
+                    <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
+                      ~{totalMins}
+                      <span style={{ fontSize: 12, fontWeight: 700, color: C.muted }}> min</span>
+                    </div>
+                    {overheadMins > 0 && (
+                      <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
+                        incl. {overheadMins}m overhead
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div style={{ flex: 1, marginBottom: 20 }}>
