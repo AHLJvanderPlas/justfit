@@ -3082,21 +3082,36 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                 </div>
 
                 {/* Equipment */}
-                {allEquipment.length > 0 && (
-                  <div style={{ marginBottom: 28 }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Bring with you</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {allEquipment.map(eq => {
-                        const label = ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ");
-                        return (
-                          <span key={eq} style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                            {label}
-                          </span>
-                        );
-                      })}
+                {allEquipment.length > 0 && (() => {
+                  const stationaryIds = new Set(["treadmill","stationary_bike","exercise_bike","indoor_bike","rowing_machine","elliptical","squat_rack","bench_press_rack","smith_machine","power_tower","punching_bag"]);
+                  const portable   = allEquipment.filter(e => !stationaryIds.has(e));
+                  const stationary = allEquipment.filter(e => stationaryIds.has(e));
+                  const Chip = ({ eq }) => (
+                    <span style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                      {ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ")}
+                    </span>
+                  );
+                  return (
+                    <div style={{ marginBottom: 28 }}>
+                      {portable.length > 0 && (
+                        <div style={{ marginBottom: stationary.length > 0 ? 14 : 0 }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Grab these</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {portable.map(eq => <Chip key={eq} eq={eq} />)}
+                          </div>
+                        </div>
+                      )}
+                      {stationary.length > 0 && (
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Make sure this is set up</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {stationary.map(eq => <Chip key={eq} eq={eq} />)}
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* Exercise list */}
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>Your session</div>
