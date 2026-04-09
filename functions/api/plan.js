@@ -1151,7 +1151,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   let cyclingProgramOverride = null;
   const cycleCoach = prefs?.preferences?.cycling_coach;
-  const hasCyclingEquipment = (userEquipment ?? []).some(e => CYCLING_EQUIPMENT.includes(e));
+  const hasCyclingEquipment = effectiveEquip.some(e => CYCLING_EQUIPMENT.includes(e));
   const cyclingProgramActive = cycleCoach?.active && hasCyclingEquipment
     && !inSpecialMode && !runProgramOverride
     && slot_type !== 'rest' && slot_type !== 'micro';
@@ -1210,7 +1210,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       }
 
       // Synthetic plan step — no DB exercise record needed
-      const cyclingEquipUsed = (userEquipment ?? []).find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
+      const cyclingEquipUsed = effectiveEquip.find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
       const cyclingStep = {
         exercise_id: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}_w${cycleCoach.week ?? 1}`,
         exercise_slug: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}`,

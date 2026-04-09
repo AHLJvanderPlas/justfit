@@ -4224,6 +4224,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   const rc = prefs.preferences.run_coach;
                   const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
                   const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+                  const sessionInWeek = rc.session_in_week ?? 0;
                   const sessionsLeft = 3 - sessionInWeek;
                   const lastRunDate = rc.last_run_at_ms
                     ? new Date(rc.last_run_at_ms).toISOString().slice(0, 10) : null;
