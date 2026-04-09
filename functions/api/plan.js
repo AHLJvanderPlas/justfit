@@ -1,7 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim } = body;
+    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -46,6 +46,9 @@ export async function onRequestPost({ request, env }) {
     if (coach_sim && prefs) {
       prefs.preferences = { ...prefs.preferences, ...coach_sim };
     }
+
+    // Pro flag — gates structured coaching programs (R556, R557, polarised)
+    const isPro = !!is_pro;
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
@@ -1054,7 +1057,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   let runProgramOverride = null;
   const runCoach = prefs?.preferences?.run_coach;
-  const runProgramActive = runCoach?.enrolled && !runCoach?.completed
+  const runProgramActive = isPro && runCoach?.enrolled && !runCoach?.completed
     && !inSpecialMode && !bmiStrictForRun
     && slot_type !== 'rest' && slot_type !== 'micro';
 
@@ -1157,7 +1160,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let cyclingProgramOverride = null;
   const cycleCoach = prefs?.preferences?.cycling_coach;
   const hasCyclingEquipment = effectiveEquip.some(e => CYCLING_EQUIPMENT.includes(e));
-  const cyclingProgramActive = cycleCoach?.active && hasCyclingEquipment
+  const cyclingProgramActive = isPro && cycleCoach?.active && hasCyclingEquipment
     && !inSpecialMode && !runProgramOverride
     && slot_type !== 'rest' && slot_type !== 'micro';
 
@@ -1261,7 +1264,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   //        This ensures "Adjust the Sport to Your Life" takes precedence
   //        over polarised training preferences.
   // ------------------------------------------------------------------
-  const polarisedOn = prefs?.preferences?.sport_prefs?.polarised_training;
+  const polarisedOn = isPro && prefs?.preferences?.sport_prefs?.polarised_training;
   if (polarisedOn && !runProgramOverride && !inSpecialMode && slot_type !== 'rest') {
     const lastType = prefs?.preferences?.sport_prefs?.last_endurance_type ?? null;
     // Philosophy priority: if intensity was forced to low by a life rule, always prefer

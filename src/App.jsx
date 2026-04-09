@@ -60,15 +60,23 @@ function logout() {
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
 const api = {
-  async generatePlan(userId, date, checkin, coachSim) {
+  async generatePlan(userId, date, checkin, coachSim, isPro) {
     const res = await fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined }),
+      body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
     return data.plan;
+  },
+
+  async saveCheckin(userId, date, data) {
+    await fetch("/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, date, ...data }),
+    });
   },
 
   async getScore(userId) {
@@ -5800,45 +5808,51 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
             };
             return (
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {isActive
                     ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
                     : "Progressive run programme — 3 sessions per week, any days you choose."}
                 </div>
-                {!isActive && (
+                {prefs.isPro ? (
                   <>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                      {[5, 10, 15, 20, 30].map(t => {
-                        const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
-                        const available = !prev || unlockedTargets.includes(String(prev));
-                        const done = unlockedTargets.includes(String(t));
-                        const isSelected = t === runTargetSelect;
-                        return (
-                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
-                            {done ? "✓ " : !available ? "🔒 " : ""}{t}km
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
-                      {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
-                    </div>
+                    {!isActive && (
+                      <>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                          {[5, 10, 15, 20, 30].map(t => {
+                            const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
+                            const available = !prev || unlockedTargets.includes(String(prev));
+                            const done = unlockedTargets.includes(String(t));
+                            const isSelected = t === runTargetSelect;
+                            return (
+                              <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
+                                {done ? "✓ " : !available ? "🔒 " : ""}{t}km
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
+                          {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
+                        </div>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (isActive) {
+                          saveRunCoach({ ...rcState, enrolled: false });
+                        } else {
+                          saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
+                        }
+                      }}
+                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
+                    >
+                      {isActive ? "Active" : `Activate ${runTargetSelect}km`}
+                    </button>
                   </>
+                ) : (
+                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
                 )}
-                <button
-                  onClick={() => {
-                    if (isActive) {
-                      saveRunCoach({ ...rcState, enrolled: false });
-                    } else {
-                      saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
-                    }
-                  }}
-                  style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
-                >
-                  {isActive ? "Active" : `Activate ${runTargetSelect}km`}
-                </button>
               </div>
             );
           })()}
@@ -5856,81 +5870,91 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             const maxHr = parseInt(cycleMaxHrInput) || 180;
             const targetFtp = parseInt(cycleTargetFtpInput) || 250;
             return (
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {ccActive
                     ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
                     : "Structured FTP build — polarised, 3 sessions per week, any days."}
                 </div>
-                {!ccActive && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
-                          <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
-                            {u.label}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      {cycleUnitSelect === 'watts' ? (
-                        <>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
-                            <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                {prefs.isPro ? (
+                  <>
+                    {!ccActive && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
+                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
+                                {u.label}
+                              </button>
+                            ))}
                           </div>
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
-                            <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                          </div>
-                        </>
-                      ) : (
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
-                          <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                         </div>
-                      )}
-                    </div>
-                    <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
-                      8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
-                      {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
-                      {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
-                    </div>
-                  </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {cycleUnitSelect === 'watts' ? (
+                            <>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
+                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
+                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
+                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
+                          8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
+                          {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
+                          {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (ccActive) {
+                          saveCyclingCoach({ ...ccState, active: false });
+                        } else {
+                          saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
+                        }
+                      }}
+                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
+                    >
+                      {ccActive ? "Active" : "Activate Cycling Coach"}
+                    </button>
+                  </>
+                ) : (
+                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
                 )}
-                <button
-                  onClick={() => {
-                    if (ccActive) {
-                      saveCyclingCoach({ ...ccState, active: false });
-                    } else {
-                      saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
-                    }
-                  }}
-                  style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
-                >
-                  {ccActive ? "Active" : "Activate Cycling Coach"}
-                </button>
               </div>
             );
           })()}
 
           {/* ── Polarised Training ── */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Polarised Training</div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
               {sportPrefs.polarised_training
                 ? `Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
                 : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
             </div>
-            <button
-              onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
-              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(255,255,255,0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
-            >
-              {sportPrefs.polarised_training ? "Active" : "Enable"}
-            </button>
+            {prefs.isPro ? (
+              <button
+                onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
+                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(255,255,255,0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
+              >
+                {sportPrefs.polarised_training ? "Active" : "Enable"}
+              </button>
+            ) : (
+              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+            )}
           </div>
 
           {/* Daily Adaptive Replan */}
@@ -6866,7 +6890,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
         const coachSim = {};
         if (simRc) coachSim.run_coach = simRc;
         if (simCc) coachSim.cycling_coach = simCc;
-        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined).catch(() => null);
+        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined, prefs?.isPro).catch(() => null);
         result.push({ date, plan: p });
 
         if (simRc && p?.session_name?.startsWith('Running Day')) {
@@ -7512,7 +7536,7 @@ export default function App() {
             setPlan(existing);
             setIsGenerating(false);
           } else {
-            return api.generatePlan(userId, today, null)
+            return api.generatePlan(userId, today, null, undefined, prefs.isPro)
               .then(setPlan)
               .catch(() => {})
               .finally(() => setIsGenerating(false));
@@ -7529,19 +7553,31 @@ export default function App() {
       localStorage.setItem("jf_checkin_date", today);
       setIsGenerating(true);
       try {
-        // Auto-log period if toggled and cycle tracking is active
         if (data.checkin_json?.period_today && userId) {
           api.logPeriod(userId, today).catch(() => {});
         }
-        const newPlan = await api.generatePlan(userId, today, data);
-        setPlan(newPlan);
+        if (prefs.isPro) {
+          // Pro: full daily replanning with check-in data
+          const newPlan = await api.generatePlan(userId, today, data, undefined, true);
+          setPlan(newPlan);
+        } else {
+          // Free: save check-in for records, keep the existing weekly plan
+          api.saveCheckin(userId, today, data).catch(() => {});
+          const existing = await api.getTodayPlan(userId, today);
+          if (existing) {
+            setPlan(existing);
+          } else {
+            const newPlan = await api.generatePlan(userId, today, null, undefined, false);
+            setPlan(newPlan);
+          }
+        }
       } catch (e) {
         console.error("Plan generation failed:", e);
       } finally {
         setIsGenerating(false);
       }
     },
-    [userId, today],
+    [userId, today, prefs.isPro],
   );
 
   const handleSkipCheckIn = useCallback(async () => {
@@ -7550,14 +7586,14 @@ export default function App() {
     localStorage.setItem("jf_checkin_date", today);
     setIsGenerating(true);
     try {
-      const newPlan = await api.generatePlan(userId, today, null);
+      const newPlan = await api.generatePlan(userId, today, null, undefined, prefs.isPro);
       setPlan(newPlan);
     } catch (e) {
       console.error("Plan generation failed:", e);
     } finally {
       setIsGenerating(false);
     }
-  }, [userId, today]);
+  }, [userId, today, prefs.isPro]);
 
   const handleComplete = useCallback(
     async (durationSec, perceivedExertion, stepsActual) => {
@@ -7685,7 +7721,7 @@ export default function App() {
       setShowWhyNot(false);
       setIsGenerating(true);
       try {
-        const newPlan = await api.generatePlan(userId, today, checkinOverride);
+        const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, prefs.isPro);
         setPlan(newPlan);
       } catch (e) {
         console.error("Plan regen failed:", e);
