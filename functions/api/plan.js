@@ -1,7 +1,73 @@
+// ---------------------------------------------------------------------------
+// adaptExistingPlan — free tier: adjust volume/intensity on a stored plan
+//   based on today's check-in without changing the exercise selection.
+// ---------------------------------------------------------------------------
+function adaptExistingPlan(basePlan, checkin) {
+  const energy       = checkin?.energy       ?? 5;
+  const stress       = checkin?.stress       ?? 5;
+  const sleepHours   = checkin?.sleep_hours  ?? 7;
+  const painLevel    = checkin?.checkin_json?.pain_level ?? 0;
+  const noTime       = !!checkin?.checkin_json?.no_time;
+  const timeBudget   = checkin?.time_budget  ?? checkin?.checkin_json?.time_budget ?? null;
+
+  // Pain → rest (mirrors R514)
+  if (painLevel >= 2) {
+    return { ...basePlan, slot_type: 'rest', session_name: 'Recovery day', steps: [],
+             rule_trace: [...(basePlan.rule_trace ?? []), 'adapt:pain_rest'] };
+  }
+
+  // Build multipliers (energy/stress/sleep are on 0–10 scale, mirrors R511/R512/R513)
+  let repMult  = 1.0;
+  let restMult = 1.0;
+  const notes  = [];
+
+  if (energy <= 3) {
+    repMult  *= 0.65; restMult *= 1.25;
+    notes.push('Low energy — volume reduced');
+  } else if (energy >= 8) {
+    repMult  *= 1.10;
+    notes.push('High energy — pushing a bit more');
+  }
+  if (stress >= 7) {
+    repMult  *= 0.80;
+    notes.push('High stress — intensity reduced');
+  }
+  if (sleepHours <= 5) {
+    repMult  *= 0.85;
+    notes.push('Low sleep — lighter session');
+  }
+
+  repMult = Math.max(0.5, Math.min(1.2, repMult));
+
+  let adaptedSteps = (basePlan.steps ?? []).map(step => ({
+    ...step,
+    target_reps:         step.target_reps        ? Math.max(1,  Math.round(step.target_reps        * repMult))  : null,
+    target_duration_sec: step.target_duration_sec ? Math.max(10, Math.round(step.target_duration_sec * repMult)) : null,
+    rest_sec:            step.rest_sec            ? Math.round(step.rest_sec * restMult)                         : step.rest_sec,
+  }));
+
+  // Time constraints — trim exercises to fit budget (mirrors R510)
+  if (noTime || (timeBudget != null && timeBudget <= 10)) {
+    adaptedSteps = adaptedSteps.slice(0, 2).map(s => ({ ...s, sets: Math.min(s.sets ?? 3, 2) }));
+    notes.push('Short on time — quick 10 min session');
+  } else if (timeBudget != null && timeBudget <= 20) {
+    adaptedSteps = adaptedSteps.slice(0, 3).map(s => ({ ...s, sets: Math.min(s.sets ?? 3, 2) }));
+    notes.push(`Short on time — ${timeBudget} min session`);
+  }
+
+  const adaptNote = notes.length > 0 ? notes.join(' · ') : null;
+  return {
+    ...basePlan,
+    steps: adaptedSteps,
+    session_notes: adaptNote ? [adaptNote, ...(basePlan.session_notes ?? [])] : (basePlan.session_notes ?? []),
+    rule_trace: [...(basePlan.rule_trace ?? []), 'adapt:free_tier', ...notes.map(n => `adapt:${n.split('—')[0].trim().toLowerCase().replace(/\s+/g, '_')}`)],
+  };
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro } = body;
+    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -131,6 +197,27 @@ export async function onRequestPost({ request, env }) {
             ?? 'balanced',
         };
       }
+    }
+
+    // Free-tier adapt path: adjust the stored weekly plan for today's check-in
+    // without regenerating the exercise selection.
+    if (adapt_mode && base_plan) {
+      const adapted = adaptExistingPlan(base_plan, effectiveCheckin);
+      if (user_id) {
+        const userExists = await env.DB.prepare(`SELECT id FROM users WHERE id = ? LIMIT 1`).bind(user_id).first();
+        if (userExists) {
+          const adaptId = crypto.randomUUID();
+          const now = Date.now();
+          await env.DB.prepare(`
+            INSERT INTO day_plans (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, 'final', ?, 'adapt_free', 'v1.7.0', 'adapt', ?, ?)
+            ON CONFLICT(user_id, date) DO UPDATE SET plan_json=excluded.plan_json, updated_at_ms=excluded.updated_at_ms
+          `).bind(adaptId, user_id, date, JSON.stringify(adapted), now, now).run();
+          const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
+          return Response.json({ ok: true, saved: true, plan: { id: row?.id ?? adaptId, ...adapted } });
+        }
+      }
+      return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
     const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState);

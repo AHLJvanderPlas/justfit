@@ -79,6 +79,17 @@ const api = {
     });
   },
 
+  async adaptPlan(userId, date, checkin, basePlan) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, date, checkin, adapt_mode: true, base_plan: basePlan }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.plan;
+  },
+
   async getScore(userId) {
     const res = await fetch(`/api/score?user_id=${userId}`);
     const data = await res.json();
@@ -7561,14 +7572,18 @@ export default function App() {
           const newPlan = await api.generatePlan(userId, today, data, undefined, true);
           setPlan(newPlan);
         } else {
-          // Free: save check-in for records, keep the existing weekly plan
+          // Free: adapt the existing weekly plan for today's check-in
+          // (same exercises, adjusted reps/rest/volume — no full regen)
           api.saveCheckin(userId, today, data).catch(() => {});
           const existing = await api.getTodayPlan(userId, today);
           if (existing) {
-            setPlan(existing);
+            const adapted = await api.adaptPlan(userId, today, data, existing);
+            setPlan(adapted);
           } else {
-            const newPlan = await api.generatePlan(userId, today, null, undefined, false);
-            setPlan(newPlan);
+            // No plan yet — generate a baseline, then adapt it
+            const base = await api.generatePlan(userId, today, null, undefined, false);
+            const adapted = await api.adaptPlan(userId, today, data, base);
+            setPlan(adapted);
           }
         }
       } catch (e) {
