@@ -6832,7 +6832,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution }) {
 
   useEffect(() => {
     if (!userId) { setLoadingUpcoming(false); return; }
-    const cacheKey = `jf_upcoming_${today}`;
+    const cacheKey = `jf_upcoming_v3_${today}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch {}
