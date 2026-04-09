@@ -1,7 +1,7 @@
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session } = body;
+    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -41,6 +41,11 @@ export async function onRequestPost({ request, env }) {
             : {},
         }
       : null;
+
+    // Allow caller to override coach state (used by "Coming Up" preview to simulate future weeks)
+    if (coach_sim && prefs) {
+      prefs.preferences = { ...prefs.preferences, ...coach_sim };
+    }
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {

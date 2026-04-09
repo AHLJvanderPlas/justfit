@@ -60,11 +60,11 @@ function logout() {
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
 const api = {
-  async generatePlan(userId, date, checkin) {
+  async generatePlan(userId, date, checkin, coachSim) {
     const res = await fetch("/api/plan", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, date, checkin }),
+      body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined }),
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error);
@@ -6799,7 +6799,7 @@ function estimateMins(p) {
   return rawMin > 20 ? Math.ceil(rawMin / 5) * 5 : rawMin;
 }
 
-function PlanWeekView({ history, plan, userId, onDeleteExecution }) {
+function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
   const today = new Date().toISOString().split("T")[0];
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(true);
@@ -6837,14 +6837,55 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution }) {
     if (cached) {
       try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch {}
     }
-    Promise.all(
-      upcomingDates.map((date) => api.generatePlan(userId, date, null).catch(() => null))
-    ).then((plans) => {
-      const result = upcomingDates.map((date, i) => ({ date, plan: plans[i] }));
+
+    // Generate sequentially so each future day uses a simulated coach state
+    // (parallel generation would use the same DB state for every day)
+    const runCoach = prefs?.preferences?.run_coach;
+    const cycleCoach = prefs?.preferences?.cycling_coach;
+
+    // Seed simulation: if today is already a running/cycling session, count it as done
+    let simRc = runCoach ? { ...runCoach } : null;
+    if (simRc && plan?.session_name?.startsWith('Running Day')) {
+      const siw = (simRc.session_in_week ?? 0) + 1;
+      simRc = siw >= 3
+        ? { ...simRc, session_in_week: 0, week: (simRc.week ?? 1) + 1, last_run_at_ms: Date.now() }
+        : { ...simRc, session_in_week: siw, last_run_at_ms: Date.now() };
+    }
+
+    let simCc = cycleCoach ? { ...cycleCoach } : null;
+    if (simCc && plan?.session_name?.startsWith('Cycling')) {
+      const siw = (simCc.session_in_week ?? 0) + 1;
+      simCc = siw >= 3
+        ? { ...simCc, session_in_week: 0, week: (simCc.week ?? 1) + 1, last_ride_at_ms: Date.now() }
+        : { ...simCc, session_in_week: siw, last_ride_at_ms: Date.now() };
+    }
+
+    (async () => {
+      const result = [];
+      for (const date of upcomingDates) {
+        const coachSim = {};
+        if (simRc) coachSim.run_coach = simRc;
+        if (simCc) coachSim.cycling_coach = simCc;
+        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined).catch(() => null);
+        result.push({ date, plan: p });
+
+        if (simRc && p?.session_name?.startsWith('Running Day')) {
+          const siw = (simRc.session_in_week ?? 0) + 1;
+          simRc = siw >= 3
+            ? { ...simRc, session_in_week: 0, week: (simRc.week ?? 1) + 1, last_run_at_ms: new Date(date + 'T12:00:00').getTime() }
+            : { ...simRc, session_in_week: siw, last_run_at_ms: new Date(date + 'T12:00:00').getTime() };
+        }
+        if (simCc && p?.session_name?.startsWith('Cycling')) {
+          const siw = (simCc.session_in_week ?? 0) + 1;
+          simCc = siw >= 3
+            ? { ...simCc, session_in_week: 0, week: (simCc.week ?? 1) + 1, last_ride_at_ms: new Date(date + 'T12:00:00').getTime() }
+            : { ...simCc, session_in_week: siw, last_ride_at_ms: new Date(date + 'T12:00:00').getTime() };
+        }
+      }
       sessionStorage.setItem(cacheKey, JSON.stringify(result));
       setUpcomingPlans(result);
       setLoadingUpcoming(false);
-    });
+    })();
   }, [userId]);
 
   // Build last 7 days
@@ -7795,7 +7836,7 @@ export default function App() {
               </>
             )}
             {view === "plan" && (
-              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} />
+              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} />
             )}
             {view === "history" && (
               <HistoryView
