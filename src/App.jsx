@@ -5800,28 +5800,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
               api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
             };
             return (
-              <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-                {/* Toggle row */}
-                <div
-                  onClick={() => isActive && saveRunCoach({ ...rcState, enrolled: false })}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: isActive ? "pointer" : "default", background: isActive ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${isActive ? C.emeraldBorder : C.border}` }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: isActive ? C.emerald : C.text }}>Running Coach Program</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                      {isActive
-                        ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
-                        : "Progressive run programme — 3 sessions per week, any days you choose"}
-                    </div>
-                  </div>
-                  <div style={{ width: 36, height: 20, borderRadius: 999, background: isActive ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                    <div style={{ position: "absolute", top: 2, left: isActive ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
-                  </div>
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                  {isActive
+                    ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
+                    : "Progressive run programme — 3 sessions per week, any days you choose."}
                 </div>
-
-                {/* Target selector — only when not active */}
                 {!isActive && (
-                  <div style={{ marginTop: 12, paddingLeft: 2 }}>
+                  <>
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
                       {[5, 10, 15, 20, 30].map(t => {
                         const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
@@ -5829,23 +5816,29 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                         const done = unlockedTargets.includes(String(t));
                         const isSelected = t === runTargetSelect;
                         return (
-                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
+                          <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
                             {done ? "✓ " : !available ? "🔒 " : ""}{t}km
                           </button>
                         );
                       })}
                     </div>
-                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 10 }}>
+                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
                       {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
                     </div>
-                    <button
-                      onClick={() => saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false })}
-                      style={{ padding: "8px 16px", borderRadius: 10, background: C.emerald, border: "none", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer" }}
-                    >
-                      Activate {runTargetSelect}km Program →
-                    </button>
-                  </div>
+                  </>
                 )}
+                <button
+                  onClick={() => {
+                    if (isActive) {
+                      saveRunCoach({ ...rcState, enrolled: false });
+                    } else {
+                      saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
+                    }
+                  }}
+                  style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
+                >
+                  {isActive ? "Active" : `Activate ${runTargetSelect}km`}
+                </button>
               </div>
             );
           })()}
@@ -5863,41 +5856,25 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
             const maxHr = parseInt(cycleMaxHrInput) || 180;
             const targetFtp = parseInt(cycleTargetFtpInput) || 250;
             return (
-              <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-                {/* Toggle row */}
-                <div
-                  onClick={() => ccActive && saveCyclingCoach({ ...ccState, active: false })}
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: ccActive ? "pointer" : "default", background: ccActive ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${ccActive ? C.emeraldBorder : C.border}` }}
-                >
-                  <div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: ccActive ? C.emerald : C.text }}>Cycling Coach Program</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                      {ccActive
-                        ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
-                        : "Structured FTP build — polarised, 3 sessions per week, any days"}
-                    </div>
-                  </div>
-                  <div style={{ width: 36, height: 20, borderRadius: 999, background: ccActive ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                    <div style={{ position: "absolute", top: 2, left: ccActive ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
-                  </div>
+              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                  {ccActive
+                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
+                    : "Structured FTP build — polarised, 3 sessions per week, any days."}
                 </div>
-
-                {/* Setup form — only when not active */}
                 {!ccActive && (
-                  <div style={{ marginTop: 12, paddingLeft: 2, display: "flex", flexDirection: "column", gap: 10 }}>
-                    {/* Unit selector */}
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
                       <div style={{ display: "flex", gap: 6 }}>
                         {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
-                          <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? "rgba(var(--accent-rgb),0.12)" : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
+                          <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
                             {u.label}
                           </button>
                         ))}
                       </div>
                     </div>
-
-                    {/* FTP / Max HR inputs */}
                     <div style={{ display: "flex", gap: 8 }}>
                       {cycleUnitSelect === 'watts' ? (
                         <>
@@ -5917,83 +5894,62 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                         </div>
                       )}
                     </div>
-
-                    {/* Preview */}
                     <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
                       8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
-                      {cycleUnitSelect === 'watts' && ftp > 0 && (
-                        <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>
-                      )}
-                      {cycleUnitSelect === 'hr' && maxHr > 0 && (
-                        <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>
-                      )}
+                      {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
+                      {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
                     </div>
-
-                    <button
-                      onClick={() => saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false })}
-                      style={{ padding: "8px 16px", borderRadius: 10, background: C.emerald, border: "none", color: "#fff", fontSize: 12, fontWeight: 900, cursor: "pointer", alignSelf: "flex-start" }}
-                    >
-                      Start Cycling Coach →
-                    </button>
                   </div>
                 )}
+                <button
+                  onClick={() => {
+                    if (ccActive) {
+                      saveCyclingCoach({ ...ccState, active: false });
+                    } else {
+                      saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
+                    }
+                  }}
+                  style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
+                >
+                  {ccActive ? "Active" : "Activate Cycling Coach"}
+                </button>
               </div>
             );
           })()}
 
           {/* ── Polarised Training ── */}
-          <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-            <div
-              onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
-              style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, cursor: "pointer", background: sportPrefs.polarised_training ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${sportPrefs.polarised_training ? C.emeraldBorder : C.border}` }}
-            >
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: sportPrefs.polarised_training ? C.emerald : C.text }}>Polarised Training</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  {sportPrefs.polarised_training
-                    ? `Active · Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
-                    : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
-                </div>
-              </div>
-              <div style={{ width: 36, height: 20, borderRadius: 999, background: sportPrefs.polarised_training ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                <div style={{ position: "absolute", top: 2, left: sportPrefs.polarised_training ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
-              </div>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Polarised Training</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+              {sportPrefs.polarised_training
+                ? `Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
+                : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
             </div>
+            <button
+              onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
+              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(255,255,255,0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
+            >
+              {sportPrefs.polarised_training ? "Active" : "Enable"}
+            </button>
           </div>
 
           {/* Daily Adaptive Replan */}
-          <div style={{ paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-            <div
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Daily Adaptive Replan</div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+              {prefs.isPro ? "Recalibrates your plan each morning based on your check-in." : "Upgrade to Pro to unlock."}
+            </div>
+            <button
               onClick={() => {
                 if (!prefs.isPro) return;
                 const newVal = !prefs.daily_replan;
                 onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
                 api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
               }}
-              style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 12px", borderRadius: 12, cursor: prefs.isPro ? "pointer" : "default",
-                background: prefs.isPro && prefs.daily_replan ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                border: `1px solid ${prefs.isPro && prefs.daily_replan ? C.emeraldBorder : C.border}`,
-                opacity: prefs.isPro ? 1 : 0.45,
-              }}
+              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: prefs.isPro ? "pointer" : "not-allowed", border: `1px solid ${prefs.isPro && prefs.daily_replan ? "transparent" : C.border}`, background: prefs.isPro && prefs.daily_replan ? C.emerald : "rgba(255,255,255,0.05)", color: prefs.isPro && prefs.daily_replan ? "#fff" : C.muted, opacity: prefs.isPro ? 1 : 0.4 }}
             >
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: prefs.isPro && prefs.daily_replan ? C.emerald : C.text }}>Daily Adaptive Replan</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  {prefs.isPro ? "Recalibrates your plan each morning based on your check-in" : "Upgrade to Pro to unlock"}
-                </div>
-              </div>
-              {prefs.isPro ? (
-                <div style={{ width: 36, height: 20, borderRadius: 999, background: prefs.daily_replan ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                  <div style={{ position: "absolute", top: 2, left: prefs.daily_replan ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
-                </div>
-              ) : (
-                <div style={{ padding: "4px 10px", borderRadius: 10, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
-                  Pro only
-                </div>
-              )}
-            </div>
+              {prefs.isPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
+            </button>
           </div>
 
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
