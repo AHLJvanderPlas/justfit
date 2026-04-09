@@ -75,7 +75,15 @@ const api = {
     await fetch("/api/checkin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ user_id: userId, date, ...data }),
+      body: JSON.stringify({
+        user_id: userId,
+        date,
+        energy: data.energy != null ? Math.round(data.energy) : null,
+        stress: data.stress != null ? Math.round(data.stress) : null,
+        mood: data.mood != null ? Math.round(data.mood) : null,
+        sleep_hours: data.sleep_hours ?? null,
+        checkin_json: data.checkin_json ?? null,
+      }),
     });
   },
 
@@ -6867,7 +6875,9 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
 
   useEffect(() => {
     if (!userId) { setLoadingUpcoming(false); return; }
-    const cacheKey = `jf_upcoming_v3_${today}`;
+    const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
+    const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
+    const cacheKey = `jf_upcoming_v3_${today}_rc${runEnrolled}_cc${cycleActive}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch {}
@@ -7098,7 +7108,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
         </Glass>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[...history].reverse().map((h) => (
+          {[...history].map((h) => (
             <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 40, height: 40, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
