@@ -30,10 +30,8 @@ export async function onRequestGet({ request, env }) {
   try {
     const url = new URL(request.url);
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? url.searchParams.get('user_id');
-
-    if (!user_id) return Response.json({ error: 'user_id required' }, { status: 400 });
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
     // Last 7 days of executions
     const result = await env.DB.prepare(`

@@ -36,12 +36,9 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { user_id: bodyUserId, started_on } = body;
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? bodyUserId;
-
-    if (!user_id || !started_on) {
-      return Response.json({ error: 'user_id and started_on required' }, { status: 400 });
-    }
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
+    if (!started_on) return Response.json({ error: 'started_on required' }, { status: 400 });
 
     const userExists = await env.DB.prepare(
       `SELECT id FROM users WHERE id = ? LIMIT 1`

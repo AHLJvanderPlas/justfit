@@ -105,10 +105,9 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ error: 'date required' }, { status: 400 });
     }
 
-    // Prefer JWT-derived userId to prevent IDOR; fall back to body field for
-    // anonymous / unauthenticated plan generation (no user_id means no DB save).
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? bodyUserId;
+    // JWT-derived user_id only — body field ignored to prevent IDOR.
+    // If unauthenticated, user_id is null: plan generated without personalization, not saved to DB.
+    const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
     const [exResult, userPrefs, templates, userProfileRow] = await Promise.all([
@@ -308,12 +307,9 @@ export async function onRequestGet({ request, env }) {
     const url = new URL(request.url);
     const date = url.searchParams.get('date');
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? url.searchParams.get('user_id');
-
-    if (!user_id || !date) {
-      return Response.json({ error: 'user_id and date required' }, { status: 400 });
-    }
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
+    if (!date) return Response.json({ error: 'date required' }, { status: 400 });
 
     const result = await env.DB.prepare(
       `SELECT * FROM day_plans WHERE user_id = ? AND date = ? ORDER BY created_at_ms DESC LIMIT 1`
@@ -676,11 +672,6 @@ function getPostnatalPhase(birthDate, birthType, today) {
 function hasTags(exercise, ...tags) {
   const t = JSON.parse(exercise.tags_json || '[]');
   return tags.some(tag => t.includes(tag));
-}
-
-function hasAllTags(exercise, ...tags) {
-  const t = JSON.parse(exercise.tags_json || '[]');
-  return tags.every(tag => t.includes(tag));
 }
 
 // ---------------------------------------------------------------------------
@@ -1499,7 +1490,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
 
     // R553 — Mobility decay maintenance
-    const mobilityScore = progGetDisplayScore(progScores, 'mobility', 'mobility');
     const mob = progScores.mobility;
     const daysSinceMobility = mob?.last_mobility_stimulus_at_ms
       ? Math.floor((Date.now() - mob.last_mobility_stimulus_at_ms) / 86_400_000)

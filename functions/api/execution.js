@@ -164,7 +164,7 @@ function progApplyStimulus(scores, stimulus, eventMs) {
 }
 
 // Compute how much stimulus each exercise step contributes to each axis
-function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, eventMs) {
+function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _eventMs) {
   const acc = {};
 
   // Pure cardio sessions (run/walk/bike/rowing) with no exercise steps
@@ -221,12 +221,9 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     const { user_id: bodyUserId, date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? bodyUserId;
-
-    if (!user_id || !date) {
-      return Response.json({ error: 'user_id and date required' }, { status: 400 });
-    }
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
+    if (!date) return Response.json({ error: 'date required' }, { status: 400 });
 
     const id  = crypto.randomUUID();
     const now = Date.now();
@@ -534,10 +531,8 @@ export async function onRequestGet({ request, env }) {
     const url   = new URL(request.url);
     const limit = parseInt(url.searchParams.get('limit') ?? '30');
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? url.searchParams.get('user_id');
-
-    if (!user_id) return Response.json({ error: 'user_id required' }, { status: 400 });
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
     const result = await env.DB.prepare(
       `SELECT id, date, execution_type, status, total_duration_sec,
@@ -561,16 +556,19 @@ export async function onRequestDelete({ request, env }) {
     const url          = new URL(request.url);
     const execution_id = url.searchParams.get('execution_id');
 
-    const jwtUserId = await getAuthUserId(request, env);
-    const user_id = jwtUserId ?? url.searchParams.get('user_id');
+    const user_id = await getAuthUserId(request, env);
+    if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
+    if (!execution_id) return Response.json({ error: 'missing execution_id' }, { status: 400 });
 
-    if (!execution_id || !user_id) {
-      return Response.json({ error: 'missing params' }, { status: 400 });
-    }
+    // Verify ownership before touching any rows
+    const owned = await env.DB.prepare(
+      'SELECT id FROM executions WHERE id = ? AND user_id = ? LIMIT 1'
+    ).bind(execution_id, user_id).first();
+    if (!owned) return Response.json({ error: 'not found' }, { status: 404 });
 
     await env.DB.batch([
       env.DB.prepare('DELETE FROM execution_steps WHERE execution_id = ?').bind(execution_id),
-      env.DB.prepare('DELETE FROM executions WHERE id = ? AND user_id = ?').bind(execution_id, user_id),
+      env.DB.prepare('DELETE FROM executions WHERE id = ?').bind(execution_id),
     ]);
 
     return Response.json({ ok: true });

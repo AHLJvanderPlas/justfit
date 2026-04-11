@@ -2800,7 +2800,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   // ── Reset instruction card when exercise changes ──────────────────────────────
   useEffect(() => {
     setInstrStep(0);
-    setDragOffset(0);
   }, [exIdx]);
 
   // ── Rest haptics at 10s and 5s ───────────────────────────────────────────────
