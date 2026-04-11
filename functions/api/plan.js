@@ -114,7 +114,8 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Pro flag — gates structured coaching programs (R556, R557, polarised)
-    const isPro = !!is_pro;
+    // Accept explicit request override; otherwise fall back to stored preference.
+    const isPro = !!(is_pro ?? prefs?.preferences?.isPro);
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
@@ -663,10 +664,12 @@ function getDefaultRest(exercise, slotType) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false) {
   const trace = [];
+  const isProEnabled = !!isPro;
   const goal = prefs?.training_goal ?? 'health';
   const expLevel = prefs?.experience_level ?? 'intermediate';
+  const runCoach = prefs?.preferences?.run_coach;
 
   // Starting intensity comes from the user's goal — rules below may override downward
   let intensity = GOAL_INTENSITY[goal] ?? 'moderate';
@@ -1143,8 +1146,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   //        Session level never regresses due to time constraints.
   // ------------------------------------------------------------------
   let runProgramOverride = null;
-  const runCoach = prefs?.preferences?.run_coach;
-  const runProgramActive = isPro && runCoach?.enrolled && !runCoach?.completed
+  const runProgramActive = isProEnabled && runCoach?.enrolled && !runCoach?.completed
     && !inSpecialMode && !bmiStrictForRun
     && slot_type !== 'rest' && slot_type !== 'micro';
 
@@ -1247,7 +1249,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let cyclingProgramOverride = null;
   const cycleCoach = prefs?.preferences?.cycling_coach;
   const hasCyclingEquipment = effectiveEquip.some(e => CYCLING_EQUIPMENT.includes(e));
-  const cyclingProgramActive = isPro && cycleCoach?.active && hasCyclingEquipment
+  const cyclingProgramActive = isProEnabled && cycleCoach?.active && hasCyclingEquipment
     && !inSpecialMode && !runProgramOverride
     && slot_type !== 'rest' && slot_type !== 'micro';
 
@@ -1351,7 +1353,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   //        This ensures "Adjust the Sport to Your Life" takes precedence
   //        over polarised training preferences.
   // ------------------------------------------------------------------
-  const polarisedOn = isPro && prefs?.preferences?.sport_prefs?.polarised_training;
+  const polarisedOn = isProEnabled && prefs?.preferences?.sport_prefs?.polarised_training;
   if (polarisedOn && !runProgramOverride && !inSpecialMode && slot_type !== 'rest') {
     const lastType = prefs?.preferences?.sport_prefs?.last_endurance_type ?? null;
     // Philosophy priority: if intensity was forced to low by a life rule, always prefer
