@@ -98,15 +98,14 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 justfit/
 ├── src/
 │   ├── App.jsx          ← entire frontend (single file, no sub-components)
-│   ├── main.jsx         ← renders App, imports index.css
-│   └── index.css        ← empty (all styles are inline in App.jsx)
+│   └── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
 ├── functions/
 │   └── api/
 │       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
-│       ├── plan.js      ← POST generate plan (runs planner engine v1.6.0), GET fetch plan
+│       ├── plan.js      ← POST generate plan (runs planner engine v1.7.0), GET fetch plan
 │       ├── profile.js   ← GET/POST user_preferences + cycle/pregnancy/postnatal context
 │       ├── score.js     ← GET consistency score for user
 │       └── ping.js      ← GET health check
@@ -131,8 +130,13 @@ justfit/
 │   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
 │   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
+│   ├── 0012_conditioning_exercises.sql ← conditioning exercises
+│   ├── 0013_height.sql        ← height_cm column on user_profile
+│   ├── 0014_progression.sql   ← user_progression + user_progression_events tables
 │   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
-│   └── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
+│   ├── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
+│   ├── 0017_polarised_training.sql ← polarised training flag in preferences
+│   └── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -514,8 +518,6 @@ const [altExercises, setAltExercises] = useState([]);
 const [altLoading, setAltLoading] = useState(false);
 const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [exIdx]: replacementExercise }
 const [instrStep, setInstrStep] = useState(0);
-const [dragOffset, setDragOffset] = useState(0);
-const [isDragging, setIsDragging] = useState(false);
 const [showBreathingReminder, setShowBreathingReminder] = useState(false);
 const [wakeLockDenied, setWakeLockDenied] = useState(false);
 ```
@@ -854,7 +856,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0001–0011) |
+| D1 schema + migrations | ✅ Live (0001–0018) |
 | Exercise library (~150 exercises) | ✅ Seeded in D1 (migrations 0001–0010) |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
@@ -897,6 +899,7 @@ Calculated server-side from executions table:
 | Planner R550–R560 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace |
 | Safe running build-up (Option A) | ✅ Live — R555 rule replaces generic long-run exercises with level-appropriate run/walk intervals when running_shoes in equipment; 6 levels driven by conditioning.endurance score (migration 0015); walk recovery encoded as custom_rest_sec so rest timer = walk; fixed_sets prescribes interval count; automatic decay from skipped sessions reduces level safely |
 | Running Coach Program (Option B) | ✅ Live — R556 rule; structured 5/10/15/20/30km targets (unlocked sequentially); 3 sessions/week Mon/Wed/Fri; warm-up exercises prepended on run days; session named "Running Day · Week N"; run_coach state in preferences_json; advanceRunCoach in execution.js advances week/session counters; 15 continuous run levels 7–21 (20min–180min) + 4 warm-up exercises in migration 0016; enrollment UI in Settings |
+| API security hardening | ✅ Done — JWT HMAC-SHA256 verification inlined in all endpoints (profile.js, progression.js, plan.js, checkin.js, execution.js, score.js, cycle.js); IDOR fallbacks removed (all user-bound endpoints return 401 without valid JWT); execution DELETE verifies ownership before deleting steps; daily_checkins UNIQUE(user_id, date) index + atomic ON CONFLICT upsert (migration 0018); dead gesture handler state/code removed from WorkoutView |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |

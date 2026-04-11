@@ -51,10 +51,11 @@ Vite dev server runs at `http://localhost:5173`. API calls go to the local Vite 
 
 ## Deploy
 
-Push to `main` — Cloudflare Pages auto-deploys in ~30s via GitHub integration.
+GitHub auto-deploy is suspended. Build and deploy via wrangler directly after pushing:
 
 ```bash
 git add . && git commit -m "feat: ..." && git push
+npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
 ```
 
 ## Environment variables (set in Cloudflare Pages → Settings → Variables)
@@ -72,7 +73,7 @@ git add . && git commit -m "feat: ..." && git push
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0001_init.sql` → `0011_pregnancy_templates.sql`
+- Migrations: `migrations/0001_init.sql` → `0018_checkin_unique.sql`
 
 ```bash
 # Apply a migration
@@ -90,7 +91,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 | File | Routes | Description |
 |---|---|---|
 | `auth.js` | POST (signup/login/forgot/reset/magic/passkey), GET | Auth, passkeys, magic links, password reset |
-| `plan.js` | POST, GET | Generate / fetch day plan; planner engine v1.6.0 |
+| `plan.js` | POST, GET | Generate / fetch day plan; planner engine v1.7.0 |
 | `execution.js` | POST, GET, DELETE | Save / fetch / delete workout executions + steps |
 | `checkin.js` | POST, GET | Daily check-in (mood, energy, sleep, stress, toggles) |
 | `exercises.js` | GET | Exercise library with tag filtering |
