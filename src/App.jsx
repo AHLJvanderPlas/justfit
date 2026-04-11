@@ -102,7 +102,7 @@ const api = {
     return data.plan;
   },
 
-  async getScore(userId) {
+  async getScore() {
     const res = await fetch(`/api/score`, { headers: this._auth() });
     const data = await res.json();
     return data.score ?? 0;
@@ -133,7 +133,7 @@ const api = {
     return res.json();
   },
 
-  async getHistory(userId) {
+  async getHistory() {
     const res = await fetch(`/api/execution?limit=30`, { headers: this._auth() });
     const data = await res.json();
     return data.executions ?? [];
@@ -218,7 +218,7 @@ const api = {
     return res.json();
   },
 
-  async deleteExecution(executionId, userId) {
+  async deleteExecution(executionId) {
     const res = await fetch(`/api/execution?execution_id=${executionId}`, {
       method: "DELETE",
       headers: this._auth(),
@@ -2701,8 +2701,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [idx]: exercise }
   // Instruction card swipe state
   const [instrStep, setInstrStep] = useState(0);
-  const [dragOffset, setDragOffset] = useState(0);
-  const [isDragging, setIsDragging] = useState(false);
   const touchStartXRef = useRef(0);
   const restStartedAtRef = useRef(0);   // ms timestamp when rest phase began
   const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
@@ -3230,38 +3228,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           const totalCards = cards.length;
           const clampedStep = Math.min(instrStep, totalCards - 1);
 
-          function onTouchStart(e) {
-            touchStartXRef.current = e.touches[0].clientX;
-            setIsDragging(true);
-          }
-          function onTouchMove(e) {
-            const delta = e.touches[0].clientX - touchStartXRef.current;
-            setDragOffset(delta * 0.55);
-          }
-          function onTouchEnd(e) {
-            const delta = e.changedTouches[0].clientX - touchStartXRef.current;
-            setIsDragging(false);
-            setDragOffset(0);
-            if (delta < -60 && clampedStep < totalCards - 1) setInstrStep((s) => s + 1);
-            else if (delta > 60 && clampedStep > 0) setInstrStep((s) => s - 1);
-          }
-          // Mouse drag for desktop
-          function onMouseDown(e) {
-            touchStartXRef.current = e.clientX;
-            setIsDragging(true);
-          }
-          function onMouseMove(e) {
-            if (!isDragging) return;
-            setDragOffset((e.clientX - touchStartXRef.current) * 0.55);
-          }
-          function onMouseUp(e) {
-            if (!isDragging) return;
-            const delta = e.clientX - touchStartXRef.current;
-            setIsDragging(false);
-            setDragOffset(0);
-            if (delta < -60 && clampedStep < totalCards - 1) setInstrStep((s) => s + 1);
-            else if (delta > 60 && clampedStep > 0) setInstrStep((s) => s - 1);
-          }
 
           // Equipment for this exercise (filter trivial items)
           const exEquip = JSON.parse(cur.equipment_required_json || '["none"]')
@@ -3716,8 +3682,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           };
 
           const rpeConfig = getRpeConfig(rpeValue);
-          const sliderPct = ((rpeValue - 1) / 9) * 100;
-
           return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
               <div style={{ textAlign: "center" }}>
@@ -4854,7 +4818,7 @@ const PHASE_LABELS = {
 
 const CYCLE_LENGTHS_SETTINGS = [21, 24, 26, 28, 30, 32, 35];
 
-function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
+function SettingsView({ prefs, onUpdate, userId, token }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -4968,9 +4932,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
   useEffect(() => {
     if (!planAutoSaveRef.current) { planAutoSaveRef.current = true; return; }
     setSaveStatus("saving");
-    const equip = planEquipment.join(",");
-    const sched = JSON.stringify(weeklySchedule);
-    const over  = JSON.stringify(timeOverhead);
     const t = setTimeout(async () => {
       try {
         await api.saveProfile(token, {
@@ -5041,7 +5002,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
       setBodyMode("standard");
       setCycleTrackingMode("off");
       onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard", tracking_mode: "off" } }));
-    } catch {}
+    } catch { /* ignore */ }
     setBodyModeDeactivating(false);
   };
 
@@ -5055,7 +5016,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
     try {
       await api.saveProfile(token, { sex: newSex, cycle: { mode: "standard", tracking_mode: "off" } });
       onUpdate((p) => ({ ...p, sex: newSex, cycle: { ...(p.cycle ?? {}), mode: "standard", tracking_mode: "off" } }));
-    } catch {}
+    } catch { /* ignore */ }
   };
 
 
@@ -6309,7 +6270,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                               medical_clearance_confirmed: 1,
                             },
                           }));
-                        } catch {}
+                        } catch { /* ignore */ }
                         setPregnancySaving(false);
                       }}
                       style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: pregnancyDueDate && !pregnancySaving ? "#fbbf24" : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
@@ -6598,7 +6559,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                     cycle: { tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined },
                   });
                   onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart } }));
-                } catch {}
+                } catch { /* ignore */ }
                 setCycleSaving(false);
               }}
               style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(255,255,255,0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
@@ -6640,7 +6601,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                           cycle: { mode: "pregnant", pregnancy_due_date: pregnancyDueDate, tracking_mode: "off" },
                         });
                         onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), pregnancy_due_date: pregnancyDueDate } }));
-                      } catch {}
+                      } catch { /* ignore */ }
                       setPregnancySaving(false);
                     }}
                     style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : "#fbbf24", cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
@@ -6726,7 +6687,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                               postnatal_birth_type: postnatalBirthType || "prefer_not_to_say",
                             },
                           }));
-                        } catch {}
+                        } catch { /* ignore */ }
                         setPostnatalSaving(false);
                       }}
                       style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : "#fbbf24", cursor: postnatalSaving ? "not-allowed" : "pointer" }}
@@ -6745,7 +6706,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                     });
                     setBodyMode("standard");
                     onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard" } }));
-                  } catch {}
+                  } catch { /* ignore */ }
                   setPregnancySaving(false);
                 }}
                 style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
@@ -6775,7 +6736,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onChangeGoal }) {
                     await api.saveProfile(token, { cycle: { mode: "standard", tracking_mode: "off" } });
                     setBodyMode("standard");
                     onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "standard" } }));
-                  } catch {}
+                  } catch { /* ignore */ }
                   setPostnatalSaving(false);
                 }}
                 style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
@@ -6848,7 +6809,7 @@ function estimateMins(p) {
 function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
   const today = new Date().toISOString().split("T")[0];
   const [upcomingPlans, setUpcomingPlans] = useState([]);
-  const [loadingUpcoming, setLoadingUpcoming] = useState(true);
+  const [loadingUpcoming, setLoadingUpcoming] = useState(!!userId);
   const [deleteTarget, setDeleteTarget] = useState(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -6877,13 +6838,13 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
   });
 
   useEffect(() => {
-    if (!userId) { setLoadingUpcoming(false); return; }
+    if (!userId) return;
     const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
     const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
     const cacheKey = `jf_upcoming_v3_${today}_rc${runEnrolled}_cc${cycleActive}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
-      try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch {}
+      try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch { /* ignore */ }
     }
 
     // Generate sequentially so each future day uses a simulated coach state
@@ -7364,7 +7325,6 @@ export default function App() {
   const [prevScore, setPrevScore] = useState(0);
   const [history, setHistory] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
 
@@ -7405,7 +7365,7 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem("jf_prefs", JSON.stringify(prefs));
-    } catch {}
+    } catch { /* ignore */ }
   }, [prefs]);
 
   // After profile load: advance to ready, or show goal recheck for existing users on new version
@@ -7495,12 +7455,10 @@ export default function App() {
       .then((data) => { if (data?.ok) setProgression(data); })
       .catch(() => {})
       .finally(() => setIsLoadingProgression(false));
-    setIsLoadingHistory(true);
     api
       .getHistory(userId)
       .then((h) => {
         setHistory(h);
-        setIsLoadingHistory(false);
         // Reconcile completed state against server history (handles cross-device sync)
         const todayExecutions = h.filter((ex) => ex.date === today);
         const hasToday = todayExecutions.length > 0;
@@ -7532,7 +7490,7 @@ export default function App() {
           }
         }
       })
-      .catch(() => setIsLoadingHistory(false));
+      .catch(() => {});
   }, [userId, onboardingReady]);
 
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
@@ -7636,8 +7594,8 @@ export default function App() {
           perceivedExertion,
         );
         const [newScore, newHistory] = await Promise.all([
-          api.getScore(userId),
-          api.getHistory(userId),
+          api.getScore(),
+          api.getHistory(),
         ]);
         setPrevScore(score);
         setScore(newScore);
@@ -7663,8 +7621,8 @@ export default function App() {
         const mergedSteps = stepsActual ?? bonusPlan?.steps ?? [];
         await api.saveExecution(userId, bonusPlan?.id, today, mergedSteps, durationSec, perceivedExertion, "bonus");
         const [newScore, newHistory] = await Promise.all([
-          api.getScore(userId),
-          api.getHistory(userId),
+          api.getScore(),
+          api.getHistory(),
         ]);
         setScore(newScore);
         setHistory(newHistory);
@@ -7686,8 +7644,8 @@ export default function App() {
       const targetExec = history.find((h) => h.id === executionId);
       const isToday = targetExec?.date === today;
       setHistory((prev) => prev.filter((h) => h.id !== executionId));
-      await api.deleteExecution(executionId, userId);
-      const newScore = await api.getScore(userId);
+      await api.deleteExecution(executionId);
+      const newScore = await api.getScore();
       setScore(newScore);
       if (isToday) {
         const remainingToday = history.filter((h) => h.id !== executionId && h.date === today);
@@ -7730,8 +7688,8 @@ export default function App() {
       try {
         await api.saveActivity(userId, today, executionType, durationMin * 60);
         const [newScore, newHistory] = await Promise.all([
-          api.getScore(userId),
-          api.getHistory(userId),
+          api.getScore(),
+          api.getHistory(),
         ]);
         setScore(newScore);
         setHistory(newHistory);
@@ -7765,8 +7723,8 @@ export default function App() {
     try {
       await api.saveActivity(userId, today, "recovery", 0);
       const [newScore, newHistory] = await Promise.all([
-        api.getScore(userId),
-        api.getHistory(userId),
+        api.getScore(),
+        api.getHistory(),
       ]);
       setScore(newScore);
       setHistory(newHistory);
