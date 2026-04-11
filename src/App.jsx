@@ -81,7 +81,6 @@ const api = {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
-        user_id: userId,
         date,
         energy: data.energy != null ? Math.round(data.energy) : null,
         stress: data.stress != null ? Math.round(data.stress) : null,
@@ -104,7 +103,7 @@ const api = {
   },
 
   async getScore(userId) {
-    const res = await fetch(`/api/score?user_id=${userId}`, { headers: this._auth() });
+    const res = await fetch(`/api/score`, { headers: this._auth() });
     const data = await res.json();
     return data.score ?? 0;
   },
@@ -114,7 +113,6 @@ const api = {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
-        user_id: userId,
         date,
         day_plan_id: planId ?? null,
         session_type: sessionType,
@@ -136,7 +134,7 @@ const api = {
   },
 
   async getHistory(userId) {
-    const res = await fetch(`/api/execution?user_id=${userId}&limit=30`, { headers: this._auth() });
+    const res = await fetch(`/api/execution?limit=30`, { headers: this._auth() });
     const data = await res.json();
     return data.executions ?? [];
   },
@@ -153,7 +151,6 @@ const api = {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
-        user_id: userId,
         date,
         execution_type: executionType,
         duration_sec: durationSec,
@@ -166,7 +163,7 @@ const api = {
     const res = await fetch("/api/cycle", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
-      body: JSON.stringify({ user_id: userId, started_on: startedOn }),
+      body: JSON.stringify({ started_on: startedOn }),
     });
     return res.json();
   },
@@ -222,7 +219,7 @@ const api = {
   },
 
   async deleteExecution(executionId, userId) {
-    const res = await fetch(`/api/execution?execution_id=${executionId}&user_id=${userId}`, {
+    const res = await fetch(`/api/execution?execution_id=${executionId}`, {
       method: "DELETE",
       headers: this._auth(),
     });
