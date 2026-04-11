@@ -1,14 +1,31 @@
 // GET  /api/profile — fetch user_preferences + user_profile + cycle_profile
 // POST /api/profile — upsert all three tables
 
+async function hmacSign(data, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function verifyJWT(token, secret) {
+  try {
+    const [header, body, sig] = token.split('.');
+    if (sig !== await hmacSign(`${header}.${body}`, secret)) return null;
+    const payload = JSON.parse(atob(body));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
+}
+
 async function getUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
   const token = auth.replace('Bearer ', '');
-  if (!token) return null;
-  try {
-    const [, body] = token.split('.');
-    return JSON.parse(atob(body));
-  } catch { return null; }
+  if (!token || !env.JWT_SECRET) return null;
+  return verifyJWT(token, env.JWT_SECRET);
 }
 
 function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {

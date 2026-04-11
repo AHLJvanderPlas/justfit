@@ -60,10 +60,15 @@ function logout() {
 
 // ─── API HELPERS ──────────────────────────────────────────────────────────────
 const api = {
+  _auth() {
+    const t = localStorage.getItem("jf_token") ?? "";
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  },
+
   async generatePlan(userId, date, checkin, coachSim, isPro) {
     const res = await fetch("/api/plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
     });
     const data = await res.json();
@@ -74,7 +79,7 @@ const api = {
   async saveCheckin(userId, date, data) {
     await fetch("/api/checkin", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
         user_id: userId,
         date,
@@ -90,7 +95,7 @@ const api = {
   async adaptPlan(userId, date, checkin, basePlan) {
     const res = await fetch("/api/plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({ user_id: userId, date, checkin, adapt_mode: true, base_plan: basePlan }),
     });
     const data = await res.json();
@@ -99,7 +104,7 @@ const api = {
   },
 
   async getScore(userId) {
-    const res = await fetch(`/api/score?user_id=${userId}`);
+    const res = await fetch(`/api/score?user_id=${userId}`, { headers: this._auth() });
     const data = await res.json();
     return data.score ?? 0;
   },
@@ -107,7 +112,7 @@ const api = {
   async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout") {
     const res = await fetch("/api/execution", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
         user_id: userId,
         date,
@@ -131,7 +136,7 @@ const api = {
   },
 
   async getHistory(userId) {
-    const res = await fetch(`/api/execution?user_id=${userId}&limit=30`);
+    const res = await fetch(`/api/execution?user_id=${userId}&limit=30`, { headers: this._auth() });
     const data = await res.json();
     return data.executions ?? [];
   },
@@ -146,7 +151,7 @@ const api = {
   async saveActivity(userId, date, executionType, durationSec) {
     const res = await fetch("/api/execution", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
         user_id: userId,
         date,
@@ -160,7 +165,7 @@ const api = {
   async logPeriod(userId, startedOn) {
     const res = await fetch("/api/cycle", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({ user_id: userId, started_on: startedOn }),
     });
     return res.json();
@@ -169,7 +174,7 @@ const api = {
   async generateBonusPlan(userId, date, minutes, completedIds) {
     const res = await fetch("/api/plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...this._auth() },
       body: JSON.stringify({
         user_id: userId,
         date,
@@ -184,7 +189,7 @@ const api = {
   },
 
   async getTodayPlan(userId, date) {
-    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`);
+    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`, { headers: this._auth() });
     const data = await res.json();
     if (!data.plan) return null;
     const planObj = typeof data.plan.plan_json === "string" ? JSON.parse(data.plan.plan_json) : data.plan.plan_json;
@@ -192,7 +197,7 @@ const api = {
   },
 
   async getLastCheckin(userId) {
-    const res = await fetch(`/api/checkin?user_id=${userId}`);
+    const res = await fetch(`/api/checkin?user_id=${userId}`, { headers: this._auth() });
     const data = await res.json();
     return (data.checkins ?? [])[0] ?? null;
   },
@@ -219,6 +224,7 @@ const api = {
   async deleteExecution(executionId, userId) {
     const res = await fetch(`/api/execution?execution_id=${executionId}&user_id=${userId}`, {
       method: "DELETE",
+      headers: this._auth(),
     });
     return res.json();
   },

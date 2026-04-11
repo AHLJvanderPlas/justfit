@@ -1,7 +1,37 @@
+async function _hmacSign(data, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function _verifyJWT(token, secret) {
+  try {
+    const [header, body, sig] = token.split('.');
+    if (sig !== await _hmacSign(`${header}.${body}`, secret)) return null;
+    const payload = JSON.parse(atob(body));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
+}
+
+async function getAuthUserId(request, env) {
+  const auth = request.headers.get('Authorization') ?? '';
+  const token = auth.replace('Bearer ', '');
+  if (!token || !env.JWT_SECRET) return null;
+  const payload = await _verifyJWT(token, env.JWT_SECRET);
+  return payload?.userId ?? null;
+}
+
 export async function onRequestGet({ request, env }) {
   try {
     const url = new URL(request.url);
-    const user_id = url.searchParams.get('user_id');
+
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? url.searchParams.get('user_id');
 
     if (!user_id) return Response.json({ error: 'user_id required' }, { status: 400 });
 

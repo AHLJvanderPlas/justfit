@@ -2,6 +2,35 @@
 // GET  /api/execution — fetch execution history for a user
 // DELETE /api/execution — delete an execution and its steps
 
+// ─── JWT AUTH HELPER (inlined — Pages Functions cannot import across files) ───
+async function _hmacSign(data, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function _verifyJWT(token, secret) {
+  try {
+    const [header, body, sig] = token.split('.');
+    if (sig !== await _hmacSign(`${header}.${body}`, secret)) return null;
+    const payload = JSON.parse(atob(body));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
+}
+
+async function getAuthUserId(request, env) {
+  const auth = request.headers.get('Authorization') ?? '';
+  const token = auth.replace('Bearer ', '');
+  if (!token || !env.JWT_SECRET) return null;
+  const payload = await _verifyJWT(token, env.JWT_SECRET);
+  return payload?.userId ?? null;
+}
+
 // ─── PROGRESSION ENGINE (inline copy — kept in sync with progression.js) ─────
 // Cloudflare Pages Functions cannot import across api/*.js files, so the
 // scoring helpers are duplicated here. If you change the formula in
@@ -190,7 +219,10 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, eve
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
+    const { user_id: bodyUserId, date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
+
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? bodyUserId;
 
     if (!user_id || !date) {
       return Response.json({ error: 'user_id and date required' }, { status: 400 });
@@ -499,9 +531,11 @@ async function updatePolarisedEnduranceType(userId, steps, env, nowMs) {
 
 export async function onRequestGet({ request, env }) {
   try {
-    const url     = new URL(request.url);
-    const user_id = url.searchParams.get('user_id');
-    const limit   = parseInt(url.searchParams.get('limit') ?? '30');
+    const url   = new URL(request.url);
+    const limit = parseInt(url.searchParams.get('limit') ?? '30');
+
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? url.searchParams.get('user_id');
 
     if (!user_id) return Response.json({ error: 'user_id required' }, { status: 400 });
 
@@ -526,7 +560,9 @@ export async function onRequestDelete({ request, env }) {
   try {
     const url          = new URL(request.url);
     const execution_id = url.searchParams.get('execution_id');
-    const user_id      = url.searchParams.get('user_id');
+
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? url.searchParams.get('user_id');
 
     if (!execution_id || !user_id) {
       return Response.json({ error: 'missing params' }, { status: 400 });

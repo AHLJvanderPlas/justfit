@@ -1,4 +1,36 @@
 // ---------------------------------------------------------------------------
+// JWT auth helper — verify signature + expiry, return payload or null.
+// Inlined because Pages Functions cannot import across api/*.js files.
+// ---------------------------------------------------------------------------
+async function _hmacSign(data, secret) {
+  const key = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
+  return btoa(String.fromCharCode(...new Uint8Array(sig)))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+}
+
+async function _verifyJWT(token, secret) {
+  try {
+    const [header, body, sig] = token.split('.');
+    if (sig !== await _hmacSign(`${header}.${body}`, secret)) return null;
+    const payload = JSON.parse(atob(body));
+    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
+}
+
+async function getAuthUserId(request, env) {
+  const auth = request.headers.get('Authorization') ?? '';
+  const token = auth.replace('Bearer ', '');
+  if (!token || !env.JWT_SECRET) return null;
+  const payload = await _verifyJWT(token, env.JWT_SECRET);
+  return payload?.userId ?? null;
+}
+
+// ---------------------------------------------------------------------------
 // adaptExistingPlan — free tier: adjust volume/intensity on a stored plan
 //   based on today's check-in without changing the exercise selection.
 // ---------------------------------------------------------------------------
@@ -67,11 +99,16 @@ function adaptExistingPlan(basePlan, checkin) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
+    const { user_id: bodyUserId, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
     }
+
+    // Prefer JWT-derived userId to prevent IDOR; fall back to body field for
+    // anonymous / unauthenticated plan generation (no user_id means no DB save).
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? bodyUserId;
 
     // Fetch exercises and (optionally) user preferences in parallel
     const [exResult, userPrefs, templates, userProfileRow] = await Promise.all([
@@ -269,8 +306,10 @@ export async function onRequestPost({ request, env }) {
 export async function onRequestGet({ request, env }) {
   try {
     const url = new URL(request.url);
-    const user_id = url.searchParams.get('user_id');
     const date = url.searchParams.get('date');
+
+    const jwtUserId = await getAuthUserId(request, env);
+    const user_id = jwtUserId ?? url.searchParams.get('user_id');
 
     if (!user_id || !date) {
       return Response.json({ error: 'user_id and date required' }, { status: 400 });
