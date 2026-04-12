@@ -99,15 +99,29 @@ async function sendEmail(to, subject, html, apiKey) {
   });
 }
 
-function emailShell(content) {
+function emailShell(content, accent = '#10b981') {
   return `<div style="font-family:-apple-system,sans-serif;max-width:520px;margin:0 auto;background:#020617;color:#f8fafc;padding:40px 32px;border-radius:16px;">
   <div style="display:flex;align-items:center;gap:10px;margin-bottom:32px;">
-    <div style="width:36px;height:36px;background:#10b981;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;">JF</div>
-    <span style="font-weight:900;font-size:18px;">JustFit<span style="color:#10b981">.cc</span></span>
+    <div style="width:36px;height:36px;background:${accent};border-radius:10px;display:flex;align-items:center;justify-content:center;">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M14 1L6 13H12L10 23L18 11H12L14 1Z" fill="white"/></svg>
+    </div>
+    <span style="font-weight:900;font-size:18px;">JustFit<span style="color:${accent}">.cc</span></span>
   </div>
   ${content}
   <p style="color:#334155;font-size:11px;margin-top:40px;">JustFit.cc — Privacy-first fitness. We never sell your data.</p>
 </div>`;
+}
+
+async function getUserAccent(userId, env) {
+  if (!userId) return '#10b981';
+  try {
+    const row = await env.DB.prepare(
+      `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+    ).bind(userId).first();
+    if (!row?.preferences_json) return '#10b981';
+    const prefs = JSON.parse(row.preferences_json);
+    return prefs.accent ?? '#10b981';
+  } catch { return '#10b981'; }
 }
 
 // ─── HANDLERS ─────────────────────────────────────────────────────────────────
@@ -148,7 +162,7 @@ async function handleSignup({ email, password }, env, secret) {
       <a href="${verifyUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Verify my email →</a>
       <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
         <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Or enter this code in the app (Settings → Email)</p>
-        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${verifyCode}</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;font-family:monospace;">${verifyCode}</p>
       </div>
       <p style="color:#334155;font-size:12px;margin-top:20px;">Link expires in 24 hours. You can also open the app and skip this — verification is optional.</p>
     `), env.RESEND_API_KEY).catch(() => {});
@@ -196,12 +210,13 @@ async function handleForgotPassword({ email }, env, _secret) {
     ).bind(token, user.id, emailLower, now + RESET_EXPIRY_MS, now).run();
 
     const resetUrl = `https://justfit.cc/reset-password.html?token=${token}`;
+    const accent = await getUserAccent(user.id, env);
     await sendEmail(emailLower, 'Reset your JustFit password', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Reset your password</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to set a new password. This link expires in 1 hour.</p>
-      <a href="${resetUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Reset Password →</a>
+      <a href="${resetUrl}" style="display:inline-block;background:${accent};color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Reset password →</a>
       <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   // Always return 200 — never reveal whether the email exists
@@ -257,12 +272,13 @@ async function handleMagicLink({ email }, env) {
     ).bind(token, user?.id ?? null, emailLower, now + MAGIC_EXPIRY_MS, now).run();
 
     const magicUrl = `https://justfit.cc/magic.html?token=${token}`;
+    const accent = await getUserAccent(user?.id ?? null, env);
     await sendEmail(emailLower, 'Your JustFit login link ⚡', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Here's your login link</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button below to log in instantly. This link expires in 15 minutes and can only be used once.</p>
-      <a href="${magicUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Log in to JustFit →</a>
+      <a href="${magicUrl}" style="display:inline-block;background:${accent};color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Log in to JustFit →</a>
       <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   return Response.json({ ok: true });
@@ -538,16 +554,17 @@ async function handleResendVerification(request, env, secret) {
 
   if (env.RESEND_API_KEY) {
     const verifyUrl = `https://justfit.cc/api/auth?verify_email=${token}`;
+    const accent = await getUserAccent(user.userId, env);
     await sendEmail(authUser.email, 'Verify your JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Verify your email</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button or enter the code in the app (Settings → Email).</p>
-      <a href="${verifyUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Verify email →</a>
+      <a href="${verifyUrl}" style="display:inline-block;background:${accent};color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Verify email →</a>
       <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
-        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Code</p>
-        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${code}</p>
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">CODE</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;font-family:monospace;">${code}</p>
       </div>
       <p style="color:#334155;font-size:12px;margin-top:20px;">Expires in 24 hours.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   return Response.json({ ok: true });
@@ -607,16 +624,17 @@ async function handleRequestEmailChange({ new_email }, request, env, secret) {
 
   if (env.RESEND_API_KEY) {
     const changeUrl = `https://justfit.cc/api/auth?change_email=${token}`;
+    const accent = await getUserAccent(user.userId, env);
     await sendEmail(newEmailLower, 'Confirm your new JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Confirm your new email</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button or enter the code in the app to confirm <strong style="color:#f8fafc;">${newEmailLower}</strong> as your JustFit email.</p>
-      <a href="${changeUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Confirm new email →</a>
+      <a href="${changeUrl}" style="display:inline-block;background:${accent};color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Confirm new email →</a>
       <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
-        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Code</p>
-        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${code}</p>
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">CODE</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;font-family:monospace;">${code}</p>
       </div>
       <p style="color:#334155;font-size:12px;margin-top:20px;">Expires in 24 hours. If you didn't request this, ignore this email.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   return Response.json({ ok: true });
@@ -645,11 +663,12 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
   ]);
 
   if (oldAuthUser?.email && env.RESEND_API_KEY) {
+    const accent = await getUserAccent(user.userId, env);
     sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   const newSessionToken = await createJWT({ userId: user.userId, email: row.new_email }, secret);
@@ -697,11 +716,12 @@ async function handleChangeEmailLink(token, env) {
   ]);
 
   if (oldAuthUser?.email && env.RESEND_API_KEY) {
+    const accent = await getUserAccent(row.user_id, env);
     sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
-    `), env.RESEND_API_KEY).catch(() => {});
+    `, accent), env.RESEND_API_KEY).catch(() => {});
   }
 
   // Link-based change: JWT is re-issued on next app login. Redirect with success flag.
