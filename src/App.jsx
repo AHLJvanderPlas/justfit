@@ -2746,7 +2746,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [idx]: exercise }
   // Instruction card swipe state
   const [instrStep, setInstrStep] = useState(0);
-  const touchStartXRef = useRef(0);
   const restStartedAtRef = useRef(0);   // ms timestamp when rest phase began
   const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
   // Track actual data per exercise for saving
@@ -3270,7 +3269,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           if (isPelvicFloor) rawCards.push({ text: "Remember: the release is just as important as the squeeze. Full relaxation between each rep.", accent: "rose" });
           const cards = rawCards;
           const totalCards = cards.length;
-          const clampedStep = Math.min(instrStep, totalCards - 1);
 
 
           // Equipment for this exercise (filter trivial items)

@@ -30,7 +30,7 @@ async function getAuthUserId(request, env) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id: bodyUserId, date, energy, sleep_hours, stress, mood, checkin_json } = body;
+    const { date, energy, sleep_hours, stress, mood, checkin_json } = body;
 
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });

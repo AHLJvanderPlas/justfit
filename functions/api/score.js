@@ -28,8 +28,6 @@ async function getAuthUserId(request, env) {
 
 export async function onRequestGet({ request, env }) {
   try {
-    const url = new URL(request.url);
-
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 

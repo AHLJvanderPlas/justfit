@@ -219,7 +219,7 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id: bodyUserId, date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
+    const { date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
 
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });

@@ -99,7 +99,7 @@ function adaptExistingPlan(basePlan, checkin) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { user_id: bodyUserId, date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
+    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
