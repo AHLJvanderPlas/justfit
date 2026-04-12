@@ -7940,59 +7940,43 @@ export default function App() {
                 JustFit<span style={{ color: C.emerald }}>.cc</span>
               </span>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              {view === "settings" && (
-                <button
-                  onClick={() => setShowSignOutConfirm(true)}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 6,
-                    padding: "9px 16px", borderRadius: 14, fontSize: 12, fontWeight: 900,
-                    letterSpacing: "0.06em", textTransform: "uppercase",
-                    background: "rgba(226,76,74,0.08)", border: "1px solid rgba(226,76,74,0.25)",
-                    color: "#f87171", cursor: "pointer",
-                  }}
-                >
-                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                    <polyline points="16 17 21 12 16 7" />
-                    <line x1="21" y1="12" x2="9" y2="12" />
-                  </svg>
-                  Sign out
-                </button>
-              )}
+            {view === "settings" ? (
+              <button
+                onClick={() => setShowSignOutConfirm(true)}
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  padding: "9px 16px", borderRadius: 14, fontSize: 12, fontWeight: 900,
+                  letterSpacing: "0.06em", textTransform: "uppercase",
+                  background: "rgba(226,76,74,0.08)", border: "1px solid rgba(226,76,74,0.25)",
+                  color: "#f87171", cursor: "pointer",
+                }}
+              >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                  <polyline points="16 17 21 12 16 7" />
+                  <line x1="21" y1="12" x2="9" y2="12" />
+                </svg>
+                Sign out
+              </button>
+            ) : (
               <button
                 onClick={() => setShowCheckIn(true)}
                 style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 8,
-                  padding: "9px 18px",
-                  borderRadius: 14,
-                  fontSize: 12,
-                  fontWeight: 900,
-                  letterSpacing: "0.06em",
-                  textTransform: "uppercase",
-                  background: "rgba(255,255,255,0.05)",
-                  border: `1px solid ${C.border}`,
-                  color: C.muted,
-                  cursor: "pointer",
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "9px 18px", borderRadius: 14, fontSize: 12, fontWeight: 900,
+                  letterSpacing: "0.06em", textTransform: "uppercase",
+                  background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                  color: C.muted, cursor: "pointer",
                 }}
               >
-                <svg
-                  width="13"
-                  height="13"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke={C.emerald}
-                  strokeWidth="2.5"
-                >
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
                   <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                   <path d="M19 3v4" />
                   <path d="M21 5h-4" />
                 </svg>
                 Recalibrate
               </button>
-            </div>
+            )}
           </header>
         )}
 
