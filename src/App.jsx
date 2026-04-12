@@ -4756,6 +4756,20 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   );
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
+  // Training Focus — single selection: one of 6 general goals, or a sport coach
+  const runCoachActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
+  const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
+  const [focusSel, setFocusSel] = useState(() => runCoachActive ? "running" : cycleCoachActive ? "cycling" : (prefs.training_goal ?? "health"));
+  const handleFocusTap = (val) => {
+    setFocusSel(val);
+    if (val !== "running" && val !== "cycling") {
+      const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
+      const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
+      const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch };
+      onUpdate((p) => ({ ...p, training_goal: val, preferences: newPrefs }));
+      api.saveProfile(token, { training_goal: val, preferences: newPrefs }).catch(() => {});
+    }
+  };
 
   const moveSport = (id, toActive) => {
     setSportPrefs((prev) => {
@@ -5128,6 +5142,195 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         >
           Settings
         </h1>
+      </div>
+
+      {/* ── Training Focus ──────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Training Focus
+        </div>
+        <Glass style={{ padding: 24 }}>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+            One focus at a time. Select Running or Cycling to unlock a structured coach programme.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
+            {[...GOALS, { value: "running", label: "Running", sport: true }, { value: "cycling", label: "Cycling", sport: true }].map((opt) => {
+              const isRun = opt.value === "running";
+              const isCycle = opt.value === "cycling";
+              const isSport = !!opt.sport;
+              const available = isRun
+                ? planEquipment.includes("running_shoes")
+                : isCycle
+                ? planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e))
+                : true;
+              const sel = focusSel === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => available && handleFocusTap(opt.value)}
+                  style={{
+                    padding: "10px 4px 8px", borderRadius: 14, cursor: available ? "pointer" : "not-allowed",
+                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                    opacity: available ? 1 : 0.35,
+                  }}
+                >
+                  {isSport ? (
+                    <span style={{ fontSize: 18, lineHeight: 1 }}>{isRun ? "🏃" : "🚴"}</span>
+                  ) : (
+                    <span style={{ color: sel ? C.emerald : C.muted, display: "flex", alignItems: "center" }}>
+                      <GoalIcon value={opt.value} size={20} />
+                    </span>
+                  )}
+                  <span style={{ fontSize: 10, fontWeight: 900, color: sel ? C.emerald : C.text, textAlign: "center", lineHeight: 1.3 }}>
+                    {opt.label}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Running Coach panel */}
+          {focusSel === "running" && planEquipment.includes("running_shoes") && (() => {
+            const rcState = prefs.preferences?.run_coach ?? null;
+            const isActive = rcState?.enrolled === true && !rcState?.completed;
+            const unlockedTargets = rcState?.unlocked_targets ?? [];
+            const saveRunCoach = (newRc) => {
+              const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
+              onUpdate((p) => ({ ...p, preferences: newPrefs }));
+              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
+            };
+            return (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, opacity: prefs.isPro ? 1 : 0.45 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                  {isActive
+                    ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
+                    : "Progressive run programme — 3 sessions per week, any days you choose."}
+                </div>
+                {prefs.isPro ? (
+                  <>
+                    {!isActive && (
+                      <>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                          {[5, 10, 15, 20, 30].map(t => {
+                            const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
+                            const avail = !prev || unlockedTargets.includes(String(prev));
+                            const done = unlockedTargets.includes(String(t));
+                            const isSel = t === runTargetSelect;
+                            return (
+                              <button key={t} onClick={() => avail && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: avail ? "pointer" : "not-allowed", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : avail ? C.muted : C.subtle, opacity: avail ? 1 : 0.5 }}>
+                                {done ? "✓ " : !avail ? "🔒 " : ""}{t}km
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
+                          {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
+                        </div>
+                      </>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (isActive) {
+                          saveRunCoach({ ...rcState, enrolled: false });
+                        } else {
+                          saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
+                        }
+                      }}
+                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
+                    >
+                      {isActive ? "Active" : `Activate ${runTargetSelect}km`}
+                    </button>
+                  </>
+                ) : (
+                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Cycling Coach panel */}
+          {focusSel === "cycling" && planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) && (() => {
+            const ccState = prefs.preferences?.cycling_coach ?? null;
+            const ccActive = ccState?.active === true && !ccState?.completed;
+            const saveCyclingCoach = (newCc) => {
+              const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: newCc };
+              onUpdate((p) => ({ ...p, preferences: newPrefs }));
+              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
+            };
+            const ftp = parseInt(cycleFtpInput) || 200;
+            const maxHr = parseInt(cycleMaxHrInput) || 180;
+            const targetFtp = parseInt(cycleTargetFtpInput) || 250;
+            return (
+              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, opacity: prefs.isPro ? 1 : 0.45 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                  {ccActive
+                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
+                    : "Structured FTP build — polarised, 3 sessions per week, any days."}
+                </div>
+                {prefs.isPro ? (
+                  <>
+                    {!ccActive && (
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
+                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
+                                {u.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          {cycleUnitSelect === 'watts' ? (
+                            <>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
+                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                              </div>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
+                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                              </div>
+                            </>
+                          ) : (
+                            <div style={{ flex: 1 }}>
+                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
+                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                            </div>
+                          )}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
+                          8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
+                          {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
+                          {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
+                        </div>
+                      </div>
+                    )}
+                    <button
+                      onClick={() => {
+                        if (ccActive) {
+                          saveCyclingCoach({ ...ccState, active: false });
+                        } else {
+                          saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
+                        }
+                      }}
+                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
+                    >
+                      {ccActive ? "Active" : "Activate Cycling Coach"}
+                    </button>
+                  </>
+                ) : (
+                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+                )}
+              </div>
+            );
+          })()}
+        </Glass>
       </div>
 
       {/* ── Daily Planning ──────────────────────────────────── */}
@@ -5639,146 +5842,6 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               </div>
             )}
           </div>
-
-          {/* ── Running Coach Program ── */}
-          {planEquipment.includes("running_shoes") && (() => {
-            const rcState = prefs.preferences?.run_coach ?? null;
-            const isActive = rcState?.enrolled === true && !rcState?.completed;
-            const unlockedTargets = rcState?.unlocked_targets ?? [];
-            const saveRunCoach = (newRc) => {
-              const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
-              onUpdate((p) => ({ ...p, preferences: newPrefs }));
-              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
-            };
-            return (
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-                  {isActive
-                    ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
-                    : "Progressive run programme — 3 sessions per week, any days you choose."}
-                </div>
-                {prefs.isPro ? (
-                  <>
-                    {!isActive && (
-                      <>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
-                          {[5, 10, 15, 20, 30].map(t => {
-                            const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
-                            const available = !prev || unlockedTargets.includes(String(prev));
-                            const done = unlockedTargets.includes(String(t));
-                            const isSelected = t === runTargetSelect;
-                            return (
-                              <button key={t} onClick={() => available && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: available ? "pointer" : "not-allowed", border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`, background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSelected ? C.emerald : available ? C.muted : C.subtle, opacity: available ? 1 : 0.5 }}>
-                                {done ? "✓ " : !available ? "🔒 " : ""}{t}km
-                              </button>
-                            );
-                          })}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
-                          {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
-                        </div>
-                      </>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (isActive) {
-                          saveRunCoach({ ...rcState, enrolled: false });
-                        } else {
-                          saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
-                        }
-                      }}
-                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
-                    >
-                      {isActive ? "Active" : `Activate ${runTargetSelect}km`}
-                    </button>
-                  </>
-                ) : (
-                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
-                )}
-              </div>
-            );
-          })()}
-
-          {/* ── Cycling Coach Program ── */}
-          {(planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e))) && (() => {
-            const ccState = prefs.preferences?.cycling_coach ?? null;
-            const ccActive = ccState?.active === true && !ccState?.completed;
-            const saveCyclingCoach = (newCc) => {
-              const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: newCc };
-              onUpdate((p) => ({ ...p, preferences: newPrefs }));
-              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
-            };
-            const ftp = parseInt(cycleFtpInput) || 200;
-            const maxHr = parseInt(cycleMaxHrInput) || 180;
-            const targetFtp = parseInt(cycleTargetFtpInput) || 250;
-            return (
-              <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-                  {ccActive
-                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
-                    : "Structured FTP build — polarised, 3 sessions per week, any days."}
-                </div>
-                {prefs.isPro ? (
-                  <>
-                    {!ccActive && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
-                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
-                                {u.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8 }}>
-                          {cycleUnitSelect === 'watts' ? (
-                            <>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                              </div>
-                            </>
-                          ) : (
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
-                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                            </div>
-                          )}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
-                          8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
-                          {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
-                          {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
-                        </div>
-                      </div>
-                    )}
-                    <button
-                      onClick={() => {
-                        if (ccActive) {
-                          saveCyclingCoach({ ...ccState, active: false });
-                        } else {
-                          saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
-                        }
-                      }}
-                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
-                    >
-                      {ccActive ? "Active" : "Activate Cycling Coach"}
-                    </button>
-                  </>
-                ) : (
-                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
-                )}
-              </div>
-            );
-          })()}
 
           {/* ── Polarised Training ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
