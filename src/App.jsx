@@ -2428,6 +2428,36 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
       {/* Training intention card */}
       {(() => {
+        const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
+        const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
+        if (rcActive) {
+          const rc = prefs.preferences.run_coach;
+          const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+          const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+          return (
+            <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🏃</div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Run Coach</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Plan · Week {rc.week ?? 1} of {totalWeeks}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {rc.session_in_week ?? 0} of 3 this week</div>
+              </div>
+            </Glass>
+          );
+        }
+        if (ccActive) {
+          const cc = prefs.preferences.cycling_coach;
+          return (
+            <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🚴</div>
+              <div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of 3 this week</div>
+              </div>
+            </Glass>
+          );
+        }
         const goal = GOALS.find((g) => g.value === (prefs.training_goal ?? "health")) ?? GOALS[0];
         const exp  = EXPERIENCE.find((e) => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
         return (
@@ -2441,11 +2471,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{goal.label}</div>
               </div>
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                {exp.label}
-              </span>
-            </div>
+            <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+              {exp.label}
+            </span>
           </Glass>
         );
       })()}
@@ -4027,30 +4055,23 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             );
           })()}
 
-          {/* ── Training Goal card ── */}
-          {(() => {
+          {/* ── Training Goal card (general mode only) ── */}
+          {sportMode === "general" && (() => {
             const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
             const exp = EXPERIENCE.find((e) => e.value === (prefs?.experience_level ?? "beginner")) ?? EXPERIENCE[0];
             return (
-              <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                    <GoalIcon value={currentGoal.value} size={20} />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
-                    <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                      {exp.label}
-                    </span>
-                  </div>
+              <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                  <GoalIcon value={currentGoal.value} size={20} />
                 </div>
-                <button
-                  onClick={() => onChangeGoal?.()}
-                  style={{ padding: "8px 14px", borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)", fontWeight: 700, fontSize: 12, cursor: "pointer", whiteSpace: "nowrap" }}
-                >
-                  Change goal
-                </button>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+                  <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                    {exp.label}
+                  </span>
+                </div>
+                <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>Change in Settings →</div>
               </Glass>
             );
           })()}
@@ -4063,8 +4084,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
               </div>
               <Glass style={{ padding: 20 }}>
 
-                {/* Strongest / Weakest — no vertical line */}
-                {progression.insights && (
+                {/* Strongest / Weakest — general mode only */}
+                {sportMode === "general" && progression.insights && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     {[
                       { key: "strongest", label: "Strongest", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
@@ -4079,8 +4100,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   </div>
                 )}
 
-                {/* Focus this week */}
-                {progression.insights?.biggest_gap && (
+                {/* Focus this week — general mode only */}
+                {sportMode === "general" && progression.insights?.biggest_gap && (
                   <>
                     <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
@@ -4093,16 +4114,16 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   </>
                 )}
 
-                {/* Insight text rows */}
-                {(progression.insights?.insight_text ?? []).map((txt, i) => (
+                {/* Insight text rows — general mode only */}
+                {sportMode === "general" && (progression.insights?.insight_text ?? []).map((txt, i) => (
                   <div key={i}>
                     <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                     <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{txt}</div>
                   </div>
                 ))}
 
-                {/* How the Planner Adapts */}
-                {(progression.planner_explanation ?? []).length > 0 && (
+                {/* How the Planner Adapts — general mode only */}
+                {sportMode === "general" && (progression.planner_explanation ?? []).length > 0 && (
                   <>
                     <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
@@ -4823,15 +4844,39 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const runCoachActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
   const [focusSel, setFocusSel] = useState(() => runCoachActive ? "running" : cycleCoachActive ? "cycling" : (prefs.training_goal ?? "health"));
-  const handleFocusTap = (val) => {
-    setFocusSel(val);
-    if (val !== "running" && val !== "cycling") {
-      const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
-      const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-      const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch };
-      onUpdate((p) => ({ ...p, training_goal: val, preferences: newPrefs }));
-      api.saveProfile(token, { training_goal: val, preferences: newPrefs }).catch(() => {});
-    }
+  const [localExpLevel, setLocalExpLevel] = useState(prefs.experience_level ?? "beginner");
+  const [focusSaveStatus, setFocusSaveStatus] = useState("");
+  const handleFocusTap = (val) => { setFocusSel(val); };
+  const handleFocusSave = async () => {
+    setFocusSaveStatus("saving");
+    try {
+      if (focusSel === "running") {
+        const rcState = prefs.preferences?.run_coach ?? null;
+        const unlockedTargets = rcState?.unlocked_targets ?? [];
+        const newRc = { enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false };
+        const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
+        const newPrefs = { ...(prefs.preferences ?? {}), ...ccPatch, run_coach: newRc };
+        onUpdate((p) => ({ ...p, preferences: newPrefs }));
+        await api.saveProfile(token, { preferences: newPrefs });
+      } else if (focusSel === "cycling") {
+        const ftp = parseInt(cycleFtpInput) || 200;
+        const maxHr = parseInt(cycleMaxHrInput) || 180;
+        const targetFtp = parseInt(cycleTargetFtpInput) || 250;
+        const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false };
+        const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
+        onUpdate((p) => ({ ...p, preferences: newPrefs }));
+        await api.saveProfile(token, { preferences: newPrefs });
+      } else {
+        const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
+        const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch };
+        onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
+        await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
+      }
+      setFocusSaveStatus("saved");
+      setTimeout(() => setFocusSaveStatus(""), 2000);
+    } catch { setFocusSaveStatus(""); }
   };
 
   const moveSport = (id, toActive) => {
@@ -5284,14 +5329,11 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               </div>
               <div style={{ display: "flex", gap: 6 }}>
                 {EXPERIENCE.map(ex => {
-                  const sel = (prefs.experience_level ?? "beginner") === ex.value;
+                  const sel = localExpLevel === ex.value;
                   return (
                     <button
                       key={ex.value}
-                      onClick={() => {
-                        onUpdate((p) => ({ ...p, experience_level: ex.value }));
-                        api.saveProfile(token, { experience_level: ex.value }).catch(() => {});
-                      }}
+                      onClick={() => setLocalExpLevel(ex.value)}
                       style={{
                         flex: 1, padding: "8px 4px", borderRadius: 14, cursor: "pointer",
                         border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
@@ -5358,21 +5400,9 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                         </div>
                       </>
                     )}
-                    <button
-                      onClick={() => {
-                        if (isActive) {
-                          saveRunCoach({ ...rcState, enrolled: false });
-                        } else {
-                          saveRunCoach({ enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false });
-                        }
-                      }}
-                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
-                    >
-                      {isActive ? "Active" : `Activate ${runTargetSelect}km plan`}
-                    </button>
                   </>
                 ) : (
-                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+                  <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Run Coach.</div>
                 )}
               </div>
             );
@@ -5438,25 +5468,34 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                         </div>
                       </div>
                     )}
-                    <button
-                      onClick={() => {
-                        if (ccActive) {
-                          saveCyclingCoach({ ...ccState, active: false });
-                        } else {
-                          saveCyclingCoach({ active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false });
-                        }
-                      }}
-                      style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${ccActive ? "transparent" : C.border}`, background: ccActive ? C.emerald : "rgba(255,255,255,0.05)", color: ccActive ? "#fff" : C.muted }}
-                    >
-                      {ccActive ? "Active" : "Activate Cycling Coach"}
-                    </button>
                   </>
                 ) : (
-                  <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+                  <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Cycle Coach.</div>
                 )}
               </div>
             );
           })()}
+
+          {/* ── Single save / activate button ── */}
+          <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
+            <button
+              onClick={handleFocusSave}
+              disabled={focusSaveStatus === "saving"}
+              style={{
+                width: "100%", padding: "13px 20px", borderRadius: 14, fontSize: 13, fontWeight: 900,
+                cursor: focusSaveStatus === "saving" ? "default" : "pointer",
+                border: `1px solid ${focusSaveStatus === "saved" ? "transparent" : C.emeraldBorder}`,
+                background: focusSaveStatus === "saved" ? C.emerald : C.emeraldDim,
+                color: focusSaveStatus === "saved" ? "#fff" : C.emerald,
+              }}
+            >
+              {focusSaveStatus === "saved" ? "Saved ✓" :
+               focusSaveStatus === "saving" ? "Saving…" :
+               focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
+               focusSel === "cycling" ? "Activate · Cycling Coach" :
+               `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
+            </button>
+          </div>
         </Glass>
       </div>
 
