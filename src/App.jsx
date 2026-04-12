@@ -3768,6 +3768,10 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
   const displayScores = progression?.scores_by_mode?.[effectiveChartMode] ?? progression?.scores ?? {};
   const goalScores    = progression?.goal_profile?.targets ?? null;
 
+  const runCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+  const cycleCoachActive = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
+  const sportMode = runCoachActive ? "running" : cycleCoachActive ? "cycling" : "general";
+
   const CHART_MODES = [
     { id: "power",     label: "Power",     desc: "Maximum strength output per muscle group" },
     { id: "endurance", label: "Endurance", desc: "Capacity for sustained effort per muscle group" },
@@ -3822,65 +3826,69 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
         </Glass>
       ) : (
         <>
-          {/* ── Chart mode tabs ── */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
-            {CHART_MODES.map((m) => {
-              const active = effectiveChartMode === m.id;
-              return (
+          {sportMode === "general" && (
+            <>
+              {/* ── Chart mode tabs ── */}
+              <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
+                {CHART_MODES.map((m) => {
+                  const active = effectiveChartMode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => handleChartModeChange(m.id)}
+                      style={{
+                        padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                        border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                        background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                        color: active ? C.emerald : C.muted,
+                      }}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
                 <button
-                  key={m.id}
-                  onClick={() => handleChartModeChange(m.id)}
+                  onClick={() => setShowCompare((v) => !v)}
                   style={{
-                    padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                    border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                    background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
-                    color: active ? C.emerald : C.muted,
+                    marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                    border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
+                    background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                    color: showCompare ? C.emerald : C.muted,
                   }}
                 >
-                  {m.label}
+                  {showCompare ? "Goal on" : "Goal off"}
                 </button>
-              );
-            })}
-            <button
-              onClick={() => setShowCompare((v) => !v)}
-              style={{
-                marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
-                background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
-                color: showCompare ? C.emerald : C.muted,
-              }}
-            >
-              {showCompare ? "Goal on" : "Goal off"}
-            </button>
-          </div>
-
-          {/* ── Mode description ── */}
-          <div style={{ marginBottom: 14, paddingLeft: 2 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
-            <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
-          </div>
-
-          {/* ── Radar chart ── */}
-          <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
-            <RadarChart
-              scores={displayScores}
-              goalScores={showCompare ? goalScores : null}
-              accentHex={accentHex}
-              size={220}
-            />
-            <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <div style={{ width: 16, height: 3, borderRadius: 2, background: accentHex }} />
-                <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Current</span>
               </div>
-              {showCompare && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 16, height: 3, borderRadius: 2, background: `${accentHex}55`, borderTop: "2px dashed", borderColor: `${accentHex}55` }} />
-                  <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Goal target</span>
+
+              {/* ── Mode description ── */}
+              <div style={{ marginBottom: 14, paddingLeft: 2 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
+                <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
+              </div>
+
+              {/* ── Radar chart ── */}
+              <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <RadarChart
+                  scores={displayScores}
+                  goalScores={showCompare ? goalScores : null}
+                  accentHex={accentHex}
+                  size={220}
+                />
+                <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <div style={{ width: 16, height: 3, borderRadius: 2, background: accentHex }} />
+                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Current</span>
+                  </div>
+                  {showCompare && (
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 16, height: 3, borderRadius: 2, background: `${accentHex}55`, borderTop: "2px dashed", borderColor: `${accentHex}55` }} />
+                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Goal target</span>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </Glass>
+              </Glass>
+            </>
+          )}
 
           {/* ── Goal Fit card ── */}
           <Glass style={{ padding: 20, marginBottom: 12, display: "flex", alignItems: "center", gap: 16 }}>
@@ -3900,9 +3908,15 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
               </div>
             </div>
             <div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Goal Fit</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>
+                {sportMode === "running" ? "Program Fit" : sportMode === "cycling" ? "Program Fit" : "Goal Fit"}
+              </div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                {progression.goal_profile?.description ?? "How close your current profile matches your goal."}
+                {sportMode === "running"
+                  ? "How your conditioning aligns with your running target."
+                  : sportMode === "cycling"
+                  ? "How your conditioning aligns with your cycling programme."
+                  : (progression.goal_profile?.description ?? "How close your current profile matches your goal.")}
               </div>
             </div>
           </Glass>
@@ -3960,6 +3974,54 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                       </div>
                     );
                   })}
+                </div>
+              </Glass>
+            );
+          })()}
+
+          {/* ── Run plan timeline (when Run Coach active) ── */}
+          {runCoachActive && (() => {
+            const rc = prefs.preferences.run_coach;
+            const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+            const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+            const currentWeek = rc.week ?? 1;
+            // Generate week bars: planned volume increases roughly linearly
+            const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+            return (
+              <Glass style={{ padding: 20, marginBottom: 12 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 14 }}>
+                  {rc.target_km}km Plan — {totalWeeks}-Week Progression
+                </div>
+                <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48, marginBottom: 8 }}>
+                  {weeks.map(w => {
+                    const volFrac = w / totalWeeks;
+                    const barH = Math.max(6, Math.round(volFrac * 44));
+                    const isPast = w < currentWeek;
+                    const isCurrent = w === currentWeek;
+                    return (
+                      <div key={w} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                        <div style={{ width: "100%", height: barH, borderRadius: 3, background: isPast ? C.emerald : isCurrent ? `rgba(var(--accent-rgb),0.6)` : C.border, transition: "height 0.3s ease" }} />
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                  <span style={{ fontSize: 10, color: C.subtle }}>Week 1</span>
+                  <span style={{ fontSize: 10, color: C.subtle }}>Week {totalWeeks}</span>
+                </div>
+                <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 2, background: C.emerald }} />
+                    <span style={{ fontSize: 11, color: C.muted }}>Completed</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 2, background: "rgba(var(--accent-rgb),0.6)" }} />
+                    <span style={{ fontSize: 11, color: C.muted }}>Current (Week {currentWeek})</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 2, background: C.border }} />
+                    <span style={{ fontSize: 11, color: C.muted }}>Upcoming</span>
+                  </div>
                 </div>
               </Glass>
             );
@@ -4093,37 +4155,38 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
           )}
 
-          {/* ── Axis breakdown table ── */}
-          <div style={{ marginBottom: 16 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-              Axis Breakdown
-            </div>
-            <Glass style={{ padding: "8px 0" }}>
-              {RADAR_AXES.map((axis, i) => {
-                const current = Math.round(displayScores[axis] ?? 0);
-                const target  = Math.round(goalScores?.[axis] ?? 50);
-                const gap     = Math.max(0, target - current);
-                const pct     = current;
-                return (
-                  <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                      <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
-                      <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                        <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
-                        {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
+          {sportMode === "general" && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+                Axis Breakdown
+              </div>
+              <Glass style={{ padding: "8px 0" }}>
+                {RADAR_AXES.map((axis, i) => {
+                  const current = Math.round(displayScores[axis] ?? 0);
+                  const target  = Math.round(goalScores?.[axis] ?? 50);
+                  const gap     = Math.max(0, target - current);
+                  const pct     = current;
+                  return (
+                    <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
+                          {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
+                        </div>
+                      </div>
+                      <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: C.emerald, width: `${pct}%`, transition: "width 0.5s ease" }} />
+                        {showCompare && (
+                          <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${C.emerald}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
+                        )}
                       </div>
                     </div>
-                    <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
-                      <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: C.emerald, width: `${pct}%`, transition: "width 0.5s ease" }} />
-                      {showCompare && (
-                        <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${C.emerald}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </Glass>
-          </div>
+                  );
+                })}
+              </Glass>
+            </div>
+          )}
 
           {/* ── Debug: Recompute ── */}
           <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
@@ -5150,48 +5213,101 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           Training Focus
         </div>
         <Glass style={{ padding: 24 }}>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
-            One focus at a time. Select Running or Cycling to unlock a structured coach programme.
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 6 }}>
-            {[...GOALS, { value: "running", label: "Running", sport: true }, { value: "cycling", label: "Cycling", sport: true }].map((opt) => {
-              const isRun = opt.value === "running";
-              const isCycle = opt.value === "cycling";
-              const isSport = !!opt.sport;
-              const available = isRun
-                ? planEquipment.includes("running_shoes")
-                : isCycle
-                ? planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e))
-                : true;
-              const sel = focusSel === opt.value;
+          {/* 3-mode selector */}
+          <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+            {[
+              { id: "general", label: "General Training", disabled: false },
+              { id: "running", label: "Run Coach", disabled: !planEquipment.includes("running_shoes") },
+              { id: "cycling", label: "Cycle Coach", disabled: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) },
+            ].map(opt => {
+              const sel = opt.id === "general"
+                ? !["running","cycling"].includes(focusSel)
+                : focusSel === opt.id;
               return (
                 <button
-                  key={opt.value}
-                  onClick={() => available && handleFocusTap(opt.value)}
+                  key={opt.id}
+                  onClick={() => {
+                    if (opt.disabled) return;
+                    if (opt.id === "general") {
+                      // Switch back to whichever general goal was saved, deactivate coaches
+                      const goal = prefs.training_goal ?? "health";
+                      handleFocusTap(goal);
+                    } else {
+                      handleFocusTap(opt.id);
+                    }
+                  }}
                   style={{
-                    padding: "10px 4px 8px", borderRadius: 14, cursor: available ? "pointer" : "not-allowed",
+                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: opt.disabled ? "not-allowed" : "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
                     background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-                    opacity: available ? 1 : 0.35,
+                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                    opacity: opt.disabled ? 0.35 : 1,
                   }}
                 >
-                  {isSport ? (
-                    <span style={{ fontSize: 18, lineHeight: 1 }}>{isRun ? "🏃" : "🚴"}</span>
-                  ) : (
-                    <span style={{ color: sel ? C.emerald : C.muted, display: "flex", alignItems: "center" }}>
-                      <GoalIcon value={opt.value} size={20} />
-                    </span>
-                  )}
-                  <span style={{ fontSize: 10, fontWeight: 900, color: sel ? C.emerald : C.text, textAlign: "center", lineHeight: 1.3 }}>
-                    {opt.label}
-                  </span>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{opt.label}</span>
+                  {opt.disabled && <span style={{ fontSize: 9, color: C.subtle }}>Add equipment first</span>}
                 </button>
               );
             })}
           </div>
 
-          {/* Running Coach panel */}
+          {/* ── General Training sub-section ── */}
+          {!["running","cycling"].includes(focusSel) && (
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Your goal</div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16 }}>
+                {GOALS.map(g => {
+                  const sel = focusSel === g.value;
+                  return (
+                    <button
+                      key={g.value}
+                      onClick={() => handleFocusTap(g.value)}
+                      style={{
+                        padding: "10px 6px 8px", borderRadius: 14, cursor: "pointer",
+                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                        background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
+                      }}
+                    >
+                      <span style={{ color: sel ? C.emerald : C.muted, display: "flex", alignItems: "center" }}>
+                        <GoalIcon value={g.value} size={20} />
+                      </span>
+                      <span style={{ fontSize: 10, fontWeight: 900, color: sel ? C.emerald : C.text, textAlign: "center", lineHeight: 1.3 }}>
+                        {g.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
+                Experience level
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {EXPERIENCE.map(ex => {
+                  const sel = (prefs.experience_level ?? "beginner") === ex.value;
+                  return (
+                    <button
+                      key={ex.value}
+                      onClick={() => {
+                        onUpdate((p) => ({ ...p, experience_level: ex.value }));
+                        api.saveProfile(token, { experience_level: ex.value }).catch(() => {});
+                      }}
+                      style={{
+                        flex: 1, padding: "8px 4px", borderRadius: 14, cursor: "pointer",
+                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                        background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
+                      }}
+                    >
+                      <span style={{ fontSize: 11, fontWeight: 900, color: sel ? C.emerald : C.text }}>{ex.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* ── Run Coach sub-section ── */}
           {focusSel === "running" && planEquipment.includes("running_shoes") && (() => {
             const rcState = prefs.preferences?.run_coach ?? null;
             const isActive = rcState?.enrolled === true && !rcState?.completed;
@@ -5201,8 +5317,13 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               onUpdate((p) => ({ ...p, preferences: newPrefs }));
               api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
             };
+            const prevRequired = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 };
+            const showRampWarn = (() => {
+              const prev = prevRequired[runTargetSelect];
+              return prev && !unlockedTargets.includes(String(prev));
+            })();
             return (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, opacity: prefs.isPro ? 1 : 0.45 }}>
+              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {isActive
@@ -5213,19 +5334,25 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                   <>
                     {!isActive && (
                       <>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Target distance</div>
+                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: showRampWarn ? 10 : 12 }}>
                           {[5, 10, 15, 20, 30].map(t => {
-                            const prev = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 }[t];
-                            const avail = !prev || unlockedTargets.includes(String(prev));
                             const done = unlockedTargets.includes(String(t));
                             const isSel = t === runTargetSelect;
                             return (
-                              <button key={t} onClick={() => avail && setRunTargetSelect(t)} style={{ padding: "5px 10px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: avail ? "pointer" : "not-allowed", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : avail ? C.muted : C.subtle, opacity: avail ? 1 : 0.5 }}>
-                                {done ? "✓ " : !avail ? "🔒 " : ""}{t}km
+                              <button key={t} onClick={() => setRunTargetSelect(t)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : C.muted }}>
+                                {done ? "✓ " : ""}{t}km
                               </button>
                             );
                           })}
                         </div>
+                        {showRampWarn && (
+                          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, lineHeight: 1.5 }}>
+                              ⚠️ Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
+                            </span>
+                          </div>
+                        )}
                         <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
                           {({ 5: "8 weeks", 10: "12 weeks", 15: "14 weeks", 20: "16 weeks", 30: "20 weeks" })[runTargetSelect]} · up to 3 sessions/week · any days
                         </div>
@@ -5241,7 +5368,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                       }}
                       style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${isActive ? "transparent" : C.border}`, background: isActive ? C.emerald : "rgba(255,255,255,0.05)", color: isActive ? "#fff" : C.muted }}
                     >
-                      {isActive ? "Active" : `Activate ${runTargetSelect}km`}
+                      {isActive ? "Active" : `Activate ${runTargetSelect}km plan`}
                     </button>
                   </>
                 ) : (
@@ -5251,7 +5378,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
             );
           })()}
 
-          {/* Cycling Coach panel */}
+          {/* ── Cycle Coach sub-section ── */}
           {focusSel === "cycling" && planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) && (() => {
             const ccState = prefs.preferences?.cycling_coach ?? null;
             const ccActive = ccState?.active === true && !ccState?.completed;
@@ -5264,7 +5391,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
             const maxHr = parseInt(cycleMaxHrInput) || 180;
             const targetFtp = parseInt(cycleTargetFtpInput) || 250;
             return (
-              <div style={{ marginTop: 16, paddingTop: 16, borderTop: `1px solid ${C.border}`, opacity: prefs.isPro ? 1 : 0.45 }}>
+              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {ccActive
