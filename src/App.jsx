@@ -716,7 +716,7 @@ function OnboardingModal({ token, onComplete }) {
   const [goal, setGoal] = useState("health");
   const [experience, setExperience] = useState("beginner");
   const [equipment, setEquipment] = useState(["none"]);
-  const [duration, setDuration] = useState(30);
+  const [duration, setDuration] = useState(45);
   const [saving, setSaving] = useState(false);
 
   const TOTAL_STEPS = 4;
@@ -1169,7 +1169,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
       await api.saveProfile(token, {
         training_goal: goal,
         experience_level: levelToExp(fitnessLevel),
-        session_duration_min: profileData?.session_duration_min ?? 30,
+        session_duration_min: profileData?.session_duration_min ?? 45,
         days_per_week_target: profileData?.days_per_week_target ?? 3,
         preferences: profileData?.preferences ?? {},
         sex,
@@ -4907,7 +4907,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [accentHex, setAccentHex] = useState(prefs.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981");
   // Daily planning preferences
   const [checkinMode, setCheckinMode] = useState(prefs.preferences?.checkin_mode ?? "once_a_day");
-  const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 30);
+  const [planDuration, setPlanDuration] = useState(prefs.session_duration_min ?? 45);
   const [planEquipment, setPlanEquipment] = useState(prefs.preferences?.available_equipment ?? ["none"]);
   const [timeOverhead, setTimeOverhead] = useState(() => {
     const saved = prefs.preferences?.time_overhead;
@@ -4920,7 +4920,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [showAdvancedSchedule, setShowAdvancedSchedule] = useState(() => prefs.preferences?.schedule_advanced ?? false);
   const [weeklySchedule, setWeeklySchedule] = useState(() => {
     const saved = prefs.preferences?.weekly_schedule;
-    const d = prefs.session_duration_min ?? 30;
+    const d = prefs.session_duration_min ?? 45;
     return saved ?? { mon: d, tue: d, wed: d, thu: d, fri: d, sat: 0, sun: 0 };
   });
 
@@ -5380,7 +5380,13 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               return (
                 <button
                   key={String(id)}
-                  onClick={() => setShowAdvancedSchedule(id)}
+                  onClick={() => {
+                    if (id === true && !showAdvancedSchedule) {
+                      // First activation: seed all days with current standard duration
+                      setWeeklySchedule({ mon: planDuration, tue: planDuration, wed: planDuration, thu: planDuration, fri: planDuration, sat: planDuration, sun: planDuration });
+                    }
+                    setShowAdvancedSchedule(id);
+                  }}
                   style={{
                     flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
@@ -8051,7 +8057,7 @@ export default function App() {
           sex={prefs.sex}
           cycle={prefs.cycle}
           defaultTimeBudget={(() => {
-            const fallback = prefs.session_duration_min ?? 30;
+            const fallback = prefs.session_duration_min ?? 45;
             if (prefs.preferences?.schedule_advanced) {
               const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
               const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
