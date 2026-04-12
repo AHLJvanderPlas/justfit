@@ -226,6 +226,15 @@ const api = {
     return res.json();
   },
 
+  async deleteAccount() {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "delete_account" }),
+    });
+    return res.json();
+  },
+
   async getProgression(token) {
     const res = await fetch("/api/progression", {
       headers: { Authorization: `Bearer ${token}` },
@@ -4821,6 +4830,11 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
+  // Delete account state
+  const [deleteStep, setDeleteStep]   = useState(null); // null | "confirm" | "type"
+  const [deleteText, setDeleteText]   = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   // Cycle settings state
   const [cycleTrackingMode, setCycleTrackingMode] = useState(prefs.cycle?.tracking_mode ?? "off");
   const [cycleLength, setCycleLength] = useState(prefs.cycle?.cycle_length_days ?? 28);
@@ -6759,7 +6773,106 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         }}>
           Sign Out
         </button>
+
+        {/* Delete account card */}
+        <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:4 }}>Delete Account</div>
+          <div style={{ fontSize:12, color:C.subtle, marginBottom:10, lineHeight:1.5 }}>
+            Permanently removes your account and all training data. This cannot be undone.
+          </div>
+          <button
+            onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
+            style={{ padding:"8px 14px", borderRadius:10, border:"1px solid rgba(226,76,74,0.25)", background:"rgba(226,76,74,0.06)", color:"#f87171", fontWeight:700, fontSize:12, cursor:"pointer" }}
+          >
+            Delete my account →
+          </button>
+        </div>
       </div>
+
+      {/* Delete account modal */}
+      {deleteStep && (
+        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.85)" }}
+          onClick={() => { if (!deleteLoading) { setDeleteStep(null); setDeleteText(""); setDeleteError(""); } }}
+        >
+          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {deleteStep === "confirm" ? (
+              <>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text, lineHeight:1.3 }}>
+                  Delete your account?
+                </div>
+                <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+                  This will permanently delete your account and <strong style={{color:C.text}}>all relevant data</strong> — workouts, history, preferences, and progress. This action cannot be undone.
+                </div>
+                <div style={{ display:"flex", gap:10 }}>
+                  <button
+                    onClick={() => { setDeleteStep(null); setDeleteText(""); setDeleteError(""); }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}
+                  >
+                    No, keep it
+                  </button>
+                  <button
+                    onClick={() => setDeleteStep("type")}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:"#f87171", fontWeight:700, fontSize:14, cursor:"pointer" }}
+                  >
+                    Yes, delete
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div style={{ fontSize:18, fontWeight:900, color:"#f87171", lineHeight:1.3 }}>
+                  Confirm deletion
+                </div>
+                <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+                  Type <strong style={{color:C.text, fontFamily:"monospace"}}>delete</strong> to confirm.
+                </div>
+                <input
+                  type="text"
+                  value={deleteText}
+                  onChange={e => { setDeleteText(e.target.value); setDeleteError(""); }}
+                  placeholder="delete"
+                  autoFocus
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
+                />
+                {deleteError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{deleteError}</div>}
+                <div style={{ display:"flex", gap:10 }}>
+                  <button
+                    disabled={deleteLoading}
+                    onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.muted, fontWeight:700, fontSize:14, cursor:"pointer" }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    disabled={deleteLoading}
+                    onClick={async () => {
+                      if (deleteText.trim().toLowerCase() !== "delete") {
+                        setDeleteError('Please type "delete" to confirm.');
+                        return;
+                      }
+                      setDeleteLoading(true);
+                      try {
+                        const res = await api.deleteAccount();
+                        if (res.ok) {
+                          logout();
+                        } else {
+                          setDeleteError(res.error ?? "Something went wrong. Please try again.");
+                          setDeleteLoading(false);
+                        }
+                      } catch { setDeleteError("Network error. Please try again."); setDeleteLoading(false); }
+                    }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background: deleteLoading ? "rgba(226,76,74,0.05)" : "rgba(226,76,74,0.15)", color: deleteLoading ? C.muted : "#f87171", fontWeight:900, fontSize:14, cursor: deleteLoading ? "default" : "pointer" }}
+                  >
+                    {deleteLoading ? "Deleting…" : "Delete account"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       <p
         style={{

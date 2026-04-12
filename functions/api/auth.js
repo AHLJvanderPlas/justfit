@@ -163,7 +163,7 @@ async function handleLogin({ email, password }, env, secret) {
 }
 
 // ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
-async function handleForgotPassword({ email }, env, secret) {
+async function handleForgotPassword({ email }, env, _secret) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
 
@@ -444,6 +444,43 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
   return Response.json({ ok: true, token, userId: cred.user_id });
 }
 
+// ─── DELETE ACCOUNT ───────────────────────────────────────────────────────────
+async function handleDeleteAccount(request, env, secret) {
+  const user = await getSessionUser(request, secret);
+  if (!user?.userId) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  const uid = user.userId;
+
+  // Delete in dependency order — execution_steps first (FK to executions), then everything else
+  await env.DB.batch([
+    env.DB.prepare('DELETE FROM execution_steps WHERE execution_id IN (SELECT id FROM executions WHERE user_id = ?)').bind(uid),
+    env.DB.prepare('DELETE FROM executions WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM daily_checkins WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM day_plans WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_progression_events WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_progression WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM period_log WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM pregnancy_weekly_log WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM cycle_profile WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM context_overrides WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_awards WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM entitlements WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM passkey_credentials WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM magic_link_tokens WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM support_tokens WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM referral_codes WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM referrals WHERE referrer_user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_availability WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_contact WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_preferences WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM user_profile WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM auth_users WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid),
+  ]);
+
+  return Response.json({ ok: true });
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 async function getSessionUser(request, secret) {
   const auth  = request.headers.get('Authorization') ?? '';
@@ -469,6 +506,7 @@ export async function onRequestPost({ request, env }) {
       case 'passkey_complete_register': return handlePasskeyCompleteRegister(request, body, env, secret);
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
       case 'passkey_complete_auth':     return handlePasskeyCompleteAuth(body, env, secret);
+      case 'delete_account':            return handleDeleteAccount(request, env, secret);
       default: return Response.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (e) {
@@ -491,7 +529,7 @@ export async function onRequestGet({ request, env }) {
     const user = await getSessionUser(request, secret);
     if (!user) return Response.json({ valid: false }, { status: 401 });
     return Response.json({ valid: true, userId: user.userId, email: user.email });
-  } catch (e) {
+  } catch {
     return Response.json({ valid: false }, { status: 401 });
   }
 }
