@@ -99,7 +99,7 @@ export async function onRequestGet({ request, env }) {
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT email, email_verified FROM auth_users WHERE user_id = ? LIMIT 1`
+        `SELECT email, email_verified FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
       ).bind(user.userId).first(),
     ]);
 

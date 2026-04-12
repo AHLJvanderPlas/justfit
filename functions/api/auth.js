@@ -516,9 +516,21 @@ async function handleResendVerification(request, env, secret) {
   if (!authUser) return Response.json({ error: 'User not found' }, { status: 404 });
   if (authUser.email_verified) return Response.json({ ok: true, already_verified: true });
 
+  const now = Date.now();
+
+  // 60s cooldown — prevent inbox spam
+  const recent = await env.DB.prepare(
+    `SELECT created_at_ms FROM magic_link_tokens WHERE user_id = ? AND purpose = 'verify_email' AND created_at_ms > ? LIMIT 1`
+  ).bind(user.userId, now - 60_000).first();
+  if (recent) return Response.json({ error: 'Please wait before requesting another verification email' }, { status: 429 });
+
+  // Invalidate previous pending verify tokens for this user
+  await env.DB.prepare(
+    `UPDATE magic_link_tokens SET used_at_ms = ? WHERE user_id = ? AND purpose = 'verify_email' AND used_at_ms IS NULL`
+  ).bind(now, user.userId).run();
+
   const token = crypto.randomUUID();
   const code  = generateCode();
-  const now   = Date.now();
 
   await env.DB.prepare(
     `INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`
@@ -573,7 +585,14 @@ async function handleRequestEmailChange({ new_email }, request, env, secret) {
   ).bind(newEmailLower).first();
   if (taken) return Response.json({ error: 'Email already in use' }, { status: 409 });
 
-  const now   = Date.now();
+  const now = Date.now();
+
+  // 60s cooldown — prevent third-party inbox spam
+  const recent = await env.DB.prepare(
+    `SELECT created_at_ms FROM magic_link_tokens WHERE user_id = ? AND purpose = 'email_change' AND created_at_ms > ? LIMIT 1`
+  ).bind(user.userId, now - 60_000).first();
+  if (recent) return Response.json({ error: 'Please wait before requesting another email change' }, { status: 429 });
+
   const token = crypto.randomUUID();
   const code  = generateCode();
 
@@ -639,7 +658,7 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
 
 // ─── EMAIL VERIFY / CHANGE LINK HANDLERS (GET) ────────────────────────────────
 
-async function handleVerifyEmailLink(token, env, secret) {
+async function handleVerifyEmailLink(token, env) {
   const row = await env.DB.prepare(
     `SELECT token, user_id, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'verify_email' LIMIT 1`
   ).bind(token).first();
@@ -657,7 +676,7 @@ async function handleVerifyEmailLink(token, env, secret) {
   return Response.redirect('https://justfit.cc/?email_verified=1', 302);
 }
 
-async function handleChangeEmailLink(token, env, secret) {
+async function handleChangeEmailLink(token, env) {
   const row = await env.DB.prepare(
     `SELECT token, user_id, new_email, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'email_change' LIMIT 1`
   ).bind(token).first();
@@ -737,8 +756,8 @@ export async function onRequestGet({ request, env }) {
     // Email verification / change link clicks
     const verifyEmail = url.searchParams.get('verify_email');
     const changeEmail = url.searchParams.get('change_email');
-    if (verifyEmail) return handleVerifyEmailLink(verifyEmail, env, secret);
-    if (changeEmail) return handleChangeEmailLink(changeEmail, env, secret);
+    if (verifyEmail) return handleVerifyEmailLink(verifyEmail, env);
+    if (changeEmail) return handleChangeEmailLink(changeEmail, env);
 
     // Magic link verification (DB-backed, single-use)
     if (magic) return handleMagicVerify(magic, env, secret);
