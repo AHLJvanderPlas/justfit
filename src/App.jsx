@@ -53,8 +53,12 @@ function getToken() {
 }
 
 function logout() {
-  localStorage.removeItem("jf_token");
-  localStorage.removeItem("jf_user_id");
+  // Clear all user-specific keys so the next user starts clean
+  ["jf_token", "jf_user_id", "jf_prefs", "jf_accent", "jf_version", "jf_waiver", "jf_checkin_date"].forEach(k => localStorage.removeItem(k));
+  // Clear date-keyed session state
+  Object.keys(localStorage).filter(k => k.startsWith("jf_completed_") || k.startsWith("jf_bonus_")).forEach(k => localStorage.removeItem(k));
+  // Clear sessionStorage plan cache
+  sessionStorage.clear();
   window.location.href = "/login.html";
 }
 
@@ -7579,10 +7583,18 @@ export default function App() {
     localStorage.setItem("jf_version", APP_VERSION);
     setShowOnboarding(false);
     setOnboardingReady(true);
-    if (completedProfileData) {
-      setPrefs((p) => ({ ...p, ...completedProfileData }));
-    }
-    const mode = (completedProfileData?.preferences?.checkin_mode) ?? prefs.preferences?.checkin_mode ?? "once_a_day";
+    // Fetch fresh profile from server so prefs reflect what was just saved
+    // (completedProfileData is only a subset — equipment etc. live in preferences_json)
+    api.getProfile(token).then((data) => {
+      if (data?.exists) {
+        setPrefs({ ...data, exists: undefined });
+      } else if (completedProfileData) {
+        setPrefs(completedProfileData);
+      }
+    }).catch(() => {
+      if (completedProfileData) setPrefs(completedProfileData);
+    });
+    const mode = (completedProfileData?.preferences?.checkin_mode) ?? "once_a_day";
     if (mode !== "manual") setShowCheckIn(true);
   };
 
