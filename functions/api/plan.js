@@ -780,6 +780,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // so they cannot accidentally undo a safety cap.
   // ─────────────────────────────────────────────────────────────────────────
 
+  let volumeMultiplier = 1.0;
+  let sessionNotes = null;
+  const addNote = (note) => { sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note; };
+
   // ------------------------------------------------------------------
   // R511: Sleep Intensity + Volume Cap
   // Poor sleep impairs muscle recovery, coordination, and injury resistance.
@@ -878,6 +882,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         return equip.includes('none');
       });
     }
+    // Re-apply no_clothing stealth filter — R518 rebuilds from full exercises so R515 must be reapplied
+    if (checkIn?.no_clothing) {
+      pool = pool.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
+      });
+    }
     trace.push(`R518 — Gym today → gym equipment unlocked (${pool.length} exercises available)`);
   }
 
@@ -888,9 +899,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   const bmi = (weightKg && heightCm && heightCm > 0)
     ? weightKg / ((heightCm / 100) ** 2)
     : null;
-
-  let volumeMultiplier = 1.0;
-  let sessionNotes = null;
 
   // R545/R546: BMI-aware running caution
   // Running exercises identified by equipment_required containing 'running_shoes'
@@ -927,7 +935,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const note = bmi >= T.BMI_STRICT
         ? `BMI ${bmi.toFixed(0)}+: Running is removed from today's plan. Cycling, rowing, and brisk walking deliver excellent cardio with far less joint load. Build leg and glute strength first — that's the real foundation for running.`
         : `BMI ${bmi.toFixed(0)} + current discomfort: Swapping running for low-impact cardio today. Listen to your body — pain that changes your gait is a signal to stop.`;
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+      addNote(note);
       if (intensity === 'high') intensity = 'moderate';
       trace.push(`R545 — BMI ${bmi.toFixed(1)} (strict) — running filtered out (${beforeCount - pool.length} removed), low-impact cardio preferred`);
     } else if (moderateMode) {
@@ -936,7 +944,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const note = isNovice
         ? `BMI ${bmi.toFixed(0)}: Starting with walk-run intervals is the smart play. Aim to increase total running by no more than 10% per week. Strength work for your calves, quads, and glutes will make every run easier.`
         : `BMI ${bmi.toFixed(0)}: Build gradually — no more than 10% more running per week. A run-walk plan works well at this stage. Strength training alongside running significantly reduces injury risk.`;
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+      addNote(note);
       trace.push(`R546 — BMI ${bmi.toFixed(1)} (moderate caution) — run-walk progression recommended, intensity capped at moderate`);
     }
   }
@@ -961,15 +969,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       trace.push('R520 — Your body is asking for gentleness today');
     }
 
-    // R521 — Follicular energy boost
+    // R521 — Follicular energy boost (multiplicative — cannot override a safety reduction)
     if (phase === 'follicular' && (checkIn?.energy ?? 10) >= T.ENERGY_FOLLICULAR && (checkIn?.sleep_hours ?? 8) >= T.SLEEP_FOLLICULAR) {
-      volumeMultiplier = 1.15;
+      volumeMultiplier *= 1.15;
       trace.push('R521 — Your energy is building — time to be strong');
     }
 
     // R522 — Ovulation peak
     if (phase === 'ovulation') {
-      sessionNotes = 'Take an extra minute to warm up today — your body is ready to perform.';
+      addNote('Take an extra minute to warm up today — your body is ready to perform.');
       trace.push('R522 — You\'re at your peak — let\'s make the most of it');
     }
 
@@ -1029,20 +1037,20 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       slot_type = 'micro';
       const nauseaPool = exercises.filter(ex => hasTags(ex, 'breathing', 'recovery') && !hasTags(ex, 'high_impact', 'supine'));
       if (nauseaPool.length) pool = nauseaPool;
-      sessionNotes = 'Gentle movement only today. Listen to your body — rest is always the right choice.';
+      addNote('Gentle movement only today. Listen to your body — rest is always the right choice.');
       trace.push('R535 — Nausea today → breathing/recovery focus');
     }
 
     // R536 — T3 breathlessness adaptation
     if (trimester === 3 && breathlessToday) {
       volumeMultiplier = 0.8;
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + 'Shorter intervals today — pause when you need to breathe.';
+      addNote('Shorter intervals today — pause when you need to breathe.');
       trace.push('R536 — T3 breathlessness → volume ×0.8');
     }
 
     // R537 — Post-due-date flag
     if (pregnancyContext.past_due) {
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + 'When your baby arrives, switch to postnatal mode in Settings.';
+      addNote('When your baby arrives, switch to postnatal mode in Settings.');
       trace.push('R537 — Past due date: postnatal transition prompt added');
     }
   }
@@ -1067,8 +1075,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       // Propagate to pregnancyContext so downstream code (targetCategory, isGentleMode,
       // session name) consistently sees the held phase and not the time-derived phase.
       pregnancyContext.postnatal_phase = 'immediate';
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') +
-        'Your session is kept gentle until you confirm exercise clearance with your healthcare provider. When you\'re cleared, update your status in Settings.';
+      addNote('Your session is kept gentle until you confirm exercise clearance with your healthcare provider. When you\'re cleared, update your status in Settings.');
       trace.push('R539 — Postnatal clearance not confirmed — holding at immediate-phase restrictions');
     }
 
@@ -1098,7 +1105,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         pool = pool.filter(ex => !hasTags(ex, 'prone'));
         trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
       }
-      sessionNotes = 'Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.';
+      addNote('Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.');
       trace.push('R540 — Rebuilding phase: bodyweight only, no crunch/high-impact');
       trace.push('R543 — Diastasis recti check reminder added');
     } else if (postnatalPhase === 'strengthening') {
@@ -1110,7 +1117,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       pool = exercises.filter(ex => !hasTags(ex, 'valsalva'));
       const runningToday = checkIn?.postnatal_signals?.running_today ?? false;
       if (runningToday) {
-        sessionNotes = 'Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.';
+        addNote('Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.');
         trace.push('R544 — Running clearance note added');
       }
       trace.push('R540 — Returning phase: full programme, no valsalva');
@@ -1244,7 +1251,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           const fullMin = Math.round(getRunTotalSec(exercises.find(e => e.slug === prescribedSlug) ?? {}) / 60);
           const budgetMin = Math.round(sessionDurSec / 60);
           const note = `Today's run fits your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal, and you are delivering it. More time when you have it, same pace when you do not.`;
-          sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note;
+          addNote(note);
           trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
         }
 
@@ -1364,12 +1371,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
-  // ------------------------------------------------------------------
-  // R558 — Polarised training: balance HIIT and Zone 2 in general
-  //        endurance sessions. Removes the opposing endurance type from
-  //        the pool so only the preferred type competes for selection.
-  //        Activates when sport_prefs.polarised_training is enabled.
-  // ------------------------------------------------------------------
   // ------------------------------------------------------------------
   // R558 — Polarised training: balance HIIT and Zone 2 in general
   //        endurance sessions. Removes the opposing endurance type from
@@ -1495,8 +1496,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? Math.floor((Date.now() - mob.last_mobility_stimulus_at_ms) / 86_400_000)
       : 999;
     if (daysSinceMobility >= T.MOBILITY_DECAY_DAYS && goal !== 'mobility' && slot_type !== 'rest') {
-      sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') +
-        'Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.';
+      addNote('Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.');
       trace.push(`R553 — Mobility score decaying (${daysSinceMobility} days) — maintenance note added`);
     }
 
