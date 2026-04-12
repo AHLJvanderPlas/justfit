@@ -3790,7 +3790,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
   const [recomputeMsg, setRecomputeMsg] = useState("");
 
   const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
-  const goal = progression?.goal ?? prefs?.training_goal ?? "health";
+  const goal = prefs?.training_goal ?? progression?.goal ?? "health";
 
   // Get display scores for the selected chart mode
   const displayScores = progression?.scores_by_mode?.[effectiveChartMode] ?? progression?.scores ?? {};
@@ -3854,6 +3854,27 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
         </Glass>
       ) : (
         <>
+          {/* ── Training Goal card (general mode only) — above diagram ── */}
+          {sportMode === "general" && (() => {
+            const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
+            const exp = EXPERIENCE.find((e) => e.value === (prefs?.experience_level ?? "beginner")) ?? EXPERIENCE[0];
+            return (
+              <Glass style={{ padding: 20, marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                  <GoalIcon value={currentGoal.value} size={20} />
+                </div>
+                <div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+                  <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                    {exp.label}
+                  </span>
+                </div>
+                <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>Change in Settings →</div>
+              </Glass>
+            );
+          })()}
+
           {sportMode === "general" && (
             <>
               {/* ── Chart mode tabs ── */}
@@ -4051,27 +4072,6 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     <span style={{ fontSize: 11, color: C.muted }}>Upcoming</span>
                   </div>
                 </div>
-              </Glass>
-            );
-          })()}
-
-          {/* ── Training Goal card (general mode only) ── */}
-          {sportMode === "general" && (() => {
-            const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
-            const exp = EXPERIENCE.find((e) => e.value === (prefs?.experience_level ?? "beginner")) ?? EXPERIENCE[0];
-            return (
-              <Glass style={{ padding: 20, marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                  <GoalIcon value={currentGoal.value} size={20} />
-                </div>
-                <div>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
-                  <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                    {exp.label}
-                  </span>
-                </div>
-                <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>Change in Settings →</div>
               </Glass>
             );
           })()}
