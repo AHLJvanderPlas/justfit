@@ -5844,10 +5844,60 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
                 api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
               }}
-              style={{ padding: "8px 16px", borderRadius: 12, fontWeight: 900, fontSize: 12, background: prefs.isPro ? "rgba(255,255,255,0.06)" : "#fff", border: prefs.isPro ? `1px solid ${C.border}` : "none", color: prefs.isPro ? C.muted : "#000", cursor: "pointer", textTransform: "uppercase" }}
+              style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer" }}
             >
               {prefs.isPro ? "Downgrade" : "Upgrade"}
             </button>
+          </div>
+
+          {/* Email address */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Email address</div>
+            {prefs.email_verified ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                <div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
+                  <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ Verified</div>
+                </div>
+                <button
+                  onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }}
+                  style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}
+                >
+                  Change email →
+                </button>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: emailSuccess ? 8 : 0 }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
+                    <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <button
+                      disabled={emailLoading}
+                      onClick={async () => {
+                        setEmailLoading(true);
+                        await api.resendVerification().catch(() => {});
+                        setEmailLoading(false);
+                        setEmailSuccess("Verification email sent");
+                        setTimeout(() => setEmailSuccess(""), 4000);
+                      }}
+                      style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}
+                    >
+                      {emailLoading ? "Sending…" : "Resend"}
+                    </button>
+                    <button
+                      onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }}
+                      style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}
+                    >
+                      Enter code
+                    </button>
+                  </div>
+                </div>
+                {emailSuccess && <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700 }}>{emailSuccess}</div>}
+              </div>
+            )}
           </div>
 
           {/* Display name */}
@@ -6620,49 +6670,6 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         }}>
           Sign Out
         </button>
-
-        {/* Email card */}
-        <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:6 }}>Email Address</div>
-          <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:10 }}>{prefs.email ?? "—"}</div>
-          {prefs.email_verified ? (
-            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
-              <div style={{ fontSize:12, color:"#10b981", fontWeight:700 }}>✓ Verified</div>
-              <button
-                onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }}
-                style={{ padding:"6px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:700, fontSize:12, cursor:"pointer" }}
-              >
-                Change email →
-              </button>
-            </div>
-          ) : (
-            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
-              <div style={{ fontSize:12, color:"#f59e0b", fontWeight:700 }}>⚠ Not verified</div>
-              <div style={{ display:"flex", gap:8 }}>
-                <button
-                  disabled={emailLoading}
-                  onClick={async () => {
-                    setEmailLoading(true);
-                    await api.resendVerification().catch(() => {});
-                    setEmailLoading(false);
-                    setEmailSuccess("Verification email sent");
-                    setTimeout(() => setEmailSuccess(""), 4000);
-                  }}
-                  style={{ flex:1, padding:"8px 0", borderRadius:10, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:700, fontSize:12, cursor:"pointer" }}
-                >
-                  {emailLoading ? "Sending…" : "Resend email"}
-                </button>
-                <button
-                  onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }}
-                  style={{ flex:1, padding:"8px 0", borderRadius:10, border:`1px solid ${C.emeraldBorder}`, background:C.emeraldDim, color:C.emerald, fontWeight:700, fontSize:12, cursor:"pointer" }}
-                >
-                  Enter code
-                </button>
-              </div>
-              {emailSuccess && <div style={{ fontSize:12, color:"#10b981", fontWeight:700 }}>{emailSuccess}</div>}
-            </div>
-          )}
-        </div>
 
         {/* Delete account card */}
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
