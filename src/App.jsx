@@ -6672,16 +6672,18 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         </button>
 
         {/* Delete account card */}
-        <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
-          <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:4 }}>Delete Account</div>
-          <div style={{ fontSize:12, color:C.subtle, marginBottom:10, lineHeight:1.5 }}>
-            Permanently removes your account and all training data. This cannot be undone.
+        <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
+          <div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:2 }}>Delete Account</div>
+            <div style={{ fontSize:12, color:C.subtle, lineHeight:1.5 }}>
+              Permanently removes your account and all data.
+            </div>
           </div>
           <button
             onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
-            style={{ padding:"8px 14px", borderRadius:10, border:"1px solid rgba(226,76,74,0.25)", background:"rgba(226,76,74,0.06)", color:"#f87171", fontWeight:700, fontSize:12, cursor:"pointer" }}
+            style={{ flexShrink:0, padding:"10px 14px", borderRadius:14, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:"#f87171", fontWeight:900, fontSize:12, cursor:"pointer" }}
           >
-            Delete my account →
+            Delete →
           </button>
         </div>
       </div>
