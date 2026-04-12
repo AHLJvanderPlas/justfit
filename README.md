@@ -9,7 +9,7 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite, single `src/App.jsx`, all styles inline, no router library |
+| Frontend | React + Vite; UI components and inline styles in `src/App.jsx`; pure non-React modules extracted to `src/`; no router library |
 | Hosting | Cloudflare Pages (auto-deploy on push to `main`) |
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) — binding: `DB` |

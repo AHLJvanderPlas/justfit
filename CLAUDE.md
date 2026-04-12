@@ -63,7 +63,7 @@ GitHub: https://github.com/AHLJvanderPlas/justfit
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite, single `src/App.jsx`, no router library |
+| Frontend | React + Vite; UI components and inline styles in `src/App.jsx`; pure non-React modules (API client, hooks) extracted to `src/`; no router library, no component-per-view splitting |
 | Hosting | Cloudflare Pages (auto-deploy on push to `main`) |
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) bound as `DB` |
@@ -945,7 +945,7 @@ Improvements identified but not yet built. Ordered roughly by impact.
 ## Coding Conventions
 
 - **Functions**: plain JS (`.js`), no TypeScript, no bundler, no imports from npm
-- **Frontend**: React functional components, all styles inline using `C.` design tokens
+- **Frontend**: React functional components, all styles inline using `C.` design tokens; UI stays in `App.jsx`, pure JS modules (no JSX, no UI state) may live in `src/`
 - **DB timestamps**: always milliseconds (`Date.now()`), column suffix `_at_ms`
 - **DB IDs**: always `crypto.randomUUID()`
 - **Error responses**: always `Response.json({ error: e.message }, { status: 500 })`
