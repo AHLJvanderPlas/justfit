@@ -81,7 +81,7 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow] = await Promise.all([
+    const [prefs, profile, cycleRow, authUser] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
@@ -97,6 +97,9 @@ export async function onRequestGet({ request, env }) {
                 postnatal_birth_date, postnatal_birth_type,
                 postnatal_cleared_for_exercise, postnatal_clearance_date
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT email, email_verified FROM auth_users WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
     ]);
 
@@ -117,6 +120,8 @@ export async function onRequestGet({ request, env }) {
 
     return Response.json({
       exists: true,
+      email: authUser?.email ?? null,
+      email_verified: !!(authUser?.email_verified),
       units: prefs.units,
       training_goal: prefs.training_goal,
       experience_level: prefs.experience_level,

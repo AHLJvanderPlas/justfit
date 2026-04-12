@@ -1,7 +1,8 @@
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const JWT_EXPIRY      = 60 * 60 * 24 * 7; // 7 days  — session tokens
 const RESET_EXPIRY_MS = 60 * 60 * 1000;   // 1 hour  — password reset (ms)
-const MAGIC_EXPIRY_MS = 15 * 60 * 1000;   // 15 min  — magic links (ms)
+const MAGIC_EXPIRY_MS  = 15 * 60 * 1000;   // 15 min  — magic links (ms)
+const VERIFY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 h — email verify / change tokens
 const WEBAUTHN_EXPIRY = 120;              // 2 min   — challenge JWT (sec)
 const FROM_ADDRESS    = 'JustFit.cc <noreply@justfit.cc>';
 
@@ -77,6 +78,12 @@ async function verifyJWT(token, secret) {
 }
 
 // ─── PASSWORD HASHING ─────────────────────────────────────────────────────────
+function generateCode() {
+  const arr = new Uint32Array(1);
+  crypto.getRandomValues(arr);
+  return String(100000 + (arr[0] % 900000));
+}
+
 async function hashPassword(password, salt, secret) {
   const data = new TextEncoder().encode(salt + password + secret);
   const hash = await crypto.subtle.digest('SHA-256', data);
@@ -115,10 +122,12 @@ async function handleSignup({ email, password }, env, secret) {
   ).bind(emailLower).first();
   if (existing) return Response.json({ error: 'Email already registered' }, { status: 409 });
 
-  const userId = crypto.randomUUID();
-  const salt   = crypto.randomUUID();
-  const hash   = await hashPassword(password, salt, secret);
-  const now    = Date.now();
+  const userId      = crypto.randomUUID();
+  const salt        = crypto.randomUUID();
+  const hash        = await hashPassword(password, salt, secret);
+  const now         = Date.now();
+  const verifyToken = crypto.randomUUID();
+  const verifyCode  = generateCode();
 
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO users (id, status, primary_email, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?)`)
@@ -127,13 +136,21 @@ async function handleSignup({ email, password }, env, secret) {
       .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now),
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, now, now, now),
+    env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
+      .bind(verifyToken, userId, emailLower, verifyCode, now + VERIFY_EXPIRY_MS, now),
   ]);
 
   if (env.RESEND_API_KEY) {
-    await sendEmail(emailLower, 'Welcome to JustFit.cc — Consistency starts today', emailShell(`
+    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${verifyToken}`;
+    await sendEmail(emailLower, 'Welcome to JustFit.cc — verify your email', emailShell(`
       <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 12px;">You're in.</h1>
-      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Your first plan is ready. Check in daily — even 10 minutes counts.</p>
-      <a href="https://justfit.cc" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Open JustFit →</a>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Your first plan is ready. Verify your email to secure your account — or just start training.</p>
+      <a href="${verifyUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Verify my email →</a>
+      <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Or enter this code in the app (Settings → Email)</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${verifyCode}</p>
+      </div>
+      <p style="color:#334155;font-size:12px;margin-top:20px;">Link expires in 24 hours. You can also open the app and skip this — verification is optional.</p>
     `), env.RESEND_API_KEY).catch(() => {});
   }
 
@@ -256,21 +273,27 @@ async function handleMagicVerify(token, env, secret) {
   if (!token) return Response.json({ valid: false, error: 'Token required' }, { status: 400 });
 
   const row = await env.DB.prepare(
-    `SELECT token, user_id, email, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? LIMIT 1`
+    `SELECT token, user_id, email, purpose, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? LIMIT 1`
   ).bind(token).first();
 
-  if (!row)                      return Response.json({ valid: false, error: 'Invalid link' }, { status: 401 });
-  if (row.used_at_ms)            return Response.json({ valid: false, error: 'This link has already been used' }, { status: 401 });
+  if (!row)                           return Response.json({ valid: false, error: 'Invalid link' }, { status: 401 });
+  if (row.purpose && row.purpose !== 'login') return Response.json({ valid: false, error: 'Invalid link' }, { status: 401 });
+  if (row.used_at_ms)                 return Response.json({ valid: false, error: 'This link has already been used' }, { status: 401 });
   if (row.expires_at_ms < Date.now()) return Response.json({ valid: false, error: 'This link has expired' }, { status: 401 });
 
+  const now = Date.now();
   // Mark as used immediately (single-use)
   await env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`)
-    .bind(Date.now(), token).run();
+    .bind(now, token).run();
 
   if (!row.user_id) {
     // Email not registered — prompt signup
     return Response.json({ ok: false, needsSignup: true, email: row.email });
   }
+
+  // Magic link login proves inbox ownership — auto-mark email as verified
+  await env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`)
+    .bind(row.user_id).run();
 
   const sessionToken = await createJWT({ userId: row.user_id, email: row.email }, secret);
   return Response.json({ ok: true, token: sessionToken, userId: row.user_id });
@@ -481,6 +504,191 @@ async function handleDeleteAccount(request, env, secret) {
   return Response.json({ ok: true });
 }
 
+// ─── EMAIL VERIFICATION ───────────────────────────────────────────────────────
+
+async function handleResendVerification(request, env, secret) {
+  const user = await getSessionUser(request, secret);
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
+
+  const authUser = await env.DB.prepare(
+    `SELECT email, email_verified FROM auth_users WHERE user_id = ? LIMIT 1`
+  ).bind(user.userId).first();
+  if (!authUser) return Response.json({ error: 'User not found' }, { status: 404 });
+  if (authUser.email_verified) return Response.json({ ok: true, already_verified: true });
+
+  const token = crypto.randomUUID();
+  const code  = generateCode();
+  const now   = Date.now();
+
+  await env.DB.prepare(
+    `INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`
+  ).bind(token, user.userId, authUser.email, code, now + VERIFY_EXPIRY_MS, now).run();
+
+  if (env.RESEND_API_KEY) {
+    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${token}`;
+    await sendEmail(authUser.email, 'Verify your JustFit email address', emailShell(`
+      <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Verify your email</h1>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button or enter the code in the app (Settings → Email).</p>
+      <a href="${verifyUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Verify email →</a>
+      <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Code</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${code}</p>
+      </div>
+      <p style="color:#334155;font-size:12px;margin-top:20px;">Expires in 24 hours.</p>
+    `), env.RESEND_API_KEY).catch(() => {});
+  }
+
+  return Response.json({ ok: true });
+}
+
+async function handleVerifyEmailCode({ code }, request, env, secret) {
+  const user = await getSessionUser(request, secret);
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!code) return Response.json({ error: 'Code required' }, { status: 400 });
+
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    `SELECT token FROM magic_link_tokens WHERE code = ? AND user_id = ? AND purpose = 'verify_email' AND used_at_ms IS NULL AND expires_at_ms > ? LIMIT 1`
+  ).bind(String(code), user.userId, now).first();
+
+  if (!row) return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
+
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, row.token),
+    env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(user.userId),
+  ]);
+
+  return Response.json({ ok: true });
+}
+
+async function handleRequestEmailChange({ new_email }, request, env, secret) {
+  const user = await getSessionUser(request, secret);
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!new_email) return Response.json({ error: 'new_email required' }, { status: 400 });
+
+  const newEmailLower = new_email.toLowerCase().trim();
+
+  const taken = await env.DB.prepare(
+    `SELECT id FROM users WHERE primary_email = ? LIMIT 1`
+  ).bind(newEmailLower).first();
+  if (taken) return Response.json({ error: 'Email already in use' }, { status: 409 });
+
+  const now   = Date.now();
+  const token = crypto.randomUUID();
+  const code  = generateCode();
+
+  // Invalidate previous pending change tokens for this user
+  await env.DB.prepare(
+    `UPDATE magic_link_tokens SET used_at_ms = ? WHERE user_id = ? AND purpose = 'email_change' AND used_at_ms IS NULL`
+  ).bind(now, user.userId).run();
+
+  await env.DB.prepare(
+    `INSERT INTO magic_link_tokens (token, user_id, email, purpose, new_email, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'email_change', ?, ?, ?, ?)`
+  ).bind(token, user.userId, user.email, code, newEmailLower, now + VERIFY_EXPIRY_MS, now).run();
+
+  if (env.RESEND_API_KEY) {
+    const changeUrl = `https://justfit.cc/api/auth?change_email=${token}`;
+    await sendEmail(newEmailLower, 'Confirm your new JustFit email address', emailShell(`
+      <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Confirm your new email</h1>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Click the button or enter the code in the app to confirm <strong style="color:#f8fafc;">${newEmailLower}</strong> as your JustFit email.</p>
+      <a href="${changeUrl}" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Confirm new email →</a>
+      <div style="margin-top:28px;padding:20px;background:rgba(255,255,255,0.04);border-radius:12px;text-align:center;border:1px solid rgba(255,255,255,0.08);">
+        <p style="color:#64748b;font-size:11px;text-transform:uppercase;letter-spacing:0.08em;margin:0 0 10px;">Code</p>
+        <p style="font-size:30px;font-weight:900;letter-spacing:0.14em;color:#f8fafc;margin:0;">${code}</p>
+      </div>
+      <p style="color:#334155;font-size:12px;margin-top:20px;">Expires in 24 hours. If you didn't request this, ignore this email.</p>
+    `), env.RESEND_API_KEY).catch(() => {});
+  }
+
+  return Response.json({ ok: true });
+}
+
+async function handleVerifyChangeCode({ code }, request, env, secret) {
+  const user = await getSessionUser(request, secret);
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
+  if (!code) return Response.json({ error: 'Code required' }, { status: 400 });
+
+  const now = Date.now();
+  const row = await env.DB.prepare(
+    `SELECT token, new_email FROM magic_link_tokens WHERE code = ? AND user_id = ? AND purpose = 'email_change' AND used_at_ms IS NULL AND expires_at_ms > ? LIMIT 1`
+  ).bind(String(code), user.userId, now).first();
+
+  if (!row || !row.new_email) return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
+
+  const oldAuthUser = await env.DB.prepare(
+    `SELECT email FROM auth_users WHERE user_id = ? LIMIT 1`
+  ).bind(user.userId).first();
+
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, row.token),
+    env.DB.prepare(`UPDATE auth_users SET email = ?, email_verified = 1, updated_at_ms = ? WHERE user_id = ?`).bind(row.new_email, now, user.userId),
+    env.DB.prepare(`UPDATE users SET primary_email = ?, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, user.userId),
+  ]);
+
+  if (oldAuthUser?.email && env.RESEND_API_KEY) {
+    sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
+      <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
+    `), env.RESEND_API_KEY).catch(() => {});
+  }
+
+  const newSessionToken = await createJWT({ userId: user.userId, email: row.new_email }, secret);
+  return Response.json({ ok: true, token: newSessionToken, new_email: row.new_email });
+}
+
+// ─── EMAIL VERIFY / CHANGE LINK HANDLERS (GET) ────────────────────────────────
+
+async function handleVerifyEmailLink(token, env, secret) {
+  const row = await env.DB.prepare(
+    `SELECT token, user_id, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'verify_email' LIMIT 1`
+  ).bind(token).first();
+
+  if (!row || row.used_at_ms || row.expires_at_ms < Date.now()) {
+    return Response.redirect('https://justfit.cc/?verify_error=1', 302);
+  }
+
+  const now = Date.now();
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, token),
+    env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(row.user_id),
+  ]);
+
+  return Response.redirect('https://justfit.cc/?email_verified=1', 302);
+}
+
+async function handleChangeEmailLink(token, env, secret) {
+  const row = await env.DB.prepare(
+    `SELECT token, user_id, new_email, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'email_change' LIMIT 1`
+  ).bind(token).first();
+
+  if (!row || row.used_at_ms || row.expires_at_ms < Date.now() || !row.new_email) {
+    return Response.redirect('https://justfit.cc/?verify_error=1', 302);
+  }
+
+  const now = Date.now();
+  const oldAuthUser = await env.DB.prepare(
+    `SELECT email FROM auth_users WHERE user_id = ? LIMIT 1`
+  ).bind(row.user_id).first();
+
+  await env.DB.batch([
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, token),
+    env.DB.prepare(`UPDATE auth_users SET email = ?, email_verified = 1, updated_at_ms = ? WHERE user_id = ?`).bind(row.new_email, now, row.user_id),
+    env.DB.prepare(`UPDATE users SET primary_email = ?, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, row.user_id),
+  ]);
+
+  if (oldAuthUser?.email && env.RESEND_API_KEY) {
+    sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
+      <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
+      <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
+    `), env.RESEND_API_KEY).catch(() => {});
+  }
+
+  // Link-based change: JWT is re-issued on next app login. Redirect with success flag.
+  return Response.redirect('https://justfit.cc/?email_changed=1', 302);
+}
+
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 async function getSessionUser(request, secret) {
   const auth  = request.headers.get('Authorization') ?? '';
@@ -507,6 +715,10 @@ export async function onRequestPost({ request, env }) {
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
       case 'passkey_complete_auth':     return handlePasskeyCompleteAuth(body, env, secret);
       case 'delete_account':            return handleDeleteAccount(request, env, secret);
+      case 'resend_verification':       return handleResendVerification(request, env, secret);
+      case 'verify_email_code':         return handleVerifyEmailCode(body, request, env, secret);
+      case 'request_email_change':      return handleRequestEmailChange(body, request, env, secret);
+      case 'verify_change_code':        return handleVerifyChangeCode(body, request, env, secret);
       default: return Response.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (e) {
@@ -521,6 +733,12 @@ export async function onRequestGet({ request, env }) {
 
     const url   = new URL(request.url);
     const magic = url.searchParams.get('magic');
+
+    // Email verification / change link clicks
+    const verifyEmail = url.searchParams.get('verify_email');
+    const changeEmail = url.searchParams.get('change_email');
+    if (verifyEmail) return handleVerifyEmailLink(verifyEmail, env, secret);
+    if (changeEmail) return handleChangeEmailLink(changeEmail, env, secret);
 
     // Magic link verification (DB-backed, single-use)
     if (magic) return handleMagicVerify(magic, env, secret);

@@ -4669,6 +4669,13 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
   const [deleteText, setDeleteText]   = useState("");
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
+  // Email verification / change state
+  const [emailStep, setEmailStep]     = useState(null); // null | "verify_code" | "change_enter" | "change_code"
+  const [emailCode, setEmailCode]     = useState("");
+  const [emailInput, setEmailInput]   = useState("");
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailError, setEmailError]   = useState("");
+  const [emailSuccess, setEmailSuccess] = useState("");
   // Cycle settings state
   const [cycleTrackingMode, setCycleTrackingMode] = useState(prefs.cycle?.tracking_mode ?? "off");
   const [cycleLength, setCycleLength] = useState(prefs.cycle?.cycle_length_days ?? 28);
@@ -6614,6 +6621,49 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           Sign Out
         </button>
 
+        {/* Email card */}
+        <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
+          <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:6 }}>Email Address</div>
+          <div style={{ fontSize:14, fontWeight:700, color:C.text, marginBottom:10 }}>{prefs.email ?? "—"}</div>
+          {prefs.email_verified ? (
+            <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between" }}>
+              <div style={{ fontSize:12, color:"#10b981", fontWeight:700 }}>✓ Verified</div>
+              <button
+                onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }}
+                style={{ padding:"6px 12px", borderRadius:8, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:700, fontSize:12, cursor:"pointer" }}
+              >
+                Change email →
+              </button>
+            </div>
+          ) : (
+            <div style={{ display:"flex", flexDirection:"column", gap:8 }}>
+              <div style={{ fontSize:12, color:"#f59e0b", fontWeight:700 }}>⚠ Not verified</div>
+              <div style={{ display:"flex", gap:8 }}>
+                <button
+                  disabled={emailLoading}
+                  onClick={async () => {
+                    setEmailLoading(true);
+                    await api.resendVerification().catch(() => {});
+                    setEmailLoading(false);
+                    setEmailSuccess("Verification email sent");
+                    setTimeout(() => setEmailSuccess(""), 4000);
+                  }}
+                  style={{ flex:1, padding:"8px 0", borderRadius:10, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:700, fontSize:12, cursor:"pointer" }}
+                >
+                  {emailLoading ? "Sending…" : "Resend email"}
+                </button>
+                <button
+                  onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }}
+                  style={{ flex:1, padding:"8px 0", borderRadius:10, border:`1px solid ${C.emeraldBorder}`, background:C.emeraldDim, color:C.emerald, fontWeight:700, fontSize:12, cursor:"pointer" }}
+                >
+                  Enter code
+                </button>
+              </div>
+              {emailSuccess && <div style={{ fontSize:12, color:"#10b981", fontWeight:700 }}>{emailSuccess}</div>}
+            </div>
+          )}
+        </div>
+
         {/* Delete account card */}
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard }}>
           <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:4 }}>Delete Account</div>
@@ -6628,6 +6678,124 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
           </button>
         </div>
       </div>
+
+      {/* Email verify / change modal */}
+      {emailStep && (
+        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.85)" }}
+          onClick={() => { if (!emailLoading) { setEmailStep(null); setEmailCode(""); setEmailInput(""); setEmailError(""); } }}
+        >
+          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
+            onClick={e => e.stopPropagation()}
+          >
+            {emailStep === "verify_code" && (
+              <>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Verify your email</div>
+                <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+                  Enter the 6-digit code sent to <strong style={{color:C.text}}>{prefs.email}</strong>. No email yet? Close this and tap "Resend email".
+                </div>
+                <input
+                  type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                  value={emailCode}
+                  onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
+                  placeholder="123456" autoFocus
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                />
+                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => { setEmailStep(null); setEmailCode(""); setEmailError(""); }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+                    Cancel
+                  </button>
+                  <button
+                    disabled={emailLoading || emailCode.length !== 6}
+                    onClick={async () => {
+                      setEmailLoading(true);
+                      const res = await api.verifyEmailCode(emailCode).catch(() => ({ error: "Network error" }));
+                      setEmailLoading(false);
+                      if (res.ok) {
+                        setEmailStep(null); setEmailCode("");
+                        onUpdate({ ...prefs, email_verified: true });
+                      } else { setEmailError(res.error ?? "Invalid code"); }
+                    }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
+                    {emailLoading ? "Verifying…" : "Verify"}
+                  </button>
+                </div>
+              </>
+            )}
+            {emailStep === "change_enter" && (
+              <>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Change email address</div>
+                <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+                  We'll send a verification link and code to your new address.
+                </div>
+                <input
+                  type="email" value={emailInput}
+                  onChange={e => { setEmailInput(e.target.value); setEmailError(""); }}
+                  placeholder="new@email.com" autoFocus
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
+                />
+                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => { setEmailStep(null); setEmailInput(""); setEmailError(""); }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+                    Cancel
+                  </button>
+                  <button
+                    disabled={emailLoading || !emailInput.includes("@")}
+                    onClick={async () => {
+                      setEmailLoading(true);
+                      const res = await api.requestEmailChange(emailInput).catch(() => ({ error: "Network error" }));
+                      setEmailLoading(false);
+                      if (res.ok) { setEmailStep("change_code"); setEmailCode(""); setEmailError(""); }
+                      else { setEmailError(res.error ?? "Something went wrong"); }
+                    }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || !emailInput.includes("@")) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || !emailInput.includes("@")) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || !emailInput.includes("@")) ? "default" : "pointer" }}>
+                    {emailLoading ? "Sending…" : "Send verification"}
+                  </button>
+                </div>
+              </>
+            )}
+            {emailStep === "change_code" && (
+              <>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Enter verification code</div>
+                <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+                  Enter the 6-digit code sent to <strong style={{color:C.text}}>{emailInput}</strong>. Or click the link in that email.
+                </div>
+                <input
+                  type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
+                  value={emailCode}
+                  onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
+                  placeholder="123456" autoFocus
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                />
+                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                <div style={{ display:"flex", gap:10 }}>
+                  <button onClick={() => setEmailStep("change_enter")}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
+                    Back
+                  </button>
+                  <button
+                    disabled={emailLoading || emailCode.length !== 6}
+                    onClick={async () => {
+                      setEmailLoading(true);
+                      const res = await api.verifyChangeCode(emailCode).catch(() => ({ error: "Network error" }));
+                      setEmailLoading(false);
+                      if (res.ok) {
+                        setEmailStep(null); setEmailCode("");
+                        onUpdate({ ...prefs, email: emailInput, email_verified: true });
+                        if (res.token) localStorage.setItem("jf_token", res.token);
+                      } else { setEmailError(res.error ?? "Invalid code"); }
+                    }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
+                    {emailLoading ? "Confirming…" : "Confirm change"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Delete account modal */}
       {deleteStep && (
@@ -7345,6 +7513,25 @@ export default function App() {
       setOnboardingReady(true);
     }
   }
+
+  // On mount: handle email_verified / email_changed redirect params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("email_verified")) {
+      setActivityToast("Email verified ✓");
+      setTimeout(() => setActivityToast(""), 4000);
+      window.history.replaceState({}, "", "/");
+    } else if (params.get("email_changed")) {
+      setActivityToast("Email address updated ✓");
+      setTimeout(() => setActivityToast(""), 4000);
+      setPrefs((p) => ({ ...p, email_verified: true }));
+      window.history.replaceState({}, "", "/");
+    } else if (params.get("verify_error")) {
+      setActivityToast("Verification link invalid or expired");
+      setTimeout(() => setActivityToast(""), 5000);
+      window.history.replaceState({}, "", "/");
+    }
+  }, []);
 
   // On mount: check waiver → check profile
   useEffect(() => {

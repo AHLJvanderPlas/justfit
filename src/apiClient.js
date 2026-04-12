@@ -201,6 +201,42 @@ const api = {
     });
     return res.json();
   },
+
+  async resendVerification() {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "resend_verification" }),
+    });
+    return res.json();
+  },
+
+  async verifyEmailCode(code) {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "verify_email_code", code }),
+    });
+    return res.json();
+  },
+
+  async requestEmailChange(newEmail) {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "request_email_change", new_email: newEmail }),
+    });
+    return res.json();
+  },
+
+  async verifyChangeCode(code) {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "verify_change_code", code }),
+    });
+    return res.json();
+  },
 };
 
 export default api;
