@@ -1,0 +1,206 @@
+// ─── API CLIENT ───────────────────────────────────────────────────────────────
+// Pure fetch wrappers. No React, no side effects.
+// Auth token read from localStorage on each call so it's always current.
+
+const api = {
+  _auth() {
+    const t = localStorage.getItem("jf_token") ?? "";
+    return t ? { Authorization: `Bearer ${t}` } : {};
+  },
+
+  async generatePlan(userId, date, checkin, coachSim, isPro) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.plan;
+  },
+
+  async saveCheckin(userId, date, data) {
+    await fetch("/api/checkin", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({
+        date,
+        energy: data.energy != null ? Math.round(data.energy) : null,
+        stress: data.stress != null ? Math.round(data.stress) : null,
+        mood: data.mood != null ? Math.round(data.mood) : null,
+        sleep_hours: data.sleep_hours ?? null,
+        checkin_json: data.checkin_json ?? null,
+      }),
+    });
+  },
+
+  async adaptPlan(userId, date, checkin, basePlan) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ user_id: userId, date, checkin, adapt_mode: true, base_plan: basePlan }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.plan;
+  },
+
+  async getScore() {
+    const res = await fetch(`/api/score`, { headers: this._auth() });
+    const data = await res.json();
+    return data.score ?? 0;
+  },
+
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout") {
+    const res = await fetch("/api/execution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({
+        date,
+        day_plan_id: planId ?? null,
+        session_type: sessionType,
+        duration_sec: durationSec,
+        perceived_exertion: perceivedExertion ?? null,
+        steps: steps.map((s) => ({
+          exercise_id: s.exercise_id,
+          prescribed: {
+            sets: s.sets,
+            reps: s.target_reps,
+            duration_sec: s.target_duration_sec,
+            rest_sec: s.rest_sec,
+          },
+          actual: s.actual ?? { completed: true },
+        })),
+      }),
+    });
+    return res.json();
+  },
+
+  async getHistory() {
+    const res = await fetch(`/api/execution?limit=30`, { headers: this._auth() });
+    const data = await res.json();
+    return data.executions ?? [];
+  },
+
+  async getExercisesBySlugs(slugs) {
+    const res = await fetch("/api/exercises");
+    const data = await res.json();
+    const all = data.exercises ?? [];
+    return all.filter((ex) => slugs.includes(ex.slug));
+  },
+
+  async saveActivity(userId, date, executionType, durationSec) {
+    const res = await fetch("/api/execution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({
+        date,
+        execution_type: executionType,
+        duration_sec: durationSec,
+      }),
+    });
+    return res.json();
+  },
+
+  async logPeriod(userId, startedOn) {
+    const res = await fetch("/api/cycle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ started_on: startedOn }),
+    });
+    return res.json();
+  },
+
+  async generateBonusPlan(userId, date, minutes, completedIds) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({
+        user_id: userId,
+        date,
+        checkin: { time_budget: minutes },
+        completed_exercise_ids: completedIds,
+        bonus_session: true,
+      }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error);
+    return data.plan;
+  },
+
+  async getTodayPlan(userId, date) {
+    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`, { headers: this._auth() });
+    const data = await res.json();
+    if (!data.plan) return null;
+    const planObj = typeof data.plan.plan_json === "string" ? JSON.parse(data.plan.plan_json) : data.plan.plan_json;
+    return { id: data.plan.id, ...planObj };
+  },
+
+  async getLastCheckin(userId) {
+    const res = await fetch(`/api/checkin?user_id=${userId}`, { headers: this._auth() });
+    const data = await res.json();
+    return (data.checkins ?? [])[0] ?? null;
+  },
+
+  async getProfile(token) {
+    const res = await fetch("/api/profile", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async saveProfile(token, profile) {
+    const res = await fetch("/api/profile", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify(profile),
+    });
+    return res.json();
+  },
+
+  async deleteExecution(executionId) {
+    const res = await fetch(`/api/execution?execution_id=${executionId}`, {
+      method: "DELETE",
+      headers: this._auth(),
+    });
+    return res.json();
+  },
+
+  async deleteAccount() {
+    const res = await fetch("/api/auth", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...this._auth() },
+      body: JSON.stringify({ action: "delete_account" }),
+    });
+    return res.json();
+  },
+
+  async getProgression(token) {
+    const res = await fetch("/api/progression", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async saveProgressionPrefs(token, prefs) {
+    const res = await fetch("/api/progression", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(prefs),
+    });
+    return res.json();
+  },
+
+  async recomputeProgression(token) {
+    const res = await fetch("/api/progression?action=recompute", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+};
+
+export default api;
