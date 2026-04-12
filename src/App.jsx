@@ -6663,14 +6663,6 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
       )}
 
       <div style={{marginTop:24, display:"flex", flexDirection:"column", gap:10}}>
-        <button onClick={logout} style={{
-          width:"100%", padding:14, borderRadius:14,
-          background:"rgba(226,76,74,0.1)", border:"1px solid rgba(226,76,74,0.3)",
-          color:"#f87171", fontWeight:900, fontSize:14, cursor:"pointer"
-        }}>
-          Sign Out
-        </button>
-
         {/* Delete account card */}
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
           <div>
@@ -7453,6 +7445,7 @@ export default function App() {
   const [view, setView] = useState("today");
   const [inWorkout, setInWorkout] = useState(false);
   const [showCheckIn, setShowCheckIn] = useState(false);
+  const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [plan, setPlan] = useState(null);
   const [score, setScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
@@ -7947,38 +7940,59 @@ export default function App() {
                 JustFit<span style={{ color: C.emerald }}>.cc</span>
               </span>
             </div>
-            <button
-              onClick={() => setShowCheckIn(true)}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
-                padding: "9px 18px",
-                borderRadius: 14,
-                fontSize: 12,
-                fontWeight: 900,
-                letterSpacing: "0.06em",
-                textTransform: "uppercase",
-                background: "rgba(255,255,255,0.05)",
-                border: `1px solid ${C.border}`,
-                color: C.muted,
-                cursor: "pointer",
-              }}
-            >
-              <svg
-                width="13"
-                height="13"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke={C.emerald}
-                strokeWidth="2.5"
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {view === "settings" && (
+                <button
+                  onClick={() => setShowSignOutConfirm(true)}
+                  style={{
+                    display: "flex", alignItems: "center", gap: 6,
+                    padding: "9px 16px", borderRadius: 14, fontSize: 12, fontWeight: 900,
+                    letterSpacing: "0.06em", textTransform: "uppercase",
+                    background: "rgba(226,76,74,0.08)", border: "1px solid rgba(226,76,74,0.25)",
+                    color: "#f87171", cursor: "pointer",
+                  }}
+                >
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                    <polyline points="16 17 21 12 16 7" />
+                    <line x1="21" y1="12" x2="9" y2="12" />
+                  </svg>
+                  Sign out
+                </button>
+              )}
+              <button
+                onClick={() => setShowCheckIn(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 8,
+                  padding: "9px 18px",
+                  borderRadius: 14,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: "0.06em",
+                  textTransform: "uppercase",
+                  background: "rgba(255,255,255,0.05)",
+                  border: `1px solid ${C.border}`,
+                  color: C.muted,
+                  cursor: "pointer",
+                }}
               >
-                <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-                <path d="M19 3v4" />
-                <path d="M21 5h-4" />
-              </svg>
-              Recalibrate
-            </button>
+                <svg
+                  width="13"
+                  height="13"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke={C.emerald}
+                  strokeWidth="2.5"
+                >
+                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                  <path d="M19 3v4" />
+                  <path d="M21 5h-4" />
+                </svg>
+                Recalibrate
+              </button>
+            </div>
           </header>
         )}
 
@@ -8046,6 +8060,37 @@ export default function App() {
       </div>
 
       {!inWorkout && <Nav view={view} setView={setView} />}
+
+      {showSignOutConfirm && (
+        <div
+          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(2,6,23,0.85)" }}
+          onClick={() => setShowSignOutConfirm(false)}
+        >
+          <div
+            style={{ width: "100%", maxWidth: 320, background: "#0f172a", border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, display: "flex", flexDirection: "column", gap: 20 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Sign out?</div>
+              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>Your plan and progress are saved. See you next time.</div>
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <button
+                onClick={() => setShowSignOutConfirm(false)}
+                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+              >
+                Return sporting
+              </button>
+              <button
+                onClick={() => { setShowSignOutConfirm(false); logout(); }}
+                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+              >
+                Leave
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCheckIn && (
         <CheckInModal
