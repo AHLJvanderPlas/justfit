@@ -383,6 +383,82 @@ const PROG_GOAL_TARGETS = {
   mobility:    { push: 40, pull: 40, legs: 45, core: 55, conditioning: 35, mobility: 85 },
 };
 
+// ---------------------------------------------------------------------------
+// Sport demand vectors — per-axis load (0–1) each sport places on the body.
+// Used by R560 sport bias layer to nudge goal targets toward sport-support work.
+// 0.5 = neutral (no nudge), 1.0 = very high demand, 0.0 = very low demand.
+// ---------------------------------------------------------------------------
+const SPORT_DEMAND = {
+  running:     { push: 0.1, pull: 0.1, legs: 1.0, core: 0.6, conditioning: 1.0, mobility: 0.5 },
+  cycling:     { push: 0.1, pull: 0.2, legs: 0.9, core: 0.5, conditioning: 0.9, mobility: 0.4 },
+  swimming:    { push: 0.6, pull: 0.9, legs: 0.4, core: 0.7, conditioning: 0.9, mobility: 0.6 },
+  walking:     { push: 0.1, pull: 0.1, legs: 0.5, core: 0.3, conditioning: 0.5, mobility: 0.4 },
+  rowing:      { push: 0.4, pull: 0.9, legs: 0.7, core: 0.8, conditioning: 0.8, mobility: 0.5 },
+  triathlon:   { push: 0.3, pull: 0.5, legs: 0.9, core: 0.6, conditioning: 1.0, mobility: 0.5 },
+  skating:     { push: 0.1, pull: 0.2, legs: 0.9, core: 0.6, conditioning: 0.8, mobility: 0.5 },
+  mtb:         { push: 0.2, pull: 0.4, legs: 0.9, core: 0.7, conditioning: 0.8, mobility: 0.5 },
+  ice_skating: { push: 0.1, pull: 0.2, legs: 0.9, core: 0.6, conditioning: 0.7, mobility: 0.5 },
+  trail_run:   { push: 0.1, pull: 0.1, legs: 1.0, core: 0.7, conditioning: 0.9, mobility: 0.6 },
+  kayaking:    { push: 0.5, pull: 0.9, legs: 0.2, core: 0.8, conditioning: 0.7, mobility: 0.5 },
+  spinning:    { push: 0.1, pull: 0.1, legs: 0.9, core: 0.5, conditioning: 0.9, mobility: 0.3 },
+  nordic_walk: { push: 0.3, pull: 0.3, legs: 0.6, core: 0.5, conditioning: 0.6, mobility: 0.4 },
+  sup:         { push: 0.4, pull: 0.6, legs: 0.3, core: 0.9, conditioning: 0.6, mobility: 0.5 },
+  open_water:  { push: 0.6, pull: 0.9, legs: 0.4, core: 0.7, conditioning: 0.9, mobility: 0.6 },
+  climbing:    { push: 0.9, pull: 1.0, legs: 0.5, core: 0.9, conditioning: 0.6, mobility: 0.7 },
+  kitesurfing: { push: 0.4, pull: 0.7, legs: 0.6, core: 0.8, conditioning: 0.7, mobility: 0.6 },
+  duathlon:    { push: 0.1, pull: 0.2, legs: 1.0, core: 0.6, conditioning: 1.0, mobility: 0.5 },
+  obstacle:    { push: 0.6, pull: 0.7, legs: 0.8, core: 0.8, conditioning: 0.8, mobility: 0.6 },
+  cardio:      { push: 0.3, pull: 0.3, legs: 0.6, core: 0.5, conditioning: 0.8, mobility: 0.4 },
+  golf:        { push: 0.3, pull: 0.3, legs: 0.3, core: 0.8, conditioning: 0.3, mobility: 0.9 },
+  tennis:      { push: 0.6, pull: 0.5, legs: 0.7, core: 0.8, conditioning: 0.7, mobility: 0.7 },
+};
+
+const SPORT_AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
+
+// Compute sport-biased progression targets (R560).
+// Primary sport weighted 0.6, secondary sports share 0.4.
+// Nudge = (sportAxis - 0.5) × 24, capped at ±12 points per axis.
+// Guardrail: halve legs/conditioning nudge if user ran or rode in the last 24 h.
+function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRideAtMs) {
+  const sports = sportPrefs?.sports ?? [];
+  const knownSports = sports.filter(s => SPORT_DEMAND[s]);
+  if (!knownSports.length) return { targets: baseTargets, biasTrace: null };
+
+  const primary = (sportPrefs?.primary && SPORT_DEMAND[sportPrefs.primary]) ? sportPrefs.primary : knownSports[0];
+  const others  = knownSports.filter(s => s !== primary);
+  const otherW  = others.length > 0 ? 0.4 / others.length : 0;
+
+  // Build weighted sport vector
+  const vec = {};
+  SPORT_AXES.forEach(ax => {
+    vec[ax] = (SPORT_DEMAND[primary][ax] ?? 0.5) * 0.6;
+    for (const s of others) vec[ax] += (SPORT_DEMAND[s][ax] ?? 0.5) * otherW;
+  });
+
+  // External-load guardrail: recent run or ride → halve legs/conditioning nudge
+  const ms24h = 24 * 3600 * 1000;
+  const now = Date.now();
+  const recentRun  = !!(lastRunAtMs  && (now - lastRunAtMs)  < ms24h);
+  const recentRide = !!(lastRideAtMs && (now - lastRideAtMs) < ms24h);
+  const guardrailApplied = recentRun || recentRide;
+
+  const adjustedTargets = {};
+  const adjustments = {};
+  SPORT_AXES.forEach(ax => {
+    let sportVal = vec[ax];
+    if (guardrailApplied && (ax === 'legs' || ax === 'conditioning')) sportVal = 0.5 + (sportVal - 0.5) * 0.5;
+    const nudge = Math.round((sportVal - 0.5) * 24);
+    const base  = baseTargets[ax] ?? 50;
+    adjustedTargets[ax] = Math.min(90, Math.max(30, base + nudge));
+    adjustments[ax] = adjustedTargets[ax] - base;
+  });
+
+  return {
+    targets: adjustedTargets,
+    biasTrace: { primary, sports: knownSports, adjustments, guardrailApplied },
+  };
+}
+
 const PROG_AXIS_CATEGORY = {
   push: 'strength', pull: 'strength', legs: 'strength',
   core: 'strength', conditioning: 'cardio', mobility: 'mobility',
@@ -1445,7 +1521,16 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   if (progressionState?.scores && !bonusSession && !inSpecialMode && slot_type !== 'rest') {
     const progScores  = progressionState.scores;
     const chartMode   = progressionState.chartMode ?? 'balanced';
-    const targets     = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
+    const baseTargets = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
+    const lastRunAtMs  = prefs?.preferences?.run_coach?.last_run_at_ms ?? null;
+    const lastRideAtMs = prefs?.preferences?.cycling_coach?.last_ride_at_ms ?? null;
+    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride)
+      ? computeSportBiasedTargets(baseTargets, prefs?.preferences?.sport_prefs, lastRunAtMs, lastRideAtMs)
+      : { targets: baseTargets, biasTrace: null };
+    if (biasTrace) {
+      const adj = Object.entries(biasTrace.adjustments).filter(([, v]) => v !== 0).map(([ax, v]) => `${ax}${v > 0 ? '+' : ''}${v}`).join(', ');
+      trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${biasTrace.guardrailApplied ? ' [guardrail: recent sport reduced legs/cardio bias]' : ''}`);
+    }
     const axes        = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 
     trace.push('R550 — Progression profile loaded');

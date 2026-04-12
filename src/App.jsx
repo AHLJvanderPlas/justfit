@@ -5891,7 +5891,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
               </button>
             </div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              Tell the planner which sports you do. It will adapt conditioning and strength sessions to support them.
+              Tell the planner which sports you do. It nudges your strength and conditioning targets toward the muscles your sport demands most — so gym sessions complement your training, not compete with it. A recent run or ride automatically reduces the leg and cardio bias to protect recovery.
             </div>
 
             {!sportEditMode ? (
