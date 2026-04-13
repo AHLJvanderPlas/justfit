@@ -1999,7 +1999,70 @@ function useNarrow(bp = 600) {
   return narrow;
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs }) {
+const PLAN_ERROR_MESSAGES = {
+  "PLAN-NET":   "Could not reach the plan engine. This is usually a temporary connection issue — check your signal and try again.",
+  "PLAN-500":   "The plan engine returned an unexpected error on the server.",
+  "PLAN-EMPTY": "No exercises matched your current equipment and injury settings. Try adjusting your profile in Settings.",
+  "PLAN-ERR":   "An unknown error occurred during plan generation.",
+};
+
+function PlanErrorCard({ planError, onRetry, token, prefs }) {
+  const [reportSent, setReportSent] = useState(false);
+  const [reportSending, setReportSending] = useState(false);
+  const msg = PLAN_ERROR_MESSAGES[planError.code] ?? PLAN_ERROR_MESSAGES["PLAN-ERR"];
+
+  const handleReport = async () => {
+    setReportSending(true);
+    const lines = [
+      "Automatic error report — Plan generation",
+      `Code: ${planError.code}`,
+      planError.detail ? `Detail: ${planError.detail}` : null,
+      planError.ruleTrace?.length ? `Rule trace: ${planError.ruleTrace.slice(-6).join(" | ")}` : null,
+      `Date: ${new Date().toISOString()}`,
+      prefs ? `Goal: ${prefs.training_goal}, Level: ${prefs.experience_level}, Equipment: ${JSON.stringify(prefs.preferences?.available_equipment ?? [])}` : null,
+    ].filter(Boolean).join("\n");
+    try { await api.sendFeedback(token, lines); } catch {}
+    setReportSent(true);
+    setReportSending(false);
+  };
+
+  return (
+    <div style={{ borderRadius: 28, padding: 24, border: "1px solid rgba(239,68,68,0.25)", background: "rgba(239,68,68,0.04)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+        <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
+        <div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>No plan generated</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: "#ef4444", fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
+        </div>
+      </div>
+      <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
+        {msg}
+      </div>
+      {planError.detail && (
+        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#64748b", background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: "8px 12px", marginBottom: 20, lineHeight: 1.5, wordBreak: "break-all" }}>
+          {planError.detail}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 10 }}>
+        <button
+          onClick={onRetry}
+          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: C.text, cursor: "pointer" }}
+        >
+          Try again
+        </button>
+        <button
+          disabled={reportSent || reportSending}
+          onClick={handleReport}
+          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${reportSent ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}`, background: reportSent ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)", color: reportSent ? "#4ade80" : "#ef4444", cursor: reportSent ? "default" : "pointer", opacity: reportSending ? 0.6 : 1, transition: "color 0.2s, border-color 0.2s, background 0.2s" }}
+        >
+          {reportSent ? "Report sent ✓" : reportSending ? "Sending…" : "Send report"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs, planError, onRetryPlan, token }) {
   const isMobile = useNarrow();
   const intensityColor = {
     low: "#6ee7b7",
@@ -2146,6 +2209,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             onBonusSession={onBonusSession}
             bonusDone={bonusDone}
           />
+        ) : planError && !plan ? (
+          <PlanErrorCard planError={planError} onRetry={onRetryPlan} token={token} prefs={prefs} />
         ) : (
         <Glass
           style={{
@@ -2325,17 +2390,39 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     </span>
                   </div>
                 ))}
-                {(!plan.steps || plan.steps.length === 0) && (
-                  <p
-                    style={{
-                      fontSize: 13,
-                      color: C.muted,
-                      fontStyle: "italic",
+                {(!plan.steps || plan.steps.length === 0) && plan.slot_type !== "rest" && (
+                  <PlanErrorCard
+                    planError={{
+                      code: "PLAN-EMPTY",
+                      detail: (plan.rule_trace ?? []).slice(-4).join(" | ") || null,
+                      ruleTrace: plan.rule_trace ?? [],
                     }}
-                  >
-                    Recovery day. Rest is training.
-                  </p>
+                    onRetry={onRetryPlan}
+                    token={token}
+                    prefs={prefs}
+                  />
                 )}
+                {(!plan.steps || plan.steps.length === 0) && plan.slot_type === "rest" && (() => {
+                  const trace = plan.rule_trace ?? [];
+                  let why = null;
+                  if (trace.some(t => t.includes("R514")))          why = "Your check-in reported significant pain — rest is the right call today.";
+                  else if (trace.some(t => t.includes("adapt:pain_rest"))) why = "Your check-in reported significant pain — rest is the right call today.";
+                  else if (trace.some(t => t.includes("R510")))     why = "Time budget was too short for a full session.";
+                  else if (trace.some(t => t.includes("R539")))     why = "Postnatal exercise clearance not yet confirmed — update in Settings when you're cleared.";
+                  else if (trace.some(t => t.includes("R540") && t.includes("immediate"))) why = "Postnatal immediate recovery phase — gentle movement only.";
+                  return (
+                    <div>
+                      <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>
+                        Recovery day. Rest is training.
+                      </p>
+                      {why && (
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
+                          {why}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
 
               <button
@@ -7778,6 +7865,7 @@ export default function App() {
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [plan, setPlan] = useState(null);
+  const [planError, setPlanError] = useState(null);
   const [score, setScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
   const [history, setHistory] = useState([]);
@@ -7981,8 +8069,10 @@ export default function App() {
             setIsGenerating(false);
           } else {
             return api.generatePlan(userId, today, null, undefined, prefs.isPro)
-              .then(setPlan)
-              .catch(() => {})
+              .then((p) => { setPlan(p); setPlanError(null); })
+              .catch((e) => {
+                setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
+              })
               .finally(() => setIsGenerating(false));
           }
         })
@@ -8003,7 +8093,7 @@ export default function App() {
         if (prefs.isPro) {
           // Pro: full daily replanning with check-in data
           const newPlan = await api.generatePlan(userId, today, data, undefined, true);
-          setPlan(newPlan);
+          setPlan(newPlan); setPlanError(null);
         } else {
           // Free: adapt the existing weekly plan for today's check-in
           // (same exercises, adjusted reps/rest/volume — no full regen)
@@ -8011,16 +8101,17 @@ export default function App() {
           const existing = await api.getTodayPlan(userId, today);
           if (existing) {
             const adapted = await api.adaptPlan(userId, today, data, existing);
-            setPlan(adapted);
+            setPlan(adapted); setPlanError(null);
           } else {
             // No plan yet — generate a baseline, then adapt it
             const base = await api.generatePlan(userId, today, null, undefined, false);
             const adapted = await api.adaptPlan(userId, today, data, base);
-            setPlan(adapted);
+            setPlan(adapted); setPlanError(null);
           }
         }
       } catch (e) {
         console.error("Plan generation failed:", e);
+        setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
       } finally {
         setIsGenerating(false);
       }
@@ -8035,9 +8126,24 @@ export default function App() {
     setIsGenerating(true);
     try {
       const newPlan = await api.generatePlan(userId, today, null, undefined, prefs.isPro);
-      setPlan(newPlan);
+      setPlan(newPlan); setPlanError(null);
     } catch (e) {
       console.error("Plan generation failed:", e);
+      setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [userId, today, prefs.isPro]);
+
+  const handleRetryPlan = useCallback(async () => {
+    setPlanError(null);
+    setIsGenerating(true);
+    try {
+      const newPlan = await api.generatePlan(userId, today, null, undefined, prefs.isPro);
+      setPlan(newPlan);
+    } catch (e) {
+      console.error("Plan retry failed:", e);
+      setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
     } finally {
       setIsGenerating(false);
     }
@@ -8180,9 +8286,10 @@ export default function App() {
       setIsGenerating(true);
       try {
         const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, prefs.isPro);
-        setPlan(newPlan);
+        setPlan(newPlan); setPlanError(null);
       } catch (e) {
         console.error("Plan regen failed:", e);
+        setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
       } finally {
         setIsGenerating(false);
       }
@@ -8331,6 +8438,9 @@ export default function App() {
                   onBonusSession={() => setShowBonusPicker(true)}
                   onWhyNot={() => setShowWhyNot(true)}
                   prefs={prefs}
+                  planError={planError}
+                  onRetryPlan={handleRetryPlan}
+                  token={token}
                 />
               </>
             )}

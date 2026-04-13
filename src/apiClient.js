@@ -9,13 +9,24 @@ const api = {
   },
 
   async generatePlan(userId, date, checkin, coachSim, isPro) {
-    const res = await fetch("/api/plan", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
-      body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
-    });
-    const data = await res.json();
-    if (!data.ok) throw new Error(data.error);
+    let res, data;
+    try {
+      res = await fetch("/api/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...this._auth() },
+        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
+      });
+      data = await res.json();
+    } catch (fetchErr) {
+      const err = new Error("Network error — could not reach plan engine");
+      err.planErrorCode = "PLAN-NET";
+      throw err;
+    }
+    if (!data.ok) {
+      const err = new Error(data.error ?? "Plan engine error");
+      err.planErrorCode = "PLAN-500";
+      throw err;
+    }
     return data.plan;
   },
 
