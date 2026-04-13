@@ -4772,6 +4772,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
   // Info pages overlay
   const [showInfoPage, setShowInfoPage] = useState(null); // null | "vision" | "how_it_works" | "terms" | "disclaimer"
+  // Voucher (subscription upgrade)
+  const [voucherCode, setVoucherCode] = useState("");
+  const [voucherError, setVoucherError] = useState("");
+  // Feedback
+  const [feedbackText, setFeedbackText] = useState("");
+  const [feedbackSending, setFeedbackSending] = useState(false);
+  const [feedbackDone, setFeedbackDone] = useState(false);
   // Accent colour
   const [accentHex, setAccentHex] = useState(prefs.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981");
   // Daily planning preferences
@@ -6072,21 +6079,44 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
         <Glass style={{ padding: 24 }}>
           {/* Subscription row */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Subscription</div>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-            <div>
-              <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!prefs.isPro) {
+                    if (!voucherCode.includes("JF26")) {
+                      setVoucherError("Invalid voucher code.");
+                      return;
+                    }
+                    setVoucherError("");
+                  }
+                  const newVal = !prefs.isPro;
+                  onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
+                  api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
+                  setVoucherCode("");
+                }}
+                style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer", flexShrink: 0 }}
+              >
+                {prefs.isPro ? "Downgrade" : "Upgrade"}
+              </button>
             </div>
-            <button
-              onClick={() => {
-                const newVal = !prefs.isPro;
-                onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
-                api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
-              }}
-              style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer" }}
-            >
-              {prefs.isPro ? "Downgrade" : "Upgrade"}
-            </button>
+            {!prefs.isPro && (
+              <div style={{ marginTop: 12 }}>
+                <input
+                  type="text"
+                  value={voucherCode}
+                  onChange={(e) => { setVoucherCode(e.target.value); setVoucherError(""); }}
+                  placeholder="Voucher code (4–16 characters)"
+                  maxLength={16}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 14, border: `1px solid ${voucherError ? "rgba(239,68,68,0.5)" : C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, outline: "none" }}
+                />
+                {voucherError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6, fontWeight: 700 }}>{voucherError}</div>}
+              </div>
+            )}
           </div>
 
           {/* Email address */}
@@ -6614,6 +6644,55 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
           <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
             {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
           </div>
+        </Glass>
+      </div>
+
+      {/* ── Feedback ─────────────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Feedback
+        </div>
+        <Glass style={{ padding: 24 }}>
+          {feedbackDone ? (
+            <div style={{ textAlign: "center", padding: "12px 0" }}>
+              <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thanks for your feedback!</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>We read every message.</div>
+            </div>
+          ) : (
+            <>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                Bugs, ideas, or just a note — we read everything.
+              </div>
+              <textarea
+                value={feedbackText}
+                onChange={(e) => setFeedbackText(e.target.value)}
+                placeholder="Type your message here…"
+                rows={4}
+                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, resize: "vertical", fontFamily: "inherit", outline: "none", lineHeight: 1.5 }}
+              />
+              <button
+                disabled={feedbackSending || feedbackText.trim().length === 0}
+                onClick={async () => {
+                  if (feedbackText.trim().length === 0) return;
+                  setFeedbackSending(true);
+                  try {
+                    await api.sendFeedback(token, feedbackText.trim());
+                    setFeedbackDone(true);
+                    setFeedbackText("");
+                  } catch {
+                    // silent — don't block user
+                    setFeedbackDone(true);
+                  } finally {
+                    setFeedbackSending(false);
+                  }
+                }}
+                style={{ marginTop: 12, width: "100%", padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: feedbackSending || feedbackText.trim().length === 0 ? "not-allowed" : "pointer", opacity: feedbackSending || feedbackText.trim().length === 0 ? 0.5 : 1 }}
+              >
+                {feedbackSending ? "Sending…" : "Submit feedback"}
+              </button>
+            </>
+          )}
         </Glass>
       </div>
 

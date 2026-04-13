@@ -237,6 +237,15 @@ const api = {
     });
     return res.json();
   },
+
+  async sendFeedback(token, text) {
+    const res = await fetch("/api/feedback", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ text }),
+    });
+    return res.json();
+  },
 };
 
 export default api;
