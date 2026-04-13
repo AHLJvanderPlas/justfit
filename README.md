@@ -18,8 +18,8 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 ## Features
 
-- Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R560); sport-aware bias layer nudges strength targets to support your primary sport
-- **Check-in optional** — plan generates from settings alone when check-in is skipped or mode is manual; existing plan loaded from D1 on page reload (no re-generation)
+- Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R565); sport-aware bias layer nudges strength targets to support your primary sport; **injury-aware filtering** (knee/shoulder/lower back/ankle) removes contraindicated exercises and supplements with safe mobility alternatives
+- **Check-in optional** — plan generates from settings alone when check-in is skipped or mode is manual; existing plan loaded from D1 on page reload (no re-generation); check-in includes injury scope/area picker with "save as ongoing issue" to profile
 - Full coaching UX: instruction cards (swipeable, no auto-advance), rep-by-rep tap counting, **"All reps done"** shortcut, rest countdown, difficulty controls (±2 reps / ±10s), exercise substitution, perceived exertion rating
 - **Equipment-aware planner** — selectable equipment includes dumbbells, resistance bands, pull-up bar, treadmill, stationary bike, indoor bike trainer, rowing machine; `null` equipment defaults to bodyweight-only; `chair` always treated as available
 - **Exercise ordering** — core exercises first, indoor cardio second-to-last, outdoor exercises always last
@@ -73,7 +73,7 @@ npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0001_init.sql` → `0020_exercise_library_v3.sql`
+- Migrations: `migrations/0001_init.sql` → `0021_injury_tags.sql`
 
 ```bash
 # Apply a migration
@@ -93,7 +93,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 | `auth.js` | POST (signup/login/forgot/reset/magic/passkey), GET | Auth, passkeys, magic links, password reset |
 | `plan.js` | POST, GET | Generate / fetch day plan; planner engine v1.8.0 |
 | `execution.js` | POST, GET, DELETE | Save / fetch / delete workout executions + steps |
-| `checkin.js` | POST, GET | Daily check-in (mood, energy, sleep, stress, toggles) |
+| `checkin.js` | POST, GET | Daily check-in (mood, energy, sleep, stress, pain scope/areas, toggles) |
 | `exercises.js` | GET | Exercise library with tag filtering |
 | `profile.js` | GET, POST | User preferences, cycle, pregnancy/postnatal context |
 | `score.js` | GET | Consistency score (0–100) |
