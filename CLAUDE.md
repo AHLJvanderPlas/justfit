@@ -876,8 +876,8 @@ Calculated server-side from executions table:
 | Passkey / Face ID login | ✅ Live — WebAuthn ES256, discoverable creds, replay protection via counter |
 | Sign Out button in Settings | ✅ Live |
 | execution_steps D1 batch insert | ✅ Fixed — no more 500s |
-| EU liability waiver modal | ✅ Live — shown on first use, accepted stored in localStorage |
-| Onboarding flow | ✅ Live — 3-step (goal, experience, equipment/duration), saves to /api/profile |
+| EU liability waiver modal | ✅ Removed from startup — waiver text lives in the onboarding flow; no longer a separate gate |
+| Onboarding flow | ✅ Live — 2-scenario model: full onboarding on first use OR ≥90 days inactive (server-side last_activity_at_ms); daily check-in otherwise; "Re-do onboarding" button in Settings below BMI card |
 | Weekly plan view (7-day) | ✅ Live — Plan tab in nav, shows session strip + completed sessions |
 | Landing page (marketing) | ✅ Live — public/index.html, dark design, features, rules, privacy |
 | PWA manifest | ✅ Live — manifest.json, theme-color, apple-mobile-web-app tags |
@@ -898,7 +898,7 @@ Calculated server-side from executions table:
 | Plan without check-in | ✅ Live — Skip button generates plan from settings (null checkin); on load, loads stored plan from D1 or auto-generates if none exists; manual mode never shows check-in prompt |
 | Equipment selector (machines) | ✅ Live — treadmill, stationary bike, indoor bike, rowing machine added to EQUIPMENT_OPTIONS; null equipment defaults to bodyweight-only in R516 |
 | Goal SVG icons | ✅ Live — 6 outlined polygon icons (health=cross, strength=arrow, fat_loss=flame, muscle=dumbbell, endurance=chevrons, mobility=figure); positioned at 2/3 from left / 1/3 from top; used in goal picker + Dashboard + Settings |
-| Goal recheck pre-fill from Settings | ✅ Fixed — passes current prefs as profileData when opened from Settings, not just on app-version check |
+| Injury-aware filtering | ✅ Live — R562–R565: check-in pain scope (general→rest, specific+areas→filter); chronic_injury_areas in preferences_json; loads_knee/shoulder/lower_back/ankle tags on ~182 exercises (migration 0021) |
 | Progression tab | ✅ Live — full feature: scoring engine (diminishing-return gains + exponential decay per mode), 6-axis body profile (Push/Pull/Legs/Core/Cardio/Mobility), custom SVG hexagonal radar chart, goal fit ring, key insights (strongest/weakest/biggest gap), axis breakdown bars, planner explanation, chart mode tabs (Power/Endurance/Balanced/Mobility), goal target compare overlay, rebuild-from-history debug button; DB: migration 0014 (user_progression + user_progression_events); API: /api/progression (GET + POST + POST?action=recompute); progression updated on every workout completion in execution.js; planner R550-R560 rules for weak-axis bias + mobility maintenance |
 | Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST |
 | Planner R550–R560 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace, R560 sport-aware bias layer (SPORT_DEMAND × weighted vector → ±12pt target nudge; guardrail halves legs/cardio bias within 24h of a run/ride; bypassed when sport coach prescribes the session) |
@@ -970,7 +970,7 @@ The full product spec is v1.5.0 (Golden Master Design). Key decisions:
 - No social features, no leaderboards, no medical advice
 - Ghost Partner is simulated (formula), not real-time (until Durable Objects added)
 - Privacy-first: email stored separately from fitness data, support via time-limited tokens
-- EU liability waiver required on first signup
+- EU liability notice included in onboarding modal (not a separate gate)
 - Exercise library: 290 exercises in D1
 - Planner is a pure function — never writes to DB directly
 
