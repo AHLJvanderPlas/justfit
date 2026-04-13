@@ -55,7 +55,7 @@ function getToken() {
 
 function logout() {
   // Clear all user-specific keys so the next user starts clean
-  ["jf_token", "jf_user_id", "jf_prefs", "jf_accent", "jf_version", "jf_waiver", "jf_checkin_date"].forEach(k => localStorage.removeItem(k));
+  ["jf_token", "jf_user_id", "jf_prefs", "jf_accent", "jf_checkin_date"].forEach(k => localStorage.removeItem(k));
   // Clear date-keyed session state
   Object.keys(localStorage).filter(k => k.startsWith("jf_completed_") || k.startsWith("jf_bonus_")).forEach(k => localStorage.removeItem(k));
   // Clear sessionStorage plan cache
@@ -252,95 +252,6 @@ const ScaleInput = ({ label, value, onChange }) => (
   </div>
 );
 
-// ─── EU WAIVER MODAL ──────────────────────────────────────────────────────────
-function EUWaiverModal({ onAccept }) {
-  return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 200,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
-        background: "rgba(2,6,23,0.95)",
-        backdropFilter: "blur(16px)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 480,
-          background: "#0a1628",
-          border: `1px solid ${C.border}`,
-          borderRadius: 28,
-          padding: 32,
-          boxShadow: "0 40px 100px rgba(0,0,0,0.7)",
-        }}
-      >
-        <div
-          style={{
-            width: 52,
-            height: 52,
-            borderRadius: 16,
-            background: C.emeraldDim,
-            border: `1px solid ${C.emeraldBorder}`,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 20,
-          }}
-        >
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-          </svg>
-        </div>
-        <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 8 }}>
-          Health &amp; Safety Notice
-        </div>
-        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 24 }}>
-          JustFit.cc provides general fitness guidance for healthy adults. By using this app you confirm that:
-        </div>
-        <ul style={{ listStyle: "none", marginBottom: 24, display: "flex", flexDirection: "column", gap: 10 }}>
-          {[
-            "You are 18 years or older",
-            "You have no medical conditions that prevent exercise",
-            "JustFit.cc is not a medical app and does not provide medical advice",
-            "You accept full responsibility for your own physical safety",
-            "You will consult a doctor before starting any new exercise program if in doubt",
-          ].map((item, i) => (
-            <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-              <span style={{ color: C.emerald, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>
-              <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
-            </li>
-          ))}
-        </ul>
-        <p style={{ fontSize: 11, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-          This app stores only the data you provide. Your fitness data is not sold or shared. By continuing, you agree to these terms (EU/GDPR compliant).
-        </p>
-        <button
-          onClick={onAccept}
-          style={{
-            width: "100%",
-            padding: 16,
-            borderRadius: 16,
-            background: C.emerald,
-            border: "none",
-            color: "#fff",
-            fontWeight: 900,
-            fontSize: 15,
-            letterSpacing: "0.04em",
-            cursor: "pointer",
-            boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.35)",
-          }}
-        >
-          I Understand — Continue
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── ONBOARDING MODAL ─────────────────────────────────────────────────────────
 const GOAL_ICONS = {
@@ -907,9 +818,7 @@ function OnboardingModal({ token, onComplete }) {
   );
 }
 
-// ─── GOAL RECHECK MODAL ───────────────────────────────────────────────────────
-// Shown to existing users after a major app update.
-// Preserves all current settings — only re-confirms training_goal.
+// GoalRecheckModal removed — onboarding re-triggered from Settings instead.
 function GoalRecheckModal({ token, profileData, onComplete }) {
   const [step, setStep] = useState(0);
 
@@ -3826,7 +3735,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, onChangeGoal }) {
+function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate }) {
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -4788,7 +4697,7 @@ const PHASE_LABELS = {
 
 const CYCLE_LENGTHS_SETTINGS = [21, 24, 26, 28, 30, 32, 35];
 
-function SettingsView({ prefs, onUpdate, userId, token }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -6341,6 +6250,18 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                 </div>
               );
             })()}
+
+            {/* Re-do onboarding */}
+            {onRedoOnboarding && (
+              <div style={{ marginTop: 20 }}>
+                <button
+                  onClick={onRedoOnboarding}
+                  style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                >
+                  Re-do onboarding
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Female-only: cycle tracking */}
@@ -7786,11 +7707,8 @@ export default function App() {
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
-  // Onboarding / waiver / goal-recheck flow
-  const [showWaiver, setShowWaiver] = useState(false);
+  // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [showGoalRecheck, setShowGoalRecheck] = useState(false);
-  const [profileData, setProfileData] = useState(null);
   const [onboardingReady, setOnboardingReady] = useState(false);
   const [lastCheckin, setLastCheckin] = useState(null);
 
@@ -7822,12 +7740,7 @@ export default function App() {
     }));
     // Fetch last check-in to pre-fill next check-in modal
     api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
-    if (localStorage.getItem("jf_version") !== APP_VERSION) {
-      setProfileData(data);
-      setShowGoalRecheck(true);
-    } else {
-      setOnboardingReady(true);
-    }
+    setOnboardingReady(true);
   }
 
   // On mount: handle email_verified / email_changed redirect params
@@ -7849,49 +7762,30 @@ export default function App() {
     }
   }, []);
 
-  // On mount: check waiver → check profile
+  // On mount: load profile → decide full onboarding vs daily flow
   useEffect(() => {
     if (!userId || !token) return;
-    const waiverAccepted = localStorage.getItem("jf_waiver") === "1";
-    if (!waiverAccepted) {
-      setShowWaiver(true);
-      return;
-    }
     api.getProfile(token).then((data) => {
       if (!data.exists) {
+        // First-time user
         setShowOnboarding(true);
-      } else {
-        handleProfileLoaded(data);
+        return;
       }
+      // Inactivity >= 90 days → full re-onboarding
+      const lastMs = data.last_activity_at_ms ?? 0;
+      const daysSince = lastMs
+        ? Math.floor((Date.now() - lastMs) / 86_400_000)
+        : Infinity;
+      if (daysSince >= 90) {
+        setShowOnboarding(true);
+        return;
+      }
+      handleProfileLoaded(data);
     }).catch(() => setOnboardingReady(true));
   }, []);
 
 
-  const handleWaiverAccept = () => {
-    localStorage.setItem("jf_waiver", "1");
-    setShowWaiver(false);
-    api.getProfile(token).then((data) => {
-      if (!data.exists) {
-        setShowOnboarding(true);
-      } else {
-        handleProfileLoaded(data);
-      }
-    }).catch(() => setOnboardingReady(true));
-  };
-
-  const handleGoalRecheckComplete = (newGoal) => {
-    localStorage.setItem("jf_version", APP_VERSION);
-    setShowGoalRecheck(false);
-    setPrefs((p) => ({ ...p, training_goal: newGoal }));
-    setOnboardingReady(true);
-    const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
-    if (mode !== "manual") setShowCheckIn(true);
-    // Refresh progression so goal_fit, insights, and goal_profile reflect the new goal
-    api.getProgression(token).then((data) => { if (data?.ok) setProgression(data); }).catch(() => {});
-  };
-
   const handleOnboardingComplete = (completedProfileData) => {
-    localStorage.setItem("jf_version", APP_VERSION);
     setShowOnboarding(false);
     setOnboardingReady(true);
     // Fetch fresh profile from server so prefs reflect what was just saved
@@ -8349,7 +8243,6 @@ export default function App() {
                 token={token}
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
-                onChangeGoal={() => { setProfileData(prefs); setShowGoalRecheck(true); }}
               />
             )}
             {view === "awards" && (
@@ -8361,7 +8254,7 @@ export default function App() {
               />
             )}
             {view === "settings" && (
-              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onChangeGoal={() => { setProfileData(prefs); setShowGoalRecheck(true); }} />
+              <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onRedoOnboarding={() => setShowOnboarding(true)} />
             )}
           </>
         )}
@@ -8421,14 +8314,8 @@ export default function App() {
         />
       )}
 
-      {showWaiver && <EUWaiverModal onAccept={handleWaiverAccept} />}
-
-      {showOnboarding && !showWaiver && (
+      {showOnboarding && (
         <OnboardingModal token={token} onComplete={handleOnboardingComplete} />
-      )}
-
-      {showGoalRecheck && !showWaiver && !showOnboarding && (
-        <GoalRecheckModal token={token} profileData={profileData} onComplete={handleGoalRecheckComplete} />
       )}
 
       {showLogActivity && (
