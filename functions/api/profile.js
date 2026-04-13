@@ -81,7 +81,7 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow, authUser] = await Promise.all([
+    const [prefs, profile, cycleRow, authUser, lastExecRow, lastCheckinRow] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
@@ -99,11 +99,24 @@ export async function onRequestGet({ request, env }) {
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT email, email_verified FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
+        `SELECT email, email_verified, last_login_at_ms FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT MAX(created_at_ms) as t FROM executions WHERE user_id = ? LIMIT 1`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT MAX(created_at_ms) as t FROM daily_checkins WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
     ]);
 
     if (!prefs) return Response.json({ exists: false });
+
+    // Most recent meaningful activity: latest of executions, check-ins, or last login
+    const lastActivityMs = Math.max(
+      lastExecRow?.t ?? 0,
+      lastCheckinRow?.t ?? 0,
+      authUser?.last_login_at_ms ?? 0,
+    ) || null;
 
     const bodyMode = cycleRow?.mode ?? 'standard';
     const cyclePhaseInfo = (bodyMode === 'standard' && cycleRow?.tracking_mode === 'smart')
@@ -120,6 +133,7 @@ export async function onRequestGet({ request, env }) {
 
     return Response.json({
       exists: true,
+      last_activity_at_ms: lastActivityMs,
       email: authUser?.email ?? null,
       email_verified: !!(authUser?.email_verified),
       units: prefs.units,
@@ -156,7 +170,7 @@ export async function onRequestGet({ request, env }) {
       } : null,
     });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -326,6 +340,6 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

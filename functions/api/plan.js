@@ -301,7 +301,7 @@ export async function onRequestPost({ request, env }) {
 
   } catch (e) {
     console.error('plan.js error:', e.stack ?? e.message ?? e);
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -320,7 +320,7 @@ export async function onRequestGet({ request, env }) {
 
     return Response.json({ plan: result });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -1281,7 +1281,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   const bmiStrictForRun = bmi !== null && (bmi >= T.BMI_STRICT || (bmi >= T.BMI_MODERATE && (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR));
   const hasRunningShoes = (effectiveEquip.includes('running_shoes') || effectiveEquip.includes('treadmill'))
-    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest';
+    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest' && !forceBodyweight;
 
   // WARN: if BMI is unknown and running would otherwise be assigned, R545/R546 are silently skipped.
   // Users without height/weight in their profile receive no weight-aware safety guidance.
@@ -1289,6 +1289,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     trace.push('WARN R545/R546 — BMI unknown (height or weight missing from profile): weight-aware running safety rules skipped');
   }
 
+  let r555PinnedEx = null; // set inside R555 block; survives category filter below
   if (hasRunningShoes) {
     // Remove continuous long-run exercises — replaced by progressive intervals
     const genericRunSlugs = new Set([
@@ -1309,6 +1310,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (intervalEx && !pool.some(ex => ex.id === intervalEx.id)) {
       pool = [intervalEx, ...pool];
     }
+    if (intervalEx) r555PinnedEx = intervalEx;
     trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${genericRunSlugs.size - (before - pool.length - (intervalEx ? 1 : 0))} generic runs replaced)`);
   }
 
@@ -1320,7 +1322,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // ------------------------------------------------------------------
   let runProgramOverride = null;
   const runProgramActive = isProEnabled && runCoach?.enrolled && !runCoach?.completed
-    && !inSpecialMode && !bmiStrictForRun
+    && !inSpecialMode && !bmiStrictForRun && !forceBodyweight
     && slot_type !== 'rest' && slot_type !== 'micro';
 
   if (runProgramActive) {
@@ -1574,6 +1576,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     trace.push(`WARN R561 — Pool empty after all filters (target: ${targetCategory}); safe fallback applied (inSpecialMode: ${inSpecialMode})`);
   }
   let shuffled = seededShuffle(filtered, date);
+
+  // R555 pin: if the safe-run interval exercise was injected but category filtering
+  // removed it (e.g. goal=strength → targetCategory=strength), prepend it back so
+  // it always appears in the selection for running-shoe users.
+  if (r555PinnedEx && !shuffled.some(ex => ex.id === r555PinnedEx.id) && !runProgramOverride) {
+    shuffled = [r555PinnedEx, ...shuffled];
+    trace.push(`R555 — Interval pinned back after category filter (targetCategory: ${targetCategory})`);
+  }
 
   // ==================================================================
   // PROGRESSION RULES (R550–R560) — only in standard non-bonus sessions

@@ -193,10 +193,29 @@ async function handleLogin({ email, password }, env, secret) {
   return Response.json({ ok: true, token, userId: authUser.user_id });
 }
 
+// ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
+// Uses existing token tables as attempt counters — no extra migration needed.
+async function rateLimitForgotPassword(emailLower, env) {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) as n FROM password_reset_tokens WHERE email = ? AND created_at_ms > ?`
+  ).bind(emailLower, Date.now() - 60 * 60 * 1000).first();
+  return (row?.n ?? 0) >= 3; // true = rate limited (3 per hour)
+}
+
+async function rateLimitMagicLink(emailLower, env) {
+  const row = await env.DB.prepare(
+    `SELECT COUNT(*) as n FROM magic_link_tokens WHERE email = ? AND created_at_ms > ?`
+  ).bind(emailLower, Date.now() - 60 * 60 * 1000).first();
+  return (row?.n ?? 0) >= 5; // true = rate limited (5 per hour)
+}
+
 // ─── FORGOT PASSWORD ──────────────────────────────────────────────────────────
 async function handleForgotPassword({ email }, env, _secret) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
+
+  // Rate limit: max 3 reset emails per hour per address (silent — same response as normal)
+  if (await rateLimitForgotPassword(emailLower, env)) return Response.json({ ok: true });
 
   const user = await env.DB.prepare(
     `SELECT id FROM users WHERE primary_email = ? LIMIT 1`
@@ -259,6 +278,9 @@ async function handleResetPassword({ reset_token, new_password }, env, secret) {
 async function handleMagicLink({ email }, env) {
   if (!email) return Response.json({ error: 'Email required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
+
+  // Rate limit: max 5 magic links per hour per address (silent)
+  if (await rateLimitMagicLink(emailLower, env)) return Response.json({ ok: true });
 
   const user = await env.DB.prepare(
     `SELECT id FROM users WHERE primary_email = ? LIMIT 1`
@@ -761,7 +783,7 @@ export async function onRequestPost({ request, env }) {
       default: return Response.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 

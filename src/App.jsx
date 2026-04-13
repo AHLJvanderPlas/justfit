@@ -2563,8 +2563,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   const [altExercises, setAltExercises] = useState([]);
   const [altLoading, setAltLoading] = useState(false);
   const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [idx]: exercise }
-  // Instruction card swipe state
-  const [instrStep, setInstrStep] = useState(0);
   const restStartedAtRef = useRef(0);   // ms timestamp when rest phase began
   const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
   // Track actual data per exercise for saving
@@ -2659,11 +2657,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
   }, [timerRunning, timerRemaining]);
 
   // Auto-advance removed — user reads instructions at their own pace
-
-  // ── Reset instruction card when exercise changes ──────────────────────────────
-  useEffect(() => {
-    setInstrStep(0);
-  }, [exIdx]);
 
   // ── Rest haptics at 10s and 5s ───────────────────────────────────────────────
   useEffect(() => {
@@ -3086,10 +3079,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           if (pregnancyNote) rawCards.unshift({ text: pregnancyNote, accent: "amber" });
           if (postnatalNote) rawCards.unshift({ text: postnatalNote, accent: "rose" });
           if (isPelvicFloor) rawCards.push({ text: "Remember: the release is just as important as the squeeze. Full relaxation between each rep.", accent: "rose" });
-          const cards = rawCards;
-          const totalCards = cards.length;
-
-
           // Equipment for this exercise (filter trivial items)
           const exEquip = JSON.parse(cur.equipment_required_json || '["none"]')
             .filter(e => e !== "none" && e !== "chair");
@@ -5345,11 +5334,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
             const rcState = prefs.preferences?.run_coach ?? null;
             const isActive = rcState?.enrolled === true && !rcState?.completed;
             const unlockedTargets = rcState?.unlocked_targets ?? [];
-            const saveRunCoach = (newRc) => {
-              const newPrefs = { ...(prefs.preferences ?? {}), run_coach: newRc };
-              onUpdate((p) => ({ ...p, preferences: newPrefs }));
-              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
-            };
             const prevRequired = { 5: null, 10: 5, 15: 10, 20: 15, 30: 20 };
             const showRampWarn = (() => {
               const prev = prevRequired[runTargetSelect];
@@ -5403,14 +5387,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
           {focusSel === "cycling" && planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) && (() => {
             const ccState = prefs.preferences?.cycling_coach ?? null;
             const ccActive = ccState?.active === true && !ccState?.completed;
-            const saveCyclingCoach = (newCc) => {
-              const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: newCc };
-              onUpdate((p) => ({ ...p, preferences: newPrefs }));
-              api.saveProfile(token, { preferences: newPrefs }).catch(() => {});
-            };
             const ftp = parseInt(cycleFtpInput) || 200;
             const maxHr = parseInt(cycleMaxHrInput) || 180;
-            const targetFtp = parseInt(cycleTargetFtpInput) || 250;
             return (
               <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
@@ -7242,6 +7220,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
     const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch { /* ignore */ }
     }
 
