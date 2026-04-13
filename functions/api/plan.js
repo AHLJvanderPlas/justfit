@@ -38,12 +38,15 @@ function adaptExistingPlan(basePlan, checkin) {
   const energy       = checkin?.energy       ?? 5;
   const stress       = checkin?.stress       ?? 5;
   const sleepHours   = checkin?.sleep_hours  ?? 7;
-  const painLevel    = checkin?.checkin_json?.pain_level ?? 0;
-  const noTime       = !!checkin?.checkin_json?.no_time;
+  const painLevel    = checkin?.pain_level ?? checkin?.checkin_json?.pain_level ?? 0;
+  const painScopeA   = checkin?.pain_scope ?? null;
+  const painAreasA   = checkin?.pain_areas ?? [];
+  const isSpecificA  = painScopeA === 'specific' && painAreasA.length > 0;
+  const noTime       = !!(checkin?.no_time ?? checkin?.checkin_json?.no_time);
   const timeBudget   = checkin?.time_budget  ?? checkin?.checkin_json?.time_budget ?? null;
 
-  // Pain → rest (mirrors R514)
-  if (painLevel >= 2) {
+  // Pain → rest (mirrors R514): only for general/unset scope
+  if (painLevel >= 2 && !isSpecificA) {
     return { ...basePlan, slot_type: 'rest', session_name: 'Recovery day', steps: [],
              rule_trace: [...(basePlan.rule_trace ?? []), 'adapt:pain_rest'] };
   }
@@ -885,10 +888,64 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   // ------------------------------------------------------------------
   // R514: Pain Safety Override
+  // pain_level ≥ PAIN_REST AND (no scope OR scope='general') → rest day.
+  // pain_level ≥ 1 AND scope='specific' with named areas → handled by R562–R563.
   // ------------------------------------------------------------------
-  if ((checkIn?.pain_level ?? 0) >= T.PAIN_REST) {
+  const painLevel   = checkIn?.pain_level ?? 0;
+  const painScope   = checkIn?.pain_scope  ?? null;
+  const painAreas   = checkIn?.pain_areas  ?? [];
+  const isSpecificPain = painScope === 'specific' && painAreas.length > 0;
+
+  if (painLevel >= T.PAIN_REST && !isSpecificPain) {
     slot_type = 'rest';
-    trace.push(`R514 — Pain ≥${T.PAIN_REST} → rest session`);
+    trace.push(`R514 — Pain ≥${T.PAIN_REST} (${painScope ?? 'unset'}) → rest session`);
+  }
+
+  // ------------------------------------------------------------------
+  // R562–R565: Injury-Aware Exercise Filtering
+  // Merge daily pain_areas with profile chronic_injury_areas.
+  // Remove exercises tagged with the corresponding contraindication tag.
+  // ------------------------------------------------------------------
+  const INJURY_TAG_MAP = {
+    knee:        'loads_knee',
+    shoulder:    'loads_shoulder',
+    lower_back:  'loads_lower_back',
+    ankle:       'loads_ankle',
+  };
+
+  const chronicAreas  = prefs?.preferences?.chronic_injury_areas ?? [];
+  const injuryAreas   = [...new Set([...(isSpecificPain ? painAreas : []), ...chronicAreas])];
+
+  if (injuryAreas.length > 0 && slot_type !== 'rest') {
+    const forbiddenTags = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
+    if (forbiddenTags.length > 0) {
+      const before = pool.length;
+      // R563: remove contraindicated exercises from pool
+      pool = pool.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        return !forbiddenTags.some(ft => tags.includes(ft));
+      });
+      trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${before} → ${pool.length} exercises`);
+    }
+
+    // R564: supplement with safe mobility/recovery if pool falls too small
+    if (pool.length < 3) {
+      const safePool = exercises.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        const forbidden = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
+        if (forbidden.some(ft => tags.includes(ft))) return false;
+        return tags.includes('mobility') || tags.includes('recovery');
+      });
+      const toAdd = seededShuffle(safePool, date).slice(0, 3 - pool.length);
+      pool = [...pool, ...toAdd];
+      trace.push(`R564 — Pool < 3 after injury filter → added ${toAdd.length} safe mobility/recovery exercises`);
+    }
+
+    // R565: coaching note for injury-adapted session
+    const AREA_LABELS = { knee: 'knee', shoulder: 'shoulder', lower_back: 'lower back', ankle: 'ankle' };
+    const noteAreas = injuryAreas.map(a => AREA_LABELS[a] ?? a).join(' & ');
+    addNote(`Session adjusted for ${noteAreas} discomfort. Stop any exercise that causes sharp or worsening pain.`);
+    trace.push(`R565 — Session note added for injury areas: ${noteAreas}`);
   }
 
   // ------------------------------------------------------------------

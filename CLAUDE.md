@@ -138,7 +138,8 @@ justfit/
 │   ├── 0017_polarised_training.sql ← polarised training flag in preferences
 │   ├── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
 │   ├── 0019_taxonomy_fix.sql   ← equipment taxonomy fix: cycling-intervals-indoor + stationary-bike-steady now include both indoor_bike and exercise_bike
-│   └── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
+│   ├── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
+│   └── 0021_injury_tags.sql ← adds loads_knee/loads_shoulder/loads_lower_back/loads_ankle tags to ~182 exercises for R562–R563 injury filtering
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -170,7 +171,8 @@ Password stored as `salt:hash` where hash = SHA-256(salt + password + JWT_SECRET
 id TEXT PK, user_id TEXT, date TEXT (YYYY-MM-DD),
 mood INT(1-10), energy INT(1-10), sleep_hours REAL, stress INT(1-10),
 checkin_json TEXT (JSON with toggles: no_clothing, no_gear, no_time, gym_today,
-                   traveling, pain_level, free_text, motivation, time_budget),
+                   traveling, pain_level, pain_scope, pain_areas,
+                                      free_text, motivation, time_budget),
 created_at_ms INT, updated_at_ms INT
 ```
 Note: UI uses 1-5 scale, multiplied by 2 before storing (→ 2-10 range in DB)
@@ -791,7 +793,8 @@ adds +15s for pregnancy/postnatal on top of this.
 | R511 | sleep_hours ≤5 | intensity = 'low' |
 | R512 | energy ≤3 (out of 10) | reps/duration × 0.6 |
 | R513 | stress ≥7 (out of 10) | category = 'mobility' |
-| R514 | pain_level ≥2 | slot_type = 'rest' |
+| R514 | pain_level ≥2 AND (scope=general OR unset) | slot_type = 'rest'; scope='specific' with named areas → R562–R565 instead |
+| R562–R565 | injury_areas from checkin.pain_areas + prefs.chronic_injury_areas | R563: filter pool by loads_knee/loads_shoulder/loads_lower_back/loads_ankle; R564: supplement if pool<3; R565: add coaching note |
 | R515 | no_clothing | filter: low_impact + no floor tag |
 | R516 | no_gear or traveling | filter: equipment_required = ["none"] |
 | R520–R525 | cycle phase signals | intensity/volume adjustments per phase |
@@ -858,12 +861,12 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0001–0020) |
+| D1 schema + migrations | ✅ Live (0001–0021) |
 | Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0001–0010, 0020); taxonomy fixed in 0019 |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine v1.8.0 (R510–R560) | ✅ Live — template-based, profile-aware, pregnancy/postnatal rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560) |
+| Planner engine v1.8.0 (R510–R565) | ✅ Live — template-based, profile-aware, pregnancy/postnatal rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle) |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |

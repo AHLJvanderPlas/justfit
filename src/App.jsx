@@ -1252,7 +1252,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
-function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, lastCheckin }) {
+function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
   const bodyMode = cycle?.mode ?? "standard";
   const showPeriodToggle = sex === "female" && bodyMode === "standard";
   const [d, setD] = useState(() => {
@@ -1262,6 +1262,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
       time_budget: defaultTimeBudget ?? 30,
       no_clothing: false, no_gear: false, no_time: false,
       gym_today: false, traveling: false, pain_level: 0,
+      pain_scope: null, pain_areas: [],
       period_today: false, free_text: "",
       pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
       postnatal_signals: { running_today: false, heaviness: false },
@@ -1278,6 +1279,8 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
       motivation:  cj.motivation           ? Math.round(cj.motivation / 2)        : defaults.motivation,
       stress:      lastCheckin.stress      ? Math.round(lastCheckin.stress / 2)   : defaults.stress,
       pain_level:  cj.pain_level ?? 0,
+      pain_scope:  cj.pain_scope  ?? null,
+      pain_areas:  cj.pain_areas  ?? [],
       // time_budget comes from schedule (defaultTimeBudget), not last check-in
     };
   });
@@ -1299,6 +1302,8 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
         gym_today: d.gym_today,
         traveling: d.traveling,
         pain_level: d.pain_level,
+        pain_scope: d.pain_scope,
+        pain_areas: d.pain_areas,
         period_today: d.period_today,
         free_text: d.free_text,
         motivation: d.motivation,
@@ -1464,35 +1469,66 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
           </div>
 
           <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.15em",
-                color: C.emerald,
-                textTransform: "uppercase",
-                marginBottom: 16,
-              }}
-            >
-              Pain Level
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+              Pain or Discomfort
             </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: "repeat(4,1fr)",
-                gap: 8,
+            <Toggle
+              label="Pain or soreness today"
+              sub={d.pain_level > 0 ? "Tell us more below" : "No issues today"}
+              active={d.pain_level > 0}
+              onToggle={() => {
+                if (d.pain_level > 0) upd({ pain_level: 0, pain_scope: null, pain_areas: [] });
+                else upd({ pain_level: 1, pain_scope: null });
               }}
-            >
-              {["None", "Mild", "Moderate", "Severe"].map((l, i) => (
-                <Pill
-                  key={i}
-                  active={d.pain_level === i}
-                  onClick={() => upd({ pain_level: i })}
-                >
-                  {l}
-                </Pill>
-              ))}
-            </div>
+            />
+            {d.pain_level > 0 && (
+              <div style={{ marginTop: 16 }}>
+                {/* Scope picker */}
+                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                  {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
+                    <Pill
+                      key={v}
+                      active={d.pain_scope === v}
+                      onClick={() => upd({ pain_scope: v, pain_areas: v === "general" ? [] : d.pain_areas })}
+                    >
+                      {l}
+                    </Pill>
+                  ))}
+                </div>
+                {/* Area chips — only when specific */}
+                {d.pain_scope === "specific" && (
+                  <>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+                      {[
+                        { k: "knee", l: "Knee" },
+                        { k: "shoulder", l: "Shoulder" },
+                        { k: "lower_back", l: "Lower back" },
+                        { k: "ankle", l: "Ankle" },
+                      ].map(({ k, l }) => {
+                        const active = d.pain_areas.includes(k);
+                        return (
+                          <button key={k} onClick={() => upd({ pain_areas: active ? d.pain_areas.filter(a => a !== k) : [...d.pain_areas, k] })} style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(255,255,255,0.08)", fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
+                            {l}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Ongoing issue toggle */}
+                    {d.pain_areas.length > 0 && (
+                      <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+                        <button
+                          onClick={() => onMarkChronic && onMarkChronic(d.pain_areas)}
+                          style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#f87171", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
+                        >
+                          Save as ongoing issue →
+                        </button>
+                        Adds to your profile so we always avoid these areas.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div style={{ marginBottom: 28 }}>
@@ -6062,6 +6098,47 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
         </Glass>
       </div>
 
+      {/* ── Known Injuries ──────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Known Injuries
+        </div>
+        <Glass style={{ padding: 24 }}>
+          <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
+            Ongoing injury areas are always filtered from your plan. Tap to add or remove.
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+            {[
+              { k: "knee", l: "Knee" },
+              { k: "shoulder", l: "Shoulder" },
+              { k: "lower_back", l: "Lower back" },
+              { k: "ankle", l: "Ankle" },
+            ].map(({ k, l }) => {
+              const active = (prefs.preferences?.chronic_injury_areas ?? []).includes(k);
+              return (
+                <button
+                  key={k}
+                  onClick={() => {
+                    const current = prefs.preferences?.chronic_injury_areas ?? [];
+                    const updated = active ? current.filter(a => a !== k) : [...current, k];
+                    const newPrefs = { ...(prefs.preferences ?? {}), chronic_injury_areas: updated };
+                    api.saveProfile(token, { preferences: newPrefs })
+                      .then(() => onUpdate(p => ({ ...p, preferences: newPrefs })))
+                      .catch(() => {});
+                  }}
+                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
+                >
+                  {l}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+            You can also mark areas during check-in using "Save as ongoing issue". Not medical advice — stop any exercise causing sharp or worsening pain.
+          </div>
+        </Glass>
+      </div>
+
       {/* ── Your Profile ────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
@@ -7971,6 +8048,16 @@ export default function App() {
     }
   }, [userId, today, prefs.isPro]);
 
+  // Save areas from check-in "Ongoing issue" button → profile chronic_injury_areas
+  const handleMarkChronic = useCallback((areas) => {
+    const current = prefs.preferences?.chronic_injury_areas ?? [];
+    const merged  = [...new Set([...current, ...areas])];
+    const newPrefs = { ...(prefs.preferences ?? {}), chronic_injury_areas: merged };
+    api.saveProfile(token, { preferences: newPrefs })
+      .then(() => setPrefs(p => ({ ...p, preferences: newPrefs })))
+      .catch(() => {});
+  }, [prefs.preferences, token]);
+
   const handleComplete = useCallback(
     async (durationSec, perceivedExertion, stepsActual) => {
       try {
@@ -8330,6 +8417,7 @@ export default function App() {
             return fallback;
           })()}
           lastCheckin={lastCheckin}
+          onMarkChronic={handleMarkChronic}
         />
       )}
 
