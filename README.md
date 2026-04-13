@@ -73,7 +73,7 @@ npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0001_init.sql` → `0018_checkin_unique.sql`
+- Migrations: `migrations/0001_init.sql` → `0020_exercise_library_v3.sql`
 
 ```bash
 # Apply a migration

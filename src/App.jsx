@@ -3003,7 +3003,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
                 {/* Equipment */}
                 {allEquipment.length > 0 && (() => {
-                  const stationaryIds = new Set(["treadmill","stationary_bike","exercise_bike","indoor_bike","rowing_machine","elliptical","squat_rack","bench_press_rack","smith_machine","power_tower","punching_bag"]);
+                  const stationaryIds = new Set(["treadmill","exercise_bike","indoor_bike","rowing_machine","elliptical","squat_rack","bench_press_rack","smith_machine","power_tower","punching_bag"]);
                   const portable   = allEquipment.filter(e => !stationaryIds.has(e));
                   const stationary = allEquipment.filter(e => stationaryIds.has(e));
                   const Chip = ({ eq }) => (

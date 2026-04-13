@@ -419,7 +419,7 @@ const STIMULUS_PER_SET = {
 
 const MAX_STIMULUS_PER_AXIS_PER_SESSION = 6; // prevents a single session from spiking scores
 
-function computeStimulusFromSteps(steps, exec, exerciseMap, eventMs) {
+function computeStimulusFromSteps(steps, exec, exerciseMap, _eventMs) {
   const axisAccumulator = {}; // axis → { power: 0, endurance: 0, mobility: 0 }
 
   const execType = exec.execution_type ?? 'workout';
@@ -523,7 +523,7 @@ export async function onRequestGet({ request, env }) {
     const nowMs = Date.now();
 
     // Fetch progression + preferences in parallel
-    const [{ scores: rawScores, sportScores, createdAtMs, existed }, prefs] = await Promise.all([
+    const [{ scores: rawScores, sportScores, createdAtMs }, prefs] = await Promise.all([
       getOrCreateProgression(user.userId, env),
       env.DB.prepare(
         `SELECT training_goal, preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`

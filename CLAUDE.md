@@ -136,7 +136,9 @@ justfit/
 │   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
 │   ├── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
 │   ├── 0017_polarised_training.sql ← polarised training flag in preferences
-│   └── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
+│   ├── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
+│   ├── 0019_taxonomy_fix.sql   ← equipment taxonomy fix: cycling-intervals-indoor + stationary-bike-steady now include both indoor_bike and exercise_bike
+│   └── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -856,8 +858,8 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0001–0018) |
-| Exercise library (~150 exercises) | ✅ Seeded in D1 (migrations 0001–0010) |
+| D1 schema + migrations | ✅ Live (0001–0020) |
+| Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0001–0010, 0020); taxonomy fixed in 0019 |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
@@ -966,7 +968,7 @@ The full product spec is v1.5.0 (Golden Master Design). Key decisions:
 - Ghost Partner is simulated (formula), not real-time (until Durable Objects added)
 - Privacy-first: email stored separately from fitness data, support via time-limited tokens
 - EU liability waiver required on first signup
-- Target exercise library: ~150 exercises
+- Exercise library: 290 exercises in D1
 - Planner is a pure function — never writes to DB directly
 
 ---
