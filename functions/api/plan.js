@@ -1298,7 +1298,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         if (m.fixed_sets != null) return m.fixed_sets * ((m.base_duration_sec ?? 0) + (m.custom_rest_sec ?? 0));
         return m.base_duration_sec ?? 0;
       };
-      const sessionDurSec = (prefs?.session_duration_min ?? 60) * 60;
+      const sessionDurSec = budget * 60; // use per-day budget, not global session_duration_min
       const warmupOverheadSec = 4 * 45; // 4 warmup exercises × ~45s each
       const availableRunSec = Math.max(600, sessionDurSec - warmupOverheadSec);
 

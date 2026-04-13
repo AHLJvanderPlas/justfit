@@ -7195,7 +7195,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
     if (!userId) return;
     const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
     const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
-    const cacheKey = `jf_upcoming_v3_${today}_rc${runEnrolled}_cc${cycleActive}`;
+    const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       try { setUpcomingPlans(JSON.parse(cached)); setLoadingUpcoming(false); return; } catch { /* ignore */ }
