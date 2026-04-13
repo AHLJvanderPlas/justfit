@@ -569,7 +569,7 @@ function OnboardingModal({ token, onComplete }) {
   };
 
   const canAdvance = step === 0 ? !!sex : true;
-  const DURATION_OPTIONS = [15, 20, 30, 45, 60, 90, 120];
+  const DURATION_OPTIONS = [15, 20, 30, 45, 60, 90, 120, 999];
 
   return (
     <div
@@ -867,7 +867,7 @@ function OnboardingModal({ token, onComplete }) {
                       fontWeight: 800, fontSize: 13, cursor: "pointer",
                     }}
                   >
-                    {d}m
+                    {d === 999 ? "120+" : `${d}m`}
                   </button>
                 ))}
               </div>
@@ -2279,6 +2279,14 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   </div>
                 )}
               </div>
+
+              {plan.session_notes && (
+                <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600, lineHeight: 1.5 }}>
+                    {plan.session_notes}
+                  </span>
+                </div>
+              )}
 
               <div style={{ flex: 1, marginBottom: 20 }}>
                 {(plan.steps ?? []).map((s, i) => (
@@ -5609,7 +5617,7 @@ function SettingsView({ prefs, onUpdate, userId, token }) {
                     {label}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5, flex: 1 }}>
-                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "60m" }, { v: 90, l: "90m" }, { v: 120, l: "120m" }].map(({ v, l }) => {
+                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "60m" }, { v: 90, l: "90m" }, { v: 120, l: "120m" }, { v: 999, l: "120+" }].map(({ v, l }) => {
                       const sel = weeklySchedule[key] === v;
                       const isRest = v === 0;
                       return (

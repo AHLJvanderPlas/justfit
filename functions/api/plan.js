@@ -814,8 +814,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // Default budget: from preferences or checkin or 30 min
+  // 999 is the sentinel for "120+ / no time limit" — treat as a large but finite value
   const prefBudget = prefs?.session_duration_min ?? 30;
-  const budget = checkIn?.time_budget ?? prefBudget;
+  const rawBudget  = checkIn?.time_budget ?? prefBudget;
+  const unlimited  = rawBudget >= 999;
+  const budget     = unlimited ? 120 : rawBudget; // normalise for count/threshold logic; run coach uses sessionDurSec separately
 
   // ------------------------------------------------------------------
   // R510: Time Budget Clamp
@@ -1298,7 +1301,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         if (m.fixed_sets != null) return m.fixed_sets * ((m.base_duration_sec ?? 0) + (m.custom_rest_sec ?? 0));
         return m.base_duration_sec ?? 0;
       };
-      const sessionDurSec = budget * 60; // use per-day budget, not global session_duration_min
+      const sessionDurSec = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60; // 999 = no limit: pick highest appropriate level
       const warmupOverheadSec = 4 * 45; // 4 warmup exercises × ~45s each
       const availableRunSec = Math.max(600, sessionDurSec - warmupOverheadSec);
 
@@ -1320,13 +1323,13 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
 
       if (runEx && warmUps.length) {
-        // Advisory note when session was shortened to fit available time
-        if (effectiveLevel < prescribedLevel) {
+        // Advisory note when session was shortened to fit available time (not shown for unlimited sessions)
+        if (effectiveLevel < prescribedLevel && !unlimited) {
           const shortMin = Math.round(getRunTotalSec(runEx) / 60);
           const prescribedSlug = prescribedLevel <= 6 ? `run-interval-level-${prescribedLevel}` : `run-continuous-level-${prescribedLevel}`;
           const fullMin = Math.round(getRunTotalSec(exercises.find(e => e.slug === prescribedSlug) ?? {}) / 60);
-          const budgetMin = Math.round(sessionDurSec / 60);
-          const note = `Today's run fits your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal, and you are delivering it. More time when you have it, same pace when you do not.`;
+          const budgetMin = rawBudget;
+          const note = `Today's run was shortened to fit your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal.`;
           addNote(note);
           trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
         }
