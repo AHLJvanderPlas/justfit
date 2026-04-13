@@ -410,7 +410,7 @@ function defaultPeriodDate() {
   return d.toISOString().split("T")[0];
 }
 
-function OnboardingModal({ token, onComplete }) {
+function OnboardingModal({ token, onComplete, onBack }) {
   const [step, setStep] = useState(0);
   // Step 0 — About you
   const [sex, setSex] = useState(null);
@@ -430,7 +430,11 @@ function OnboardingModal({ token, onComplete }) {
   const [duration, setDuration] = useState(45);
   const [saving, setSaving] = useState(false);
 
-  const TOTAL_STEPS = 4;
+  const TOTAL_STEPS = 5;
+
+  const handleSkip = () => {
+    if (step < TOTAL_STEPS - 1) setStep(step + 1); else handleFinish();
+  };
 
   const toggleEquip = (val) => {
     if (val === "none") {
@@ -479,7 +483,6 @@ function OnboardingModal({ token, onComplete }) {
     setSaving(false);
   };
 
-  const canAdvance = step === 0 ? !!sex : true;
   const DURATION_OPTIONS = [15, 20, 30, 45, 60, 90, 120, 999];
 
   return (
@@ -516,19 +519,53 @@ function OnboardingModal({ token, onComplete }) {
             style={{
               height: "100%",
               background: C.emerald,
-              width: `${((step + 1) / TOTAL_STEPS) * 100}%`,
+              width: step === 0 ? "0%" : `${(step / (TOTAL_STEPS - 1)) * 100}%`,
               transition: "width 0.3s",
             }}
           />
         </div>
 
         <div style={{ padding: "28px 28px 24px", overflowY: "auto" }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
-            Step {step + 1} of {TOTAL_STEPS}
-          </div>
+          {step > 0 && (
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
+              Step {step} of {TOTAL_STEPS - 1}
+            </div>
+          )}
 
-          {/* ── Step 0: About you ── */}
+          {/* ── Step 0: Waiver ── */}
           {step === 0 && (
+            <>
+              <div style={{ width: 44, height: 44, borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 18 }}>
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2">
+                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                </svg>
+              </div>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Health &amp; Safety</div>
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.7, marginBottom: 20 }}>
+                JustFit.cc provides general fitness guidance for healthy adults. By continuing you confirm:
+              </div>
+              <ul style={{ listStyle: "none", marginBottom: 20, display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  "You are 18 years or older",
+                  "You have no medical conditions that prevent exercise",
+                  "JustFit.cc is not a medical app and does not provide medical advice",
+                  "You accept responsibility for your own physical safety",
+                  "You will consult a doctor before starting if in doubt",
+                ].map((item, i) => (
+                  <li key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <span style={{ color: C.emerald, fontWeight: 900, flexShrink: 0, marginTop: 1 }}>✓</span>
+                    <span style={{ fontSize: 13, color: C.text, lineHeight: 1.5 }}>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+                Your fitness data is not sold or shared. EU/GDPR compliant.
+              </p>
+            </>
+          )}
+
+          {/* ── Step 1: About you ── */}
+          {step === 1 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>About you</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>This helps us personalise your training baseline.</div>
@@ -679,8 +716,8 @@ function OnboardingModal({ token, onComplete }) {
             </>
           )}
 
-          {/* ── Step 1: Goal ── */}
-          {step === 1 && (
+          {/* ── Step 2: Goal ── */}
+          {step === 2 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>What's your goal?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Your plan adapts to this every day.</div>
@@ -709,8 +746,8 @@ function OnboardingModal({ token, onComplete }) {
             </>
           )}
 
-          {/* ── Step 2: Experience ── */}
-          {step === 2 && (
+          {/* ── Step 3: Experience ── */}
+          {step === 3 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Experience level?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>We calibrate volume and intensity to match you.</div>
@@ -734,8 +771,8 @@ function OnboardingModal({ token, onComplete }) {
             </>
           )}
 
-          {/* ── Step 3: Equipment + time ── */}
-          {step === 3 && (
+          {/* ── Step 4: Equipment + time ── */}
+          {step === 4 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Equipment &amp; time?</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Your default session setup.</div>
@@ -786,32 +823,33 @@ function OnboardingModal({ token, onComplete }) {
           )}
         </div>
 
-        <div style={{ padding: "0 28px 28px", display: "flex", gap: 10 }}>
+        <div style={{ padding: "0 28px 28px", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ display: "flex", gap: 10 }}>
+            {/* Back: on waiver step triggers logout; on other steps goes back */}
+            <button
+              onClick={step === 0 ? onBack : () => setStep(step - 1)}
+              style={{ flex: 1, padding: 14, borderRadius: 16, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+            >
+              {step === 0 ? "← Log out" : "Back"}
+            </button>
+            {/* Main action */}
+            <button
+              onClick={step === 0 ? () => setStep(1) : step < TOTAL_STEPS - 1 ? () => setStep(step + 1) : handleFinish}
+              disabled={saving}
+              style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.emerald, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.35)", opacity: saving ? 0.7 : 1 }}
+            >
+              {step === 0 ? "I Agree — Continue" : saving ? "Saving..." : step < TOTAL_STEPS - 1 ? "Continue" : "Start Training"}
+            </button>
+          </div>
+          {/* Skip button — not shown on waiver step */}
           {step > 0 && (
             <button
-              onClick={() => setStep(step - 1)}
-              style={{
-                flex: 1, padding: 14, borderRadius: 16,
-                border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)",
-                color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer",
-              }}
+              onClick={handleSkip}
+              style={{ padding: "10px 0", background: "none", border: "none", color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >
-              Back
+              Skip this step
             </button>
           )}
-          <button
-            onClick={step < TOTAL_STEPS - 1 ? () => setStep(step + 1) : handleFinish}
-            disabled={saving || !canAdvance}
-            style={{
-              flex: 2, padding: 14, borderRadius: 16, border: "none",
-              background: canAdvance ? C.emerald : C.subtle,
-              color: "#fff", fontWeight: 900, fontSize: 15, cursor: canAdvance ? "pointer" : "not-allowed",
-              boxShadow: canAdvance ? "0 8px 32px rgba(var(--accent-rgb),0.35)" : "none",
-              opacity: saving ? 0.7 : 1,
-            }}
-          >
-            {saving ? "Saving..." : step < TOTAL_STEPS - 1 ? "Continue" : "Start Training"}
-          </button>
         </div>
       </div>
     </div>
@@ -7710,6 +7748,8 @@ export default function App() {
   // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
+  // Captures checkin_mode from server before setting onboardingReady — avoids stale prefs closure in effect
+  const checkinModeRef = useRef(null);
   const [lastCheckin, setLastCheckin] = useState(null);
 
   const [prefs, setPrefs] = useState(() => {
@@ -7726,7 +7766,7 @@ export default function App() {
     } catch { /* ignore */ }
   }, [prefs]);
 
-  // After profile load: advance to ready, or show goal recheck for existing users on new version
+  // After profile load: apply prefs and advance to ready state
   function handleProfileLoaded(data) {
     // Apply accent from server if present
     if (data.preferences?.accent) {
@@ -7738,6 +7778,8 @@ export default function App() {
       isPro: data.preferences?.isPro ?? p.isPro ?? false,
       daily_replan: data.preferences?.daily_replan ?? p.daily_replan ?? false,
     }));
+    // Pin mode before setting onboardingReady so the check-in effect reads fresh data
+    checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
     // Fetch last check-in to pre-fill next check-in modal
     api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
     setOnboardingReady(true);
@@ -7785,22 +7827,22 @@ export default function App() {
   }, []);
 
 
-  const handleOnboardingComplete = (completedProfileData) => {
+  const handleOnboardingComplete = () => {
     setShowOnboarding(false);
-    setOnboardingReady(true);
-    // Fetch fresh profile from server so prefs reflect what was just saved
-    // (completedProfileData is only a subset — equipment etc. live in preferences_json)
+    // Fetch fresh profile before advancing — ensures checkin_mode and all prefs are server-accurate
     api.getProfile(token).then((data) => {
       if (data?.exists) {
         setPrefs({ ...data, exists: undefined });
-      } else if (completedProfileData) {
-        setPrefs(completedProfileData);
+        checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
+      } else {
+        checkinModeRef.current = "once_a_day";
       }
+      api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
     }).catch(() => {
-      if (completedProfileData) setPrefs(completedProfileData);
+      checkinModeRef.current = "once_a_day";
+    }).finally(() => {
+      setOnboardingReady(true); // triggers score/history/check-in effects after prefs are loaded
     });
-    const mode = (completedProfileData?.preferences?.checkin_mode) ?? "once_a_day";
-    if (mode !== "manual") setShowCheckIn(true);
   };
 
   // Load score, history, and progression from API on mount (only after onboarding done)
@@ -7857,7 +7899,8 @@ export default function App() {
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
     if (!onboardingReady) return;
-    const mode = prefs.preferences?.checkin_mode ?? "once_a_day";
+    // Read from ref (set by handleProfileLoaded / handleOnboardingComplete) to avoid stale prefs closure
+    const mode = checkinModeRef.current ?? prefs.preferences?.checkin_mode ?? "once_a_day";
     const alreadyCheckedInToday = localStorage.getItem("jf_checkin_date") === today;
     const willShowCheckIn =
       mode === "every_time" ||
@@ -8315,7 +8358,7 @@ export default function App() {
       )}
 
       {showOnboarding && (
-        <OnboardingModal token={token} onComplete={handleOnboardingComplete} />
+        <OnboardingModal token={token} onComplete={handleOnboardingComplete} onBack={logout} />
       )}
 
       {showLogActivity && (
