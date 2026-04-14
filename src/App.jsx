@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "./apiClient.js";
+import { parseRuleTrace, classifySessionNotes, deriveChipLabel } from "./messagePolicy.js";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -1999,6 +2000,166 @@ function useNarrow(bp = 600) {
   return narrow;
 }
 
+// ─── MESSAGE COMPONENTS ────────────────────────────────────────────────────────
+
+/** Compact status pill displayed in the session card header when a plan has been adapted. */
+function AdaptationChip({ label }) {
+  return (
+    <span
+      role="status"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 5,
+        fontSize: 10,
+        fontWeight: 800,
+        letterSpacing: "0.06em",
+        textTransform: "uppercase",
+        background: "rgba(var(--accent-rgb),0.1)",
+        color: "var(--accent)",
+        border: "1px solid rgba(var(--accent-rgb),0.25)",
+        borderRadius: 999,
+        padding: "3px 10px",
+      }}
+    >
+      ◆ {label}
+    </span>
+  );
+}
+
+/**
+ * Collapsible "Why this plan?" panel — shows below session header, above exercise list.
+ * Auto-expands the first time it's seen (tracked in localStorage).
+ * Renders groups: Safety adaptations | Training adaptations | Suggested actions.
+ */
+function WhyPlanPanel({ plan }) {
+  const advisories = parseRuleTrace(plan?.rule_trace);
+
+  const hasContent =
+    advisories.safety.length > 0 ||
+    advisories.training.length > 0 ||
+    advisories.suggested.length > 0;
+
+  const panelKey = `jf_whypanel_${plan?.id ?? plan?.date ?? "default"}`;
+  // Auto-expand on first view per plan; collapsed by default after that
+  const [open, setOpen] = useState(() => !localStorage.getItem(panelKey));
+
+  useEffect(() => {
+    if (!localStorage.getItem(panelKey)) localStorage.setItem(panelKey, "1");
+  }, [panelKey]);
+
+  if (!hasContent) return null;
+
+  const sectionLabel = (text) => (
+    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginTop: 10, marginBottom: 4 }}>
+      {text}
+    </div>
+  );
+
+  const advisoryRow = (entry) => (
+    <div key={entry.code} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 5 }}>
+      <span style={{ color: C.emerald, flexShrink: 0, marginTop: 1 }}>›</span>
+      <span style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+        {entry.text}
+        {entry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {entry.cta}</span>}
+      </span>
+    </div>
+  );
+
+  return (
+    <div style={{ marginBottom: 14 }}>
+      <button
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "none",
+          border: "none",
+          padding: 0,
+          cursor: "pointer",
+          fontSize: 11,
+          fontWeight: 700,
+          color: C.muted,
+          marginBottom: open ? 8 : 0,
+        }}
+      >
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+        Why this plan?
+      </button>
+
+      {open && (
+        <div
+          role="status"
+          style={{
+            background: "rgba(255,255,255,0.03)",
+            border: `1px solid ${C.border}`,
+            borderRadius: 14,
+            padding: "12px 14px",
+          }}
+        >
+          {advisories.safety.length > 0 && (
+            <>
+              {sectionLabel("Safety adaptation")}
+              {advisories.safety.map(advisoryRow)}
+            </>
+          )}
+
+          {advisories.training.length > 0 && (
+            <>
+              {sectionLabel("Training adaptation")}
+              {advisories.training.map(advisoryRow)}
+            </>
+          )}
+
+          {advisories.suggested.length > 0 && (
+            <>
+              {sectionLabel("Suggested action")}
+              {advisories.suggested.map(advisoryRow)}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Persistent blocking safety banner — shown when session_notes contain clearance-gate language.
+ * Always visible (role="alert"), not dismissible.
+ */
+function BlockingSafetyBanner({ text, cta }) {
+  return (
+    <div
+      role="alert"
+      style={{
+        marginBottom: 14,
+        padding: "12px 16px",
+        borderRadius: 14,
+        background: "rgba(245,158,11,0.08)",
+        border: "1px solid rgba(245,158,11,0.3)",
+        borderLeft: "3px solid #f59e0b",
+      }}
+    >
+      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 6 }}>
+        Health &amp; Safety
+      </div>
+      <p style={{ fontSize: 12, color: "#fcd34d", fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
+        {text}
+      </p>
+      {cta && (
+        <p style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, margin: "8px 0 0" }}>
+          → {cta}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ─── PLAN ERROR ────────────────────────────────────────────────────────────────
 const PLAN_ERROR_MESSAGES = {
   "PLAN-NET":   "Could not reach the plan engine. This is usually a temporary connection issue — check your signal and try again.",
   "PLAN-500":   "The plan engine returned an unexpected error on the server.",
@@ -2328,13 +2489,28 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 )}
               </div>
 
-              {plan.session_notes && (
-                <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <span style={{ fontSize: 12, color: "#f59e0b", fontWeight: 600, lineHeight: 1.5 }}>
-                    {plan.session_notes}
-                  </span>
-                </div>
-              )}
+              {/* Adaptation chip — compact status pill near session header */}
+              {(() => {
+                const chipLabel = deriveChipLabel(plan.rule_trace, plan.session_notes);
+                if (!chipLabel) return null;
+                return (
+                  <div style={{ marginBottom: 10 }}>
+                    <AdaptationChip label={chipLabel} />
+                  </div>
+                );
+              })()}
+
+              {/* Collapsible "Why this plan?" panel — always above exercise list */}
+              <WhyPlanPanel plan={plan} />
+
+              {/* Blocking safety banner — clearance gate, always visible (role="alert") */}
+              {(() => {
+                const rawNotes = plan.session_notes;
+                const notesText = Array.isArray(rawNotes) ? rawNotes.join(" ") : (rawNotes ?? "");
+                const severity = classifySessionNotes(notesText);
+                if (severity !== "blocking_safety" || !notesText) return null;
+                return <BlockingSafetyBanner text={notesText} cta="Update clearance in Settings when you're cleared." />;
+              })()}
 
               <div style={{ flex: 1, marginBottom: 20 }}>
                 {(plan.steps ?? []).map((s, i) => (
@@ -2556,41 +2732,6 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         );
       })()}
 
-      {/* Rule trace */}
-      {plan?.rule_trace?.length > 0 && (
-        <Glass style={{ padding: 20 }}>
-          <div
-            style={{
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: "0.15em",
-              color: C.emerald,
-              textTransform: "uppercase",
-              marginBottom: 12,
-            }}
-          >
-            Why this session
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-            {plan.rule_trace.map((r, i) => (
-              <span
-                key={i}
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: C.muted,
-                  background: "rgba(255,255,255,0.04)",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 8,
-                  padding: "4px 10px",
-                }}
-              >
-                {r}
-              </span>
-            ))}
-          </div>
-        </Glass>
-      )}
     </div>
   );
 }
@@ -5458,9 +5599,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
                           })}
                         </div>
                         {showRampWarn && (
-                          <div style={{ marginBottom: 12, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                            <span style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, lineHeight: 1.5 }}>
-                              ⚠️ Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
+                          <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
+                            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 4 }}>Progression caution</div>
+                            <span style={{ fontSize: 11, color: "#fcd34d", fontWeight: 600, lineHeight: 1.5 }}>
+                              Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
                             </span>
                           </div>
                         )}
