@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 
@@ -7519,16 +7519,33 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
     setDeleteInput("");
   };
 
-  const upcomingDates = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i + 1);
-    return d.toISOString().split("T")[0];
+  // Primitive deps derived from prefs/plan — avoids object identity churn in effect deps
+  const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
+  const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
+  const isPro = prefs?.isPro ?? false;
+  const planSessionName = plan?.session_name ?? null;
+
+  // Stable refs for the full coach objects used inside the upcoming-plans effect.
+  // The scalars above (runEnrolled, cycleActive) control re-triggering;
+  // these refs always provide the latest values without causing reference-churn re-runs.
+  const runCoachRef = useRef(prefs?.preferences?.run_coach);
+  const cycleCoachRef = useRef(prefs?.preferences?.cycling_coach);
+  useEffect(() => {
+    runCoachRef.current = prefs?.preferences?.run_coach;
+    cycleCoachRef.current = prefs?.preferences?.cycling_coach;
   });
+
+  // Memoized so the array reference is stable between renders (recomputes when today changes)
+  const upcomingDates = useMemo(() =>
+    Array.from({ length: 5 }, (_, i) => {
+      const d = new Date(today + 'T12:00:00'); // anchor to today so dep is valid
+      d.setDate(d.getDate() + i + 1);
+      return d.toISOString().split("T")[0];
+    }),
+  [today]);
 
   useEffect(() => {
     if (!userId) return;
-    const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
-    const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
     const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
@@ -7538,12 +7555,12 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
 
     // Generate sequentially so each future day uses a simulated coach state
     // (parallel generation would use the same DB state for every day)
-    const runCoach = prefs?.preferences?.run_coach;
-    const cycleCoach = prefs?.preferences?.cycling_coach;
+    const runCoach = runCoachRef.current;
+    const cycleCoach = cycleCoachRef.current;
 
     // Seed simulation: if today is already a running/cycling session, count it as done
     let simRc = runCoach ? { ...runCoach } : null;
-    if (simRc && plan?.session_name?.startsWith('Running Day')) {
+    if (simRc && planSessionName?.startsWith('Running Day')) {
       const siw = (simRc.session_in_week ?? 0) + 1;
       simRc = siw >= 3
         ? { ...simRc, session_in_week: 0, week: (simRc.week ?? 1) + 1, last_run_at_ms: Date.now() }
@@ -7551,7 +7568,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
     }
 
     let simCc = cycleCoach ? { ...cycleCoach } : null;
-    if (simCc && plan?.session_name?.startsWith('Cycling')) {
+    if (simCc && planSessionName?.startsWith('Cycling')) {
       const siw = (simCc.session_in_week ?? 0) + 1;
       simCc = siw >= 3
         ? { ...simCc, session_in_week: 0, week: (simCc.week ?? 1) + 1, last_ride_at_ms: Date.now() }
@@ -7564,7 +7581,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
         const coachSim = {};
         if (simRc) coachSim.run_coach = simRc;
         if (simCc) coachSim.cycling_coach = simCc;
-        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined, prefs?.isPro).catch(() => null);
+        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined, isPro).catch(() => null);
         result.push({ date, plan: p });
 
         if (simRc && p?.session_name?.startsWith('Running Day')) {
@@ -7584,7 +7601,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
       setUpcomingPlans(result);
       setLoadingUpcoming(false);
     })();
-  }, [userId]);
+  }, [userId, today, runEnrolled, cycleActive, isPro, planSessionName, upcomingDates]);
 
   // Build last 7 days
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -8002,6 +8019,9 @@ export default function App() {
     if (!userId || !token) {
       window.location.href = "/login.html";
     }
+    // userId and token are read from localStorage at render time (not React state).
+    // They are session-stable; the page reloads on logout so this is safe as mount-only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
@@ -8040,8 +8060,11 @@ export default function App() {
   // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
-  // Captures checkin_mode from server before setting onboardingReady — avoids stale prefs closure in effect
+  // Captures checkin_mode and isPro from server before setting onboardingReady —
+  // avoids stale prefs closure in the check-in effect without making it re-trigger on prefs changes.
   const checkinModeRef = useRef(null);
+  const isProRef = useRef(prefs.isPro ?? false);
+  useEffect(() => { isProRef.current = prefs.isPro ?? false; }, [prefs.isPro]);
   const [lastCheckin, setLastCheckin] = useState(null);
 
   const [prefs, setPrefs] = useState(() => {
@@ -8070,8 +8093,9 @@ export default function App() {
       isPro: data.preferences?.isPro ?? p.isPro ?? false,
       daily_replan: data.preferences?.daily_replan ?? p.daily_replan ?? false,
     }));
-    // Pin mode before setting onboardingReady so the check-in effect reads fresh data
+    // Pin mode and isPro before setting onboardingReady so the check-in effect reads fresh data
     checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
+    isProRef.current = data.preferences?.isPro ?? false;
     // Fetch last check-in to pre-fill next check-in modal
     api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
     setOnboardingReady(true);
@@ -8116,6 +8140,9 @@ export default function App() {
       }
       handleProfileLoaded(data);
     }).catch(() => setOnboardingReady(true));
+    // handleProfileLoaded, token, and userId are session-stable: not React state,
+    // designed to run once on mount (page reloads on auth changes).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
 
@@ -8126,6 +8153,7 @@ export default function App() {
       if (data?.exists) {
         setPrefs({ ...data, exists: undefined });
         checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
+        isProRef.current = data.preferences?.isPro ?? false;
       } else {
         checkinModeRef.current = "once_a_day";
       }
@@ -8186,13 +8214,14 @@ export default function App() {
         }
       })
       .catch(() => {});
-  }, [userId, onboardingReady]);
+  }, [userId, onboardingReady, today, token]);
 
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
     if (!onboardingReady) return;
-    // Read from ref (set by handleProfileLoaded / handleOnboardingComplete) to avoid stale prefs closure
-    const mode = checkinModeRef.current ?? prefs.preferences?.checkin_mode ?? "once_a_day";
+    // checkinModeRef and isProRef are set in handleProfileLoaded before onboardingReady is set —
+    // avoids stale closure without making this effect re-trigger on every prefs change.
+    const mode = checkinModeRef.current ?? "once_a_day";
     const alreadyCheckedInToday = localStorage.getItem("jf_checkin_date") === today;
     const willShowCheckIn =
       mode === "every_time" ||
@@ -8214,7 +8243,7 @@ export default function App() {
             setPlan(existing);
             setIsGenerating(false);
           } else {
-            return api.generatePlan(userId, today, null, undefined, prefs.isPro)
+            return api.generatePlan(userId, today, null, undefined, isProRef.current)
               .then((p) => { setPlan(p); setPlanError(null); })
               .catch((e) => {
                 setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
@@ -8224,6 +8253,8 @@ export default function App() {
         })
         .catch(() => setIsGenerating(false));
     }
+    // today and userId are session-stable (not React state — derived from localStorage/Date at render time)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady]);
 
   const handleCheckIn = useCallback(
@@ -8383,7 +8414,7 @@ export default function App() {
         }
       }
     },
-    [userId, history, today],
+    [history, today],
   );
 
   const handleBonusSelect = useCallback(
@@ -8440,7 +8471,7 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [userId, today],
+    [userId, today, prefs.isPro],
   );
 
   const handleRestDay = useCallback(async () => {
