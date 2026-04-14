@@ -98,7 +98,9 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 justfit/
 ├── src/
 │   ├── App.jsx          ← entire frontend (single file, no sub-components)
-│   └── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
+│   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
+│   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
+│   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), classifySessionNotes(), deriveChipLabel()
 ├── functions/
 │   └── api/
 │       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify
@@ -912,6 +914,7 @@ Calculated server-side from executions table:
 ---
 
 | Accent colour picker | ✅ Live — 11 colours (Emerald/Violet/Sky/Rose/Amber/Indigo/Lime/Cyan/Orange/Fuchsia/Coral); CSS custom properties (--accent, --accent-rgb, --accent-dim, --accent-border) on :root; stored in D1 + localStorage jf_accent; applied before first render; Appearance section at top of Settings |
+| Messaging architecture | ✅ Live — `src/messagePolicy.js` centralises severity buckets (blocking_safety / adaptive_safety / progression_caution / account_security / validation_error / system_error); maps planner rule codes (R510–R565) to human-readable labels; `parseRuleTrace()`, `classifySessionNotes()`, `deriveChipLabel()` helpers; BMI/adaptation warnings replaced with `AdaptationChip` (compact status pill) + `WhyPlanPanel` (collapsible "Why this plan?" panel with Safety / Training / Suggested action groups, auto-expands first view via `jf_whypanel_<plan_id>` in localStorage); `BlockingSafetyBanner` (role="alert") for clearance gates (R539); run coach ramp-up kept in Settings enrollment only (progression_caution style); standalone rule trace card removed (absorbed into WhyPlanPanel) |
 
 ## Known Bugs to Fix
 
