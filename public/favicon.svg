@@ -1,6 +1,11 @@
 <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
-  <rect x="2" y="2" width="60" height="60" rx="14" fill="#10b981"/>
-  <g transform="translate(8 4) scale(2.2)">
-    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="#ffffff" stroke-width="1.5" stroke-linejoin="round" stroke-linecap="round"/>
-  </g>
+  <defs>
+    <filter id="g" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="3" result="b"/>
+      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    </filter>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#020617"/>
+  <polygon points="34,13 15,36 32,36 30,51 49,28 32,28" fill="#10b981" opacity="0.28" filter="url(#g)"/>
+  <polygon points="34,13 15,36 32,36 30,51 49,28 32,28" fill="#10b981"/>
 </svg>
