@@ -17,7 +17,7 @@ const api = {
         body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
       });
       data = await res.json();
-    } catch (fetchErr) {
+    } catch {
       const err = new Error("Network error — could not reach plan engine");
       err.planErrorCode = "PLAN-NET";
       throw err;

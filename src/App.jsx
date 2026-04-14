@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import api from "./apiClient.js";
-import { parseRuleTrace, classifySessionNotes, deriveChipLabel } from "./messagePolicy.js";
+import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -2040,8 +2040,9 @@ function WhyPlanPanel({ plan }) {
     advisories.training.length > 0 ||
     advisories.suggested.length > 0;
 
-  const panelKey = `jf_whypanel_${plan?.id ?? plan?.date ?? "default"}`;
-  // Auto-expand on first view per plan; collapsed by default after that
+  // date is more stable than id: plan IDs change on regeneration, date stays the same day
+  const panelKey = `jf_whypanel_${plan?.date ?? plan?.id ?? "default"}`;
+  // Auto-expand on first view per day; collapsed by default after that
   const [open, setOpen] = useState(() => !localStorage.getItem(panelKey));
 
   useEffect(() => {
@@ -2182,7 +2183,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
       `Date: ${new Date().toISOString()}`,
       prefs ? `Goal: ${prefs.training_goal}, Level: ${prefs.experience_level}, Equipment: ${JSON.stringify(prefs.preferences?.available_equipment ?? [])}` : null,
     ].filter(Boolean).join("\n");
-    try { await api.sendFeedback(token, lines); } catch {}
+    try { await api.sendFeedback(token, lines); } catch { /* fire-and-forget — feedback failure must not crash the UI */ }
     setReportSent(true);
     setReportSending(false);
   };
@@ -2503,14 +2504,14 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               {/* Collapsible "Why this plan?" panel — always above exercise list */}
               <WhyPlanPanel plan={plan} />
 
-              {/* Blocking safety banner — clearance gate, always visible (role="alert") */}
-              {(() => {
-                const rawNotes = plan.session_notes;
-                const notesText = Array.isArray(rawNotes) ? rawNotes.join(" ") : (rawNotes ?? "");
-                const severity = classifySessionNotes(notesText);
-                if (severity !== "blocking_safety" || !notesText) return null;
-                return <BlockingSafetyBanner text={notesText} cta="Update clearance in Settings when you're cleared." />;
-              })()}
+              {/* Blocking safety banner — clearance gate (R539), always visible (role="alert") */}
+              {/* Triggered by rule code, not text matching, so copy changes don't silently break it */}
+              {hasBlockingSafety(plan.rule_trace) && (
+                <BlockingSafetyBanner
+                  text="Your session is kept gentle until you confirm exercise clearance with your healthcare provider."
+                  cta="Update clearance in Settings when you're cleared."
+                />
+              )}
 
               <div style={{ flex: 1, marginBottom: 20 }}>
                 {(plan.steps ?? []).map((s, i) => (
@@ -2579,21 +2580,24 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   />
                 )}
                 {(!plan.steps || plan.steps.length === 0) && plan.slot_type === "rest" && (() => {
-                  const trace = plan.rule_trace ?? [];
-                  let why = null;
-                  if (trace.some(t => t.includes("R514")))          why = "Your check-in reported significant pain — rest is the right call today.";
-                  else if (trace.some(t => t.includes("adapt:pain_rest"))) why = "Your check-in reported significant pain — rest is the right call today.";
-                  else if (trace.some(t => t.includes("R510")))     why = "Time budget was too short for a full session.";
-                  else if (trace.some(t => t.includes("R539")))     why = "Postnatal exercise clearance not yet confirmed — update in Settings when you're cleared.";
-                  else if (trace.some(t => t.includes("R540") && t.includes("immediate"))) why = "Postnatal immediate recovery phase — gentle movement only.";
+                  // Route through policy parser — single source of truth for all rule explanations.
+                  // adapt:pain_rest (free-tier) reuses the R514 label since it is the same intent.
+                  const advisories = parseRuleTrace(plan.rule_trace ?? []);
+                  const REST_CODES = ["R514", "R539", "R540"];
+                  const whyEntry =
+                    [...advisories.blocking, ...advisories.safety].find(a => REST_CODES.includes(a.code)) ??
+                    ((plan.rule_trace ?? []).some(t => t.includes("adapt:pain_rest"))
+                      ? { text: "Your check-in reported significant pain — rest is the right call today." }
+                      : null);
                   return (
                     <div>
                       <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>
                         Recovery day. Rest is training.
                       </p>
-                      {why && (
+                      {whyEntry && (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
-                          {why}
+                          {whyEntry.text}
+                          {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {whyEntry.cta}</span>}
                         </div>
                       )}
                     </div>

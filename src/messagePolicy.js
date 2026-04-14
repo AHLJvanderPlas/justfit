@@ -67,12 +67,12 @@ export const RULE_LABELS = {
   R514: { category: 'Safety adaptation',   text: 'Rest day — pain reported. Recovery is training.' },
   R515: { category: 'Training adaptation', text: 'Quiet, low-impact exercises (no gym clothes).' },
   R516: { category: 'Training adaptation', text: 'Bodyweight session — no equipment or traveling today.' },
-  R520: { category: 'Training adaptation', text: 'Intensity tuned for your current cycle phase.' },
-  R521: { category: 'Training adaptation', text: 'Volume adapted for your cycle phase.' },
-  R522: { category: 'Training adaptation', text: 'Session type adjusted for cycle phase.' },
-  R523: { category: 'Training adaptation', text: 'Cycle phase: energy boost window active.' },
-  R524: { category: 'Training adaptation', text: 'Cycle phase: recovery priority.' },
-  R525: { category: 'Training adaptation', text: 'Cycle phase: low-volume adaptation.' },
+  R520: { category: 'Training adaptation', text: 'Intensity eased for your period day — your body is asking for gentleness.' },
+  R521: { category: 'Training adaptation', text: 'Volume boost active — follicular energy peak, good sleep confirmed.' },
+  R522: { category: 'Training adaptation', text: "Full-effort session — you're at your ovulation peak. Take an extra minute to warm up." },
+  R523: { category: 'Training adaptation', text: 'Intensity eased — winding down for your late luteal phase.' },
+  R524: { category: 'Training adaptation', text: 'Rep count adjusted for your body weight on bodyweight exercises.' },
+  R525: { category: 'Training adaptation', text: 'Mobility exercise added to keep movement quality balanced.' },
   R530: { category: 'Safety adaptation',   text: 'Intensity capped for this pregnancy trimester.' },
   R531: { category: 'Safety adaptation',   text: 'Lying-on-back exercises removed (from week 16).' },
   R532: { category: 'Safety adaptation',   text: 'High-impact exercises removed during pregnancy.' },
@@ -133,21 +133,13 @@ export function parseRuleTrace(ruleTrace) {
 }
 
 /**
- * Classify session_notes text into a severity bucket.
- * Returns 'blocking_safety' | 'adaptive_safety' | null.
- *
- * 'blocking_safety' is only for clearance gates (R539 language).
- * All other session notes are 'adaptive_safety'.
+ * Returns true if the rule_trace contains a blocking-safety rule (R539).
+ * Use this — not text-matching on session_notes — to trigger the blocking banner.
+ * Rule-code detection is stable even if planner copy changes.
  */
-export function classifySessionNotes(sessionNotes) {
-  if (!sessionNotes) return null;
-  const text = Array.isArray(sessionNotes) ? sessionNotes.join(' ') : sessionNotes;
-  if (!text.trim()) return null;
-  const lower = text.toLowerCase();
-  if (lower.includes('confirm exercise clearance') || lower.includes('healthcare provider')) {
-    return 'blocking_safety';
-  }
-  return 'adaptive_safety';
+export function hasBlockingSafety(ruleTrace) {
+  if (!ruleTrace?.length) return false;
+  return ruleTrace.some((t) => t.includes('R539'));
 }
 
 /**
