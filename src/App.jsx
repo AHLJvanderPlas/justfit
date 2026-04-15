@@ -552,7 +552,7 @@ function OnboardingModal({ token, onComplete, onBack }) {
               </div>
               <ul style={{ listStyle: "none", marginBottom: 20, display: "flex", flexDirection: "column", gap: 10 }}>
                 {[
-                  "You are 18 years or older",
+                  "You are 16 years or older",
                   "You have no medical conditions that prevent exercise",
                   "JustFit.cc is not a medical app and does not provide medical advice",
                   "You accept responsibility for your own physical safety",
