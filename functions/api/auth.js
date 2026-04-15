@@ -172,9 +172,15 @@ async function handleSignup({ email, password }, env, secret) {
   return Response.json({ ok: true, token, userId });
 }
 
-async function handleLogin({ email, password }, env, secret) {
+async function handleLogin({ email, password }, request, env, secret) {
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
+  const HOUR = 60 * 60 * 1000;
+
+  if (await isRateLimited(`login:ip:${clientIp(request)}`, 20, HOUR, env) ||
+      await isRateLimited(`login:email:${emailLower}`, 10, HOUR, env)) {
+    return Response.json({ error: 'Too many login attempts — please try again later' }, { status: 429 });
+  }
 
   const authUser = await env.DB.prepare(
     `SELECT a.id, a.user_id, a.password_hash FROM auth_users a WHERE a.email = ? AND a.provider = 'password' LIMIT 1`
@@ -194,7 +200,27 @@ async function handleLogin({ email, password }, env, secret) {
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
-// Uses existing token tables as attempt counters — no extra migration needed.
+// Sliding-window counter backed by auth_rate_limits table (migration 0022).
+// Returns true if the bucket has exceeded maxCount within windowMs.
+async function isRateLimited(bucket, maxCount, windowMs, env) {
+  const now    = Date.now();
+  const cutoff = now - windowMs;
+  await env.DB.prepare(`
+    INSERT INTO auth_rate_limits (bucket, count, window_start_ms)
+    VALUES (?, 1, ?)
+    ON CONFLICT(bucket) DO UPDATE SET
+      count            = CASE WHEN window_start_ms <= ? THEN 1            ELSE count + 1    END,
+      window_start_ms  = CASE WHEN window_start_ms <= ? THEN ?            ELSE window_start_ms END
+  `).bind(bucket, now, cutoff, cutoff, now).run();
+  const row = await env.DB.prepare(`SELECT count FROM auth_rate_limits WHERE bucket = ?`).bind(bucket).first();
+  return (row?.count ?? 1) > maxCount;
+}
+
+function clientIp(request) {
+  return request.headers.get('CF-Connecting-IP') ?? request.headers.get('X-Forwarded-For') ?? 'unknown';
+}
+
+// Legacy helpers — count existing token rows (no extra migration needed).
 async function rateLimitForgotPassword(emailLower, env) {
   const row = await env.DB.prepare(
     `SELECT COUNT(*) as n FROM password_reset_tokens WHERE email = ? AND created_at_ms > ?`
@@ -243,9 +269,12 @@ async function handleForgotPassword({ email }, env, _secret) {
 }
 
 // ─── RESET PASSWORD ───────────────────────────────────────────────────────────
-async function handleResetPassword({ reset_token, new_password }, env, secret) {
+async function handleResetPassword({ reset_token, new_password }, request, env, secret) {
   if (!reset_token || !new_password) return Response.json({ error: 'Token and new password required' }, { status: 400 });
   if (new_password.length < 6) return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+  if (await isRateLimited(`reset:ip:${clientIp(request)}`, 5, 60 * 60 * 1000, env)) {
+    return Response.json({ error: 'Too many attempts — please try again later' }, { status: 429 });
+  }
 
   const row = await env.DB.prepare(
     `SELECT token, user_id, expires_at_ms, used_at_ms FROM password_reset_tokens WHERE token = ? LIMIT 1`
@@ -596,6 +625,9 @@ async function handleVerifyEmailCode({ code }, request, env, secret) {
   const user = await getSessionUser(request, secret);
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
   if (!code) return Response.json({ error: 'Code required' }, { status: 400 });
+  if (await isRateLimited(`verify_email:${user.userId}`, 5, 60 * 60 * 1000, env)) {
+    return Response.json({ error: 'Too many attempts — please try again later' }, { status: 429 });
+  }
 
   const now = Date.now();
   const row = await env.DB.prepare(
@@ -666,6 +698,9 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
   const user = await getSessionUser(request, secret);
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
   if (!code) return Response.json({ error: 'Code required' }, { status: 400 });
+  if (await isRateLimited(`verify_change:${user.userId}`, 5, 60 * 60 * 1000, env)) {
+    return Response.json({ error: 'Too many attempts — please try again later' }, { status: 429 });
+  }
 
   const now = Date.now();
   const row = await env.DB.prepare(
@@ -767,9 +802,9 @@ export async function onRequestPost({ request, env }) {
     const body = await request.json();
     switch (body.action) {
       case 'signup':                    return handleSignup(body, env, secret);
-      case 'login':                     return handleLogin(body, env, secret);
+      case 'login':                     return handleLogin(body, request, env, secret);
       case 'forgot_password':           return handleForgotPassword(body, env, secret);
-      case 'reset_password':            return handleResetPassword(body, env, secret);
+      case 'reset_password':            return handleResetPassword(body, request, env, secret);
       case 'magic_link':                return handleMagicLink(body, env);
       case 'passkey_begin_register':    return handlePasskeyBeginRegister(request, env, secret);
       case 'passkey_complete_register': return handlePasskeyCompleteRegister(request, body, env, secret);
