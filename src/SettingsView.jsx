@@ -773,8 +773,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
     <div>
       {/* ── Doc overlay ──────────────────────────────────────── */}
       {activeDoc && (
-        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "80px 20px 48px" }}>
-          <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 61, background: C.bg, borderBottom: `1px solid ${C.border}`, padding: "16px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "calc(80px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom)) 20px" }}>
+          <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 61, background: C.bg, borderBottom: `1px solid ${C.border}`, paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: "16px", paddingLeft: "max(20px, env(safe-area-inset-left))", paddingRight: "max(20px, env(safe-area-inset-right))", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button
               onClick={() => setActiveDoc(null)}
               style={{ display: "flex", alignItems: "center", gap: 8, background: "none", border: "none", color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer", padding: 0 }}
