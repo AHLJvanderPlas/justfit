@@ -358,7 +358,7 @@ const DOCS = [
     sections: [
       {
         heading: "Scope",
-        body: "These Terms form a binding legal agreement between you and JustFit.cc. By creating an account you agree to these Terms (v1.1, effective 1 April 2025). Your account creation timestamp is our record of acceptance.",
+        body: "These Terms form a binding legal agreement between you and JustFit.cc. By creating an account you explicitly accept these Terms (v1.1, effective 1 April 2025) and our Privacy Policy. Your acceptance — including the version accepted and the timestamp — is recorded in our database. If the Terms are updated, you will be prompted to accept the new version before continuing.",
       },
       {
         heading: "Service Description",
