@@ -3121,7 +3121,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
 
   // ── Full-screen workout overlay ──────────────────────────────────────────────
   return (
-    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 50, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+    <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 50, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: "env(safe-area-inset-top)" }}>
       {/* Cancel confirmation overlay */}
       {showCancel && (
         <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
@@ -5513,7 +5513,7 @@ export default function App() {
       `}</style>
 
       <div
-        style={{ maxWidth: 760, margin: "0 auto", padding: "40px 20px 120px" }}
+        style={{ maxWidth: 760, margin: "0 auto", padding: "max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 120px" }}
       >
         {!inWorkout && (
           <header
