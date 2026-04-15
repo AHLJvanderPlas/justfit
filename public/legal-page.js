@@ -15,9 +15,9 @@
   if (shareBtn) {
     shareBtn.addEventListener('click', async function () {
       if (navigator.share) {
-        try { await navigator.share({ title: PAGE_TITLE, url: PAGE_URL }); return; } catch (e) {}
+        try { await navigator.share({ title: PAGE_TITLE, url: PAGE_URL }); return; } catch { /* user cancelled or unsupported */ }
       }
-      await navigator.clipboard.writeText(PAGE_URL).catch(function () {});
+      await navigator.clipboard.writeText(PAGE_URL).catch(function () { /* ignore */ });
       shareBtn.textContent = '✓ Link copied';
       setTimeout(function () { shareBtn.innerHTML = '&#8679; Share'; }, 2000);
     });
@@ -25,7 +25,7 @@
 
   // ── Helpers ───────────────────────────────────────────────────────────────
   function getJWT() {
-    try { return localStorage.getItem('jf_token'); } catch (e) { return null; }
+    try { return localStorage.getItem('jf_token'); } catch { return null; }
   }
 
   function decodeEmail(token) {
@@ -34,7 +34,7 @@
       if (parts.length !== 3) return null;
       var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
       return payload.email || null;
-    } catch (e) { return null; }
+    } catch { return null; }
   }
 
   // ── Email toggle ─────────────────────────────────────────────────────────
@@ -96,7 +96,7 @@
           sendBtn.disabled = false;
           setTimeout(function () { sendBtn.textContent = 'Send'; }, 3000);
         }
-      } catch (e) {
+      } catch {
         sendBtn.textContent = 'Error \u2014 try again';
         sendBtn.disabled = false;
         setTimeout(function () { sendBtn.textContent = 'Send'; }, 3000);
