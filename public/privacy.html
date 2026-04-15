@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy — JustFit.cc</title>
+  <script src="/legal-page.js" defer></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -94,7 +95,7 @@
     .dpa-block p { color: #94a3b8; }
   </style>
 </head>
-<body>
+<body data-document="privacy" data-title="JustFit Privacy Policy" data-url="https://justfit.cc/privacy.html">
   <header>
     <a href="/" class="logo">
       <div class="logo-mark">JF</div>
@@ -242,67 +243,5 @@
     </p>
     <p class="muted" style="margin-top: 48px; font-size: 12px;">JustFit.cc &mdash; Privacy Policy v1.0 &mdash; Effective 1 April 2025 &mdash; Netherlands</p>
   </main>
-<script>
-  const DOCUMENT = 'privacy';
-  const PAGE_TITLE = 'JustFit Privacy Policy';
-  const PAGE_URL = 'https://justfit.cc/privacy.html';
-
-  // Share button
-  document.getElementById('share-btn').addEventListener('click', async () => {
-    const btn = document.getElementById('share-btn');
-    if (navigator.share) {
-      try {
-        await navigator.share({ title: PAGE_TITLE, url: PAGE_URL });
-        return;
-      } catch {}
-    }
-    await navigator.clipboard.writeText(PAGE_URL).catch(() => {});
-    btn.textContent = '✓ Link copied';
-    setTimeout(() => { btn.innerHTML = '&#8679; Share'; }, 2000);
-  });
-
-  // Email to me toggle
-  document.getElementById('email-btn').addEventListener('click', () => {
-    const form = document.getElementById('email-form');
-    const isOpen = form.classList.toggle('open');
-    if (isOpen) document.getElementById('email-input').focus();
-  });
-
-  // Send
-  document.getElementById('send-btn').addEventListener('click', async () => {
-    const email = document.getElementById('email-input').value.trim();
-    const btn = document.getElementById('send-btn');
-    if (!email) { document.getElementById('email-input').focus(); return; }
-    btn.disabled = true;
-    btn.textContent = 'Sending…';
-    try {
-      const res = await fetch('/api/legal-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, document: DOCUMENT }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        btn.textContent = '✓ Sent!';
-        document.getElementById('email-input').value = '';
-        document.getElementById('email-btn').innerHTML = '&#10003; Emailed';
-        setTimeout(() => { document.getElementById('email-form').classList.remove('open'); btn.textContent = 'Send'; btn.disabled = false; }, 2500);
-      } else {
-        btn.textContent = data.error || 'Error — try again';
-        btn.disabled = false;
-        setTimeout(() => { btn.textContent = 'Send'; }, 3000);
-      }
-    } catch {
-      btn.textContent = 'Error — try again';
-      btn.disabled = false;
-      setTimeout(() => { btn.textContent = 'Send'; }, 3000);
-    }
-  });
-
-  // Allow Enter key in email input
-  document.getElementById('email-input').addEventListener('keydown', e => {
-    if (e.key === 'Enter') document.getElementById('send-btn').click();
-  });
-</script>
 </body>
 </html>
