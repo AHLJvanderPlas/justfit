@@ -5047,13 +5047,6 @@ export default function App() {
   // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
-  // Captures checkin_mode and isPro from server before setting onboardingReady —
-  // avoids stale prefs closure in the check-in effect without making it re-trigger on prefs changes.
-  const checkinModeRef = useRef(null);
-  const isProRef = useRef(prefs.isPro ?? false);
-  useEffect(() => { isProRef.current = prefs.isPro ?? false; }, [prefs.isPro]);
-  const [lastCheckin, setLastCheckin] = useState(null);
-
   const [prefs, setPrefs] = useState(() => {
     try {
       return JSON.parse(localStorage.getItem("jf_prefs") || "{}");
@@ -5061,6 +5054,13 @@ export default function App() {
       return {};
     }
   });
+
+  // Captures checkin_mode and isPro from server before setting onboardingReady —
+  // avoids stale prefs closure in the check-in effect without making it re-trigger on prefs changes.
+  const checkinModeRef = useRef(null);
+  const isProRef = useRef(prefs.isPro ?? false);
+  useEffect(() => { isProRef.current = prefs.isPro ?? false; }, [prefs.isPro]);
+  const [lastCheckin, setLastCheckin] = useState(null);
 
   useEffect(() => {
     try {
