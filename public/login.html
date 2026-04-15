@@ -99,6 +99,25 @@
     }
     input:focus { border-color: rgba(16,185,129,0.5); }
 
+    .accept-row {
+      display: flex; align-items: flex-start; gap: 10px;
+      margin-bottom: 16px; padding: 14px 16px;
+      background: rgba(16,185,129,0.04);
+      border: 1px solid rgba(16,185,129,0.15);
+      border-radius: 14px;
+    }
+    .accept-row input[type="checkbox"] {
+      width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;
+      accent-color: #10b981; cursor: pointer; border-radius: 4px;
+    }
+    .accept-row label {
+      font-size: 12px; font-weight: 600; color: #94a3b8;
+      text-transform: none; letter-spacing: 0; cursor: pointer;
+      line-height: 1.55; margin: 0;
+    }
+    .accept-row label a { color: #10b981; text-decoration: none; }
+    .accept-row label a:hover { text-decoration: underline; }
+
     .btn-primary {
       width: 100%; padding: 16px;
       background: #10b981; border: none;
@@ -230,6 +249,17 @@
           <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
         </div>
         <a id="forgot-link" class="forgot-link">Forgot password?</a>
+        <!-- Acceptance checkbox — shown only in Sign Up mode (toggled by login.js) -->
+        <div class="accept-row" id="accept-row" style="display:none;">
+          <input type="checkbox" id="accept-check" />
+          <label for="accept-check">
+            I have read and agree to the
+            <a href="/terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a>,
+            <a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer &amp; Liability Waiver</a>,
+            and <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
+            of JustFit.cc.
+          </label>
+        </div>
         <button class="btn-primary" id="submit-btn">Login</button>
       </div>
 

@@ -257,6 +257,15 @@ const api = {
     });
     return res.json();
   },
+
+  async acceptTerms(token, termsVersion, privacyVersion) {
+    const res = await fetch("/api/accept-terms", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ termsVersion, privacyVersion }),
+    });
+    return res.json();
+  },
 };
 
 export default api;

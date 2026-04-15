@@ -5044,6 +5044,11 @@ export default function App() {
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
+  // Terms acceptance gate (shown to existing users who haven't accepted current policy version)
+  const [needsTermsGate, setNeedsTermsGate] = useState(false);
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsAccepting, setTermsAccepting] = useState(false);
+
   // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [onboardingReady, setOnboardingReady] = useState(false);
@@ -5085,6 +5090,10 @@ export default function App() {
     isProRef.current = data.preferences?.isPro ?? false;
     // Fetch last check-in to pre-fill next check-in modal
     api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
+    // Show terms gate if this user hasn't accepted the current policy version yet
+    if (data.needsTermsAcceptance) {
+      setNeedsTermsGate(true);
+    }
     setOnboardingReady(true);
   }
 
@@ -5697,6 +5706,78 @@ export default function App() {
 
       {showOnboarding && (
         <OnboardingModal token={token} onComplete={handleOnboardingComplete} onBack={logout} />
+      )}
+
+      {/* ── Terms acceptance gate ─────────────────────────────── */}
+      {needsTermsGate && (
+        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ width: "100%", maxWidth: 420, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 28, padding: 32, boxShadow: "0 40px 100px rgba(0,0,0,0.5)" }}>
+            {/* Logo */}
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
+              <div style={{ width: 36, height: 36, background: C.emerald, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "#fff" }}>JF</div>
+              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>Just<span style={{ color: C.emerald }}>Fit</span>.cc</div>
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Updated Policies</div>
+            <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 10, lineHeight: 1.2 }}>
+              Review &amp; accept our terms
+            </h2>
+            <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.65, marginBottom: 24 }}>
+              We've updated our legal documents. Please review and accept them to continue using JustFit.
+            </p>
+            {/* Policy links */}
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
+              {[
+                { label: "Terms & Conditions", href: "/terms.html" },
+                { label: "Disclaimer & Liability Waiver", href: "/disclaimer.html" },
+                { label: "Privacy Policy", href: "/privacy.html" },
+              ].map(({ label, href }) => (
+                <a
+                  key={href}
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 13, fontWeight: 800, textDecoration: "none" }}
+                >
+                  {label}
+                  <span style={{ fontSize: 16, opacity: 0.7 }}>↗</span>
+                </a>
+              ))}
+            </div>
+            {/* Acceptance checkbox */}
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 20, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={termsAccepted}
+                onChange={(e) => setTermsAccepted(e.target.checked)}
+                style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: "#10b981", cursor: "pointer" }}
+              />
+              <span style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, fontWeight: 500 }}>
+                I have read and agree to the Terms &amp; Conditions, Disclaimer &amp; Liability Waiver, and Privacy Policy of JustFit.cc.
+              </span>
+            </label>
+            {/* Accept button */}
+            <button
+              disabled={!termsAccepted || termsAccepting}
+              onClick={async () => {
+                setTermsAccepting(true);
+                try {
+                  await api.acceptTerms(token, "1.1", "1.0");
+                } catch { /* non-blocking — proceed anyway */ }
+                setNeedsTermsGate(false);
+                setTermsAccepting(false);
+              }}
+              style={{ width: "100%", padding: 16, background: termsAccepted ? C.emerald : C.subtle, border: "none", borderRadius: 16, color: "#fff", fontSize: 15, fontWeight: 900, cursor: termsAccepted ? "pointer" : "not-allowed", opacity: termsAccepting ? 0.6 : 1, transition: "all 0.15s" }}
+            >
+              {termsAccepting ? "Saving…" : "I agree — Continue"}
+            </button>
+            <button
+              onClick={logout}
+              style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "none", border: "none", color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
+            >
+              Sign out instead
+            </button>
+          </div>
+        </div>
       )}
 
       {showLogActivity && (

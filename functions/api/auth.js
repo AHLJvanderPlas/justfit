@@ -6,6 +6,12 @@ const VERIFY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 h — email verify / change 
 const WEBAUTHN_EXPIRY = 120;              // 2 min   — challenge JWT (sec)
 const FROM_ADDRESS    = 'JustFit.cc <noreply@justfit.cc>';
 
+// ─── POLICY VERSIONS ──────────────────────────────────────────────────────────
+// Bump these when a material change is made. All users with a different stored
+// version will be re-prompted to accept on next app load.
+const CURRENT_TERMS_VERSION   = '1.1'; // Terms & Conditions + Disclaimer bundled
+const CURRENT_PRIVACY_VERSION = '1.0';
+
 // ─── BASE64URL HELPERS ────────────────────────────────────────────────────────
 function b64url(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -126,9 +132,12 @@ async function getUserAccent(userId, env) {
 
 // ─── HANDLERS ─────────────────────────────────────────────────────────────────
 
-async function handleSignup({ email, password }, env, secret) {
+async function handleSignup({ email, password, accepted_terms_version, accepted_privacy_version }, env, secret) {
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
   if (password.length < 6) return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+  if (accepted_terms_version !== CURRENT_TERMS_VERSION) {
+    return Response.json({ error: 'You must accept the Terms & Conditions to create an account.' }, { status: 400 });
+  }
   const emailLower = email.toLowerCase().trim();
 
   const existing = await env.DB.prepare(
@@ -142,10 +151,11 @@ async function handleSignup({ email, password }, env, secret) {
   const now         = Date.now();
   const verifyToken = crypto.randomUUID();
   const verifyCode  = generateCode();
+  const privacyVersion = accepted_privacy_version ?? CURRENT_PRIVACY_VERSION;
 
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO users (id, status, primary_email, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?)`)
-      .bind(userId, emailLower, now, now),
+    env.DB.prepare(`INSERT INTO users (id, status, primary_email, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(userId, emailLower, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
     env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'sha256+salt', ?, ?)`)
       .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now),
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`)
@@ -192,11 +202,16 @@ async function handleLogin({ email, password }, request, env, secret) {
     return Response.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
+  const now = Date.now();
   await env.DB.prepare(`UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`)
-    .bind(Date.now(), authUser.id).run();
+    .bind(now, authUser.id).run();
 
-  const token = await createJWT({ userId: authUser.user_id, email: emailLower }, secret);
-  return Response.json({ ok: true, token, userId: authUser.user_id });
+  const [token, acceptRow] = await Promise.all([
+    createJWT({ userId: authUser.user_id, email: emailLower }, secret),
+    env.DB.prepare(`SELECT accepted_terms_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.user_id).first(),
+  ]);
+  const needsTermsAcceptance = (acceptRow?.accepted_terms_version ?? null) !== CURRENT_TERMS_VERSION;
+  return Response.json({ ok: true, token, userId: authUser.user_id, needsTermsAcceptance });
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
@@ -842,7 +857,11 @@ export async function onRequestGet({ request, env }) {
     // Session token verification
     const user = await getSessionUser(request, secret);
     if (!user) return Response.json({ valid: false }, { status: 401 });
-    return Response.json({ valid: true, userId: user.userId, email: user.email });
+    const acceptRow = await env.DB.prepare(
+      `SELECT accepted_terms_version FROM users WHERE id = ? LIMIT 1`
+    ).bind(user.userId).first();
+    const needsTermsAcceptance = (acceptRow?.accepted_terms_version ?? null) !== CURRENT_TERMS_VERSION;
+    return Response.json({ valid: true, userId: user.userId, email: user.email, needsTermsAcceptance });
   } catch {
     return Response.json({ valid: false }, { status: 401 });
   }

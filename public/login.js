@@ -3,6 +3,9 @@ let mode   = 'login';
 let method = 'password';
 let passkeyAvailable = false;
 
+const CURRENT_TERMS_VERSION   = '1.1';
+const CURRENT_PRIVACY_VERSION = '1.0';
+
 // ─── BASE64URL HELPERS ───────────────────────────────────────────────────
 const b64url = buf =>
   btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -33,14 +36,17 @@ function setMode(m) {
   if (m === 'signup') { setMethod('password', false); }
   const pwdField   = document.getElementById('password-field');
   const forgotLink = document.getElementById('forgot-link');
+  const acceptRow  = document.getElementById('accept-row');
   if (m === 'signup') {
     pwdField.style.display   = 'block';
     forgotLink.style.display = 'none';
+    acceptRow.style.display  = 'flex';
     document.getElementById('submit-btn').textContent = 'Create Account';
     document.getElementById('password').autocomplete  = 'new-password';
   } else {
     pwdField.style.display   = 'block';
     forgotLink.style.display = method === 'password' ? 'block' : 'none';
+    acceptRow.style.display  = 'none';
     document.getElementById('submit-btn').textContent = 'Login';
     document.getElementById('password').autocomplete  = 'current-password';
   }
@@ -78,16 +84,25 @@ async function handleSubmit() {
   if (!email)              { showAlert('main-alert', 'Please enter your email.'); return; }
   if (!password)           { showAlert('main-alert', 'Please enter your password.'); return; }
   if (password.length < 6) { showAlert('main-alert', 'Password must be at least 6 characters.'); return; }
+  if (mode === 'signup' && !document.getElementById('accept-check').checked) {
+    showAlert('main-alert', 'Please accept the Terms & Conditions to create an account.');
+    return;
+  }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
   hideAlert('main-alert');
 
   try {
+    const body = { action: mode === 'login' ? 'login' : 'signup', email, password };
+    if (mode === 'signup') {
+      body.accepted_terms_version   = CURRENT_TERMS_VERSION;
+      body.accepted_privacy_version = CURRENT_PRIVACY_VERSION;
+    }
     const res  = await fetch('/api/auth', {
       method:  'POST',
       headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ action: mode === 'login' ? 'login' : 'signup', email, password }),
+      body:    JSON.stringify(body),
     });
     const data = await res.json();
 
