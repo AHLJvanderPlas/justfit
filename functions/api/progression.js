@@ -570,7 +570,7 @@ export async function onRequestGet({ request, env }) {
       sport_scores: sportScores,
     });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -628,7 +628,7 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 

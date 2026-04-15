@@ -58,7 +58,7 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ ok: true });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 
@@ -80,6 +80,6 @@ export async function onRequestGet({ request, env }) {
 
     return Response.json(date ? { checkin: result } : { checkins: result.results });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

@@ -67,6 +67,6 @@ export async function onRequestGet({ request, env }) {
       breakdown: { activeDayPoints, resilienceBonus, continuityBonus, activeDays }
     });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }

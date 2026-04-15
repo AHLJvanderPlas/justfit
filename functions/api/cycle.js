@@ -71,6 +71,6 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ ok: true, logged });
   } catch (e) {
-    return Response.json({ error: e.message }, { status: 500 });
+    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
