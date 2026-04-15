@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
+import { reportError } from "./errorReporter.js";
 
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
@@ -8017,6 +8018,7 @@ export default function App() {
 
   useEffect(() => {
     if (!userId || !token) {
+      reportError('auth_failure', 'missing session on app load');
       window.location.href = "/login.html";
     }
     // userId and token are read from localStorage at render time (not React state).
@@ -8288,12 +8290,13 @@ export default function App() {
         }
       } catch (e) {
         console.error("Plan generation failed:", e);
+        reportError('plan_generation', e.planErrorCode ?? e.message ?? 'unknown', token);
         setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
       } finally {
         setIsGenerating(false);
       }
     },
-    [userId, today, prefs.isPro],
+    [userId, today, prefs.isPro, token],
   );
 
   const handleSkipCheckIn = useCallback(async () => {
@@ -8306,11 +8309,12 @@ export default function App() {
       setPlan(newPlan); setPlanError(null);
     } catch (e) {
       console.error("Plan generation failed:", e);
+      reportError('plan_generation', e.planErrorCode ?? e.message ?? 'unknown', token);
       setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
     } finally {
       setIsGenerating(false);
     }
-  }, [userId, today, prefs.isPro]);
+  }, [userId, today, prefs.isPro, token]);
 
   const handleRetryPlan = useCallback(async () => {
     setPlanError(null);
