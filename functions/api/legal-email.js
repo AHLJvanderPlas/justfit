@@ -200,16 +200,20 @@ export async function onRequestPost({ request, env }) {
     const subject = SUBJECTS[document];
     const html = GENERATORS[document]();
 
-    if (env.RESEND_API_KEY) {
-      const res = await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-        body: JSON.stringify({ from: 'JustFit.cc <noreply@justfit.cc>', to: [email.trim()], subject, html }),
-      });
-      if (!res.ok) {
-        console.error('Resend error', res.status, await res.text());
-        return Response.json({ error: 'Failed to send email — try again shortly.' }, { status: 500 });
-      }
+    if (!env.RESEND_API_KEY) {
+      console.error('[legal-email] RESEND_API_KEY not configured');
+      return Response.json({ error: 'Email service unavailable — please try again later.' }, { status: 503 });
+    }
+
+    const resendRes = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
+      body: JSON.stringify({ from: 'JustFit.cc <noreply@justfit.cc>', to: [email.trim()], subject, html }),
+    });
+    if (!resendRes.ok) {
+      const resendBody = await resendRes.text();
+      console.error('[legal-email] Resend error', resendRes.status, resendBody);
+      return Response.json({ error: 'Failed to send email — try again shortly.' }, { status: 500 });
     }
 
     return Response.json({ ok: true });
