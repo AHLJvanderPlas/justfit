@@ -20,6 +20,7 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 - Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R565); sport-aware bias layer nudges strength targets to support your primary sport; **injury-aware filtering** (knee/shoulder/lower back/ankle) removes contraindicated exercises and supplements with safe mobility alternatives
 - **Severity-based messaging** — `src/messagePolicy.js` maps all planner rule codes to severity buckets; BMI/adaptation notes replaced with compact `AdaptationChip` pill + collapsible "Why this plan?" panel (non-shaming, safety-first copy); postnatal clearance gate shows persistent `BlockingSafetyBanner` (ARIA role="alert"); run coach ramp-up warning scoped to Settings enrollment only
+- **Production hardening** — auth rate limiting (DB-backed sliding window, migration 0022); generic API 500s (no internal leakage); `src/errorReporter.js` client error reporting; AwardsView lazy-loaded (535→528KB main chunk + 8.76KB async chunk); `npm run smoke` pre-deploy script; `/api/ping` DB check + `OPERATIONS.md` runbook
 - **Check-in optional** — plan generates from settings alone when check-in is skipped or mode is manual; existing plan loaded from D1 on page reload (no re-generation); check-in includes injury scope/area picker with "save as ongoing issue" to profile
 - Full coaching UX: instruction cards (swipeable, no auto-advance), rep-by-rep tap counting, **"All reps done"** shortcut, rest countdown, difficulty controls (±2 reps / ±10s), exercise substitution, perceived exertion rating
 - **Equipment-aware planner** — selectable equipment includes dumbbells, resistance bands, pull-up bar, treadmill, stationary bike, indoor bike trainer, rowing machine; `null` equipment defaults to bodyweight-only; `chair` always treated as available
@@ -52,12 +53,15 @@ Vite dev server runs at `http://localhost:5173`. API calls go to the local Vite 
 
 ## Deploy
 
-GitHub auto-deploy is suspended. Build and deploy via wrangler directly after pushing:
+GitHub auto-deploy is suspended. Run the smoke check, then deploy:
 
 ```bash
+npm run smoke   # lint + build + 4 live API checks — must pass before deploying
 git add . && git commit -m "feat: ..." && git push
 npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
 ```
+
+See `RELEASE_SMOKE.md` for the full manual pre-deploy checklist and `OPERATIONS.md` for the incident runbook.
 
 ## Environment variables (set in Cloudflare Pages → Settings → Variables)
 

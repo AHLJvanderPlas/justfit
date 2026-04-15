@@ -98,12 +98,14 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 justfit/
 ├── src/
 │   ├── App.jsx          ← entire frontend (single file, no sub-components)
+│   ├── AwardsView.jsx   ← Hall of Fame component (lazy-loaded via React.lazy to reduce initial bundle)
 │   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
 │   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
-│   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), classifySessionNotes(), deriveChipLabel()
+│   ├── errorReporter.js ← fire-and-forget client error reporting (plan_generation, auth_failure); dedupes per session
+│   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), hasBlockingSafety(), deriveChipLabel()
 ├── functions/
 │   └── api/
-│       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify
+│       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify; rate limiting via auth_rate_limits table
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
@@ -141,7 +143,8 @@ justfit/
 │   ├── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
 │   ├── 0019_taxonomy_fix.sql   ← equipment taxonomy fix: cycling-intervals-indoor + stationary-bike-steady now include both indoor_bike and exercise_bike
 │   ├── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
-│   └── 0021_injury_tags.sql ← adds loads_knee/loads_shoulder/loads_lower_back/loads_ankle tags to ~182 exercises for R562–R563 injury filtering
+│   ├── 0021_injury_tags.sql ← adds loads_knee/loads_shoulder/loads_lower_back/loads_ankle tags to ~182 exercises for R562–R563 injury filtering
+│   └── 0022_rate_limits.sql ← auth_rate_limits table (sliding-window counters for login/reset/verify rate limiting)
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -914,7 +917,8 @@ Calculated server-side from executions table:
 ---
 
 | Accent colour picker | ✅ Live — 11 colours (Emerald/Violet/Sky/Rose/Amber/Indigo/Lime/Cyan/Orange/Fuchsia/Coral); CSS custom properties (--accent, --accent-rgb, --accent-dim, --accent-border) on :root; stored in D1 + localStorage jf_accent; applied before first render; Appearance section at top of Settings |
-| Messaging architecture | ✅ Live — `src/messagePolicy.js` centralises severity buckets (blocking_safety / adaptive_safety / progression_caution / account_security / validation_error / system_error); maps planner rule codes (R510–R565) to human-readable labels; `parseRuleTrace()`, `classifySessionNotes()`, `deriveChipLabel()` helpers; BMI/adaptation warnings replaced with `AdaptationChip` (compact status pill) + `WhyPlanPanel` (collapsible "Why this plan?" panel with Safety / Training / Suggested action groups, auto-expands first view via `jf_whypanel_<plan_id>` in localStorage); `BlockingSafetyBanner` (role="alert") for clearance gates (R539); run coach ramp-up kept in Settings enrollment only (progression_caution style); standalone rule trace card removed (absorbed into WhyPlanPanel) |
+| Messaging architecture | ✅ Live — `src/messagePolicy.js` centralises severity buckets (blocking_safety / adaptive_safety / progression_caution / account_security / validation_error / system_error); maps planner rule codes (R510–R565) to human-readable labels; `parseRuleTrace()`, `hasBlockingSafety()`, `deriveChipLabel()` helpers; BMI/adaptation warnings replaced with `AdaptationChip` (compact status pill) + `WhyPlanPanel` (collapsible "Why this plan?" panel with Safety / Training / Suggested action groups, auto-expands first view via `jf_whypanel_<plan_id>` in localStorage); `BlockingSafetyBanner` (role="alert") for clearance gates (R539); run coach ramp-up kept in Settings enrollment only (progression_caution style); standalone rule trace card removed (absorbed into WhyPlanPanel) |
+| Production hardening | ✅ Live — 7-task hardening pass: (1) 0 react-hooks/exhaustive-deps warnings (useMemo, stable refs, isProRef); (2) DB-backed rate limiting (migration 0022) for login/reset/verify — 429 on abuse; (3) All API 500s return `{error:"Internal error"}` — no e.message leakage; (4) `src/errorReporter.js` — fire-and-forget deduped client error reports via /api/feedback; (5) AwardsView lazy-loaded via React.lazy (535KB → 528KB main chunk + 8.76KB async chunk); (6) `npm run smoke` — lint+build+4 live API checks before deploy; (7) `/api/ping` includes D1 check, `OPERATIONS.md` runbook with alert thresholds and rollback procedure |
 
 ## Known Bugs to Fix
 
@@ -956,7 +960,7 @@ Improvements identified but not yet built. Ordered roughly by impact.
 - **Frontend**: React functional components, all styles inline using `C.` design tokens; UI stays in `App.jsx`, pure JS modules (no JSX, no UI state) may live in `src/`
 - **DB timestamps**: always milliseconds (`Date.now()`), column suffix `_at_ms`
 - **DB IDs**: always `crypto.randomUUID()`
-- **Error responses**: always `Response.json({ error: e.message }, { status: 500 })`
+- **Error responses**: always `Response.json({ error: "Internal error" }, { status: 500 })` with `console.error(e)` server-side
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
 - **Deploy**: `git push` only — never use `wrangler pages deploy` manually
 - **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
