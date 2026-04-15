@@ -261,7 +261,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
   const [pendingSex, setPendingSex] = useState(null);
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
   // Info pages overlay
-  const [showInfoPage, setShowInfoPage] = useState(null); // null | "vision" | "how_it_works" | "terms" | "disclaimer"
+  const [showInfoPage, setShowInfoPage] = useState(null); // null | "privacy" | "vision" | "how_it_works" | "terms" | "disclaimer"
   // Voucher (subscription upgrade)
   const [voucherCode, setVoucherCode] = useState("");
   const [voucherError, setVoucherError] = useState("");
@@ -541,6 +541,32 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
   };
 
   const INFO_PAGES = {
+    privacy: {
+      title: "Privacy Policy",
+      externalUrl: "/privacy.html",
+      sections: [
+        {
+          heading: "Version 1.0 — Effective 1 April 2025",
+          body: "JustFit collects only what is strictly necessary to provide the service. Your fitness data is yours.",
+        },
+        {
+          heading: "What we collect",
+          body: "Email address, password hash (never plaintext), profile preferences you provide (weight, goal, equipment, cycle), daily check-ins, and workout history.\n\nWe do NOT collect IP addresses, device fingerprints, location data, or any tracking cookies.",
+        },
+        {
+          heading: "Third-party processors",
+          body: "• Cloudflare — infrastructure (EU edge nodes)\n• Resend — transactional email only\n\nWe do not sell, share, or rent your data to any other third party.",
+        },
+        {
+          heading: "Your GDPR rights",
+          body: "Access · Rectification · Erasure · Export · Restriction · Object\n\nEmail support@justfit.cc from your account address. We respond within 30 days.\n\nYou can also lodge a complaint with the Autoriteit Persoonsgegevens (AP): autoriteitpersoonsgegevens.nl",
+        },
+        {
+          heading: "Account deletion",
+          body: "Delete your account instantly via Settings → Account → Delete account. All data is permanently erased within 24 hours; backups purged within 30 days.",
+        },
+      ],
+    },
     vision: {
       title: "Vision, Mission & Philosophy",
       sections: [
@@ -609,7 +635,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
     },
     terms: {
       title: "Terms & Conditions",
+      externalUrl: "/terms.html",
       sections: [
+        {
+          heading: "Version 1.1 — Effective 1 April 2025",
+          body: "By creating an account you agree to these Terms. Your account creation timestamp is our record of acceptance.",
+        },
         {
           heading: "1. Acceptance",
           body: "By using JustFit.cc you agree to these Terms. If you do not agree, do not use the app.",
@@ -713,6 +744,23 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
               ))}
             </div>
           ))}
+          {infoPage.externalUrl && (
+            <a
+              href={infoPage.externalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                display: "inline-flex", alignItems: "center", gap: 6,
+                fontSize: 13, fontWeight: 800, color: C.emerald,
+                textDecoration: "none", marginTop: 8,
+                padding: "10px 16px", borderRadius: 12,
+                background: "rgba(var(--accent-rgb),0.08)",
+                border: "1px solid rgba(var(--accent-rgb),0.2)",
+              }}
+            >
+              View full policy →
+            </a>
+          )}
         </div>
       )}
 
@@ -2196,7 +2244,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
           {[
             { key: "vision", label: "Vision, Mission & Philosophy", sub: "What JustFit stands for and why consistency wins" },
             { key: "how_it_works", label: "How It Works", sub: "Features, the planner engine, scoring, and coaching" },
-            { key: "terms", label: "Terms & Conditions", sub: "Usage rules and governing law" },
+            { key: "privacy", label: "Privacy Policy", sub: "What data we collect, GDPR rights, and how to delete your data — v1.0, 1 Apr 2025" },
+            { key: "terms", label: "Terms & Conditions", sub: "Usage rules and governing law — v1.1, 1 Apr 2025" },
             { key: "disclaimer", label: "Disclaimer & Liability Waiver", sub: "Health risks, medical advice, and your responsibility" },
           ].map(({ key, label, sub }, i, arr) => (
             <button
