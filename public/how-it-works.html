@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>How JustFit Works — JustFit.cc</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      min-height: 100vh;
+      background: #020617;
+      color: #f8fafc;
+      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      padding: 0 0 80px;
+    }
+    header {
+      position: sticky; top: 0; z-index: 10;
+      background: #020617;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+      padding: 16px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .logo { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+    .logo-mark {
+      width: 32px; height: 32px; background: #10b981; border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 900; font-size: 12px; color: #fff;
+    }
+    .logo-text { font-size: 16px; font-weight: 900; letter-spacing: -0.02em; color: #f8fafc; }
+    .logo-text span { color: #10b981; }
+    .back { font-size: 13px; color: #64748b; text-decoration: none; font-weight: 700; }
+    .back:hover { color: #10b981; }
+    main { max-width: 680px; margin: 0 auto; padding: 48px 24px 0; }
+    .meta { font-size: 11px; font-weight: 900; letter-spacing: 0.15em; color: #10b981; text-transform: uppercase; margin-bottom: 12px; }
+    h1 { font-size: 36px; font-weight: 900; letter-spacing: -0.03em; margin-bottom: 8px; }
+    .version { font-size: 13px; color: #64748b; margin-bottom: 40px; }
+    h2 {
+      font-size: 11px; font-weight: 900; letter-spacing: 0.15em;
+      color: #10b981; text-transform: uppercase; margin: 40px 0 12px;
+    }
+    p { font-size: 14px; color: #f8fafc; line-height: 1.75; font-weight: 500; margin-bottom: 12px; }
+    ul { padding-left: 20px; margin-bottom: 12px; }
+    li { font-size: 14px; color: #94a3b8; line-height: 1.75; font-weight: 500; margin-bottom: 4px; }
+    .muted { color: #64748b; }
+    a { color: #10b981; }
+  </style>
+</head>
+<body>
+  <header>
+    <a href="/" class="logo">
+      <div class="logo-mark">JF</div>
+      <div class="logo-text">Just<span>Fit</span>.cc</div>
+    </a>
+    <a href="/" class="back">← Back</a>
+  </header>
+
+  <main>
+    <div class="meta">Guide</div>
+    <h1>How JustFit Works</h1>
+    <p class="version muted">Version 1.0 &mdash; Effective 1 April 2025</p>
+
+    <h2>Scope</h2>
+    <p>An overview of how JustFit generates personalised daily workout plans, coaches you through sessions, and tracks your progress over time.</p>
+
+    <h2>Daily Calibration (Optional)</h2>
+    <p>Each day, you can tell JustFit how you're doing: sleep, energy, mood, stress, and any practical constraints (no gym, travelling, short on time, pain). This takes under 30 seconds.</p>
+    <p>If you skip the check-in or set it to manual, JustFit still generates a plan based on your goal, experience level, equipment, and schedule — automatically, without any input needed.</p>
+
+    <h2>The Planner Engine</h2>
+    <p>A rule-based engine (not AI) generates a personalised session. Rules fire in priority order — life always wins over training preferences:</p>
+    <ul>
+      <li>Pain reported → rest day, no exceptions</li>
+      <li>Low sleep (≤5h) → intensity and volume reduced</li>
+      <li>High stress → session shifts toward mobility</li>
+      <li>Travelling or no gear → bodyweight-only session</li>
+      <li>No time (≤10 min) → micro session, 2 exercises</li>
+      <li>Pregnancy → high-impact excluded, pelvic floor included</li>
+      <li>Postnatal → phase-gated recovery programme</li>
+      <li>Running Coach enrolled → structured run session prescribed</li>
+      <li>Outdoor exercises always scheduled last</li>
+    </ul>
+
+    <h2>Goals &amp; Experience</h2>
+    <p>Set your training goal (general health, lose weight, build strength, build muscle, endurance, or mobility &amp; flex) and experience level (beginner to advanced). These drive exercise count, sets, rest periods, intensity, and session naming.</p>
+
+    <h2>Cycle &amp; Body Awareness</h2>
+    <p>Female users can enable Smart Cycle Tracking. The planner adjusts intensity and volume across the four cycle phases. Pregnancy and postnatal modes activate a full set of safety rules — filtering high-impact exercises, adding pelvic floor work, and respecting medical clearance stages.</p>
+
+    <h2>Workout Coaching</h2>
+    <p>During a session, JustFit coaches you step by step: instruction cards, a rep tap zone, automatic rest timer, difficulty controls (+/&minus; reps or seconds), and exercise alternatives. The screen stays on via Wake Lock so you never need to touch your phone mid-set.</p>
+
+    <h2>Consistency Score</h2>
+    <p>Your score (0&ndash;100) is calculated from the last 7 days:</p>
+    <ul>
+      <li>Active days &times; 10 (max 70)</li>
+      <li>Resilience bonus for easy-day sessions &times; 5 (max 20)</li>
+      <li>Continuity streak bonus (max 10)</li>
+    </ul>
+    <p>It rewards showing up — especially on hard days.</p>
+
+    <h2>History &amp; Awards</h2>
+    <p>Every completed session is logged. The History tab shows your recent workouts with duration and effort rating. The Awards tab tracks 26 milestone achievements — from your first session to 100-day streaks.</p>
+
+    <h2>Contact</h2>
+    <p>Questions about how the app works: <a href="mailto:support@justfit.cc">support@justfit.cc</a></p>
+
+    <p class="muted" style="margin-top: 48px; font-size: 12px;">JustFit.cc &mdash; How It Works v1.0 &mdash; 1 April 2025 &mdash; Netherlands</p>
+  </main>
+</body>
+</html>
