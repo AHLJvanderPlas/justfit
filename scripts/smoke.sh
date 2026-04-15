@@ -35,8 +35,8 @@ plan_status=$(curl -s -o /dev/null -w "%{http_code}" "${PROD}/api/plan?user_id=t
 ex_status=$(curl -s -o /dev/null -w "%{http_code}" "${PROD}/api/exercises")
 [ "$ex_status" = "200" ] && ok "/api/exercises → 200" || fail "/api/exercises → ${ex_status}"
 
-# Rate limit sanity: rapid fire 25 login attempts should eventually return 429
-echo "  (skipping rate-limit test in smoke — run manually if needed)"
+# Rate-limit check — disabled by default (hits live DB, takes ~5s)
+# Run separately before UAT or after auth changes: npm run smoke:ratelimit
 
 # ── Summary ────────────────────────────────────────────────────────────────
 echo ""

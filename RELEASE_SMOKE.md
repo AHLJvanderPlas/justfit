@@ -13,6 +13,19 @@ Run `npm run smoke` first. Then work through this manual checklist before deploy
 - [ ] `/api/plan` (no token) → HTTP 401
 - [ ] `/api/exercises` → HTTP 200
 
+## Rate-limit check (npm run smoke:ratelimit — optional, run before UAT or after auth changes)
+
+Fires 11 bad login attempts against `smoke_test@justfit.cc`. The per-email limit is 10/hr,
+so attempt 11 must return 429.
+
+- [ ] `npm run smoke:ratelimit` — all 11 attempts logged, 429 seen by attempt 11
+
+**Side effect**: consumes ~11 slots in `auth_rate_limits` for the canary email. Clears automatically after 1 hour. To clear immediately:
+
+```bash
+npx wrangler d1 execute justfit-db --remote --command "DELETE FROM auth_rate_limits WHERE bucket LIKE '%smoke_test%';"
+```
+
 ---
 
 ## Manual — Auth flow
