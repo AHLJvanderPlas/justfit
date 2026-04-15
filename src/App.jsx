@@ -2566,9 +2566,13 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <span
                       style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}
                     >
-                      {s.target_reps
-                        ? `${s.target_reps} reps`
-                        : formatExDuration(s.target_duration_sec)}
+                      {(() => {
+                        const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
+                        if (isRunInterval && s.sets > 1 && s.target_duration_sec)
+                          return `${s.sets}× · ${formatExDuration(s.target_duration_sec)} / ${formatExDuration(s.rest_sec)}`;
+                        if (s.target_reps) return `${s.target_reps} reps`;
+                        return formatExDuration(s.target_duration_sec);
+                      })()}
                     </span>
                   </div>
                 ))}
