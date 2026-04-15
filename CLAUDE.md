@@ -3,14 +3,15 @@
 These rules apply to EVERY task in EVERY session, without exception.
 
 ## After every change
-- Always run `git add . && git commit -m "..." && git push` after completing each task
-- Then build and deploy directly: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- Run `npm run smoke` first — lint + build + live API checks; must pass before pushing
+- Then commit and push (source backup): `git add . && git commit -m "..." && git push`
+- Then deploy: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
-- Deploy via wrangler directly: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
 - Wrangler must be logged in to `ahljvanderplas@gmail.com` (account: JustFit.cc, ID: ce96b957f7de20cc5d388eba856fa8dc)
 - Check with: `npx wrangler whoami` — if wrong account, run `npx wrangler logout` then `npx wrangler login`
 - D1 migrations: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
@@ -22,7 +23,7 @@ These rules apply to EVERY task in EVERY session, without exception.
 
 ## Multi-step assignments
 When an assignment has multiple steps:
-- Work through them **one item at a time**: build → lint → deploy → move to the next item
+- Work through them **one item at a time**: lint/build/smoke → deploy → move to the next item
 - Track progress with a todo list (TodoWrite tool); mark each item complete immediately after it passes
 - If the user gives a new task during a build, add it to the list (or adjust the existing item) rather than interrupting the current step
 - For each task, pick the most cost-effective model:
@@ -48,7 +49,7 @@ When an assignment has multiple steps:
 - Border radius: 28px for cards, 14px for inputs, 16px for buttons
 - All styles inline — no Tailwind, no CSS modules, no external stylesheets
 - Typography: font-weight 900 for headings, 700 for labels, 500 for body
-- Never use Inter, Roboto, or Arial — use system font stack
+- Use a system font stack for performance and consistency; avoid adding external webfont dependencies unless explicitly approved
 
 ## Testing before push
 - Run `npm run build` locally and confirm it succeeds before pushing
@@ -73,12 +74,12 @@ GitHub: https://github.com/AHLJvanderPlas/justfit
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite; UI components and inline styles in `src/App.jsx`; pure non-React modules (API client, hooks) extracted to `src/`; no router library, no component-per-view splitting |
-| Hosting | Cloudflare Pages (auto-deploy on push to `main`) |
+| Frontend | React + Vite; app shell/state orchestration in `src/App.jsx`; Settings and Awards split into lazy-loaded view modules (`src/SettingsView.jsx`, `src/AwardsView.jsx`); non-React modules in `src/` (`apiClient.js`, `messagePolicy.js`, `errorReporter.js`); no router library |
+| Hosting | Cloudflare Pages (manual deploy via Wrangler; GitHub push is source backup only) |
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) bound as `DB` |
 | Auth | JWT via Web Crypto API (no external libs) |
-| CI/CD | GitHub → Cloudflare Pages (push to main = live in ~30s) |
+| CI/CD | Manual release flow (`npm run smoke` → push → `wrangler pages deploy`) |
 
 **Critical constraint**: Pages Functions cannot use npm packages. Use only Web Crypto API,
 built-in fetch, and `env.DB` for D1. No bcrypt, no jose, no external JWT libraries.
@@ -107,7 +108,8 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 ```
 justfit/
 ├── src/
-│   ├── App.jsx          ← entire frontend (single file, no sub-components)
+│   ├── App.jsx          ← app shell, view orchestration, primary workout/dashboard logic
+│   ├── SettingsView.jsx ← Settings tab (lazy-loaded)
 │   ├── AwardsView.jsx   ← Hall of Fame component (lazy-loaded via React.lazy to reduce initial bundle)
 │   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
 │   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
@@ -115,12 +117,17 @@ justfit/
 │   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), hasBlockingSafety(), deriveChipLabel()
 ├── functions/
 │   └── api/
+│       ├── accept-terms.js ← POST records explicit versioned legal acceptance
 │       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify; rate limiting via auth_rate_limits table
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
+│       ├── cycle.js     ← POST cycle period logging helper
+│       ├── feedback.js  ← POST client error/feedback intake
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
+│       ├── legal-email.js ← POST sends full legal docs by email (5 document IDs)
 │       ├── plan.js      ← POST generate plan (runs planner engine v1.8.0), GET fetch plan
 │       ├── profile.js   ← GET/POST user_preferences + cycle/pregnancy/postnatal context
+│       ├── progression.js ← GET/POST progression model + sport preferences
 │       ├── score.js     ← GET consistency score for user
 │       └── ping.js      ← GET health check
 ├── public/
@@ -133,14 +140,13 @@ justfit/
 │   ├── _routes.json         ← routes /api/* to Functions, /* to React SPA
 │   └── _redirects           ← SPA fallback
 ├── migrations/
-│   ├── 0001_init.sql        ← full schema
 │   ├── 0002_seed.sql        ← awards seed data
 │   ├── 0003_cleanup.sql     ← FK fixes
 │   ├── 0004_exercises.sql   ← 35 new exercises (total: 50)
 │   ├── 0005_templates.sql   ← 8 session templates
 │   ├── 0006_passkeys.sql    ← passkey_credentials table
 │   ├── 0007_auth_tokens.sql ← password_reset_tokens + magic_link_tokens tables; counter/backed_up/transports on passkey_credentials
-│   ├── 0008_cycle.sql       ← cycle_profile table (standard cycle tracking: tracking_mode, cycle_length_days, last_period_start)
+│   ├── 0008_body_aware.sql  ← cycle_profile table (standard cycle tracking: tracking_mode, cycle_length_days, last_period_start)
 │   ├── 0009_pregnancy.sql   ← extends cycle_profile with pregnancy/postnatal columns; adds pregnancy_weekly_log table
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
 │   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
@@ -151,14 +157,18 @@ justfit/
 │   ├── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
 │   ├── 0017_polarised_training.sql ← polarised training flag in preferences
 │   ├── 0018_checkin_unique.sql ← UNIQUE(user_id, date) index on daily_checkins (dedupes, enables atomic upsert)
+│   ├── 0019_email_verification.sql ← email verification + change-email token support
 │   ├── 0019_taxonomy_fix.sql   ← equipment taxonomy fix: cycling-intervals-indoor + stationary-bike-steady now include both indoor_bike and exercise_bike
 │   ├── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
 │   ├── 0021_injury_tags.sql ← adds loads_knee/loads_shoulder/loads_lower_back/loads_ankle tags to ~182 exercises for R562–R563 injury filtering
-│   └── 0022_rate_limits.sql ← auth_rate_limits table (sliding-window counters for login/reset/verify rate limiting)
+│   ├── 0022_rate_limits.sql ← auth_rate_limits table (sliding-window counters for login/reset/verify rate limiting)
+│   └── 0023_acceptance.sql  ← explicit terms/privacy acceptance version tracking
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
 ```
+
+Migration naming policy: migration files must use unique, monotonic prefixes. There are two existing `0019_*` files; future migrations must continue at `0024+` and never reuse a number.
 
 ---
 
@@ -249,7 +259,7 @@ created_at_ms INT, updated_at_ms INT
 }
 ```
 
-**exercises** — ~150 exercises seeded (migrations 0001–0010)
+**exercises** — ~150 exercises seeded (migrations 0002–0010)
 ```sql
 id TEXT PK, slug TEXT, name TEXT,
 category TEXT CHECK (category IN ('strength','cardio','mobility','recovery','skill','mixed')),
@@ -304,7 +314,7 @@ token TEXT PK, user_id TEXT (NULL if email not yet registered), email TEXT,
 expires_at_ms INT (15 min), used_at_ms INT (NULL = unused), created_at_ms INT
 ```
 
-**cycle_profile** — body mode and cycle tracking per user (migrations 0008 + 0009)
+**cycle_profile** — body mode and cycle tracking per user (migrations 0008_body_aware + 0009)
 ```sql
 user_id TEXT FK→users(id),
 -- Standard cycle (migration 0008)
@@ -388,7 +398,7 @@ WebAuthn specifics:
 
 ## Frontend (src/App.jsx)
 
-Single-file React app, all styles inline (no Tailwind, no CSS modules).
+React app, all styles inline (no Tailwind, no CSS modules). `App.jsx` is the shell and orchestration layer; Settings and Awards are split into lazy-loaded view boundaries (`SettingsView.jsx`, `AwardsView.jsx`); pure non-React modules live in `src/` alongside.
 
 ### Design tokens
 ```javascript
@@ -876,8 +886,8 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0001–0021) |
-| Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0001–0010, 0020); taxonomy fixed in 0019 |
+| D1 schema + migrations | ✅ Live (0002–0023) |
+| Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020); taxonomy fixed in 0019 |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
@@ -929,8 +939,17 @@ Calculated server-side from executions table:
 | Accent colour picker | ✅ Live — 11 colours (Emerald/Violet/Sky/Rose/Amber/Indigo/Lime/Cyan/Orange/Fuchsia/Coral); CSS custom properties (--accent, --accent-rgb, --accent-dim, --accent-border) on :root; stored in D1 + localStorage jf_accent; applied before first render; Appearance section at top of Settings |
 | Messaging architecture | ✅ Live — `src/messagePolicy.js` centralises severity buckets (blocking_safety / adaptive_safety / progression_caution / account_security / validation_error / system_error); maps planner rule codes (R510–R565) to human-readable labels; `parseRuleTrace()`, `hasBlockingSafety()`, `deriveChipLabel()` helpers; BMI/adaptation warnings replaced with `AdaptationChip` (compact status pill) + `WhyPlanPanel` (collapsible "Why this plan?" panel with Safety / Training / Suggested action groups, auto-expands first view via `jf_whypanel_<plan_id>` in localStorage); `BlockingSafetyBanner` (role="alert") for clearance gates (R539); run coach ramp-up kept in Settings enrollment only (progression_caution style); standalone rule trace card removed (absorbed into WhyPlanPanel) |
 | Production hardening | ✅ Live — 7-task hardening pass: (1) 0 react-hooks/exhaustive-deps warnings (useMemo, stable refs, isProRef); (2) DB-backed rate limiting (migration 0022) for login/reset/verify — 429 on abuse; (3) All API 500s return `{error:"Internal error"}` — no e.message leakage; (4) `src/errorReporter.js` — fire-and-forget deduped client error reports via /api/feedback; (5) AwardsView lazy-loaded via React.lazy (535KB → 528KB main chunk + 8.76KB async chunk); (6) `npm run smoke` — lint+build+4 live API checks before deploy; (7) `/api/ping` includes D1 check, `OPERATIONS.md` runbook with alert thresholds and rollback procedure |
-| In-app documentation system | ✅ Live — 5 docs (Mission/Vision, How It Works, Privacy Policy, Terms & Conditions, Disclaimer); shared DocViewer with back + "See full page →" header controls + metadata bar (version, effectiveDate); DOCS module-level constant as single source of truth; Settings Information list driven by DOCS.map; standalone HTML pages for all 5 docs (public/mission.html, public/how-it-works.html, public/privacy.html, public/terms.html, public/disclaimer.html); Share + Email buttons on privacy.html and terms.html; /api/legal-email supports all 5 docs via Resend; SettingsView lazy-split (428KB main chunk) |
+| In-app documentation system | ✅ Live — 5 docs (Mission/Vision, How It Works, Privacy Policy, Terms & Conditions, Disclaimer); shared DocViewer with back + "See full page →" header controls + metadata bar (version, effectiveDate); DOCS module-level constant as single source of truth; Settings Information list driven by DOCS.map; standalone HTML pages for all 5 docs (public/mission.html, public/how-it-works.html, public/privacy.html, public/terms.html, public/disclaimer.html); Share + Email buttons available on all 5 pages; /api/legal-email supports all 5 docs via Resend; SettingsView lazy-split (428KB main chunk) |
 | Terms & Privacy acceptance audit | ✅ Live — migration 0023 adds accepted_terms_version/at_ms + accepted_privacy_version/at_ms to users table; signup requires acceptance checkbox (login.html) and validates version server-side (400 if missing); stored in users INSERT; existing users shown fullscreen gate modal on next app load (needsTermsAcceptance from profile GET); /api/accept-terms JWT-gated endpoint records acceptance; re-prompts automatically when CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION bumps in auth.js + profile.js |
+
+## Drift from original mission/vision
+
+| Drift item | Why it drifted | Risk level | Recommendation |
+|---|---|---|---|
+| Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
+| Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
+| Operational drift (migration numbering/version hygiene) | Parallel schema changes produced duplicate `0019_*` migration numbers | Medium | Enforce unique monotonic migration numbering from `0024+`; add pre-merge checklist item to verify no duplicate prefixes |
+| UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 ## Known Bugs to Fix
 
@@ -969,12 +988,12 @@ Improvements identified but not yet built. Ordered roughly by impact.
 ## Coding Conventions
 
 - **Functions**: plain JS (`.js`), no TypeScript, no bundler, no imports from npm
-- **Frontend**: React functional components, all styles inline using `C.` design tokens; UI stays in `App.jsx`, pure JS modules (no JSX, no UI state) may live in `src/`
+- **Frontend**: React functional components, all styles inline using `C.` design tokens; `App.jsx` owns app shell/orchestration, feature views may be split as lazy-loaded boundaries (`SettingsView.jsx`, `AwardsView.jsx`), and pure JS modules live in `src/`
 - **DB timestamps**: always milliseconds (`Date.now()`), column suffix `_at_ms`
 - **DB IDs**: always `crypto.randomUUID()`
 - **Error responses**: always `Response.json({ error: "Internal error" }, { status: 500 })` with `console.error(e)` server-side
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
-- **Deploy**: `git push` only — never use `wrangler pages deploy` manually
+- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
 - **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
 - **Refs vs state for tracking**: mutable data that doesn't need to trigger re-renders (e.g. `stepsActualRef`, `restStartedAtRef`) goes in `useRef`. UI state goes in `useState`.
 - **Functional setState for counters**: use `setCurrentSet(s => s + 1)` not `setCurrentSet(currentSet + 1)` inside effects/callbacks to avoid stale closure issues.
@@ -1007,8 +1026,10 @@ npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql
 # Check tables
 npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
-# Deploy (just push)
+# Deploy (smoke → push → wrangler)
+npm run smoke
 git add . && git commit -m "feat: ..." && git push
+npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
 
 # Check recent executions
 npx wrangler d1 execute justfit-db --remote --command "SELECT id, user_id, date, perceived_exertion, total_duration_sec FROM executions ORDER BY created_at_ms DESC LIMIT 10;"
@@ -1022,3 +1043,14 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT id, primary_email,
 # Check exercises with instructions
 npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instructions_json FROM exercises WHERE instructions_json IS NOT NULL LIMIT 5;"
 ```
+
+---
+
+## Drift Control
+
+Four checks to enforce before merging any PR that touches the relevant area. Each is one line: what to verify, who is responsible, when it triggers.
+
+- **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
+- **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0024+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.

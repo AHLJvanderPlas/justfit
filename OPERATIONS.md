@@ -80,11 +80,11 @@ npx wrangler d1 execute justfit-db --remote --command "DELETE FROM auth_rate_lim
 
 ## Deployment
 
-GitHub auto-deploy is **suspended**. Always deploy manually:
+GitHub auto-deploy is **suspended**. Always deploy manually in this order:
 
 ```bash
-git add . && git commit -m "feat: ..." && git push
 npm run smoke          # must pass before deploying
+git add . && git commit -m "feat: ..." && git push
 npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
 ```
 
