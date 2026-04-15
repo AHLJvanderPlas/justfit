@@ -20,6 +20,16 @@ These rules apply to EVERY task in EVERY session, without exception.
 - Update `README.md` with any new setup steps, environment variables, or architectural changes
 - Update the "Current Build Status" table in `CLAUDE.md` — mark completed items ✅, new items ⬜
 
+## Multi-step assignments
+When an assignment has multiple steps:
+- Work through them **one item at a time**: build → lint → deploy → move to the next item
+- Track progress with a todo list (TodoWrite tool); mark each item complete immediately after it passes
+- If the user gives a new task during a build, add it to the list (or adjust the existing item) rather than interrupting the current step
+- For each task, pick the most cost-effective model:
+  - **Haiku** — simple edits, HTML/CSS tweaks, one-line fixes, renaming, copy changes
+  - **Sonnet** — standard feature work, bug fixes, API endpoints, React components
+  - **Opus** — complex architectural decisions, multi-file refactors, planner engine logic, security review
+
 ## Before starting any task
 - Read `CLAUDE.md` fully if it has been updated since last read
 - Check `wrangler.toml` does NOT contain `account_id` — remove it if present
@@ -919,6 +929,7 @@ Calculated server-side from executions table:
 | Accent colour picker | ✅ Live — 11 colours (Emerald/Violet/Sky/Rose/Amber/Indigo/Lime/Cyan/Orange/Fuchsia/Coral); CSS custom properties (--accent, --accent-rgb, --accent-dim, --accent-border) on :root; stored in D1 + localStorage jf_accent; applied before first render; Appearance section at top of Settings |
 | Messaging architecture | ✅ Live — `src/messagePolicy.js` centralises severity buckets (blocking_safety / adaptive_safety / progression_caution / account_security / validation_error / system_error); maps planner rule codes (R510–R565) to human-readable labels; `parseRuleTrace()`, `hasBlockingSafety()`, `deriveChipLabel()` helpers; BMI/adaptation warnings replaced with `AdaptationChip` (compact status pill) + `WhyPlanPanel` (collapsible "Why this plan?" panel with Safety / Training / Suggested action groups, auto-expands first view via `jf_whypanel_<plan_id>` in localStorage); `BlockingSafetyBanner` (role="alert") for clearance gates (R539); run coach ramp-up kept in Settings enrollment only (progression_caution style); standalone rule trace card removed (absorbed into WhyPlanPanel) |
 | Production hardening | ✅ Live — 7-task hardening pass: (1) 0 react-hooks/exhaustive-deps warnings (useMemo, stable refs, isProRef); (2) DB-backed rate limiting (migration 0022) for login/reset/verify — 429 on abuse; (3) All API 500s return `{error:"Internal error"}` — no e.message leakage; (4) `src/errorReporter.js` — fire-and-forget deduped client error reports via /api/feedback; (5) AwardsView lazy-loaded via React.lazy (535KB → 528KB main chunk + 8.76KB async chunk); (6) `npm run smoke` — lint+build+4 live API checks before deploy; (7) `/api/ping` includes D1 check, `OPERATIONS.md` runbook with alert thresholds and rollback procedure |
+| In-app documentation system | ✅ Live — 5 docs (Mission/Vision, How It Works, Privacy Policy, Terms & Conditions, Disclaimer); shared DocViewer with back + "See full page →" header controls + metadata bar (version, effectiveDate); DOCS module-level constant as single source of truth; Settings Information list driven by DOCS.map; standalone HTML pages for all 5 docs (public/mission.html, public/how-it-works.html, public/privacy.html, public/terms.html, public/disclaimer.html); Share + Email buttons on privacy.html and terms.html; /api/legal-email supports all 5 docs via Resend; SettingsView lazy-split (428KB main chunk) |
 
 ## Known Bugs to Fix
 
