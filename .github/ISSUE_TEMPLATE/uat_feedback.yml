@@ -1,0 +1,90 @@
+name: UAT Feedback
+description: Structured feedback form for pre-release user acceptance testing
+title: "[UAT] "
+labels: ["uat"]
+body:
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the app does this feedback relate to?
+      options:
+        - Auth (login / signup / passkey / magic link)
+        - Onboarding & check-in
+        - Plan generation
+        - Workout execution (coaching UX)
+        - History & score
+        - Settings & profile
+        - Awards (Hall of Fame)
+        - Weekly plan view
+        - Pregnancy / postnatal mode
+        - Running Coach
+        - Performance / loading
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: type
+    attributes:
+      label: Type
+      options:
+        - Bug — something broken
+        - UX — confusing or unclear
+        - Copy — wrong or missing text
+        - Performance — slow or janky
+        - Suggestion
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity (bugs only)
+      description: Skip if Type is not Bug.
+      options:
+        - "—"
+        - "P0: Blocker — cannot complete a core flow"
+        - "P1: High — feature unusable, no workaround"
+        - "P2: Medium — degraded experience, workaround exists"
+        - "P3: Low — cosmetic or edge case"
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce (bugs)
+      description: Leave blank for UX/copy/suggestion feedback.
+      placeholder: |
+        1. Go to …
+        2. Tap …
+        3. See …
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected vs actual
+      placeholder: |
+        Expected: …
+        Actual: …
+    validations:
+      required: true
+
+  - type: input
+    id: device
+    attributes:
+      label: Device / browser
+      placeholder: "e.g. iPhone 15 Pro · Safari 17, or Chrome 124 on macOS"
+    validations:
+      required: false
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional notes / screenshot
+      description: Paste a screenshot URL or any extra context.
+    validations:
+      required: false

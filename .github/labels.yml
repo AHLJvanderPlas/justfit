@@ -1,0 +1,66 @@
+# Bug triage labels — sync with: gh label create / gh label edit
+# To apply all at once: gh label create --force (loop over this file or use a label-sync action)
+
+- name: uat
+  color: "0075ca"
+  description: Raised during UAT / pre-release testing
+
+- name: P0-blocker
+  color: "b60205"
+  description: Blocker — cannot complete a core flow; must fix before deploy
+
+- name: P1-high
+  color: "e4e669"
+  description: Feature unusable, no workaround; fix in current release
+
+- name: P2-medium
+  color: "fbca04"
+  description: Degraded experience, workaround exists; fix in next release
+
+- name: P3-low
+  color: "c5def5"
+  description: Cosmetic or edge case; fix when convenient
+
+- name: area:auth
+  color: "d93f0b"
+  description: Login / signup / passkey / magic link / rate limiting
+
+- name: area:plan
+  color: "0e8a16"
+  description: Plan generation / planner engine / check-in
+
+- name: area:workout
+  color: "1d76db"
+  description: Workout execution coaching UX
+
+- name: area:settings
+  color: "5319e7"
+  description: Settings, profile, onboarding
+
+- name: area:history
+  color: "e4e669"
+  description: History view, consistency score, awards
+
+- name: area:pregnancy
+  color: "f9d0c4"
+  description: Pregnancy / postnatal mode
+
+- name: area:perf
+  color: "006b75"
+  description: Performance, bundle size, loading time
+
+- name: type:bug
+  color: "d73a4a"
+  description: Something is broken
+
+- name: type:ux
+  color: "e4e669"
+  description: Confusing or unclear UX
+
+- name: type:copy
+  color: "c2e0c6"
+  description: Wrong, missing, or non-shaming copy
+
+- name: type:suggestion
+  color: "bfd4f2"
+  description: Enhancement or feature suggestion
