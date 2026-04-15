@@ -2569,12 +2569,10 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       {(() => {
                         const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
                         if (isRunInterval && s.sets > 1 && s.target_duration_sec) {
-                          const totalSec = s.sets * ((s.target_duration_sec || 0) + (s.rest_sec || 0));
-                          const totalMin = Math.round(totalSec / 60);
-                          return `${s.sets}× · ${formatExDuration(s.target_duration_sec)} / ${formatExDuration(s.rest_sec)} · ~${totalMin}m`;
+                          return `${s.sets} × ${s.target_duration_sec}/${s.rest_sec}`;
                         }
-                        if (s.target_reps) return `${s.target_reps} reps`;
-                        return formatExDuration(s.target_duration_sec);
+                        if (s.target_reps) return `${s.sets} × ${s.target_reps} reps`;
+                        return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
                       })()}
                     </span>
                   </div>
@@ -3277,11 +3275,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, flexShrink: 0, whiteSpace: "nowrap" }}>
                             {isRunInterval
-                              ? (() => {
-                                  const totalSec = s.sets * ((s.target_duration_sec || 0) + (metricsRestSec || 0));
-                                  const totalMin = Math.round(totalSec / 60);
-                                  return `${s.sets}× · ${formatExDuration(s.target_duration_sec)} run / ${formatExDuration(metricsRestSec)} walk · ~${totalMin}m`;
-                                })()
+                              ? `${s.sets} × ${s.target_duration_sec}/${metricsRestSec}`
                               : s.target_reps
                                 ? `${s.sets} × ${s.target_reps} reps`
                                 : `${s.sets} × ${formatExDuration(s.target_duration_sec)}`}
