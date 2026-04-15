@@ -2768,7 +2768,7 @@ function ExerciseGif({ gifUrl, name }) {
 }
 
 // ─── WORKOUT VIEW — coaching state machine ─────────────────────────────────────
-function WorkoutView({ plan, onComplete, onBack, cycle }) {
+function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
   const exercises = plan?.steps ?? [];
   const totalExercises = exercises.length;
   const startTimeRef = useRef(Date.now());
@@ -3185,6 +3185,11 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
           exercises.flatMap(s => JSON.parse(s.equipment_required_json || '["none"]'))
         )].filter(e => e !== "none" && e !== "chair");
         const estMins = estimateMins(plan);
+        const ovPrefs = prefs?.preferences?.time_overhead;
+        const ovKeys = ["change_clothes", "prepare_equipment", "clean_equipment", "shower"];
+        const ovTotal = (profile) => ovKeys.reduce((s, k) => s + (profile?.presets?.[k] || 0), 0) + (profile?.custom_minutes || 0);
+        const ovMins = ovPrefs?.enabled ? ovTotal(plan?.slot_type === "micro" ? ovPrefs.short : ovPrefs.long) : 0;
+        const totalMinsOv = estMins !== null ? estMins + ovMins : null;
         return (
           <div style={{ display: "flex", flexDirection: "column", flex: 1, overflow: "hidden" }}>
             {/* Overview header */}
@@ -3208,7 +3213,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle }) {
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} exercises</span>
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
-                    {estMins && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{estMins} min</span>}
+                    {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{totalMinsOv} min{ovMins > 0 ? ` incl. ${ovMins}m overhead` : ""}</span>}
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
                     <span style={{ fontSize: 12, fontWeight: 800, color: { low: "#6ee7b7", moderate: C.emerald, high: "#f59e0b" }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
                   </div>
@@ -5587,6 +5592,7 @@ export default function App() {
             onComplete={handleBonusComplete}
             onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
             cycle={prefs.cycle}
+            prefs={prefs}
           />
         ) : inWorkout ? (
           <WorkoutView
@@ -5594,6 +5600,7 @@ export default function App() {
             onComplete={handleComplete}
             onBack={() => setInWorkout(false)}
             cycle={prefs.cycle}
+            prefs={prefs}
           />
         ) : (
           <>
