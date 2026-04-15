@@ -1,14 +1,26 @@
 // POST /api/legal-email
-// Sends the full Privacy Policy or Terms & Conditions to a user-supplied email.
-// No auth required (public legal pages). Rate-limited 3/hr per IP.
+// Sends a legal/info document to the authenticated user's own email.
+// Requires Authorization: Bearer <jwt>. Rate-limited 5/hr per user.
 
-function clientIp(request) {
-  return request.headers.get('CF-Connecting-IP') ?? request.headers.get('X-Forwarded-For') ?? 'unknown';
+async function verifyJWT(token, secret) {
+  try {
+    const [headerB64, payloadB64, sigB64] = token.split('.');
+    const key = await crypto.subtle.importKey(
+      'raw', new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
+    );
+    const sig = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
+    const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(`${headerB64}.${payloadB64}`));
+    if (!valid) return null;
+    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
+    return payload;
+  } catch { return null; }
 }
 
-async function isRateLimited(ip, env) {
-  const bucket = `legal_email:ip:${ip}`;
-  const maxCount = 3;
+async function isRateLimited(userId, env) {
+  const bucket = `legal_email:user:${userId}`;
+  const maxCount = 5;
   const windowMs = 60 * 60 * 1000; // 1 hour
   const now = Date.now();
   const cutoff = now - windowMs;
@@ -169,18 +181,28 @@ const VALID_DOCS = ['privacy', 'terms', 'mission', 'how_it_works', 'disclaimer']
 
 export async function onRequestPost({ request, env }) {
   try {
-    const ip = clientIp(request);
-    if (await isRateLimited(ip, env)) {
+    const authHeader = request.headers.get('Authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return Response.json({ error: 'Sign in to email this document to yourself.' }, { status: 401 });
+    }
+    const payload = await verifyJWT(authHeader.slice(7), env.JWT_SECRET);
+    if (!payload) {
+      return Response.json({ error: 'Invalid or expired session — please sign in again.' }, { status: 401 });
+    }
+    const userId = payload.userId;
+
+    if (await isRateLimited(userId, env)) {
       return Response.json({ error: 'Too many requests — try again in an hour.' }, { status: 429 });
     }
 
-    const { email, document } = await request.json();
-
-    if (!email || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      return Response.json({ error: 'Valid email address required.' }, { status: 400 });
-    }
+    const { document } = await request.json();
     if (!document || !VALID_DOCS.includes(document)) {
       return Response.json({ error: 'Invalid document.' }, { status: 400 });
+    }
+
+    const user = await env.DB.prepare('SELECT primary_email FROM users WHERE id = ?').bind(userId).first();
+    if (!user?.primary_email) {
+      return Response.json({ error: 'Account email not found.' }, { status: 404 });
     }
 
     const SUBJECTS = {
@@ -208,7 +230,7 @@ export async function onRequestPost({ request, env }) {
     const resendRes = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-      body: JSON.stringify({ from: 'JustFit.cc <noreply@justfit.cc>', to: [email.trim()], subject, html }),
+      body: JSON.stringify({ from: 'JustFit.cc <noreply@justfit.cc>', to: [user.primary_email], subject, html }),
     });
     if (!resendRes.ok) {
       const resendBody = await resendRes.text();

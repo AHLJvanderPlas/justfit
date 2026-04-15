@@ -23,35 +23,68 @@
     });
   }
 
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  function getJWT() {
+    try { return localStorage.getItem('jf_token'); } catch (e) { return null; }
+  }
+
+  function decodeEmail(token) {
+    try {
+      var parts = token.split('.');
+      if (parts.length !== 3) return null;
+      var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return payload.email || null;
+    } catch (e) { return null; }
+  }
+
   // ── Email toggle ─────────────────────────────────────────────────────────
   var emailBtn = document.getElementById('email-btn');
   var emailForm = document.getElementById('email-form');
-  var emailInput = document.getElementById('email-input');
-  if (emailBtn && emailForm && emailInput) {
+  var emailConfirm = document.getElementById('email-confirm');
+  var sendBtn = document.getElementById('send-btn');
+
+  if (emailBtn && emailForm) {
     emailBtn.addEventListener('click', function () {
       var isOpen = emailForm.classList.toggle('open');
-      if (isOpen) emailInput.focus();
+      if (!isOpen) return;
+
+      var token = getJWT();
+      if (!token) {
+        if (emailConfirm) emailConfirm.textContent = 'Sign in to email this to yourself.';
+        if (sendBtn) sendBtn.style.display = 'none';
+        return;
+      }
+      var email = decodeEmail(token);
+      if (emailConfirm) {
+        emailConfirm.textContent = 'Send to ' + (email || 'your account email') + '?';
+      }
+      if (sendBtn) sendBtn.style.display = '';
     });
   }
 
   // ── Send button ──────────────────────────────────────────────────────────
-  var sendBtn = document.getElementById('send-btn');
-  if (sendBtn && emailInput && emailBtn && emailForm) {
+  if (sendBtn && emailBtn && emailForm) {
     sendBtn.addEventListener('click', async function () {
-      var email = emailInput.value.trim();
-      if (!email) { emailInput.focus(); return; }
+      var token = getJWT();
+      if (!token) {
+        if (emailConfirm) emailConfirm.textContent = 'Sign in to email this to yourself.';
+        return;
+      }
+
       sendBtn.disabled = true;
       sendBtn.textContent = 'Sending\u2026';
       try {
         var res = await fetch('/api/legal-email', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: email, document: DOCUMENT }),
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token,
+          },
+          body: JSON.stringify({ document: DOCUMENT }),
         });
         var data = await res.json();
         if (res.ok) {
           sendBtn.textContent = '✓ Sent!';
-          emailInput.value = '';
           emailBtn.innerHTML = '&#10003; Emailed';
           setTimeout(function () {
             emailForm.classList.remove('open');
@@ -68,10 +101,6 @@
         sendBtn.disabled = false;
         setTimeout(function () { sendBtn.textContent = 'Send'; }, 3000);
       }
-    });
-
-    emailInput.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter') sendBtn.click();
     });
   }
 })();
