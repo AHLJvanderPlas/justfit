@@ -1,4 +1,6 @@
-// POST /api/feedback — send feedback email via Resend
+// POST /api/feedback — user feedback and client error intake.
+// Writes to app_events (raw log) and feedback_items (triage view).
+// Email notifications removed — review feedback in the admin dashboard.
 
 async function hmacSign(data, secret) {
   const key = await crypto.subtle.importKey(
@@ -45,31 +47,17 @@ export async function onRequestPost({ request, env }) {
     const eventType = type || (text.startsWith('[CLIENT ERROR]') ? 'client_error' : 'feedback');
     const eventDetail = detail || text.slice(0, 1000);
 
-    await env.DB.prepare(
-      `INSERT INTO app_events
-         (id, user_id, user_email, event_type, detail, created_at_ms)
-       VALUES (?, ?, ?, ?, ?, ?)`
-    ).bind(
-      crypto.randomUUID(),
-      user.userId,
-      user.email ?? null,
-      eventType,
-      eventDetail,
-      now
-    ).run();
-
-    if (env.RESEND_API_KEY) {
-      await fetch('https://api.resend.com/emails', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${env.RESEND_API_KEY}` },
-        body: JSON.stringify({
-          from: 'JustFit.cc <noreply@justfit.cc>',
-          to: ['ahlj.vd.plas@gmail.com'],
-          subject: `JustFit Feedback from ${user.email ?? user.userId}`,
-          text: `Type: ${eventType}\nUser: ${user.email ?? user.userId}\nUser ID: ${user.userId}\n\n${text}`,
-        }),
-      });
-    }
+    await env.DB.batch([
+      env.DB.prepare(
+        `INSERT INTO app_events (id, user_id, user_email, event_type, detail, created_at_ms)
+         VALUES (?, ?, ?, ?, ?, ?)`
+      ).bind(crypto.randomUUID(), user.userId, user.email ?? null, eventType, eventDetail, now),
+      env.DB.prepare(
+        `INSERT INTO feedback_items
+           (id, user_id, user_email, event_type, message, status, flagged, created_at_ms, updated_at_ms)
+         VALUES (?, ?, ?, ?, ?, 'new', 0, ?, ?)`
+      ).bind(crypto.randomUUID(), user.userId, user.email ?? null, eventType, text, now, now),
+    ]);
 
     return Response.json({ ok: true });
   } catch (e) {
