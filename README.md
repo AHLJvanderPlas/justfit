@@ -79,8 +79,8 @@ See `RELEASE_SMOKE.md` for the full manual pre-deploy checklist and `OPERATIONS.
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0002_seed.sql` → `0023_acceptance.sql`
-- Note: there are two `0019_*` files (`0019_email_verification.sql`, `0019_taxonomy_fix.sql`). For new migrations, continue from the highest existing number (`0024+`) and avoid duplicate prefixes.
+- Migrations: `migrations/0002_seed.sql` → `0026_db_hardening.sql` (next: `0028+`)
+- Migration prefixes are unique and monotonic — never reuse a number.
 
 ```bash
 # Apply a migration
