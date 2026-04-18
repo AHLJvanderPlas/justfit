@@ -7,6 +7,10 @@ import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 import { reportError } from "./errorReporter.js";
 
+// ─── LEGAL VERSIONS ───────────────────────────────────────────────────────────
+// Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
+const LEGAL_VERSIONS = { terms: '1.1', privacy: '1.0' };
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 const C = {
   bg: "#020617",
@@ -5058,6 +5062,7 @@ export default function App() {
   const [needsTermsGate, setNeedsTermsGate] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsAccepting, setTermsAccepting] = useState(false);
+  const [termsAcceptError, setTermsAcceptError] = useState(null);
 
   // Onboarding flow
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -5768,15 +5773,31 @@ export default function App() {
               </span>
             </label>
             {/* Accept button */}
+            {termsAcceptError && (
+              <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10, textAlign: "center" }}>
+                {termsAcceptError}{" "}
+                <button
+                  onClick={() => setTermsAcceptError(null)}
+                  style={{ background: "none", border: "none", color: "#f87171", fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                >
+                  Retry
+                </button>
+              </div>
+            )}
             <button
               disabled={!termsAccepted || termsAccepting}
               onClick={async () => {
                 setTermsAccepting(true);
+                setTermsAcceptError(null);
                 try {
-                  await api.acceptTerms(token, "1.1", "1.0");
-                } catch { /* non-blocking — proceed anyway */ }
-                setNeedsTermsGate(false);
-                setTermsAccepting(false);
+                  const result = await api.acceptTerms(token, LEGAL_VERSIONS.terms, LEGAL_VERSIONS.privacy);
+                  if (!result?.ok) throw new Error("not ok");
+                  setNeedsTermsGate(false);
+                } catch {
+                  setTermsAcceptError("Could not save — please try again.");
+                } finally {
+                  setTermsAccepting(false);
+                }
               }}
               style={{ width: "100%", padding: 16, background: termsAccepted ? C.emerald : C.subtle, border: "none", borderRadius: 16, color: "#fff", fontSize: 15, fontWeight: 900, cursor: termsAccepted ? "pointer" : "not-allowed", opacity: termsAccepting ? 0.6 : 1, transition: "all 0.15s" }}
             >

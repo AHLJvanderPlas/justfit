@@ -4,8 +4,7 @@
 // users who signed up before acceptance tracking was introduced (or after a
 // policy version bump).
 
-const CURRENT_TERMS_VERSION   = '1.1';
-const CURRENT_PRIVACY_VERSION = '1.0';
+import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
 
 async function hmacSign(data, secret) {
   const key = await crypto.subtle.importKey(
@@ -49,6 +48,9 @@ export async function onRequestPost({ request, env }) {
     // Only record if user is accepting the current versions
     if (termsVersion !== CURRENT_TERMS_VERSION) {
       return Response.json({ error: 'Invalid terms version.' }, { status: 400 });
+    }
+    if (privacyVersion !== CURRENT_PRIVACY_VERSION) {
+      return Response.json({ error: 'Invalid privacy version.' }, { status: 400 });
     }
 
     const now = Date.now();

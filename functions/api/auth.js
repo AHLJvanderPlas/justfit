@@ -1,3 +1,5 @@
+import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const JWT_EXPIRY      = 60 * 60 * 24 * 7; // 7 days  — session tokens
 const RESET_EXPIRY_MS = 60 * 60 * 1000;   // 1 hour  — password reset (ms)
@@ -5,12 +7,6 @@ const MAGIC_EXPIRY_MS  = 15 * 60 * 1000;   // 15 min  — magic links (ms)
 const VERIFY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 h — email verify / change tokens
 const WEBAUTHN_EXPIRY = 120;              // 2 min   — challenge JWT (sec)
 const FROM_ADDRESS    = 'JustFit.cc <noreply@justfit.cc>';
-
-// ─── POLICY VERSIONS ──────────────────────────────────────────────────────────
-// Bump these when a material change is made. All users with a different stored
-// version will be re-prompted to accept on next app load.
-const CURRENT_TERMS_VERSION   = '1.1'; // Terms & Conditions + Disclaimer bundled
-const CURRENT_PRIVACY_VERSION = '1.0';
 
 // ─── BASE64URL HELPERS ────────────────────────────────────────────────────────
 function b64url(buffer) {
@@ -208,9 +204,11 @@ async function handleLogin({ email, password }, request, env, secret) {
 
   const [token, acceptRow] = await Promise.all([
     createJWT({ userId: authUser.user_id, email: emailLower }, secret),
-    env.DB.prepare(`SELECT accepted_terms_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.user_id).first(),
+    env.DB.prepare(`SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.user_id).first(),
   ]);
-  const needsTermsAcceptance = (acceptRow?.accepted_terms_version ?? null) !== CURRENT_TERMS_VERSION;
+  const needsTermsAcceptance =
+    (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
+    (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
   return Response.json({ ok: true, token, userId: authUser.user_id, needsTermsAcceptance });
 }
 
@@ -858,9 +856,11 @@ export async function onRequestGet({ request, env }) {
     const user = await getSessionUser(request, secret);
     if (!user) return Response.json({ valid: false }, { status: 401 });
     const acceptRow = await env.DB.prepare(
-      `SELECT accepted_terms_version FROM users WHERE id = ? LIMIT 1`
+      `SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`
     ).bind(user.userId).first();
-    const needsTermsAcceptance = (acceptRow?.accepted_terms_version ?? null) !== CURRENT_TERMS_VERSION;
+    const needsTermsAcceptance =
+      (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
+      (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
     return Response.json({ valid: true, userId: user.userId, email: user.email, needsTermsAcceptance });
   } catch {
     return Response.json({ valid: false }, { status: 401 });

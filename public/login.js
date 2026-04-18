@@ -3,6 +3,7 @@ let mode   = 'login';
 let method = 'password';
 let passkeyAvailable = false;
 
+// Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
 const CURRENT_TERMS_VERSION   = '1.1';
 const CURRENT_PRIVACY_VERSION = '1.0';
 

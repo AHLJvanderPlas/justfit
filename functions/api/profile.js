@@ -1,7 +1,7 @@
 // GET  /api/profile — fetch user_preferences + user_profile + cycle_profile
 // POST /api/profile — upsert all three tables
 
-const CURRENT_TERMS_VERSION = '1.1';
+import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
 
 async function hmacSign(data, secret) {
   const key = await crypto.subtle.importKey(
@@ -110,7 +110,7 @@ export async function onRequestGet({ request, env }) {
         `SELECT MAX(created_at_ms) as t FROM daily_checkins WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT accepted_terms_version FROM users WHERE id = ? LIMIT 1`
+        `SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`
       ).bind(user.userId).first(),
     ]);
 
@@ -136,7 +136,9 @@ export async function onRequestGet({ request, env }) {
       ? getPostnatalPhase(cycleRow?.postnatal_birth_date, cycleRow?.postnatal_birth_type, today)
       : null;
 
-    const needsTermsAcceptance = (usersRow?.accepted_terms_version ?? null) !== CURRENT_TERMS_VERSION;
+    const needsTermsAcceptance =
+      (usersRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
+      (usersRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
 
     return Response.json({
       exists: true,
