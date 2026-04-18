@@ -35,6 +35,9 @@ async function recordFailure(ip, env) {
         count           = CASE WHEN window_start_ms <= ? THEN 1             ELSE count + 1       END,
         window_start_ms = CASE WHEN window_start_ms <= ? THEN ?             ELSE window_start_ms END
     `).bind(bucket, now, cutoff, cutoff, now).run();
+    // Opportunistic cleanup: delete rows expired longer than 24h ago (fire-and-forget)
+    env.DB.prepare('DELETE FROM auth_rate_limits WHERE window_start_ms < ?')
+      .bind(now - 86_400_000).run().catch(() => {});
   } catch { /* non-fatal */ }
 }
 

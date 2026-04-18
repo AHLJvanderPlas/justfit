@@ -226,6 +226,9 @@ async function isRateLimited(bucket, maxCount, windowMs, env) {
       window_start_ms  = CASE WHEN window_start_ms <= ? THEN ?            ELSE window_start_ms END
   `).bind(bucket, now, cutoff, cutoff, now).run();
   const row = await env.DB.prepare(`SELECT count FROM auth_rate_limits WHERE bucket = ?`).bind(bucket).first();
+  // Opportunistic cleanup: delete rows expired longer than 24h ago (fire-and-forget)
+  env.DB.prepare('DELETE FROM auth_rate_limits WHERE window_start_ms < ?')
+    .bind(now - 86_400_000).run().catch(() => {});
   return (row?.count ?? 1) > maxCount;
 }
 
