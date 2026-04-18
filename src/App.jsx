@@ -5112,6 +5112,15 @@ export default function App() {
     setOnboardingReady(true);
   }
 
+  // Cross-tab session sync: if another tab clears jf_token (logout), follow immediately
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === 'jf_token' && !e.newValue) logout();
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
+
   // On mount: handle email_verified / email_changed redirect params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -5345,7 +5354,10 @@ export default function App() {
     const merged  = [...new Set([...current, ...areas])];
     const newPrefs = { ...(prefs.preferences ?? {}), chronic_injury_areas: merged };
     api.saveProfile(token, { preferences: newPrefs })
-      .then(() => setPrefs(p => ({ ...p, preferences: newPrefs })))
+      .then(() => {
+        setPrefs(p => ({ ...p, preferences: newPrefs }));
+        Object.keys(sessionStorage).filter(k => k.startsWith('jf_upcoming')).forEach(k => sessionStorage.removeItem(k));
+      })
       .catch(() => {});
   }, [prefs.preferences, token]);
 

@@ -13,6 +13,11 @@ function logout() {
   window.location.href = "/login.html";
 }
 
+// Clear the upcoming-plan sessionStorage cache so stale plans don't show after settings change.
+function clearPlanCache() {
+  Object.keys(sessionStorage).filter(k => k.startsWith("jf_upcoming")).forEach(k => sessionStorage.removeItem(k));
+}
+
 // ─── DESIGN TOKENS (inlined for chunk isolation) ──────────────────────────────
 const C = {
   bg: "#020617",
@@ -435,6 +440,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
         onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
         await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
       }
+      clearPlanCache();
       setFocusSaveStatus("saved");
       setTimeout(() => setFocusSaveStatus(""), 2000);
     } catch { setFocusSaveStatus(""); }
@@ -479,6 +485,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
           preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule },
         });
         onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule } }));
+        clearPlanCache();
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus(""), 2000);
       } catch { setSaveStatus("error"); }
