@@ -71,6 +71,17 @@ else
   fail "accept-terms.js missing privacy version validation"
 fi
 
+# Confirm LEGAL_VERSIONS in login.js matches the server-side source of truth
+TERMS_SERVER=$(grep "CURRENT_TERMS_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+PRIVACY_SERVER=$(grep "CURRENT_PRIVACY_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+TERMS_CLIENT=$(grep "CURRENT_TERMS_VERSION" public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+PRIVACY_CLIENT=$(grep "CURRENT_PRIVACY_VERSION" public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+if [ "$TERMS_SERVER" = "$TERMS_CLIENT" ] && [ "$PRIVACY_SERVER" = "$PRIVACY_CLIENT" ]; then
+  ok "LEGAL_VERSIONS in sync: login.js matches legalVersions.js (terms=${TERMS_SERVER}, privacy=${PRIVACY_SERVER})"
+else
+  fail "LEGAL_VERSIONS drift: server=(${TERMS_SERVER},${PRIVACY_SERVER}) client=(${TERMS_CLIENT},${PRIVACY_CLIENT})"
+fi
+
 # Confirm App.jsx uses LEGAL_VERSIONS constant instead of bare string literals
 if grep -q "LEGAL_VERSIONS" src/App.jsx; then
   ok "App.jsx uses LEGAL_VERSIONS constant"
