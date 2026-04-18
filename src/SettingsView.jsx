@@ -29,6 +29,12 @@ const C = {
   emeraldBorder: "var(--accent-border)",
   text: "#f8fafc",
   muted: "#64748b",
+  amber: C.amber,
+  amberDim: C.amberDim,
+  amberBorder: C.amberBorder,
+  rose: C.rose,
+  roseDim: C.roseDim,
+  roseBorder: C.roseBorder,
   subtle: "#334155",
 };
 
@@ -48,8 +54,8 @@ const ACCENT_COLORS = [
   { id: "emerald", hex: "#10b981", name: "Emerald"  },
   { id: "violet",  hex: "#8b5cf6", name: "Violet"   },
   { id: "sky",     hex: "#0ea5e9", name: "Sky"       },
-  { id: "rose",    hex: "#f43f5e", name: "Rose"      },
-  { id: "amber",   hex: "#f59e0b", name: "Amber"     },
+  { id: "rose",    hex: C.rose, name: "Rose"      },
+  { id: "amber",   hex: C.amber, name: "Amber"     },
   { id: "indigo",  hex: "#6366f1", name: "Indigo"    },
   { id: "lime",    hex: "#84cc16", name: "Lime"      },
   { id: "cyan",    hex: "#06b6d4", name: "Cyan"      },
@@ -822,7 +828,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
                         </div>
                         {showRampWarn && (
                           <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
-                            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 4 }}>Progression caution</div>
+                            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>Progression caution</div>
                             <span style={{ fontSize: 11, color: "#fcd34d", fontWeight: 600, lineHeight: 1.5 }}>
                               Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
                             </span>
@@ -1591,7 +1597,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: emailSuccess ? 8 : 0 }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: "#f59e0b", fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
+                    <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
@@ -1721,7 +1727,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
               const bmi = wkg / ((hcm / 100) ** 2);
               const { label, color } = bmi < 18.5 ? { label: "Underweight", color: "#60a5fa" }
                 : bmi < 25 ? { label: "Normal", color: C.emerald }
-                : bmi < 30 ? { label: "Overweight", color: "#f59e0b" }
+                : bmi < 30 ? { label: "Overweight", color: C.amber }
                 : bmi < 35 ? { label: "Obese I", color: "#f97316" }
                 : { label: "Obese II", color: "#f87171" };
               const isObese = bmi >= 30;
@@ -1924,16 +1930,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
               )}
 
               {bodyMode === "pregnant" && (
-                <div style={{ borderRadius: 14, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", overflow: "hidden" }}>
+                <div style={{ borderRadius: 14, background: C.amberDim, border: "1px solid rgba(245,158,11,0.3)", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ color: "#f59e0b", fontWeight: 700, fontSize: 14 }}>
+                    <span style={{ color: C.amber, fontWeight: 700, fontSize: 14 }}>
                       Pregnancy mode active
                       {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · Due {pregnancyDueDate}</span>}
                     </span>
                     <button
                       onClick={handleDeactivateBodyMode}
                       disabled={bodyModeDeactivating}
-                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
+                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.1)", color: C.amber, cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
                     >
                       {bodyModeDeactivating ? "…" : "Deactivate"}
                     </button>
@@ -1941,13 +1947,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
                 </div>
               )}
               {bodyMode === "postnatal" && (
-                <div style={{ borderRadius: 14, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)", overflow: "hidden" }}>
+                <div style={{ borderRadius: 14, background: C.roseDim, border: "1px solid rgba(244,63,94,0.3)", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ color: "#f43f5e", fontWeight: 700, fontSize: 14 }}>Postnatal mode active</span>
+                    <span style={{ color: C.rose, fontWeight: 700, fontSize: 14 }}>Postnatal mode active</span>
                     <button
                       onClick={handleDeactivateBodyMode}
                       disabled={bodyModeDeactivating}
-                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.1)", color: "#f43f5e", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
+                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.1)", color: C.rose, cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
                     >
                       {bodyModeDeactivating ? "…" : "Deactivate"}
                     </button>
@@ -1980,9 +1986,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
                 {bodyMode !== "standard" && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.2)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: "1px solid rgba(245,158,11,0.2)" }}>
                     <span style={{ fontSize: 16 }}>🤰</span>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>
                       {bodyMode === "pregnant" ? "Pregnancy mode" : "Postnatal mode"}
                     </span>
                   </div>

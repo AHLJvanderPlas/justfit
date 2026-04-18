@@ -23,6 +23,12 @@ const C = {
   text: "#f8fafc",
   muted: "#64748b",
   subtle: "#334155",
+  amber: C.amber,
+  amberDim: C.amberDim,
+  amberBorder: C.amberBorder,
+  rose: C.rose,
+  roseDim: C.roseDim,
+  roseBorder: C.roseBorder,
 };
 
 // ─── ACCENT COLOUR SYSTEM ─────────────────────────────────────────────────────
@@ -30,8 +36,8 @@ const ACCENT_COLORS = [
   { id: "emerald", hex: "#10b981", name: "Emerald"  },
   { id: "violet",  hex: "#8b5cf6", name: "Violet"   },
   { id: "sky",     hex: "#0ea5e9", name: "Sky"       },
-  { id: "rose",    hex: "#f43f5e", name: "Rose"      },
-  { id: "amber",   hex: "#f59e0b", name: "Amber"     },
+  { id: "rose",    hex: C.rose, name: "Rose"      },
+  { id: "amber",   hex: C.amber, name: "Amber"     },
   { id: "indigo",  hex: "#6366f1", name: "Indigo"    },
   { id: "lime",    hex: "#84cc16", name: "Lime"      },
   { id: "cyan",    hex: "#06b6d4", name: "Cyan"      },
@@ -1086,7 +1092,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                 {/* Postnatal — birth date */}
                 {bodyModeSelection === "postnatal" && (
                   <div style={{ background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.2)", borderRadius: 16, padding: 16 }}>
-                    <div style={{ fontSize: 13, color: "#f43f5e", fontWeight: 800, marginBottom: 8 }}>Birth date <span style={{ fontWeight: 500, color: C.muted }}>(optional)</span></div>
+                    <div style={{ fontSize: 13, color: C.rose, fontWeight: 800, marginBottom: 8 }}>Birth date <span style={{ fontWeight: 500, color: C.muted }}>(optional)</span></div>
                     <input type="date" value={postnatalBirthDate} onChange={(e) => setPostnatalBirthDate(e.target.value)}
                       max={new Date().toISOString().split("T")[0]}
                       style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }} />
@@ -2149,19 +2155,19 @@ function BlockingSafetyBanner({ text, cta }) {
         marginBottom: 14,
         padding: "12px 16px",
         borderRadius: 14,
-        background: "rgba(245,158,11,0.08)",
+        background: C.amberDim,
         border: "1px solid rgba(245,158,11,0.3)",
         borderLeft: "3px solid #f59e0b",
       }}
     >
-      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: "#f59e0b", marginBottom: 6 }}>
+      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 6 }}>
         Health &amp; Safety
       </div>
       <p style={{ fontSize: 12, color: "#fcd34d", fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
         {text}
       </p>
       {cta && (
-        <p style={{ fontSize: 11, color: "#f59e0b", fontWeight: 700, margin: "8px 0 0" }}>
+        <p style={{ fontSize: 11, color: C.amber, fontWeight: 700, margin: "8px 0 0" }}>
           → {cta}
         </p>
       )}
@@ -2238,7 +2244,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
-    high: "#f59e0b",
+    high: C.amber,
   };
   const ic = plan ? intensityColor[plan.intensity] || C.emerald : C.emerald;
 
@@ -2811,6 +2817,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
   const [exerciseOverrides, setExerciseOverrides] = useState({}); // { [idx]: exercise }
   const restStartedAtRef = useRef(0);   // ms timestamp when rest phase began
   const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
+  const backgroundedAtRef = useRef(0); // ms timestamp when page was hidden during rest
   // Track actual data per exercise for saving
   const stepsActualRef = useRef(
     exercises.map((ex) => ({
@@ -2872,6 +2879,22 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
     const id = setTimeout(() => setRestRemaining((r) => Math.max(0, r - 1)), 1000);
     return () => clearTimeout(id);
   }, [phase, restRemaining]);
+
+  // ── Rest timer: pause on visibility change, correct drift on resume ──────────
+  useEffect(() => {
+    if (phase !== "resting") return;
+    const handleVisibility = () => {
+      if (document.hidden) {
+        backgroundedAtRef.current = Date.now();
+      } else if (backgroundedAtRef.current > 0) {
+        const elapsedSec = Math.round((Date.now() - backgroundedAtRef.current) / 1000);
+        backgroundedAtRef.current = 0;
+        setRestRemaining((r) => Math.max(0, r - elapsedSec));
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, [phase]);
 
   useEffect(() => {
     if (phase !== "resting" || restRemaining > 0) return;
@@ -3152,7 +3175,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
       {/* Wake lock fallback — non-intrusive hint if screen lock can't be prevented */}
       {wakeLockDenied && ["instruction","working","resting"].includes(phase) && (
         <div style={{ flexShrink: 0, background: "rgba(245,158,11,0.12)", borderBottom: "1px solid rgba(245,158,11,0.25)", padding: "8px 20px", textAlign: "center" }}>
-          <span style={{ fontSize: 12, color: "#f59e0b" }}>Keep your screen on to avoid interruptions during your workout.</span>
+          <span style={{ fontSize: 12, color: C.amber }}>Keep your screen on to avoid interruptions during your workout.</span>
         </div>
       )}
 
@@ -3224,7 +3247,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
                     {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{totalMinsOv} min{ovMins > 0 ? ` incl. ${ovMins}m overhead` : ""}</span>}
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: "#6ee7b7", moderate: C.emerald, high: "#f59e0b" }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: "#6ee7b7", moderate: C.emerald, high: C.amber }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
                   </div>
                 </div>
 
@@ -3417,8 +3440,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
 
                 {/* Pregnancy / postnatal alert at top of instructions */}
                 {(pregnancyNote || postnatalNote) && (
-                  <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: postnatalNote ? "rgba(244,63,94,0.08)" : "rgba(245,158,11,0.08)", border: `1px solid ${postnatalNote ? "rgba(244,63,94,0.3)" : "rgba(245,158,11,0.3)"}` }}>
-                    <p style={{ fontSize: 13, fontWeight: 700, color: postnatalNote ? "#f43f5e" : "#f59e0b", margin: 0, lineHeight: 1.6 }}>
+                  <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: postnatalNote ? C.roseDim : C.amberDim, border: `1px solid ${postnatalNote ? C.roseBorder : C.amberBorder}` }}>
+                    <p style={{ fontSize: 13, fontWeight: 700, color: postnatalNote ? C.rose : C.amber, margin: 0, lineHeight: 1.6 }}>
                       {postnatalNote ?? pregnancyNote}
                     </p>
                   </div>
@@ -3436,8 +3459,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                     <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>Focus on form. Quality over speed. You've got this.</p>
                   )}
                   {isPelvicFloor && (
-                    <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.08)", border: "1px solid rgba(244,63,94,0.3)" }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: "#f43f5e", margin: 0, lineHeight: 1.6 }}>Remember: the release is just as important as the squeeze. Full relaxation between each rep.</p>
+                    <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 12, background: C.roseDim, border: "1px solid rgba(244,63,94,0.3)" }}>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: C.rose, margin: 0, lineHeight: 1.6 }}>Remember: the release is just as important as the squeeze. Full relaxation between each rep.</p>
                     </div>
                   )}
                 </div>
@@ -3532,7 +3555,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
               /* ── Time-based exercise ── */
               (() => {
                 const totalDur = adjustedDuration ?? cur.target_duration_sec ?? 30;
-                const timerColor = timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? "#f59e0b" : C.emerald;
+                const timerColor = timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? C.amber : C.emerald;
                 return (
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerColor, fontVariantNumeric: "tabular-nums", marginBottom: 20, transition: "color 0.3s", animation: timerRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
@@ -3664,7 +3687,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
 
         {/* ── RESTING PHASE ── */}
         {phase === "resting" && (() => {
-          const restColor = restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? "#f59e0b" : C.emerald;
+          const restColor = restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? C.amber : C.emerald;
           const progressPct = restTotal > 0 ? Math.min(100, ((restTotal - restRemaining) / restTotal) * 100) : 100;
           const nextExName = currentSet <= totalSets ? cur?.name : exercises[exIdx + 1]?.name;
           const isLastSet = currentSet > totalSets;
@@ -3684,10 +3707,10 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
               {/* Breathing reminder (pregnancy/postnatal only, auto-dismisses in 3s) */}
               {showBreathingReminder && (
                 <div style={{ width: "100%", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                  <p style={{ margin: 0, fontSize: 14, color: "#f59e0b", lineHeight: 1.5, fontWeight: 600 }}>
+                  <p style={{ margin: 0, fontSize: 14, color: C.amber, lineHeight: 1.5, fontWeight: 600 }}>
                     Take a breath — inhale through nose, sigh out through mouth.
                   </p>
-                  <button onClick={() => { clearTimeout(breathingTimerRef.current); setShowBreathingReminder(false); }} style={{ background: "none", border: "none", color: "#f59e0b", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
+                  <button onClick={() => { clearTimeout(breathingTimerRef.current); setShowBreathingReminder(false); }} style={{ background: "none", border: "none", color: C.amber, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
                 </div>
               )}
 
@@ -3771,14 +3794,14 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
             if (isStrengthSession) {
               if (v <= 3) return { label: "Too light", sub: "Add weight or reps next session", color: "#3b82f6" };
               if (v <= 6) return { label: "Just right", sub: "Weight and reps were appropriate", color: C.emerald };
-              if (v <= 9) return { label: "Hard", sub: "At your limit — hold or progress slowly", color: "#f59e0b" };
+              if (v <= 9) return { label: "Hard", sub: "At your limit — hold or progress slowly", color: C.amber };
               return { label: "Too heavy", sub: "Reduce weight or reps next session", color: "#ef4444" };
             }
             // Cardio / general
             if (v <= 2) return { label: "Very easy", sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: "#3b82f6" };
             if (v <= 4) return { label: "Easy", sub: isCardio ? "Zone 2 · Comfortable, conversational" : "Low effort — could do much more", color: C.emerald };
             if (v <= 6) return { label: "Moderate", sub: isCardio ? "Zone 3 · Breathing harder" : "Good effort", color: "#84cc16" };
-            if (v <= 8) return { label: "Hard", sub: isCardio ? "Zone 4–5 · Pushing your limits" : "Near your limit", color: "#f59e0b" };
+            if (v <= 8) return { label: "Hard", sub: isCardio ? "Zone 4–5 · Pushing your limits" : "Near your limit", color: C.amber };
             return { label: "Maximum", sub: isCardio ? "Zone 5+ · At or near your limit" : "Max effort — could not have done more", color: "#ef4444" };
           };
 
