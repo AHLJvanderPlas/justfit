@@ -96,6 +96,16 @@ else
   fail "App.jsx terms gate catch block may dismiss gate on error"
 fi
 
+# Detect self-referential C token definitions (amber: C.amber inside the C object literal)
+# This causes a fatal TypeError on every page load (TDZ: C is undefined while being initialized)
+for f in src/App.jsx src/SettingsView.jsx; do
+  if grep -qE "^\s+(amber|rose|amberDim|roseDim|amberBorder|roseBorder):\s+C\." "$f"; then
+    fail "$f has self-referential C token definition (e.g. amber: C.amber) — use literal values"
+  else
+    ok "$f C tokens are not self-referential"
+  fi
+done
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 
