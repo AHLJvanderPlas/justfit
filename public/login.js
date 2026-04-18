@@ -108,6 +108,12 @@ async function handleSubmit() {
     const data = await res.json();
 
     if (!data.ok) {
+      if (data.loginRequired) {
+        btn.disabled = false;
+        setMode('login');
+        showAlert('main-alert', data.error || 'This email is already registered — try signing in.');
+        return;
+      }
       showAlert('main-alert', data.error || 'Something went wrong.');
       btn.disabled = false;
       btn.textContent = mode === 'login' ? 'Login' : 'Create Account';

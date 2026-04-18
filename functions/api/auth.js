@@ -79,6 +79,19 @@ async function verifyJWT(token, secret) {
   } catch { return null; }
 }
 
+// ─── TOKEN SECURITY HELPERS ───────────────────────────────────────────────────
+// Generates a cryptographically secure random token (256-bit, base64url).
+// Always send the raw token to the user; store only its SHA-256 hash in the DB.
+function generateSecureToken() {
+  return b64url(crypto.getRandomValues(new Uint8Array(32)));
+}
+
+// SHA-256 of a string, returned as base64url.  Used to hash tokens before DB storage.
+async function sha256b64url(str) {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+  return b64url(buf);
+}
+
 // ─── PASSWORD HASHING ─────────────────────────────────────────────────────────
 function generateCode() {
   const arr = new Uint32Array(1);
@@ -139,14 +152,26 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   const existing = await env.DB.prepare(
     `SELECT id FROM users WHERE primary_email = ? LIMIT 1`
   ).bind(emailLower).first();
-  if (existing) return Response.json({ error: 'Email already registered' }, { status: 409 });
+  if (existing) {
+    // Don't reveal whether the account exists — send a "sign in instead" notification
+    if (env.RESEND_API_KEY) {
+      sendEmail(emailLower, 'JustFit — you already have an account', emailShell(`
+        <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">You already have an account</h1>
+        <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Someone (possibly you) tried to create a new JustFit account with this email address. No changes were made to your account.</p>
+        <a href="https://justfit.cc/login.html" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Sign in instead →</a>
+        <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
+      `), env.RESEND_API_KEY).catch(() => {});
+    }
+    return Response.json({ ok: false, loginRequired: true, error: 'This email is already registered — try signing in.' });
+  }
 
-  const userId      = crypto.randomUUID();
-  const salt        = crypto.randomUUID();
-  const hash        = await hashPassword(password, salt, secret);
-  const now         = Date.now();
-  const verifyToken = crypto.randomUUID();
-  const verifyCode  = generateCode();
+  const userId           = crypto.randomUUID();
+  const salt             = crypto.randomUUID();
+  const hash             = await hashPassword(password, salt, secret);
+  const now              = Date.now();
+  const rawVerifyToken   = generateSecureToken();
+  const verifyTokenHash  = await sha256b64url(rawVerifyToken);
+  const verifyCode       = generateCode();
   const privacyVersion = accepted_privacy_version ?? CURRENT_PRIVACY_VERSION;
 
   await env.DB.batch([
@@ -157,11 +182,11 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, now, now, now),
     env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
-      .bind(verifyToken, userId, emailLower, verifyCode, now + VERIFY_EXPIRY_MS, now),
+      .bind(verifyTokenHash, userId, emailLower, verifyCode, now + VERIFY_EXPIRY_MS, now),
   ]);
 
   if (env.RESEND_API_KEY) {
-    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${verifyToken}`;
+    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${rawVerifyToken}`;
     await sendEmail(emailLower, 'Welcome to JustFit.cc — verify your email', emailShell(`
       <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 12px;">You're in.</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Your first plan is ready. Verify your email to secure your account — or just start training.</p>
@@ -264,13 +289,14 @@ async function handleForgotPassword({ email }, env, _secret) {
   ).bind(emailLower).first();
 
   if (user && env.RESEND_API_KEY) {
-    const token = crypto.randomUUID();
+    const rawToken  = generateSecureToken();
+    const tokenHash = await sha256b64url(rawToken);
     const now = Date.now();
     await env.DB.prepare(
       `INSERT INTO password_reset_tokens (token, user_id, email, expires_at_ms, created_at_ms) VALUES (?, ?, ?, ?, ?)`
-    ).bind(token, user.id, emailLower, now + RESET_EXPIRY_MS, now).run();
+    ).bind(tokenHash, user.id, emailLower, now + RESET_EXPIRY_MS, now).run();
 
-    const resetUrl = `https://justfit.cc/reset-password.html?token=${token}`;
+    const resetUrl = `https://justfit.cc/reset-password.html?token=${rawToken}`;
     const accent = await getUserAccent(user.id, env);
     await sendEmail(emailLower, 'Reset your JustFit password', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Reset your password</h1>
@@ -292,9 +318,10 @@ async function handleResetPassword({ reset_token, new_password }, request, env, 
     return Response.json({ error: 'Too many attempts — please try again later' }, { status: 429 });
   }
 
+  const resetTokenHash = await sha256b64url(reset_token);
   const row = await env.DB.prepare(
     `SELECT token, user_id, expires_at_ms, used_at_ms FROM password_reset_tokens WHERE token = ? LIMIT 1`
-  ).bind(reset_token).first();
+  ).bind(resetTokenHash).first();
 
   if (!row)                      return Response.json({ error: 'Invalid or expired reset link' }, { status: 400 });
   if (row.used_at_ms)            return Response.json({ error: 'This reset link has already been used' }, { status: 400 });
@@ -310,10 +337,10 @@ async function handleResetPassword({ reset_token, new_password }, request, env, 
       .bind(`${salt}:${hash}`, now, row.user_id),
     // Mark this token as used
     env.DB.prepare(`UPDATE password_reset_tokens SET used_at_ms = ? WHERE token = ?`)
-      .bind(now, reset_token),
+      .bind(now, resetTokenHash),
     // Invalidate all other unused tokens for this user
     env.DB.prepare(`UPDATE password_reset_tokens SET used_at_ms = ? WHERE user_id = ? AND used_at_ms IS NULL AND token != ?`)
-      .bind(now, row.user_id, reset_token),
+      .bind(now, row.user_id, resetTokenHash),
   ]);
 
   return Response.json({ ok: true });
@@ -332,13 +359,14 @@ async function handleMagicLink({ email }, env) {
   ).bind(emailLower).first();
 
   if (env.RESEND_API_KEY) {
-    const token = crypto.randomUUID();
-    const now   = Date.now();
+    const rawToken  = generateSecureToken();
+    const tokenHash = await sha256b64url(rawToken);
+    const now       = Date.now();
     await env.DB.prepare(
       `INSERT INTO magic_link_tokens (token, user_id, email, expires_at_ms, created_at_ms) VALUES (?, ?, ?, ?, ?)`
-    ).bind(token, user?.id ?? null, emailLower, now + MAGIC_EXPIRY_MS, now).run();
+    ).bind(tokenHash, user?.id ?? null, emailLower, now + MAGIC_EXPIRY_MS, now).run();
 
-    const magicUrl = `https://justfit.cc/magic.html?token=${token}`;
+    const magicUrl = `https://justfit.cc/magic.html?token=${rawToken}`;
     const accent = await getUserAccent(user?.id ?? null, env);
     await sendEmail(emailLower, 'Your JustFit login link ⚡', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Here's your login link</h1>
@@ -355,9 +383,10 @@ async function handleMagicLink({ email }, env) {
 async function handleMagicVerify(token, env, secret) {
   if (!token) return Response.json({ valid: false, error: 'Token required' }, { status: 400 });
 
+  const tokenHash = await sha256b64url(token);
   const row = await env.DB.prepare(
     `SELECT token, user_id, email, purpose, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? LIMIT 1`
-  ).bind(token).first();
+  ).bind(tokenHash).first();
 
   if (!row)                           return Response.json({ valid: false, error: 'Invalid link' }, { status: 401 });
   if (row.purpose && row.purpose !== 'login') return Response.json({ valid: false, error: 'Invalid link' }, { status: 401 });
@@ -367,7 +396,7 @@ async function handleMagicVerify(token, env, secret) {
   const now = Date.now();
   // Mark as used immediately (single-use)
   await env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`)
-    .bind(now, token).run();
+    .bind(now, tokenHash).run();
 
   if (!row.user_id) {
     // Email not registered — prompt signup
@@ -612,15 +641,16 @@ async function handleResendVerification(request, env, secret) {
     `UPDATE magic_link_tokens SET used_at_ms = ? WHERE user_id = ? AND purpose = 'verify_email' AND used_at_ms IS NULL`
   ).bind(now, user.userId).run();
 
-  const token = crypto.randomUUID();
-  const code  = generateCode();
+  const rawToken   = generateSecureToken();
+  const tokenHash  = await sha256b64url(rawToken);
+  const code       = generateCode();
 
   await env.DB.prepare(
     `INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`
-  ).bind(token, user.userId, authUser.email, code, now + VERIFY_EXPIRY_MS, now).run();
+  ).bind(tokenHash, user.userId, authUser.email, code, now + VERIFY_EXPIRY_MS, now).run();
 
   if (env.RESEND_API_KEY) {
-    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${token}`;
+    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${rawToken}`;
     const accent = await getUserAccent(user.userId, env);
     await sendEmail(authUser.email, 'Verify your JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Verify your email</h1>
@@ -680,8 +710,9 @@ async function handleRequestEmailChange({ new_email }, request, env, secret) {
   ).bind(user.userId, now - 60_000).first();
   if (recent) return Response.json({ error: 'Please wait before requesting another email change' }, { status: 429 });
 
-  const token = crypto.randomUUID();
-  const code  = generateCode();
+  const rawToken  = generateSecureToken();
+  const tokenHash = await sha256b64url(rawToken);
+  const code      = generateCode();
 
   // Invalidate previous pending change tokens for this user
   await env.DB.prepare(
@@ -690,10 +721,10 @@ async function handleRequestEmailChange({ new_email }, request, env, secret) {
 
   await env.DB.prepare(
     `INSERT INTO magic_link_tokens (token, user_id, email, purpose, new_email, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'email_change', ?, ?, ?, ?)`
-  ).bind(token, user.userId, user.email, code, newEmailLower, now + VERIFY_EXPIRY_MS, now).run();
+  ).bind(tokenHash, user.userId, user.email, code, newEmailLower, now + VERIFY_EXPIRY_MS, now).run();
 
   if (env.RESEND_API_KEY) {
-    const changeUrl = `https://justfit.cc/api/auth?change_email=${token}`;
+    const changeUrl = `https://justfit.cc/api/auth?change_email=${rawToken}`;
     const accent = await getUserAccent(user.userId, env);
     await sendEmail(newEmailLower, 'Confirm your new JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Confirm your new email</h1>
@@ -751,9 +782,10 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
 // ─── EMAIL VERIFY / CHANGE LINK HANDLERS (GET) ────────────────────────────────
 
 async function handleVerifyEmailLink(token, env) {
+  const tokenHash = await sha256b64url(token);
   const row = await env.DB.prepare(
     `SELECT token, user_id, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'verify_email' LIMIT 1`
-  ).bind(token).first();
+  ).bind(tokenHash).first();
 
   if (!row || row.used_at_ms || row.expires_at_ms < Date.now()) {
     return Response.redirect('https://justfit.cc/?verify_error=1', 302);
@@ -761,7 +793,7 @@ async function handleVerifyEmailLink(token, env) {
 
   const now = Date.now();
   await env.DB.batch([
-    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, token),
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, tokenHash),
     env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(row.user_id),
   ]);
 
@@ -769,9 +801,10 @@ async function handleVerifyEmailLink(token, env) {
 }
 
 async function handleChangeEmailLink(token, env) {
+  const tokenHash = await sha256b64url(token);
   const row = await env.DB.prepare(
     `SELECT token, user_id, new_email, expires_at_ms, used_at_ms FROM magic_link_tokens WHERE token = ? AND purpose = 'email_change' LIMIT 1`
-  ).bind(token).first();
+  ).bind(tokenHash).first();
 
   if (!row || row.used_at_ms || row.expires_at_ms < Date.now() || !row.new_email) {
     return Response.redirect('https://justfit.cc/?verify_error=1', 302);
@@ -783,7 +816,7 @@ async function handleChangeEmailLink(token, env) {
   ).bind(row.user_id).first();
 
   await env.DB.batch([
-    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, token),
+    env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, tokenHash),
     env.DB.prepare(`UPDATE auth_users SET email = ?, email_verified = 1, updated_at_ms = ? WHERE user_id = ?`).bind(row.new_email, now, row.user_id),
     env.DB.prepare(`UPDATE users SET primary_email = ?, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, row.user_id),
   ]);
