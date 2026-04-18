@@ -33,7 +33,11 @@ export function reportError(type, detail, token = null) {
     fetch('/api/feedback', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ text: `[CLIENT ERROR] ${type}: ${detail}` }),
+      body: JSON.stringify({
+        type,
+        detail,
+        text: `[CLIENT ERROR] ${type}: ${detail}`,
+      }),
     }).catch(() => {});
   } else {
     // No token available — structured console output for Cloudflare log tailing

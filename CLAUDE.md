@@ -121,6 +121,7 @@ justfit/
 │       ├── auth.js      ← POST signup/login/forgot/reset/magic/passkey, GET magic verify + token verify; rate limiting via auth_rate_limits table
 │       ├── checkin.js   ← POST save check-in, GET fetch check-ins
 │       ├── cycle.js     ← POST cycle period logging helper
+│       ├── dashboard.js ← GET admin dashboard data (registered users + events), protected by DASHBOARD_PASSWORD/ADMIN_KEY
 │       ├── feedback.js  ← POST client error/feedback intake
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
@@ -162,7 +163,8 @@ justfit/
 │   ├── 0020_exercise_library_v3.sql ← 100 new exercises (total: 290); sections: dumbbell(15), bands/kettlebell/pullup/bw(26), mobility(15), recovery(12), cardio(12), equipment-conditional(20)
 │   ├── 0021_injury_tags.sql ← adds loads_knee/loads_shoulder/loads_lower_back/loads_ankle tags to ~182 exercises for R562–R563 injury filtering
 │   ├── 0022_rate_limits.sql ← auth_rate_limits table (sliding-window counters for login/reset/verify rate limiting)
-│   └── 0023_acceptance.sql  ← explicit terms/privacy acceptance version tracking
+│   ├── 0023_acceptance.sql  ← explicit terms/privacy acceptance version tracking
+│   └── 0024_app_events.sql  ← app_events table for dashboard event/error timeline
 ├── wrangler.toml
 ├── vite.config.js
 └── package.json
@@ -886,7 +888,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0023) |
+| D1 schema + migrations | ✅ Live (0002–0024) |
 | Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020); taxonomy fixed in 0019 |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
@@ -941,6 +943,7 @@ Calculated server-side from executions table:
 | Production hardening | ✅ Live — 7-task hardening pass: (1) 0 react-hooks/exhaustive-deps warnings (useMemo, stable refs, isProRef); (2) DB-backed rate limiting (migration 0022) for login/reset/verify — 429 on abuse; (3) All API 500s return `{error:"Internal error"}` — no e.message leakage; (4) `src/errorReporter.js` — fire-and-forget deduped client error reports via /api/feedback; (5) AwardsView lazy-loaded via React.lazy (535KB → 528KB main chunk + 8.76KB async chunk); (6) `npm run smoke` — lint+build+4 live API checks before deploy; (7) `/api/ping` includes D1 check, `OPERATIONS.md` runbook with alert thresholds and rollback procedure |
 | In-app documentation system | ✅ Live — 5 docs (Mission/Vision, How It Works, Privacy Policy, Terms & Conditions, Disclaimer); shared DocViewer with back + "See full page →" header controls + metadata bar (version, effectiveDate); DOCS module-level constant as single source of truth; Settings Information list driven by DOCS.map; standalone HTML pages for all 5 docs (public/mission.html, public/how-it-works.html, public/privacy.html, public/terms.html, public/disclaimer.html); Share + Email buttons available on all 5 pages; /api/legal-email supports all 5 docs via Resend; SettingsView lazy-split (428KB main chunk) |
 | Terms & Privacy acceptance audit | ✅ Live — migration 0023 adds accepted_terms_version/at_ms + accepted_privacy_version/at_ms to users table; signup requires acceptance checkbox (login.html) and validates version server-side (400 if missing); stored in users INSERT; existing users shown fullscreen gate modal on next app load (needsTermsAcceptance from profile GET); /api/accept-terms JWT-gated endpoint records acceptance; re-prompts automatically when CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION bumps in auth.js + profile.js |
+| Hidden admin dashboard | ✅ Live — `/dashboard` (not linked in UI) shows registered user count + chronological event/error list (newest first). Data source: `/api/dashboard` (JWT-independent, secret-gated via `DASHBOARD_PASSWORD`, fallback `ADMIN_KEY`). Event storage: `app_events` table (migration 0024). `feedback.js` now persists structured events for dashboard visibility. |
 
 ## Drift from original mission/vision
 
@@ -1022,6 +1025,12 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 
 # Apply a migration
 npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql
+
+# Apply dashboard events migration
+npx wrangler d1 execute justfit-db --remote --file migrations/0024_app_events.sql
+
+# Set dashboard secret (do not commit secret values; keep out of README/public docs)
+npx wrangler pages secret put DASHBOARD_PASSWORD --project-name=justfit
 
 # Check tables
 npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"

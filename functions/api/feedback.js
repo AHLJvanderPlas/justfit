@@ -34,8 +34,29 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json();
     const text = (body.text ?? '').trim();
+    const type = String(body.type ?? '').trim() || 'feedback';
+    const detail = String(body.detail ?? '').trim();
     if (!text) return Response.json({ error: 'Feedback text required' }, { status: 400 });
     if (text.length > 5000) return Response.json({ error: 'Feedback too long' }, { status: 400 });
+    if (type.length > 64) return Response.json({ error: 'Type too long' }, { status: 400 });
+    if (detail.length > 1000) return Response.json({ error: 'Detail too long' }, { status: 400 });
+
+    const now = Date.now();
+    const eventType = type || (text.startsWith('[CLIENT ERROR]') ? 'client_error' : 'feedback');
+    const eventDetail = detail || text.slice(0, 1000);
+
+    await env.DB.prepare(
+      `INSERT INTO app_events
+         (id, user_id, user_email, event_type, detail, created_at_ms)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    ).bind(
+      crypto.randomUUID(),
+      user.userId,
+      user.email ?? null,
+      eventType,
+      eventDetail,
+      now
+    ).run();
 
     if (env.RESEND_API_KEY) {
       await fetch('https://api.resend.com/emails', {
@@ -45,7 +66,7 @@ export async function onRequestPost({ request, env }) {
           from: 'JustFit.cc <noreply@justfit.cc>',
           to: ['ahlj.vd.plas@gmail.com'],
           subject: `JustFit Feedback from ${user.email ?? user.userId}`,
-          text: `User: ${user.email ?? user.userId}\nUser ID: ${user.userId}\n\n${text}`,
+          text: `Type: ${eventType}\nUser: ${user.email ?? user.userId}\nUser ID: ${user.userId}\n\n${text}`,
         }),
       });
     }
