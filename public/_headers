@@ -5,6 +5,11 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self'; frame-ancestors 'none'; form-action 'self'
 
+/dashboard
+  Cache-Control: no-cache
+/dashboard.js
+  Cache-Control: no-cache
+
 /api/*
   Access-Control-Allow-Origin: https://justfit.cc
   Access-Control-Allow-Methods: GET, POST, DELETE, OPTIONS
