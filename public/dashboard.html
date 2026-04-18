@@ -17,132 +17,97 @@
       --danger: #f87171;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      background: var(--bg);
-      color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      min-height: 100vh;
-    }
+    body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; min-height: 100vh; }
 
-    /* ── Login ─────────────────────────────────────── */
-    #login-page {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-    }
-    .login-card {
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 24px;
-      padding: 40px 36px;
-      width: 100%;
-      max-width: 420px;
-    }
-    .login-icon-wrap {
-      width: 60px;
-      height: 60px;
-      background: var(--accent-dim);
-      border: 1px solid var(--accent-border);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 20px;
-    }
+    /* ── Login ──────────────────────────────────────── */
+    #login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 24px; }
+    .login-card { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 24px; padding: 40px 36px; width: 100%; max-width: 420px; }
+    .login-icon-wrap { width: 60px; height: 60px; background: var(--accent-dim); border: 1px solid var(--accent-border); border-radius: 16px; display: flex; align-items: center; justify-content: center; margin-bottom: 20px; }
     .login-title { font-size: 26px; font-weight: 900; margin-bottom: 4px; }
     .login-sub { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
-    .login-divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin-bottom: 28px;
-    }
-    .field-label {
-      display: block;
-      font-size: 12px;
-      font-weight: 800;
-      color: var(--muted);
-      text-transform: uppercase;
-      letter-spacing: .08em;
-      margin-bottom: 8px;
-    }
-    .field-input {
-      width: 100%;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid var(--border);
-      border-radius: 14px;
-      color: var(--text);
-      padding: 14px 16px;
-      font-size: 15px;
-      margin-bottom: 20px;
-      outline: none;
-      transition: border-color .15s;
-    }
+    .login-divider { border: none; border-top: 1px solid var(--border); margin-bottom: 28px; }
+    .field-label { display: block; font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; margin-bottom: 8px; }
+    .field-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 14px; color: var(--text); padding: 14px 16px; font-size: 15px; margin-bottom: 20px; outline: none; transition: border-color .15s; }
     .field-input:focus { border-color: var(--accent); }
-    .login-btn {
-      width: 100%;
-      background: var(--accent);
-      color: #020617;
-      border: none;
-      border-radius: 14px;
-      padding: 15px;
-      font-size: 15px;
-      font-weight: 900;
-      cursor: pointer;
-      transition: opacity .15s;
-    }
+    .login-btn { width: 100%; background: var(--accent); color: #020617; border: none; border-radius: 14px; padding: 15px; font-size: 15px; font-weight: 900; cursor: pointer; transition: opacity .15s; }
     .login-btn:hover:not(:disabled) { opacity: .88; }
     .login-btn:disabled { opacity: .5; cursor: default; }
-    .login-error {
-      font-size: 13px;
-      color: var(--danger);
-      margin-top: 14px;
-      min-height: 18px;
-      text-align: center;
-    }
+    .login-error { font-size: 13px; color: var(--danger); margin-top: 14px; min-height: 18px; text-align: center; }
 
-    /* ── Dashboard ─────────────────────────────────── */
+    /* ── Dashboard shell ────────────────────────────── */
     #dashboard-page { display: none; padding: 24px; }
-    .wrap { max-width: 1200px; margin: 0 auto; }
-    .top-bar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      margin-bottom: 20px;
-    }
+    .wrap { max-width: 1280px; margin: 0 auto; }
+    .top-bar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
     .dash-title { font-size: 28px; font-weight: 900; }
-    .sign-out-btn {
+    .sign-out-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 10px; color: var(--muted); padding: 8px 16px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    .sign-out-btn:hover { color: var(--text); }
+    .status { color: var(--muted); font-size: 13px; min-height: 18px; margin-bottom: 20px; }
+
+    /* ── KPI row ────────────────────────────────────── */
+    .kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px; }
+    .kpi-card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px 20px; min-width: 160px; }
+    .kpi-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
+    .kpi-value { font-size: 40px; font-weight: 900; margin-top: 6px; }
+
+    /* ── Sections ───────────────────────────────────── */
+    .section { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 16px; margin-bottom: 16px; overflow: hidden; }
+    .section-header { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+    .section-title { font-size: 12px; font-weight: 800; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; flex: 1; }
+    .filter-input { background: rgba(255,255,255,0.05); border: 1px solid var(--border); border-radius: 9px; color: var(--text); padding: 6px 12px; font-size: 13px; width: 200px; outline: none; }
+    .filter-input:focus { border-color: var(--accent); }
+    .filter-input::placeholder { color: var(--muted); }
+
+    /* ── Tables ─────────────────────────────────────── */
+    .tbl-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { text-align: left; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .06em; padding: 8px 10px; white-space: nowrap; }
+    th[data-col] { cursor: pointer; user-select: none; }
+    th[data-col]:hover { color: var(--text); }
+    th.sort-asc::after { content: ' \2191'; }
+    th.sort-desc::after { content: ' \2193'; }
+    td { padding: 10px; border-top: 1px solid var(--border); vertical-align: top; }
+    td.ts { color: var(--muted); white-space: nowrap; font-size: 12px; }
+    td.uid { color: var(--muted); font-size: 11px; font-family: monospace; }
+    td.detail { max-width: 500px; word-break: break-word; }
+    td.msg { max-width: 380px; word-break: break-word; }
+
+    /* ── Table footer ───────────────────────────────── */
+    .tbl-footer { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; gap: 12px; }
+    .tbl-count { font-size: 12px; color: var(--muted); }
+    .more-btn { background: rgba(255,255,255,0.06); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); padding: 6px 16px; font-size: 12px; font-weight: 700; cursor: pointer; }
+    .more-btn:hover { color: var(--text); }
+
+    /* ── Status + classify ──────────────────────────── */
+    .status-badge { display: inline-block; padding: 2px 7px; border-radius: 5px; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+    .s-new      { background: rgba(148,163,184,.15); color: #94a3b8; }
+    .s-discard  { background: rgba(100,116,139,.15); color: #64748b; }
+    .s-react    { background: rgba(96,165,250,.15);  color: #60a5fa; }
+    .s-fix      { background: rgba(251,191,36,.15);  color: #fbbf24; }
+    .s-roadmap  { background: rgba(192,132,252,.15); color: #c084fc; }
+    .s-resolved { background: rgba(16,185,129,.15);  color: #10b981; }
+
+    .classify-select {
       background: rgba(255,255,255,0.06);
       border: 1px solid var(--border);
-      border-radius: 10px;
-      color: var(--muted);
-      padding: 8px 16px;
-      font-size: 13px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: color .15s;
-    }
-    .sign-out-btn:hover { color: var(--text); }
-    .card {
-      background: var(--card);
-      border: 1px solid var(--border);
-      border-radius: 18px;
-      padding: 16px;
-      margin-bottom: 16px;
-    }
-    .kpi-label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; font-weight: 800; }
-    .kpi-value { font-size: 42px; font-weight: 900; margin-top: 8px; }
-    .status { color: var(--muted); font-size: 13px; min-height: 18px; margin-bottom: 16px; }
-    table { width: 100%; border-collapse: collapse; }
-    th {
-      text-align: left;
-      color: var(--muted);
+      border-radius: 6px;
+      color: var(--text);
+      padding: 3px 6px;
       font-size: 12px;
-      text-transform: uppercase;
-      letter-spacing: .06em;
-      padding: 10px;
+      cursor: pointer;
+      margin-right: 6px;
     }
+    .flag-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--muted);
+      padding: 3px 7px;
+      font-size: 13px;
+      cursor: pointer;
+      line-height: 1;
+    }
+    .flag-btn.on { color: #f59e0b; border-color: rgba(245,158,11,.4); }
+    .flag-btn:hover { color: var(--text); }
   </style>
 </head>
 <body>
@@ -169,32 +134,125 @@
   <!-- ── Dashboard ─────────────────────────────────── -->
   <div id="dashboard-page">
     <div class="wrap">
+
       <div class="top-bar">
         <div class="dash-title">Admin Dashboard</div>
         <button id="sign-out-btn" class="sign-out-btn" type="button">Sign out</button>
       </div>
       <div id="status" class="status"></div>
-      <div class="card">
-        <div class="kpi-label">Registered users</div>
-        <div id="users-count" class="kpi-value">-</div>
+
+      <!-- KPIs -->
+      <div class="kpi-row">
+        <div class="kpi-card">
+          <div class="kpi-label">Registered users</div>
+          <div id="users-count" class="kpi-value">-</div>
+        </div>
       </div>
-      <div class="card">
-        <div class="kpi-label" style="margin-bottom:8px;">Errors / Events (newest first)</div>
-        <table>
-          <thead>
-            <tr>
-              <th style="width:190px;">Timestamp</th>
-              <th style="width:160px;">Type</th>
-              <th style="width:240px;">User</th>
-              <th>Detail</th>
-            </tr>
-          </thead>
-          <tbody id="errors-body"></tbody>
-        </table>
+
+      <!-- Active Users -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Recent Active Users</div>
+          <input class="filter-input" id="active-users-filter" placeholder="Filter…" />
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-col="last_login_at_ms" data-tbl="active-users">Last Active</th>
+                <th data-col="user_id"          data-tbl="active-users">User ID</th>
+                <th data-col="user_email"        data-tbl="active-users">Email</th>
+              </tr>
+            </thead>
+            <tbody id="active-users-body"></tbody>
+          </table>
+        </div>
+        <div class="tbl-footer">
+          <span class="tbl-count" id="active-users-count"></span>
+          <button class="more-btn" id="active-users-more" style="display:none">Load more</button>
+        </div>
       </div>
+
+      <!-- Errors / Events -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Errors / Events</div>
+          <input class="filter-input" id="errors-filter" placeholder="Filter…" />
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-col="created_at_ms" data-tbl="errors">Timestamp</th>
+                <th data-col="event_type"    data-tbl="errors">Type</th>
+                <th data-col="user_email"    data-tbl="errors">User</th>
+                <th>Detail</th>
+              </tr>
+            </thead>
+            <tbody id="errors-body"></tbody>
+          </table>
+        </div>
+        <div class="tbl-footer">
+          <span class="tbl-count" id="errors-count"></span>
+          <button class="more-btn" id="errors-more" style="display:none">Load more</button>
+        </div>
+      </div>
+
+      <!-- Feedback: newest -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Feedback — Newest first</div>
+          <input class="filter-input" id="fb-new-filter" placeholder="Filter…" />
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-col="created_at_ms" data-tbl="fb-new">Timestamp</th>
+                <th data-col="event_type"    data-tbl="fb-new">Type</th>
+                <th data-col="user_email"    data-tbl="fb-new">User</th>
+                <th>Message</th>
+                <th data-col="status"        data-tbl="fb-new">Classify</th>
+              </tr>
+            </thead>
+            <tbody id="fb-new-body"></tbody>
+          </table>
+        </div>
+        <div class="tbl-footer">
+          <span class="tbl-count" id="fb-new-count"></span>
+          <button class="more-btn" id="fb-new-more" style="display:none">Load more</button>
+        </div>
+      </div>
+
+      <!-- Feedback: flagged oldest -->
+      <div class="section">
+        <div class="section-header">
+          <div class="section-title">Feedback — Flagged (oldest first)</div>
+          <input class="filter-input" id="fb-flag-filter" placeholder="Filter…" />
+        </div>
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-col="created_at_ms" data-tbl="fb-flag">Timestamp</th>
+                <th data-col="event_type"    data-tbl="fb-flag">Type</th>
+                <th data-col="user_email"    data-tbl="fb-flag">User</th>
+                <th>Message</th>
+                <th data-col="status"        data-tbl="fb-flag">Classify</th>
+              </tr>
+            </thead>
+            <tbody id="fb-flag-body"></tbody>
+          </table>
+        </div>
+        <div class="tbl-footer">
+          <span class="tbl-count" id="fb-flag-count"></span>
+          <button class="more-btn" id="fb-flag-more" style="display:none">Load more</button>
+        </div>
+      </div>
+
     </div>
   </div>
 
-  <script src="/dashboard.js?v=2"></script>
+  <script src="/dashboard.js?v=3"></script>
 </body>
 </html>
