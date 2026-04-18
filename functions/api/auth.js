@@ -585,6 +585,18 @@ async function handleDeleteAccount(request, env, secret) {
   if (!user?.userId) return Response.json({ error: 'unauthorized' }, { status: 401 });
   const uid = user.userId;
 
+  // GDPR Art. 17 audit: record deletion before erasing PII.
+  // email_hash = SHA-256 of primary_email; lets us confirm past deletions without storing PII.
+  const userRow = await env.DB.prepare(`SELECT primary_email FROM users WHERE id = ? LIMIT 1`).bind(uid).first();
+  if (userRow?.primary_email) {
+    const hashBuf  = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userRow.primary_email.toLowerCase()));
+    const emailHash = Array.from(new Uint8Array(hashBuf)).map(b => b.toString(16).padStart(2, '0')).join('');
+    const ip = request.headers.get('CF-Connecting-IP') ?? request.headers.get('X-Forwarded-For') ?? null;
+    await env.DB.prepare(
+      `INSERT INTO deleted_users (id, email_hash, requested_by_ip, deleted_at_ms) VALUES (?, ?, ?, ?)`
+    ).bind(uid, emailHash, ip, Date.now()).run();
+  }
+
   // Delete in dependency order — execution_steps first (FK to executions), then everything else
   await env.DB.batch([
     env.DB.prepare('DELETE FROM execution_steps WHERE execution_id IN (SELECT id FROM executions WHERE user_id = ?)').bind(uid),
