@@ -25,6 +25,7 @@ These rules apply to EVERY task in EVERY session, without exception.
 When an assignment has multiple steps:
 - Work through them **one item at a time**: code → smoke → deploy → confirm → next step. Never batch steps into a single deploy.
 - Track progress with a todo list (TodoWrite tool); mark each item complete immediately after deploy confirms.
+- **After each step**: print the current todo list showing all items with their status (✅ done / 🔄 in progress / ⬜ pending). Do this before starting the next step so the user always sees where things stand.
 - If the user gives a new task during a build, add it to the list (or adjust the existing item) rather than interrupting the current step
 - For each task, pick the most cost-effective model:
   - **Haiku** — simple edits, HTML/CSS tweaks, one-line fixes, renaming, copy changes
