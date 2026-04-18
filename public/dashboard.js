@@ -1,17 +1,13 @@
 const C = {
-  bg: '#020617',
-  card: 'rgba(255,255,255,0.04)',
   border: 'rgba(255,255,255,0.1)',
   text: '#f8fafc',
   muted: '#94a3b8',
-  accent: '#10b981',
   danger: '#f87171',
 };
 
 function fmt(ms) {
   if (!ms) return '-';
-  const d = new Date(ms);
-  return d.toLocaleString();
+  return new Date(ms).toLocaleString();
 }
 
 function renderRows(rows) {
@@ -23,7 +19,6 @@ function renderRows(rows) {
     tbody.appendChild(tr);
     return;
   }
-
   rows.forEach((r) => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
@@ -36,51 +31,104 @@ function renderRows(rows) {
   });
 }
 
-async function loadDashboard(password) {
-  const status = document.getElementById('status');
-  status.textContent = 'Loading...';
-  status.style.color = C.muted;
-
-  const res = await fetch('/api/dashboard', {
-    headers: { 'X-Dashboard-Password': password },
-  });
-  const data = await res.json().catch(() => ({}));
-
-  if (!res.ok || !data.ok) {
-    throw new Error(data.error || `Request failed (${res.status})`);
-  }
-
-  document.getElementById('users-count').textContent = String(data.registered_users ?? 0);
-  renderRows(data.errors ?? []);
-  status.textContent = `Updated ${fmt(data.generated_at_ms)}`;
-  status.style.color = C.muted;
+function showDashboard() {
+  document.getElementById('login-page').style.display = 'none';
+  document.getElementById('dashboard-page').style.display = 'block';
 }
 
-async function init() {
-  const keyInput = document.getElementById('admin-key');
-  const btn = document.getElementById('load-btn');
-  const status = document.getElementById('status');
-  const saved = sessionStorage.getItem('jf_dashboard_password') || '';
-  keyInput.value = saved;
+function showLogin(msg) {
+  document.getElementById('dashboard-page').style.display = 'none';
+  document.getElementById('login-page').style.display = 'flex';
+  if (msg) document.getElementById('login-error').textContent = msg;
+}
 
-  async function run() {
-    const adminKey = keyInput.value.trim();
-    if (!adminKey) {
-      status.textContent = 'Dashboard password required.';
-      status.style.color = C.danger;
-      return;
-    }
-    sessionStorage.setItem('jf_dashboard_password', adminKey);
-    try {
-      await loadDashboard(adminKey);
-    } catch (e) {
-      status.textContent = e.message || 'Failed to load dashboard.';
-      status.style.color = C.danger;
-    }
+async function tryLogin(password) {
+  const btn = document.getElementById('login-btn');
+  const errEl = document.getElementById('login-error');
+
+  if (!password) {
+    errEl.textContent = 'Password required.';
+    return;
   }
 
-  btn.addEventListener('click', run);
-  if (saved) await run();
+  errEl.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'Signing in\u2026';
+
+  try {
+    const res = await fetch('/api/dashboard', {
+      headers: { 'X-Dashboard-Password': password },
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (res.status === 429) {
+      errEl.textContent = 'Too many attempts \u2014 try again later.';
+      return;
+    }
+    if (!res.ok || !data.ok) {
+      errEl.textContent = 'Incorrect password.';
+      return;
+    }
+
+    sessionStorage.setItem('jf_dashboard_password', password);
+    showDashboard();
+    document.getElementById('users-count').textContent = String(data.registered_users ?? 0);
+    renderRows(data.errors ?? []);
+    document.getElementById('status').textContent = `Updated ${fmt(data.generated_at_ms)}`;
+  } catch {
+    errEl.textContent = 'Connection error \u2014 try again.';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Sign in';
+  }
+}
+
+async function autoLoad(password) {
+  const status = document.getElementById('status');
+  status.textContent = 'Loading\u2026';
+  showDashboard();
+  try {
+    const res = await fetch('/api/dashboard', {
+      headers: { 'X-Dashboard-Password': password },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.ok) {
+      sessionStorage.removeItem('jf_dashboard_password');
+      showLogin('Session expired \u2014 please sign in again.');
+      return;
+    }
+    document.getElementById('users-count').textContent = String(data.registered_users ?? 0);
+    renderRows(data.errors ?? []);
+    status.textContent = `Updated ${fmt(data.generated_at_ms)}`;
+  } catch {
+    status.textContent = 'Failed to load.';
+    status.style.color = C.danger;
+  }
+}
+
+function init() {
+  const pwdInput = document.getElementById('pwd-input');
+  const loginBtn = document.getElementById('login-btn');
+  const signOutBtn = document.getElementById('sign-out-btn');
+
+  const saved = sessionStorage.getItem('jf_dashboard_password');
+  if (saved) {
+    autoLoad(saved);
+  }
+
+  loginBtn.addEventListener('click', () => tryLogin(pwdInput.value.trim()));
+  pwdInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') tryLogin(pwdInput.value.trim());
+  });
+
+  signOutBtn.addEventListener('click', () => {
+    sessionStorage.removeItem('jf_dashboard_password');
+    document.getElementById('status').textContent = '';
+    document.getElementById('users-count').textContent = '-';
+    document.getElementById('errors-body').innerHTML = '';
+    showLogin();
+    pwdInput.value = '';
+  });
 }
 
 init();
