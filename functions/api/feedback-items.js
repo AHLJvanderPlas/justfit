@@ -1,20 +1,14 @@
 // PATCH /api/feedback-items — update status or flagged on a feedback item.
-// Auth: X-Dashboard-Password (same secret as /api/dashboard).
+// Auth: session cookie or X-Admin-Key.
 
-function isAuthorized(request, env) {
-  const pw = request.headers.get('X-Dashboard-Password') ?? '';
-  const ak = request.headers.get('X-Admin-Key') ?? '';
-  if (env.DASHBOARD_PASSWORD && pw === env.DASHBOARD_PASSWORD) return true;
-  if (env.ADMIN_KEY && ak === env.ADMIN_KEY) return true;
-  return false;
-}
+import { isAdminAuthorized, unauthorized } from './_shared/adminAuth.js';
 
 const VALID_STATUSES = ['new', 'discard', 'react', 'fix', 'roadmap', 'resolved'];
 
 export async function onRequestPatch({ request, env }) {
   try {
-    if (!isAuthorized(request, env)) {
-      return Response.json({ error: 'Unauthorized' }, { status: 401 });
+    if (!await isAdminAuthorized(request, env)) {
+      return unauthorized();
     }
 
     const body = await request.json();

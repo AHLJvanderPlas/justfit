@@ -4,7 +4,6 @@ const PAGE = 10;
 
 // ── State ─────────────────────────────────────────────────────────
 const state = {
-  password: null,
   data: { errors: [], activeUsers: [], feedbackNew: [], feedbackFlagged: [] },
   tables: {
     errors:     { tbl: 'errors',      filter: '', sortCol: 'created_at_ms',   sortDir: -1, page: 1 },
@@ -128,7 +127,8 @@ async function patchFeedback(id, updates) {
   try {
     await fetch('/api/feedback-items', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-Dashboard-Password': state.password },
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
       body: JSON.stringify({ id, ...updates }),
     });
   } catch { /* non-fatal */ }
@@ -249,14 +249,16 @@ async function tryLogin(password) {
   btn.disabled = true;
   btn.textContent = 'Signing in\u2026';
   try {
-    const res = await fetch('/api/dashboard', { headers: { 'X-Dashboard-Password': password } });
+    const res = await fetch('/api/dashboard-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      body: JSON.stringify({ password }),
+    });
     const data = await res.json().catch(() => ({}));
     if (res.status === 429) { errEl.textContent = 'Too many attempts \u2014 try again later.'; return; }
     if (!res.ok || !data.ok) { errEl.textContent = 'Incorrect password.'; return; }
-    state.password = password;
-    sessionStorage.setItem('jf_dashboard_password', password);
-    showDashboard();
-    populateData(data);
+    await autoLoad();
   } catch {
     errEl.textContent = 'Connection error \u2014 try again.';
   } finally {
@@ -265,19 +267,17 @@ async function tryLogin(password) {
   }
 }
 
-async function autoLoad(password) {
+async function autoLoad() {
   const status = document.getElementById('status');
   status.textContent = 'Loading\u2026';
   showDashboard();
   try {
-    const res = await fetch('/api/dashboard', { headers: { 'X-Dashboard-Password': password } });
+    const res = await fetch('/api/dashboard', { credentials: 'same-origin' });
     const data = await res.json().catch(() => ({}));
-    if (!res.ok || !data.ok) {
-      sessionStorage.removeItem('jf_dashboard_password');
-      showLogin('Session expired \u2014 please sign in again.');
+    if (res.status === 401 || !data.ok) {
+      showLogin();
       return;
     }
-    state.password = password;
     populateData(data);
   } catch {
     status.textContent = 'Failed to load.';
@@ -294,15 +294,13 @@ function init() {
 
   bindTableEvents(page);
 
-  const saved = sessionStorage.getItem('jf_dashboard_password');
-  if (saved) { autoLoad(saved); }
+  autoLoad();
 
   loginBtn.addEventListener('click', () => tryLogin(pwdInput.value.trim()));
   pwdInput.addEventListener('keydown', e => { if (e.key === 'Enter') tryLogin(pwdInput.value.trim()); });
 
-  signOutBtn.addEventListener('click', () => {
-    sessionStorage.removeItem('jf_dashboard_password');
-    state.password = null;
+  signOutBtn.addEventListener('click', async () => {
+    try { await fetch('/api/dashboard-logout', { method: 'POST', credentials: 'same-origin' }); } catch { /* non-fatal */ }
     document.getElementById('status').textContent = '';
     document.getElementById('users-count').textContent = '-';
     showLogin();
