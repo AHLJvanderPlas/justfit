@@ -23,13 +23,24 @@ These rules apply to EVERY task in EVERY session, without exception.
 
 ## Multi-step assignments
 When an assignment has multiple steps:
-- Work through them **one item at a time**: lint/build/smoke → deploy → move to the next item
-- Track progress with a todo list (TodoWrite tool); mark each item complete immediately after it passes
+- Work through them **one item at a time**: code → smoke → deploy → confirm → next step. Never batch steps into a single deploy.
+- Track progress with a todo list (TodoWrite tool); mark each item complete immediately after deploy confirms.
 - If the user gives a new task during a build, add it to the list (or adjust the existing item) rather than interrupting the current step
 - For each task, pick the most cost-effective model:
   - **Haiku** — simple edits, HTML/CSS tweaks, one-line fixes, renaming, copy changes
   - **Sonnet** — standard feature work, bug fixes, API endpoints, React components
   - **Opus** — complex architectural decisions, multi-file refactors, planner engine logic, security review
+
+## Response style & token budget
+Keep all responses short. The user reads results, not reasoning.
+
+- **During a build**: one line per action (e.g. "Smoke passed. Deploying…"). No reasoning narration.
+- **After deploy**: one confirmation line + the live URL. No recap of what changed — the commit message covers that.
+- **No preambles**: never describe what you are *about to do*. Just do it.
+- **No summaries**: do not restate completed steps at the end of a response.
+- **Tool output**: do not quote file contents back after reading or editing.
+- **Errors only**: only explain reasoning when something fails or a decision needs user input.
+- **Code comments**: only where logic is non-obvious. No docstrings, no type annotation prose.
 
 ## Before starting any task
 - Read `CLAUDE.md` fully if it has been updated since last read
