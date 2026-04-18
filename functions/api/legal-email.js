@@ -114,7 +114,7 @@ function getPrivacyEmail() {
 
 function getTermsEmail() {
   const body = [
-    section('Version 1.1 — Effective 1 April 2025', 'By creating an account you agree to these Terms. Your account creation timestamp is our record of acceptance.'),
+    section('Version 1.1 — Effective 1 April 2025', 'Acceptance is recorded explicitly with the accepted Terms/Privacy version and timestamp. If versions change, users are prompted to accept again before continuing.'),
     section('1. Acceptance', 'By accessing or using JustFit.cc you confirm you have read, understood, and agree to be bound by these Terms and the Privacy Policy. These Terms form a binding legal agreement.'),
     section('2. Service Description', 'JustFit provides a rule-based fitness planning tool for general wellness purposes only. It is not a medical service, personal training service, rehabilitation service, or healthcare provider.'),
     section('3. Eligibility', 'You must be at least 16 years old. Pregnancy and postnatal features require that you have obtained appropriate medical clearance before use.'),
