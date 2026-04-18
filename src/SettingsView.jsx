@@ -29,12 +29,12 @@ const C = {
   emeraldBorder: "var(--accent-border)",
   text: "#f8fafc",
   muted: "#64748b",
-  amber: C.amber,
-  amberDim: C.amberDim,
-  amberBorder: C.amberBorder,
-  rose: C.rose,
-  roseDim: C.roseDim,
-  roseBorder: C.roseBorder,
+  amber: '#f59e0b',
+  amberDim: 'rgba(245,158,11,0.08)',
+  amberBorder: 'rgba(245,158,11,0.3)',
+  rose: '#f43f5e',
+  roseDim: 'rgba(244,63,94,0.08)',
+  roseBorder: 'rgba(244,63,94,0.3)',
   subtle: "#334155",
 };
 
