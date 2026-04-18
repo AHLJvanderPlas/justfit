@@ -403,7 +403,6 @@ async function advanceRunCoach(userId, steps, env, nowMs) {
   if (daysSinceLastRun > 7 && week > 1) {
     week = Math.max(1, week - 1);
     sessionInWeek = 0; // restart the regressed week fresh
-    console.log(`[run-coach] Regressed to week ${week} after ${daysSinceLastRun}-day break`);
   }
 
   // Advance: this completed session counts as next session in current week
@@ -464,7 +463,6 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
   if (daysSinceLastRide > 10 && week > 1) {
     week = Math.max(1, week - 1);
     sessionInWeek = 0;
-    console.log(`[cycling-coach] Regressed to week ${week} after ${daysSinceLastRide}-day break`);
   }
 
   sessionInWeek = sessionInWeek + 1;
