@@ -309,7 +309,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProgressionRefresh }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -445,6 +445,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding }) {
         const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch };
         onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
         await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
+        onProgressionRefresh?.();
       }
       clearPlanCache();
       setFocusSaveStatus("saved");

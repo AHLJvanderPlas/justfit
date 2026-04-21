@@ -5695,7 +5695,18 @@ export default function App() {
             )}
             {view === "settings" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <SettingsView prefs={prefs} onUpdate={setPrefs} userId={userId} token={token} onRedoOnboarding={() => setShowOnboarding(true)} />
+                <SettingsView
+                  prefs={prefs}
+                  onUpdate={setPrefs}
+                  userId={userId}
+                  token={token}
+                  onRedoOnboarding={() => setShowOnboarding(true)}
+                  onProgressionRefresh={() =>
+                    api.getProgression(token)
+                      .then((data) => { if (data?.ok) setProgression(data); })
+                      .catch(() => {})
+                  }
+                />
               </Suspense>
             )}
           </>
