@@ -182,7 +182,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0030+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0031+`; never reuse a number.
 
 ---
 
@@ -901,7 +901,7 @@ Calculated server-side from executions table:
 | Feature | Status |
 |---|---|
 | D1 schema + migrations | ✅ Live (0002–0024) |
-| Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises (squat, lunge, mountain climber, bicycle crunch, flutter kicks, scissor jump, hand-release push-up, plyometric push-up, back squat, front squat, clean pull, high pull, counter movement jump, single-leg deadlift, weighted march, 12-min Cooper test) |
+| Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
@@ -944,6 +944,7 @@ Calculated server-side from executions table:
 | Safe running build-up (Option A) | ✅ Live — R555 rule replaces generic long-run exercises with level-appropriate run/walk intervals when running_shoes in equipment; 6 levels driven by conditioning.endurance score (migration 0015); walk recovery encoded as custom_rest_sec so rest timer = walk; fixed_sets prescribes interval count; automatic decay from skipped sessions reduces level safely |
 | Running Coach Program (Option B) | ✅ Live — R556 rule; structured 5/10/15/20/30km targets (unlocked sequentially); 3 sessions/week Mon/Wed/Fri; warm-up exercises prepended on run days; session named "Running Day · Week N"; run_coach state in preferences_json; advanceRunCoach in execution.js advances week/session counters; 15 continuous run levels 7–21 (20min–180min) + 4 warm-up exercises in migration 0016; enrollment UI in Settings |
 | API security hardening | ✅ Done — JWT HMAC-SHA256 verification inlined in all endpoints (profile.js, progression.js, plan.js, checkin.js, execution.js, score.js, cycle.js); IDOR fallbacks removed (all user-bound endpoints return 401 without valid JWT); execution DELETE verifies ownership before deleting steps; daily_checkins UNIQUE(user_id, date) index + atomic ON CONFLICT upsert (migration 0018); dead gesture handler state/code removed from WorkoutView |
+| Military Coach (4th trainer, Basic tier) | ✅ Live — Keuring (K1–K6) + Opleiding (O1–O7) tracks; 6-week MIL_SCHEDULE; R570–R582 planner rules (session routing, Cooper test, march weight cap R577, deload/taper/calibration flags); Military tile + badge on Dashboard; Cooper test post-session modal captures distance_m → K1–K6 benchmark; military 'military' tag on 15 exercises (migration 0030); military goal target profile on hexagon; wizard in Settings (4th Focus tab); Basic tier (no isProEnabled gate) |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
@@ -963,7 +964,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Resolved: duplicate `0019_*` renamed to `0027_taxonomy_fix.sql`; next number is `0028+` | Low | Enforce unique monotonic migration numbering; add pre-merge checklist item to verify no duplicate prefixes |
+| Operational drift (migration numbering/version hygiene) | Resolved: duplicate `0019_*` renamed to `0027_taxonomy_fix.sql`; next number is `0031+` | Low | Enforce unique monotonic migration numbering; add pre-merge checklist item to verify no duplicate prefixes |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 ## Known Bugs to Fix
@@ -1073,5 +1074,5 @@ Four checks to enforce before merging any PR that touches the relevant area. Eac
 
 - **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0028+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0031+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.
