@@ -2455,6 +2455,11 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       🚴 {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
                     </span>
                   )}
+                  {prefs?.preferences?.military_coach?.active && plan?.military_program && (
+                    <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(99,102,241,0.15)", color: "#818cf8", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                      🪖 {plan.military_program.session_type === 'cooper_test' ? 'Cooper Test' : plan.military_program.session_type ?? 'Military'} · W{plan.military_program.week}
+                    </span>
+                  )}
                   <div
                     style={{
                       display: "flex",
@@ -2708,6 +2713,45 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
       {(() => {
         const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
         const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
+        const milActive = !!(prefs.preferences?.military_coach?.active);
+        if (milActive) {
+          const mil = prefs.preferences.military_coach;
+          const track = mil.track ?? 'keuring';
+          const cluster = mil.cluster_target ?? 1;
+          const week = mil.week ?? 1;
+          const mp = plan?.military_program;
+          const sessionLabel = mp?.session_type ? {
+            cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run',
+            interval: 'Interval Run', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest',
+          }[mp.session_type] ?? mp.session_type : null;
+          const isCalibration = mp?.is_calibration_week;
+          const isDeload = mp?.is_deload_week;
+          const isTaper = mp?.is_taper_week;
+          const trackLabel = track === 'keuring' ? 'Keuring' : 'Opleiding';
+          const clusterCode = `${track === 'keuring' ? 'K' : 'O'}${cluster}`;
+          return (
+            <Glass style={{ padding: "14px 20px", marginBottom: 16 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(99,102,241,0.15)", border: "1px solid rgba(99,102,241,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 20 }}>🪖</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{trackLabel} · {clusterCode} · Week {week}</div>
+                  {sessionLabel && (
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionLabel}{mp?.march_kg ? ` · ${mp.march_kg} kg march` : ""}</div>
+                  )}
+                </div>
+                {(isCalibration || isDeload || isTaper) && (
+                  <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
+                    background: isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.15)",
+                    color: isCalibration ? "#f59e0b" : isDeload ? C.emerald : "#818cf8",
+                  }}>
+                    {isCalibration ? "Calibration" : isDeload ? "Deload" : "Taper"}
+                  </span>
+                )}
+              </div>
+            </Glass>
+          );
+        }
         if (rcActive) {
           const rc = prefs.preferences.run_coach;
           const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
@@ -5081,6 +5125,11 @@ export default function App() {
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
+  // Cooper test modal (shown after military cooper_test session completes)
+  const [showCooperModal, setShowCooperModal] = useState(false);
+  const [cooperPending, setCooperPending] = useState(null); // { durationSec, perceivedExertion, stepsActual }
+  const [cooperDistance, setCooperDistance] = useState("");
+
   // Terms acceptance gate (shown to existing users who haven't accepted current policy version)
   const [needsTermsGate, setNeedsTermsGate] = useState(false);
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -5386,6 +5435,15 @@ export default function App() {
 
   const handleComplete = useCallback(
     async (durationSec, perceivedExertion, stepsActual) => {
+      // Cooper test: pause and ask for distance before saving
+      if (plan?.military_program?.session_type === 'cooper_test') {
+        setCooperPending({ durationSec, perceivedExertion, stepsActual });
+        setCooperDistance("");
+        setShowCooperModal(true);
+        setInWorkout(false);
+        setView("today");
+        return;
+      }
       try {
         const mergedSteps = (stepsActual ?? plan?.steps ?? []);
         await api.saveExecution(
@@ -5416,6 +5474,34 @@ export default function App() {
       setView("today");
     },
     [userId, plan, today, score],
+  );
+
+  const handleCooperSubmit = useCallback(
+    async (distanceM) => {
+      if (!cooperPending) return;
+      const { durationSec, perceivedExertion, stepsActual } = cooperPending;
+      // Inject cooper_distance_m into the first step's actual_json
+      const enriched = (stepsActual ?? plan?.steps ?? []).map((s, i) =>
+        i === 0 ? { ...s, actual: { ...(s.actual ?? {}), cooper_distance_m: distanceM } } : s
+      );
+      setShowCooperModal(false);
+      setCooperPending(null);
+      try {
+        await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion);
+        const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]);
+        setPrevScore(score);
+        setScore(newScore);
+        setHistory(newHistory);
+        setTodayCompleted(true);
+        localStorage.setItem(`jf_completed_${today}`, "1");
+        const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
+        setCompletedSession(sessionInfo);
+        localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
+      } catch (e) {
+        console.error("Failed to save Cooper execution:", e);
+      }
+    },
+    [cooperPending, userId, plan, today, score],
   );
 
   const handleBonusComplete = useCallback(
@@ -5879,6 +5965,49 @@ export default function App() {
           onRestDay={handleRestDay}
           onClose={() => setShowWhyNot(false)}
         />
+      )}
+
+      {showCooperModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div style={{ background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
+            <div style={{ fontSize: 28, marginBottom: 8 }}>🏃</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>Cooper Test Complete</div>
+            <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>How far did you run in 12 minutes? Enter your distance in meters.</div>
+            <input
+              type="number"
+              inputMode="numeric"
+              placeholder="e.g. 2400"
+              value={cooperDistance}
+              onChange={e => setCooperDistance(e.target.value)}
+              style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 22, fontWeight: 900, textAlign: "center", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+            />
+            <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 20 }}>
+              {(() => {
+                const d = parseInt(cooperDistance, 10);
+                if (!d || d < 500) return "Enter your distance to see your benchmark";
+                if (d < 1800) return "Below K1 benchmark — great starting point";
+                if (d < 2000) return "K1 level (< 2000 m)";
+                if (d < 2200) return "K2 level (2000–2199 m)";
+                if (d < 2400) return "K3 level (2200–2399 m)";
+                if (d < 2600) return "K4 level (2400–2599 m)";
+                if (d < 2800) return "K5 level (2600–2799 m)";
+                return "K6 level (≥ 2800 m) — excellent!";
+              })()}
+            </div>
+            <button
+              onClick={() => handleCooperSubmit(parseInt(cooperDistance, 10) || 0)}
+              style={{ width: "100%", padding: "16px", borderRadius: 16, background: C.emerald, border: "none", color: "#020617", fontSize: 15, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}
+            >
+              Save Result
+            </button>
+            <button
+              onClick={() => handleCooperSubmit(0)}
+              style={{ width: "100%", padding: "12px", borderRadius: 16, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+            >
+              Skip — record without distance
+            </button>
+          </div>
+        </div>
       )}
 
       {activityToast && (
