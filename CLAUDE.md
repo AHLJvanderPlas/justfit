@@ -182,7 +182,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0028+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0030+`; never reuse a number.
 
 ---
 
@@ -901,7 +901,7 @@ Calculated server-side from executions table:
 | Feature | Status |
 |---|---|
 | D1 schema + migrations | ✅ Live (0002–0024) |
-| Exercise library (290 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020); taxonomy fixed in 0019 |
+| Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises (squat, lunge, mountain climber, bicycle crunch, flutter kicks, scissor jump, hand-release push-up, plyometric push-up, back squat, front squat, clean pull, high pull, counter movement jump, single-leg deadlift, weighted march, 12-min Cooper test) |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |

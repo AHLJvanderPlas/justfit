@@ -1,0 +1,181 @@
+-- 0029_military_exercises.sql
+-- 18 new exercises for military preparation programme (and general library gap-fill)
+--
+-- GAP-FILL (exercises referenced in existing alternatives but not defined):
+--   push-up, squat, lunge, plank, mountain-climber, bicycle-crunch,
+--   flutter-kicks, scissor-jump
+--
+-- MILITARY / PERFORMANCE (for Defensie prep programme):
+--   hand-release-push-up, plyometric-push-up, back-squat, front-squat,
+--   clean-pull, high-pull, counter-movement-jump, single-leg-deadlift,
+--   weighted-march, 12-minute-cooper-test
+
+INSERT OR IGNORE INTO exercises (id, slug, name, category, primary_muscles_json, tags_json, equipment_required_json, instructions_json, metrics_json, alternatives_json, is_active, created_at_ms, updated_at_ms) VALUES
+
+-- ── GAP-FILL: FOUNDATIONAL EXERCISES ──────────────────────────────────────────
+
+('ex_pushup','push-up','Push-Up','strength',
+ '["chest","triceps","anterior_deltoid","core"]',
+ '["bodyweight","floor","high_impact","push"]',
+ '["none"]',
+ '{"steps":["Start face-down, hands shoulder-width apart, arms straight","Body forms a straight line from head to heels — squeeze your core and glutes","Lower your chest to the floor, elbows at roughly 45° from your sides","Push back up to full arm extension"],"cues":["Keep your hips from sagging or piking","Breathe in on the way down, out on the way up","💡 Too hard? Try incline push-up. Too easy? Try diamond or plyometric push-up"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["incline-push-up","knee-push-up","wall-push-up"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_squat','squat','Squat','strength',
+ '["quads","hamstrings","glutes"]',
+ '["bodyweight","no_floor","high_impact"]',
+ '["none"]',
+ '{"steps":["Stand with feet shoulder-width apart, toes turned out slightly","Push your hips back and bend your knees, lowering until thighs are parallel to the floor","Keep your chest up and knees tracking over your toes throughout","Drive through your heels to stand back up"],"cues":["Weight stays on mid-foot to heel — don''t let heels rise","Knees stay in line with your second toe","💡 Beginner: squat to a chair height. Advanced: add a pause at the bottom"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["jump-squat","sumo-squat","supported-wall-squat"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_lunge','lunge','Lunge','strength',
+ '["quads","hamstrings","glutes"]',
+ '["bodyweight","no_floor","high_impact","unilateral","loads_knee"]',
+ '["none"]',
+ '{"steps":["Stand with feet together, hands on hips or at sides","Step one foot forward roughly 60–70 cm, planting it flat","Lower your back knee toward the floor, front thigh nearly parallel","Push through your front heel to step back to the start position","Alternate legs each rep"],"cues":["Keep your torso upright — don''t lean forward","Front knee stays above your ankle, not over your toes","💡 For balance difficulty: hold onto a wall. To progress: add load or go walking lunge"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["reverse-lunge","walking-lunge","lateral-lunge"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_plank','plank','Plank','strength',
+ '["core","transverse_abdominis","anterior_deltoid","glutes"]',
+ '["bodyweight","floor","low_impact","core"]',
+ '["none"]',
+ '{"steps":["Lie face-down, then prop yourself up on your forearms — elbows directly under shoulders","Lift your hips so your body forms a straight line from head to heels","Squeeze your core, glutes, and quads throughout","Hold the position, breathing normally"],"cues":["Don''t let your hips sag or pike — think of a rigid plank of wood","Gaze at the floor just ahead of your hands","💡 Beginner: drop to modified (knees). Advanced: lift one leg or add shoulder taps"]}',
+ '{"supports":["time","sets"]}',
+ '{"substitutions":["modified-plank","side-plank","dead-bug"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_mountain_climber','mountain-climber','Mountain Climber','mixed',
+ '["core","hip_flexors","anterior_deltoid","quads"]',
+ '["bodyweight","floor","high_impact","cardio","core","loads_shoulder"]',
+ '["none"]',
+ '{"steps":["Start in a high plank position — hands under shoulders, body straight","Drive your right knee toward your chest, then quickly switch — right leg back, left knee forward","Alternate legs in a running motion, keeping your hips level","Keep a steady rhythm throughout"],"cues":["Hips stay flat — don''t bounce them up with each drive","The faster the pace, the more cardiovascular the demand","💡 Slow = core strength focus. Fast = conditioning. Start slow to nail the form"]}',
+ '{"supports":["reps","sets","time"]}',
+ '{"substitutions":["plank","dead-bug","bird-dog"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_bicycle_crunch','bicycle-crunch','Bicycle Crunch','strength',
+ '["obliques","rectus_abdominis","hip_flexors"]',
+ '["bodyweight","floor","low_impact","core"]',
+ '["none"]',
+ '{"steps":["Lie on your back, hands loosely behind your head, elbows wide","Lift your shoulders off the floor and bring both knees to a 90° tabletop","Extend your right leg while rotating your right shoulder toward your left knee","Switch sides in a controlled cycling motion"],"cues":["Rotate from the ribs — don''t pull your neck with your hands","Keep both shoulders lifted throughout the movement","💡 Quality over speed — slow reps build more rotational strength"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["dead-bug","standing-bicycle","v-up"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_flutter_kicks','flutter-kicks','Flutter Kicks','strength',
+ '["hip_flexors","rectus_abdominis","lower_abs"]',
+ '["bodyweight","floor","low_impact","core"]',
+ '["none"]',
+ '{"steps":["Lie on your back, hands palms-down under your lower back for support","Lift both legs to roughly 30–45° off the floor — legs straight","Alternately kick one leg up and the other down in small, rapid movements","Maintain continuous motion throughout the set"],"cues":["Lower back stays pressed into your hands — don''t arch","Keep your head and shoulders relaxed on the floor","💡 Raise the legs higher to make it easier; lower to make it harder"]}',
+ '{"supports":["time","sets"]}',
+ '{"substitutions":["dead-bug","heel-slides","hollow-body-hold"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_scissor_jump','scissor-jump','Scissor Jump','strength',
+ '["quads","hamstrings","glutes","calves"]',
+ '["bodyweight","floor","high_impact","plyometric","loads_knee"]',
+ '["none"]',
+ '{"steps":["Start in a lunge position — right foot forward, left foot back, both knees bent","Drive through both feet to jump explosively off the floor","While airborne, switch your feet so your left foot lands forward","Absorb the landing by bending both knees, immediately drop into the lunge and repeat"],"cues":["Soft landing — heel-to-toe, knees tracking over toes","Arms swing opposite to your legs for balance","💡 Impact is high — reduce height if your joints protest. Beginner: do slow alternating lunges"]}',
+ '{"supports":["time","sets","reps"]}',
+ '{"substitutions":["lunge","reverse-lunge","jump-squat"]}',
+ 1,1767830400000,1767830400000),
+
+-- ── MILITARY / PERFORMANCE EXERCISES ──────────────────────────────────────────
+
+('ex_hand_release_pushup','hand-release-push-up','Hand Release Push-Up','strength',
+ '["chest","triceps","anterior_deltoid","core","upper_back"]',
+ '["bodyweight","floor","high_impact","push","military"]',
+ '["none"]',
+ '{"steps":["Lower yourself fully to the floor in a push-up — chest and thighs touching the ground","Lift both hands briefly off the floor, keeping elbows slightly tucked","Replace your hands and press explosively back up to full arm extension","Reset and repeat — each rep starts with a full stop at the floor"],"cues":["The ground contact forces a full range of motion — no half-reps","Squeeze shoulder blades together when you lift your hands","💡 This is the standard Dutch military fitness test push-up — form counts"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["push-up","incline-push-up","knee-push-up"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_plyometric_pushup','plyometric-push-up','Plyometric Push-Up','strength',
+ '["chest","triceps","anterior_deltoid","core"]',
+ '["bodyweight","floor","high_impact","push","plyometric","loads_shoulder"]',
+ '["none"]',
+ '{"steps":["Start in a standard push-up position — hands shoulder-width, body straight","Lower your chest to the floor with control","Drive up explosively so your hands leave the floor briefly at the top","Land with soft elbows and immediately lower into the next rep"],"cues":["Generate power from your chest — don''t push with wrists only","Land as softly as possible to protect your wrists and elbows","💡 Builds explosive upper body power — foundational for military fitness"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["push-up","hand-release-push-up","incline-push-up"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_back_squat','back-squat','Back Squat','strength',
+ '["quads","hamstrings","glutes","erector_spinae"]',
+ '["bodyweight","no_floor","high_impact","loads_knee","loads_lower_back"]',
+ '["none"]',
+ '{"steps":["Stand with feet shoulder-width apart; for a loaded version rest the bar across your upper traps","Push your hips back and descend, keeping your chest upright and core braced","Lower until your thighs are at least parallel to the floor","Drive through your full foot — heels and mid-foot — to stand"],"cues":["Knees track outward over your second toe throughout","Brace your core before every rep like you''re about to be punched in the stomach","💡 Bodyweight first: master the pattern before adding load. Heels rising = tight ankles — elevate slightly"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["squat","dumbbell-goblet-squat","front-squat"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_front_squat','front-squat','Front Squat','strength',
+ '["quads","glutes","core","upper_back"]',
+ '["bodyweight","no_floor","high_impact"]',
+ '["none"]',
+ '{"steps":["Stand with feet shoulder-width; hold your arms crossed in front of your chest (or in clean-rack position if using a bar)","Keeping your elbows high and torso upright, push your hips back and squat","Descend until thighs are parallel — the front-loaded position demands a more upright torso than a back squat","Drive through your heels to stand, maintaining elbow height throughout"],"cues":["Elbows dropping = weight falls forward and form breaks. Practise with a light dumbbell held at your chest","More quad-dominant than back squat — great for military preparation","💡 If your wrists ache in rack position, use the crossed-arm variation"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["back-squat","squat","dumbbell-goblet-squat"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_clean_pull','clean-pull','Clean Pull','strength',
+ '["hamstrings","glutes","traps","upper_back","lats"]',
+ '["strength","no_floor","high_impact","olympic"]',
+ '["none"]',
+ '{"steps":["Start standing, feet hip-width; hinge at the hips with a flat back to reach your hands to mid-shin height","Drive through your legs and extend your hips explosively — think of jumping straight up","As your hips fully extend, shrug your shoulders aggressively and pull your elbows high and wide","The bar (or your hands) rises to upper-chest height; lower under control and reset"],"cues":["Power comes from the legs and hips — the arms guide, not pull","Keep the bar (or hands) close to your body throughout","💡 This is the first pull of a clean — it builds the explosive hip extension needed for military physical tests"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["high-pull","dumbbell-upright-row","kettlebell-swing"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_high_pull','high-pull','High Pull','strength',
+ '["traps","deltoids","biceps","upper_back","hamstrings"]',
+ '["strength","no_floor","high_impact"]',
+ '["none"]',
+ '{"steps":["Stand with feet hip-width, holding a dumbbell or barbell with an overhand grip at thigh height","Initiate with a slight knee bend, then drive hips forward and shrug your shoulders hard","As momentum carries the weight up, pull your elbows high and wide — bar reaches chin height","Lower under control back to thigh height and repeat"],"cues":["This is a power movement — drive from the lower body, don''t muscle it up with your arms","Elbows stay above wrists throughout the pull","💡 Simpler than a clean pull — great entry point to Olympic-style lifting"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["clean-pull","dumbbell-upright-row","dumbbell-shrug"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_counter_movement_jump','counter-movement-jump','Counter Movement Jump','strength',
+ '["quads","hamstrings","glutes","calves"]',
+ '["bodyweight","no_floor","high_impact","plyometric","assessment","loads_knee","loads_ankle"]',
+ '["none"]',
+ '{"steps":["Stand upright, feet shoulder-width, arms at your sides","Quickly dip into a quarter-squat while swinging your arms back","Immediately reverse — drive your arms up and extend your hips, knees, and ankles fully to jump as high as possible","Land softly, absorbing through ankles, knees, and hips","Reset fully before the next rep"],"cues":["The dip-and-drive is what makes this a counter-movement — use that elastic energy","Reach for the ceiling with your arms — it helps you jump higher","💡 Used in military and elite sports fitness testing. Focus on maximal height per jump, not speed"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["jump-squat","tuck-jump","broad-jump"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_single_leg_deadlift','single-leg-deadlift','Single-Leg Deadlift','strength',
+ '["hamstrings","glutes","core"]',
+ '["bodyweight","no_floor","balance","unilateral"]',
+ '["none"]',
+ '{"steps":["Stand on your right foot, slight bend in the knee, left foot just off the floor","Hinge forward at the hip, sending your left leg straight back as a counterbalance — your body forms a T","Reach your hands toward the floor (or hold a dumbbell in your right hand)","Squeeze your right glute to drive back to standing; complete all reps on one side before switching"],"cues":["Move as one unit — your torso and back leg travel together like a seesaw","Keep your hips square to the floor — don''t let the floating hip open out","💡 Wobbling is normal at first. Find a fixed spot to stare at for balance"]}',
+ '{"supports":["reps","sets"]}',
+ '{"substitutions":["dumbbell-single-leg-romanian-deadlift","bird-dog","good-morning"]}',
+ 1,1767830400000,1767830400000),
+
+-- ── MILITARY-SPECIFIC ──────────────────────────────────────────────────────────
+
+('ex_mil_weighted_march','weighted-march','Weighted March','cardio',
+ '["quads","hamstrings","glutes","calves","core","upper_back"]',
+ '["cardio","outdoor","military","weighted","low_impact","loads_lower_back"]',
+ '["none"]',
+ '{"steps":["Load your rucksack or vest to the prescribed weight; adjust straps so the pack sits high and snug","Set your pace: 5.5 km/h (military standard) or 6 km/h (advanced)","March with upright posture — chest up, shoulders back, core braced throughout","Swing your arms naturally; short, quick steps are more efficient than long strides","Monitor your pace with a GPS watch or app; stay within ±0.3 km/h of target speed"],"cues":["The load accumulates — what feels easy at minute 5 feels heavy at minute 20","Heel-to-toe foot strike at march pace — don''t shuffle","💡 Beginner (0 kg): focus on pace and posture. Progress: +5–10 kg every 2 weeks","💡 Intermediate (25 kg): standard Defensie preparation load","💡 Advanced (35–45 kg): matches Cluster 4–6 Opleiding targets"]}',
+ '{"supports":["time","sets"]}',
+ '{"substitutions":["brisk-walking","treadmill-run"]}',
+ 1,1767830400000,1767830400000),
+
+('ex_mil_cooper_test','12-minute-cooper-test','12-Minute Cooper Test','cardio',
+ '["cardiovascular","quads","hamstrings","calves"]',
+ '["cardio","outdoor","assessment","military","running"]',
+ '["none"]',
+ '{"steps":["Warm up for 5–10 minutes at an easy jog (Zone 1)","Start a 12-minute timer on a measured track or GPS route","Run as far as possible in 12 minutes — pace yourself so you don''t blow up in the first 3 minutes","Record the total distance covered when the timer ends","Cool down with 5 minutes easy walking"],"cues":["Even pacing beats going out fast and dying — aim for a pace you can hold for 10 minutes before pushing the final 2","Your distance maps to your VO2max and fitness cluster: < 2000m = below baseline, 2400–2800m = Cluster 1–3, > 2800m = Cluster 4–6","💡 Use this as a benchmark every 4–6 weeks to measure progress — not as a training session in itself"],"pregnancy_note":"Not appropriate during pregnancy. Consult your healthcare provider for modified cardiovascular assessment."}',
+ '{"supports":["time"],"base_duration_sec":720}',
+ '{"substitutions":["zone-2-easy-run","running-intervals-outdoor"]}',
+ 1,1767830400000,1767830400000);
