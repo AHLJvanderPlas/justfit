@@ -413,9 +413,19 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
   // Training Focus — single selection: one of 6 general goals, or a sport coach
-  const runCoachActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
+  const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
-  const [focusSel, setFocusSel] = useState(() => runCoachActive ? "running" : cycleCoachActive ? "cycling" : (prefs.training_goal ?? "health"));
+  const milCoachActive   = !!(prefs.preferences?.military_coach?.active);
+  const [focusSel, setFocusSel] = useState(() =>
+    runCoachActive ? "running" : cycleCoachActive ? "cycling" : milCoachActive ? "military" : (prefs.training_goal ?? "health")
+  );
+  // Military Coach wizard state
+  const [milTrack,        setMilTrack]        = useState(() => prefs.preferences?.military_coach?.track ?? 'keuring');
+  const [milCluster,      setMilCluster]      = useState(() => prefs.preferences?.military_coach?.cluster_target ?? 3);
+  const [milMode,         setMilMode]         = useState(() => prefs.preferences?.military_coach?.mode ?? 'target');
+  const [milTargetDate,   setMilTargetDate]   = useState(() => prefs.preferences?.military_coach?.target_date ?? '');
+  const [milPackWeight,   setMilPackWeight]   = useState(() => String(prefs.preferences?.military_coach?.pack_weight_max_kg ?? 0));
+  const [milHasBoots,     setMilHasBoots]     = useState(() => !!(prefs.preferences?.military_coach?.has_trail_shoes));
   const [localExpLevel, setLocalExpLevel] = useState(prefs.experience_level ?? "beginner");
   const [focusSaveStatus, setFocusSaveStatus] = useState("");
   const handleFocusTap = (val) => { setFocusSel(val); };
@@ -439,10 +449,25 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
+      } else if (focusSel === "military") {
+        const newMil = {
+          active: true, track: milTrack, cluster_target: milCluster, cluster_current: milCluster,
+          mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
+          week: 1, day: 1, session_in_week: 0,
+          calibration_done: false, calibration_curve: 'standard',
+          pack_weight_kg: 0, pack_weight_max_kg: parseInt(milPackWeight) || 0,
+          has_trail_shoes: milHasBoots, enrolled_at_ms: Date.now(),
+        };
+        const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
+        const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil };
+        onUpdate((p) => ({ ...p, training_goal: 'military', preferences: newPrefs }));
+        await api.saveProfile(token, { training_goal: 'military', preferences: newPrefs });
       } else {
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch };
+        const milPatch = prefs.preferences?.military_coach ? { military_coach: { ...(prefs.preferences.military_coach), active: false } } : {};
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, ...milPatch };
         onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
         await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
         onProgressionRefresh?.();
@@ -702,46 +727,48 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           Training Focus
         </div>
         <Glass style={{ padding: 24 }}>
-          {/* 3-mode selector */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+          {/* 4-mode selector */}
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
             {[
-              { id: "general", label: "General Training", disabled: false },
-              { id: "running", label: "Run Coach", disabled: !planEquipment.includes("running_shoes") },
-              { id: "cycling", label: "Cycle Coach", disabled: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) },
+              { id: "general",  label: "General",  sub: null },
+              { id: "running",  label: "Run",       sub: !planEquipment.includes("running_shoes") ? "Add shoes" : null },
+              { id: "cycling",  label: "Cycle",     sub: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) ? "Add bike" : null },
+              { id: "military", label: "Military",  sub: null },
             ].map(opt => {
+              const disabled = !!opt.sub;
               const sel = opt.id === "general"
-                ? !["running","cycling"].includes(focusSel)
+                ? !["running","cycling","military"].includes(focusSel)
                 : focusSel === opt.id;
               return (
                 <button
                   key={opt.id}
                   onClick={() => {
-                    if (opt.disabled) return;
+                    if (disabled) return;
                     if (opt.id === "general") {
-                      // Switch back to whichever general goal was saved, deactivate coaches
-                      const goal = prefs.training_goal ?? "health";
+                      const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
+                        ? "health" : (prefs.training_goal ?? "health");
                       handleFocusTap(goal);
                     } else {
                       handleFocusTap(opt.id);
                     }
                   }}
                   style={{
-                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: opt.disabled ? "not-allowed" : "pointer",
+                    flex: "1 1 auto", padding: "10px 6px", borderRadius: 14, cursor: disabled ? "not-allowed" : "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
                     background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                    opacity: opt.disabled ? 0.35 : 1,
+                    opacity: disabled ? 0.35 : 1, minWidth: 60,
                   }}
                 >
                   <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{opt.label}</span>
-                  {opt.disabled && <span style={{ fontSize: 9, color: C.subtle }}>Add equipment first</span>}
+                  {opt.sub && <span style={{ fontSize: 9, color: C.subtle }}>{opt.sub}</span>}
                 </button>
               );
             })}
           </div>
 
           {/* ── General Training sub-section ── */}
-          {!["running","cycling"].includes(focusSel) && (
+          {!["running","cycling","military"].includes(focusSel) && (
             <div>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Your goal</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16 }}>
@@ -910,6 +937,137 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
             );
           })()}
 
+          {/* ── Military Coach sub-section ── */}
+          {focusSel === "military" && (() => {
+            const mc = prefs.preferences?.military_coach ?? null;
+            const isActive = !!(mc?.active);
+            const KEURING_CLUSTERS  = [
+              { v: 1, label: "K1", desc: "Entry level service" },
+              { v: 2, label: "K2", desc: "Standard service" },
+              { v: 3, label: "K3", desc: "Infantry / most roles" },
+              { v: 4, label: "K4", desc: "Above average" },
+              { v: 5, label: "K5", desc: "High performance" },
+              { v: 6, label: "K6", desc: "Special forces baseline" },
+            ];
+            const OPLEIDING_CLUSTERS = [
+              { v: 1, label: "O1", desc: "Opleiding entry" },
+              { v: 2, label: "O2", desc: "Standard training" },
+              { v: 3, label: "O3", desc: "Infantry training" },
+              { v: 4, label: "O4", desc: "Above average" },
+              { v: 5, label: "O5", desc: "High performance" },
+              { v: 6, label: "O6", desc: "Advanced training" },
+              { v: 7, label: "O7", desc: "Elite training" },
+            ];
+            const clusters = milTrack === 'keuring' ? KEURING_CLUSTERS : OPLEIDING_CLUSTERS;
+            return (
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Military Coach Program</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+                  {isActive
+                    ? `${mc.track === 'keuring' ? 'Keuring' : 'Opleiding'} · Cluster ${mc.cluster_target} · Week ${mc.week ?? 1} of 6`
+                    : "Dutch Defensie prep — structured 6-week programme toward your target cluster."}
+                </div>
+                {!isActive && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                    {/* Track */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Track</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[{v:'keuring',label:'Keuring',sub:'Fitness assessment prep'},{v:'opleiding',label:'Opleiding',sub:'Training programme prep'}].map(t => (
+                          <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(t.v === 'keuring' ? 3 : 3); }}
+                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`, background: milTrack === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: milTrack === t.v ? C.emerald : C.text }}>{t.label}</span>
+                            <span style={{ fontSize: 10, color: C.muted }}>{t.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Cluster */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Target cluster</div>
+                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                        {clusters.map(c => (
+                          <button key={c.v} onClick={() => setMilCluster(c.v)}
+                            title={c.desc}
+                            style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
+                            {c.label}
+                          </button>
+                        ))}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 5 }}>{clusters.find(c => c.v === milCluster)?.desc ?? ""}</div>
+                    </div>
+                    {/* Mode */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Mode</div>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        {[{v:'target',label:'Target date',sub:'Assessment on a set date'},{v:'open',label:'Open progression',sub:'No fixed end date'}].map(m => (
+                          <button key={m.v} onClick={() => setMilMode(m.v)}
+                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milMode === m.v ? C.emeraldBorder : C.border}`, background: milMode === m.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: milMode === m.v ? C.emerald : C.text }}>{m.label}</span>
+                            <span style={{ fontSize: 10, color: C.muted }}>{m.sub}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    {/* Assessment date — only for target mode */}
+                    {milMode === 'target' && (
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Assessment date</div>
+                        <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
+                          min={new Date(Date.now() + 21 * 86400000).toISOString().slice(0,10)}
+                          style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                        {milTargetDate && (() => {
+                          const weeks = Math.floor((new Date(milTargetDate) - Date.now()) / (7 * 86400000));
+                          const ramp = weeks >= 10 ? "Spread programme — great ramp-up time" : weeks >= 6 ? "Standard 6-week programme" : weeks >= 4 ? "Short ramp — injury caution shown" : "Too short — minimum 4 weeks needed";
+                          const col = weeks < 4 ? C.rose : weeks < 6 ? C.amber : C.emerald;
+                          return <div style={{ fontSize: 11, color: col, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · {ramp}</div>;
+                        })()}
+                      </div>
+                    )}
+                    {/* Equipment */}
+                    <div>
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Pack weight available (kg)</div>
+                      <input type="number" min={0} max={50} value={milPackWeight} onChange={e => setMilPackWeight(e.target.value)}
+                        placeholder="0 = bodyweight only"
+                        style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Backpack or weighted vest. 0 = bodyweight march sessions only.</div>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <button onClick={() => setMilHasBoots(v => !v)}
+                        style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${milHasBoots ? C.emeraldBorder : C.border}`, background: milHasBoots ? C.emeraldDim : "rgba(255,255,255,0.03)", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                        {milHasBoots && <span style={{ color: C.emerald, fontSize: 12, fontWeight: 900 }}>✓</span>}
+                      </button>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>I have hiking boots or trail shoes</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions with load — not required.</div>
+                      </div>
+                    </div>
+                    {milMode === 'target' && milTargetDate && (() => {
+                      const weeks = Math.floor((new Date(milTargetDate) - Date.now()) / (7 * 86400000));
+                      if (weeks < 4) return (
+                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderLeft: "2px solid #f43f5e" }}>
+                          <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.rose, marginBottom: 3 }}>Too short</div>
+                          <span style={{ fontSize: 11, color: "#fda4af", fontWeight: 600 }}>Minimum 4 weeks needed for safe preparation. Choose a later date.</span>
+                        </div>
+                      );
+                      return null;
+                    })()}
+                  </div>
+                )}
+                {isActive && (
+                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                    <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>
+                      Week {mc.week ?? 1} of 6 · {mc.track === 'keuring' ? 'Keuring' : 'Opleiding'} {mc.cluster_target}
+                    </div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                      {mc.calibration_done === false ? "Week 1 — calibration week" : mc.mode === 'target' && mc.target_date ? `Assessment: ${mc.target_date}` : "Open progression mode"}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
           {/* ── Single save / activate button ── */}
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
             <button
@@ -927,6 +1085,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                focusSaveStatus === "saving" ? "Saving…" :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
+               focusSel === "military" ? `Activate · Military Coach · ${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}` :
                `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
             </button>
           </div>

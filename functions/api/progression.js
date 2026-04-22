@@ -49,6 +49,11 @@ const GOAL_TARGET_PROFILES = {
     targets: { push: 40, pull: 40, legs: 45, core: 55, conditioning: 35, mobility: 85 },
     description: 'Mobility and flexibility as the primary training focus.',
   },
+  military: {
+    chartMode: 'balanced',
+    targets: { push: 70, pull: 60, legs: 75, core: 70, conditioning: 80, mobility: 40 },
+    description: 'Military prep: conditioning and legs-heavy, with strong push and core.',
+  },
 };
 
 // Axis display labels

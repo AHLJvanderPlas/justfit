@@ -384,6 +384,7 @@ const PROG_GOAL_TARGETS = {
   muscle_gain: { push: 75, pull: 75, legs: 75, core: 65, conditioning: 40, mobility: 35 },
   endurance:   { push: 45, pull: 45, legs: 65, core: 60, conditioning: 85, mobility: 50 },
   mobility:    { push: 40, pull: 40, legs: 45, core: 55, conditioning: 35, mobility: 85 },
+  military:    { push: 70, pull: 60, legs: 75, core: 70, conditioning: 80, mobility: 40 },
 };
 
 // ---------------------------------------------------------------------------
@@ -497,6 +498,7 @@ const GOAL_CATEGORY = {
   health:       'strength',
   mobility:     'mobility',
   mixed:        'strength',
+  military:     'strength',
 };
 
 // ---------------------------------------------------------------------------
@@ -510,12 +512,14 @@ const GOAL_INTENSITY = {
   health:       'moderate', // comfortable, sustainable
   mobility:     'low',      // relaxed, range-of-motion focus
   mixed:        'moderate',
+  military:     'high',     // military prep demands high effort
 };
 
 // ---------------------------------------------------------------------------
 // Goal → base sets for a normal main session
 // ---------------------------------------------------------------------------
 const GOAL_SETS_BASE = {
+  military:     3, // endurance-rep range: quality over max load
   fat_loss:     3, // circuit — many exercises, moderate sets
   muscle_gain:  4, // hypertrophy range
   endurance:    2, // fewer sets, time-based cardio blocks
@@ -536,6 +540,7 @@ const GOAL_REST_MULT = {
   health:       1.00,
   mobility:     0.80, // brief pause between stretches
   mixed:        1.00,
+  military:     1.00, // moderate rest — maintains conditioning demand
 };
 
 // ---------------------------------------------------------------------------
@@ -549,6 +554,7 @@ const GOAL_REPS = {
   health:      12, // general fitness — 8–15 range
   mobility:    10, // hold/controlled — range less critical
   mixed:       10, // balanced default
+  military:    15, // muscular endurance — matches military test rep standards
 };
 
 // ---------------------------------------------------------------------------
@@ -562,6 +568,7 @@ const GOAL_COACHING_NOTE = {
   health:      "Moderate weight — challenging but controlled. You should feel the effort without struggling with form.",
   mobility:    "Minimal load. Focus on full range of motion, not resistance.",
   mixed:       "Moderate effort. Last 2–3 reps should require focus. Adjust weight if it feels too easy.",
+  military:    "Bodyweight quality over added load. Military fitness is about endurance of movement, not max strength. Last reps should be clean, not grinding.",
 };
 
 // ---------------------------------------------------------------------------
@@ -575,6 +582,7 @@ const GOAL_COUNT_MOD = {
   health:       0,
   mobility:     0,
   mixed:        0,
+  military:     1,  // circuit-style variety for military conditioning
 };
 
 // ---------------------------------------------------------------------------
@@ -588,6 +596,7 @@ const GOAL_SESSION_NAMES = {
   mobility:    ['Mobility Flow', 'Flexibility Session', 'Movement Practice', 'Stretch & Recover'],
   health:      ['Daily Training', 'Health Session', 'Full Body', 'Balanced Session'],
   mixed:       ['Full Body Circuit', 'Mixed Training', 'Variety Session', 'All-Round Work'],
+  military:    ['Military Training', 'Soldier Prep', 'Combat Fitness', 'Military Conditioning'],
 };
 
 // ---------------------------------------------------------------------------
@@ -671,6 +680,117 @@ const RUN_PROGRAMS = {
   ],
 };
 const RUN_WARMUP_TAG = 'run_warmup';
+
+// ---------------------------------------------------------------------------
+// Military Coach constants (R570–R582)
+// ---------------------------------------------------------------------------
+
+// Map (track, cluster) → program group key
+function getMilitaryGroup(track, cluster) {
+  if (track === 'opleiding') {
+    if (cluster <= 3) return 'opleiding_low';
+    if (cluster <= 5) return 'opleiding_mid';
+    return 'opleiding_high';
+  }
+  // keuring
+  if (cluster <= 2) return 'keuring_low';
+  if (cluster <= 4) return 'keuring_mid';
+  return 'keuring_high';
+}
+
+// Per-group 6-week session schedule [week][day] → session type
+// Improved periodization: on-ramp W1, build W2-3, peak W4, deload W5, taper W6
+// Session types: cooper_test | kracht | duurloop | interval | kracht_marsen | circuit | rust
+const MIL_SCHEDULE = {
+  keuring_low: [
+    ['cooper_test','kracht','duurloop','kracht','rust'],         // W1 calibration
+    ['duurloop','kracht','interval','kracht','rust'],             // W2 build1
+    ['kracht','duurloop','interval','kracht','rust'],             // W3 build2
+    ['interval','kracht','duurloop','kracht_marsen','rust'],     // W4 peak
+    ['duurloop','kracht','rust','rust','rust'],                   // W5 deload
+    ['cooper_test','kracht','duurloop','rust','rust'],            // W6 taper
+  ],
+  keuring_mid: [
+    ['cooper_test','kracht','duurloop','kracht','rust'],
+    ['duurloop','kracht','interval','kracht_marsen','rust'],
+    ['interval','kracht','duurloop','kracht','rust'],
+    ['interval','kracht','interval','kracht_marsen','rust'],
+    ['duurloop','kracht','rust','rust','rust'],
+    ['cooper_test','kracht','duurloop','rust','rust'],
+  ],
+  keuring_high: [
+    ['cooper_test','kracht','interval','kracht_marsen','rust'],
+    ['interval','kracht','duurloop','kracht_marsen','rust'],
+    ['interval','kracht','interval','circuit','rust'],
+    ['interval','kracht','duurloop','kracht_marsen','circuit'],
+    ['duurloop','kracht','rust','rust','rust'],
+    ['cooper_test','circuit','duurloop','rust','rust'],
+  ],
+  opleiding_low: [
+    ['cooper_test','kracht','duurloop','kracht','rust'],
+    ['duurloop','kracht','interval','kracht','rust'],
+    ['kracht','duurloop','interval','kracht','rust'],
+    ['interval','kracht','duurloop','kracht_marsen','rust'],
+    ['duurloop','kracht','rust','rust','rust'],
+    ['cooper_test','kracht','duurloop','rust','rust'],
+  ],
+  opleiding_mid: [
+    ['cooper_test','kracht','duurloop','kracht_marsen','rust'],
+    ['duurloop','kracht','interval','kracht_marsen','rust'],
+    ['kracht','interval','duurloop','kracht_marsen','rust'],
+    ['interval','kracht','interval','kracht_marsen','rust'],
+    ['duurloop','kracht','rust','rust','rust'],
+    ['cooper_test','kracht','duurloop','rust','rust'],
+  ],
+  opleiding_high: [
+    ['cooper_test','kracht','duurloop','kracht_marsen','rust'],
+    ['circuit','kracht','interval','kracht_marsen','rust'],
+    ['interval','kracht','interval','kracht_marsen','circuit'],
+    ['interval','kracht','circuit','kracht_marsen','interval'],
+    ['duurloop','kracht','rust','rust','rust'],
+    ['cooper_test','circuit','duurloop','rust','rust'],
+  ],
+};
+
+// Volume multipliers per week (index = week - 1)
+// W1 on-ramp, W2-3 build, W4 peak, W5 deload, W6 taper
+const MIL_WEEK_VOLUME = [0.70, 0.85, 1.00, 1.15, 0.55, 0.60];
+
+// Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
+// R577 caps actual increase at +5 kg from last week's weight
+const MIL_MARCH_KG = {
+  keuring_low:    [ 0,  0,  5, 10,  0,  0],
+  keuring_mid:    [ 0,  5, 10, 15,  0,  0],
+  keuring_high:   [ 5, 10, 15, 20,  0, 10],
+  opleiding_low:  [ 0,  0,  5, 10,  0,  0],
+  opleiding_mid:  [ 0,  5, 10, 20,  0,  0],
+  opleiding_high: [ 0, 10, 15, 25,  0, 10],
+};
+
+// Prescribed march duration (seconds) per group per week
+const MIL_MARCH_SEC = {
+  keuring_low:    [   0,    0,  900, 1200,    0,    0],
+  keuring_mid:    [   0,  900, 1200, 1500,    0,    0],
+  keuring_high:   [ 900, 1200, 1500, 1800,    0,  900],
+  opleiding_low:  [   0,    0,  900, 1200,    0,    0],
+  opleiding_mid:  [   0,  900, 1200, 1800,    0,    0],
+  opleiding_high: [   0, 1200, 1800, 2400,    0, 1200],
+};
+
+// Peak run levels per group: { zone2: continuous level, hiit: interval level }
+// zone2 maps to run-continuous-level-N (7+), hiit maps to run-interval-level-N (1-6)
+const MIL_CLUSTER_RUN_PEAK = {
+  keuring_low:    { zone2:  9, hiit: 3 },
+  keuring_mid:    { zone2: 12, hiit: 5 },
+  keuring_high:   { zone2: 15, hiit: 6 },
+  opleiding_low:  { zone2:  9, hiit: 3 },
+  opleiding_mid:  { zone2: 12, hiit: 5 },
+  opleiding_high: { zone2: 16, hiit: 6 },
+};
+
+// Week offset applied to peak run level (index = week - 1)
+// Negative = easier level than peak; 0 = at peak
+const MIL_RUN_WEEK_OFFSET = [-3, -2, -1, 0, -3, -1];
 
 // ---------------------------------------------------------------------------
 // Template selector
@@ -1538,6 +1658,136 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
+  // ==================================================================
+  // MILITARY COACH RULES (R570–R582)
+  // Active when military_coach.active is set in preferences.
+  // Not gated on isPro — available at Basic tier.
+  // Does NOT fire in pregnancy (special mode) or on rest/micro days.
+  // ==================================================================
+  let militaryProgramOverride = null; // type, steps/warmUps/runEx, week, sessionType
+  let militarySessionType = null;     // raw session type string, passed to return object
+  let militaryMarchKg  = 0;
+  let militaryMarchSec = 0;
+
+  const milCoach = prefs?.preferences?.military_coach;
+  const militaryActive = !!(milCoach?.active) && !inSpecialMode
+    && slot_type !== 'rest' && slot_type !== 'micro';
+
+  if (militaryActive) {
+    const milWeek  = Math.max(1, Math.min(milCoach.week  ?? 1, 6));
+    const milDay   = Math.max(1, Math.min(milCoach.day   ?? 1, 5));
+    const milGroup = getMilitaryGroup(milCoach.track ?? 'keuring', milCoach.cluster_target ?? 1);
+    const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
+    const sessionType = schedule[milWeek - 1]?.[milDay - 1] ?? 'rust';
+    militarySessionType = sessionType;
+
+    // R578 — Volume multiplier from week position (on-ramp/build/peak/deload/taper)
+    const milVol = MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0;
+    volumeMultiplier = Math.min(volumeMultiplier, milVol);
+    trace.push(`R570 — Military Coach: ${milGroup} W${milWeek}D${milDay} → ${sessionType} (vol ×${milVol})`);
+
+    if (sessionType === 'rust') {
+      // R570 — Military rest day
+      slot_type = 'rest';
+      trace.push('R570 — Military scheduled rest day');
+
+    } else if (sessionType === 'cooper_test') {
+      // R576 — Cooper test milestone session (W1 baseline, W4 mid, W6 taper)
+      const cooperEx = exercises.find(ex => ex.slug === '12-minute-cooper-test');
+      const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      if (cooperEx) {
+        const milWeekLabel = milWeek === 1 ? 'baseline' : milWeek === 4 ? 'mid-point check' : 'assessment simulation';
+        militaryProgramOverride = {
+          type: 'cooper_test',
+          warmUps,
+          cooperEx,
+          week: milWeek,
+          sessionType: 'Cooper Test',
+          label: milWeekLabel,
+        };
+        trace.push(`R576 — Military Cooper test (${milWeekLabel})`);
+      }
+
+    } else if (sessionType === 'duurloop') {
+      // R571 — Zone 2 run: delegate to progressive continuous run levels
+      const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
+      const offset     = MIL_RUN_WEEK_OFFSET[milWeek - 1] ?? 0;
+      const targetLvl  = Math.max(7, peakLevels.zone2 + offset);
+      const sessionDurSec = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60;
+      const availRunSec   = Math.max(600, sessionDurSec - 4 * 45); // warmup overhead
+      let effectiveLvl = 7;
+      for (let lvl = 7; lvl <= targetLvl; lvl++) {
+        const ex = exercises.find(e => e.slug === `run-continuous-level-${lvl}`);
+        if (ex) {
+          const m = JSON.parse(ex.metrics_json || '{}');
+          if ((m.base_duration_sec ?? 0) <= availRunSec) effectiveLvl = lvl;
+        }
+      }
+      const runEx   = exercises.find(ex => ex.slug === `run-continuous-level-${effectiveLvl}`);
+      const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      if (runEx && warmUps.length) {
+        militaryProgramOverride = { type: 'duurloop', warmUps, runEx, week: milWeek, sessionType: 'Zone 2 Run' };
+        trace.push(`R571 — Military duurloop: run-continuous-level-${effectiveLvl} (target ${targetLvl})`);
+      }
+
+    } else if (sessionType === 'interval') {
+      // R572 — HIIT run intervals
+      const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
+      const offset     = MIL_RUN_WEEK_OFFSET[milWeek - 1] ?? 0;
+      const targetLvl  = Math.max(1, Math.min(6, peakLevels.hiit + (offset < 0 ? offset : 0)));
+      const runEx   = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
+      const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      if (runEx && warmUps.length) {
+        militaryProgramOverride = { type: 'interval', warmUps, runEx, week: milWeek, sessionType: 'Intervals' };
+        trace.push(`R572 — Military intervals: run-interval-level-${targetLvl}`);
+      }
+
+    } else {
+      // R573–R575 — Strength / march / circuit: filter to military exercise pool
+      const milPool = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
+      if (milPool.length >= 3) {
+        pool = milPool;
+        trace.push(`R573 — Military pool: ${milPool.length} military-tagged exercises`);
+      } else {
+        trace.push(`R573 — Military pool too small (${milPool.length}), using full pool`);
+      }
+
+      if (sessionType === 'circuit') {
+        // R575 — Circuit: prefer time-capable exercises for continuous effort
+        const circuitPool = pool.filter(ex => {
+          const m = JSON.parse(ex.metrics_json || '{}');
+          return m.supports?.includes('time') || m.supports?.includes('reps');
+        });
+        if (circuitPool.length >= 3) pool = circuitPool;
+        trace.push(`R575 — Military circuit: ${pool.length} exercises in time/reps pool`);
+      }
+
+      if (sessionType === 'kracht_marsen') {
+        // R574 — Kracht+Marsen: compute march parameters, march step added after steps are built
+        const prescribedKg  = MIL_MARCH_KG[milGroup]?.[milWeek - 1] ?? 0;
+        const prescribedSec = MIL_MARCH_SEC[milGroup]?.[milWeek - 1] ?? 0;
+
+        // R577 — March weight guardrail: max +5 kg/week from last stored weight
+        const lastKg     = milCoach.pack_weight_kg ?? 0;
+        const safeKg     = Math.min(prescribedKg, lastKg + 5);
+        // Injury cap: lower_back → 15 kg max, knee → 0 (substitute)
+        const injuryCap  = injuryAreas.includes('lower_back') ? 15
+          : injuryAreas.includes('knee') ? 0 : 999;
+        militaryMarchKg  = Math.min(safeKg, injuryCap, milCoach.pack_weight_max_kg ?? 999);
+        militaryMarchSec = prescribedSec;
+
+        if (injuryAreas.includes('knee') && prescribedSec > 0) {
+          // R577 — Knee injury: replace march with walking lunge
+          trace.push('R577 — Knee injury: weighted march replaced with walking lunge');
+          const lungeEx = exercises.find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
+          if (lungeEx) pool = [lungeEx, ...pool.filter(ex => ex.id !== lungeEx.id)];
+        } else if (prescribedSec > 0) {
+          trace.push(`R574 — March: ${militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg, safe +5 kg/wk → ${safeKg} kg)`);
+        }
+      }
+    }
+  }
+
   // ------------------------------------------------------------------
   // Determine target category from goal + rules
   // ------------------------------------------------------------------
@@ -1682,10 +1932,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       trace.push(`R501 — Exercise count: ${baseCount} base + ${goalMod} goal + ${expMod} experience = ${count}`);
     }
   }
+  const milIsRunSession = militaryProgramOverride?.type === 'duurloop' || militaryProgramOverride?.type === 'interval';
+  const milIsCooperTest = militaryProgramOverride?.type === 'cooper_test';
+
   const selection = runProgramOverride
     ? [...runProgramOverride.warmUps, runProgramOverride.runEx]
     : cyclingProgramOverride
     ? [] // cycling uses synthetic step, no DB exercises needed
+    : milIsCooperTest
+    ? [...(militaryProgramOverride.warmUps ?? []), militaryProgramOverride.cooperEx]
+    : milIsRunSession
+    ? [...militaryProgramOverride.warmUps, militaryProgramOverride.runEx]
     : shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
@@ -1777,6 +2034,35 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       coaching_note: coachingNote,
     };
   });
+
+  // ------------------------------------------------------------------
+  // R574 — Military kracht+marsen: append weighted march step at end
+  // ------------------------------------------------------------------
+  if (militarySessionType === 'kracht_marsen' && militaryMarchSec > 0 && slot_type !== 'rest') {
+    const marchEx = exercises.find(ex => ex.slug === 'weighted-march');
+    if (marchEx) {
+      const kgLabel = militaryMarchKg > 0 ? `${militaryMarchKg} kg` : 'bodyweight';
+      const media   = marchEx.media_json ? JSON.parse(marchEx.media_json) : {};
+      steps.push({
+        exercise_id:          marchEx.id,
+        exercise_slug:        marchEx.slug,
+        name:                 marchEx.name,
+        category:             marchEx.category,
+        tags_json:            marchEx.tags_json ?? '[]',
+        equipment_required_json: marchEx.equipment_required_json ?? '["none"]',
+        target_reps:          undefined,
+        target_duration_sec:  militaryMarchSec,
+        sets:                 1,
+        rest_sec:             120,
+        instructions_json:    marchEx.instructions_json ?? null,
+        alternatives_json:    marchEx.alternatives_json ?? null,
+        gif_url:              media.gif_url ?? null,
+        coaching_note:        `March at 5.5 km/h with ${kgLabel}. Maintain upright posture throughout.`,
+        military_march_kg:    militaryMarchKg, // UI uses this to show pack weight
+      });
+      trace.push(`R574 — March step added: ${kgLabel} × ${militaryMarchSec / 60} min`);
+    }
+  }
 
   // ------------------------------------------------------------------
   // R524 — Weight-adjusted volume (bodyweight exercises only)
@@ -1887,6 +2173,18 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (postnatalPhase === 'immediate' || postnatalPhase === 'early') session_name = 'A gentle moment';
     else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
     else session_name = 'Today\'s recovery';
+  } else if (militaryProgramOverride?.type === 'cooper_test') {
+    session_name = `Cooper Test · Week ${militaryProgramOverride.week} · ${militaryProgramOverride.label ?? 'Assessment'}`;
+  } else if (militaryProgramOverride?.type === 'duurloop') {
+    session_name = `Military · Zone 2 Run · Week ${militaryProgramOverride.week}`;
+  } else if (militaryProgramOverride?.type === 'interval') {
+    session_name = `Military · Intervals · Week ${militaryProgramOverride.week}`;
+  } else if (militarySessionType === 'kracht_marsen') {
+    session_name = `Military · Strength & March · Week ${milCoach?.week ?? 1}`;
+  } else if (militarySessionType === 'circuit') {
+    session_name = `Military · Circuit · Week ${milCoach?.week ?? 1}`;
+  } else if (militarySessionType === 'kracht' && militaryActive) {
+    session_name = `Military · Strength · Week ${milCoach?.week ?? 1}`;
   } else if (runProgramOverride) {
     session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
   } else if (cyclingProgramOverride) {
@@ -1940,5 +2238,18 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     cycling_program: cyclingProgramOverride
       ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
       : null,
+    military_program: militaryActive ? {
+      week:          milCoach.week ?? 1,
+      day:           milCoach.day  ?? 1,
+      session_type:  militarySessionType,
+      track:         milCoach.track ?? 'keuring',
+      cluster:       milCoach.cluster_target ?? 1,
+      group:         getMilitaryGroup(milCoach.track ?? 'keuring', milCoach.cluster_target ?? 1),
+      march_kg:      militaryMarchKg  || null,
+      march_sec:     militaryMarchSec || null,
+      is_calibration_week: (milCoach.week ?? 1) === 1 && !(milCoach.calibration_done),
+      is_deload_week:      (milCoach.week ?? 1) === 5,
+      is_taper_week:       (milCoach.week ?? 1) === 6,
+    } : null,
   };
 }
