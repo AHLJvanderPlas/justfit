@@ -1678,13 +1678,16 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // Six weeks map to program phases; week is re-derived every day from the calendar,
     // so no session counter is needed — the program advances automatically with time.
     let milWeek;
-    const assessmentDate = milCoach.target_date; // YYYY-MM-DD or null
-    if (assessmentDate && milCoach.mode !== 'open') {
-      // Days remaining until assessment (inclusive of assessment day)
-      const todayMs       = new Date(date + 'T00:00:00Z').getTime();
-      const assessMs      = new Date(assessmentDate + 'T00:00:00Z').getTime();
+    const assessmentDate = milCoach.target_date; // YYYY-MM-DD or null (cleared after rollover)
+    const todayMs        = new Date(date + 'T00:00:00Z').getTime();
+    const assessMs       = assessmentDate ? new Date(assessmentDate + 'T00:00:00Z').getTime() : null;
+    // Post-assessment: target_date is in the past (execution.js will flip mode→open on next save,
+    // but plan.js also handles it transparently in case prefs haven't been written yet today)
+    const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
+
+    if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
+      // Target mode: days remaining → phase
       const daysRemaining = Math.ceil((assessMs - todayMs) / 86_400_000);
-      // Map to phase: ≥36d→W1, 29-35→W2, 22-28→W3, 15-21→W4, 8-14→W5, ≤7→W6
       if      (daysRemaining >= 36) milWeek = 1;
       else if (daysRemaining >= 29) milWeek = 2;
       else if (daysRemaining >= 22) milWeek = 3;
@@ -1692,9 +1695,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       else if (daysRemaining >= 8)  milWeek = 5;
       else                          milWeek = 6; // taper / assessment week
     } else {
-      // Open mode or no assessment date: rolling 6-week cycle from enrollment
-      const enrolledMs   = milCoach.enrolled_at_ms ?? Date.now();
-      const todayMs      = new Date(date + 'T00:00:00Z').getTime();
+      // Open mode, no date, or post-assessment: rolling 6-week cycle.
+      // Post-assessment uses enrolled_at_ms reset to assessment day by execution.js,
+      // so the cycle restarts cleanly from the day after assessment.
+      const enrolledMs   = milCoach.enrolled_at_ms ?? todayMs;
       const weeksElapsed = Math.floor((todayMs - enrolledMs) / (7 * 86_400_000));
       milWeek = (weeksElapsed % 6) + 1;
     }
@@ -1709,7 +1713,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       milDay = jsDay; // Mon=1 … Fri=5
     }
 
-    const milGroup = getMilitaryGroup(milCoach.track ?? 'keuring', milCoach.cluster_target ?? 1);
+    // Use cluster_current for group selection — this is the RPE-adjusted live level.
+    // cluster_target is preserved as the original assessment benchmark and never changes.
+    const milClusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
+    const milGroup = getMilitaryGroup(milCoach.track ?? 'keuring', milClusterLive);
     const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
     const sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
     militarySessionType = sessionType;
@@ -2274,11 +2281,12 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     military_program: militaryActive ? (() => {
       // Re-derive milWeek/milDay here for return object (vars are block-scoped above)
       let retWeek;
-      const retAssessDate = milCoach.target_date;
-      if (retAssessDate && milCoach.mode !== 'open') {
-        const tMs = new Date(date + 'T00:00:00Z').getTime();
-        const aMs = new Date(retAssessDate + 'T00:00:00Z').getTime();
-        const dr  = Math.ceil((aMs - tMs) / 86_400_000);
+      const retAssessDate     = milCoach.target_date;
+      const retTodayMs        = new Date(date + 'T00:00:00Z').getTime();
+      const retAssessMs       = retAssessDate ? new Date(retAssessDate + 'T00:00:00Z').getTime() : null;
+      const retIsPostAssess   = retAssessMs !== null && retTodayMs > retAssessMs && milCoach.mode !== 'open';
+      if (retAssessDate && milCoach.mode !== 'open' && !retIsPostAssess) {
+        const dr = Math.ceil((retAssessMs - retTodayMs) / 86_400_000);
         if      (dr >= 36) retWeek = 1;
         else if (dr >= 29) retWeek = 2;
         else if (dr >= 22) retWeek = 3;
@@ -2286,25 +2294,27 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         else if (dr >= 8)  retWeek = 5;
         else               retWeek = 6;
       } else {
-        const eMs = milCoach.enrolled_at_ms ?? Date.now();
-        const tMs = new Date(date + 'T00:00:00Z').getTime();
-        retWeek   = (Math.floor((tMs - eMs) / (7 * 86_400_000)) % 6) + 1;
+        const eMs = milCoach.enrolled_at_ms ?? retTodayMs;
+        retWeek   = (Math.floor((retTodayMs - eMs) / (7 * 86_400_000)) % 6) + 1;
       }
       retWeek = Math.max(1, Math.min(retWeek, 6));
+      const retClusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
       const retDay = (() => { const d = new Date(date + 'T00:00:00Z').getUTCDay(); return (d === 0 || d === 6) ? null : d; })();
       return {
-        week:          retWeek,
-        day:           retDay,
-        session_type:  militarySessionType,
-        track:         milCoach.track ?? 'keuring',
-        cluster:       milCoach.cluster_target ?? 1,
-        group:         getMilitaryGroup(milCoach.track ?? 'keuring', milCoach.cluster_target ?? 1),
-        march_kg:      militaryMarchKg  || null,
-        march_sec:     militaryMarchSec || null,
-        target_date: retAssessDate ?? null,
-        is_calibration_week: retWeek === 1,
-        is_deload_week:      retWeek === 5,
-        is_taper_week:       retWeek === 6,
+        week:                  retWeek,
+        day:                   retDay,
+        session_type:          militarySessionType,
+        track:                 milCoach.track ?? 'keuring',
+        cluster_target:        milCoach.cluster_target ?? 1,
+        cluster_current:       retClusterLive,
+        group:                 getMilitaryGroup(milCoach.track ?? 'keuring', retClusterLive),
+        march_kg:              militaryMarchKg  || null,
+        march_sec:             militaryMarchSec || null,
+        target_date:           retAssessDate ?? null,
+        is_calibration_week:   retWeek === 1,
+        is_deload_week:        retWeek === 5,
+        is_taper_week:         retWeek === 6,
+        is_post_assessment:    retIsPostAssess || milCoach.mode === 'open',
         last_cooper_distance_m: milCoach.last_cooper_distance_m ?? null,
       };
     })() : null,

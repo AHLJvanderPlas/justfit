@@ -2754,19 +2754,32 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         const milActive = !!(prefs.preferences?.military_coach?.active);
         if (milActive) {
           const mil = prefs.preferences.military_coach;
-          const track = mil.track ?? 'keuring';
-          const cluster = mil.cluster_target ?? 1;
-          const week = mil.week ?? 1;
-          const mp = plan?.military_program;
+          const track    = mil.track ?? 'keuring';
+          const pfx      = track === 'keuring' ? 'K' : 'O';
+          const mp       = plan?.military_program;
+          // Use cluster_current from plan (RPE-adjusted) if available, fall back to prefs
+          const clusterTarget  = mil.cluster_target ?? 1;
+          const clusterCurrent = mp?.cluster_current ?? mil.cluster_current ?? clusterTarget;
           const sessionLabel = mp?.session_type ? {
             cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run',
             interval: 'Interval Run', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest',
           }[mp.session_type] ?? mp.session_type : null;
-          const isCalibration = mp?.is_calibration_week;
-          const isDeload = mp?.is_deload_week;
-          const isTaper = mp?.is_taper_week;
-          const trackLabel = track === 'keuring' ? 'Keuring' : 'Opleiding';
-          const clusterCode = `${track === 'keuring' ? 'K' : 'O'}${cluster}`;
+          const isCalibration   = mp?.is_calibration_week;
+          const isDeload        = mp?.is_deload_week;
+          const isTaper         = mp?.is_taper_week;
+          const isPostAssess    = mp?.is_post_assessment;
+          const trackLabel      = track === 'keuring' ? 'Keuring' : 'Opleiding';
+          const overperforming  = clusterCurrent > clusterTarget;
+          // Last Cooper benchmark
+          const lastCooper = mp?.last_cooper_distance_m ?? mil.last_cooper_distance_m ?? null;
+          const cooperBenchmark = lastCooper ? (
+            lastCooper < 1800 ? `${lastCooper}m · Below K1` :
+            lastCooper < 2000 ? `${lastCooper}m · K1` :
+            lastCooper < 2200 ? `${lastCooper}m · K2` :
+            lastCooper < 2400 ? `${lastCooper}m · K3` :
+            lastCooper < 2600 ? `${lastCooper}m · K4` :
+            lastCooper < 2800 ? `${lastCooper}m · K5` : `${lastCooper}m · K6`
+          ) : null;
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -2775,17 +2788,23 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach</div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{trackLabel} · {clusterCode} · Week {week}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
+                    {trackLabel} · {pfx}{clusterCurrent}
+                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>↑ {pfx}{clusterTarget} target</span>}
+                  </div>
                   {sessionLabel && (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionLabel}{mp?.march_kg ? ` · ${mp.march_kg} kg march` : ""}</div>
                   )}
+                  {cooperBenchmark && (
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Cooper: {cooperBenchmark}</div>
+                  )}
                 </div>
-                {(isCalibration || isDeload || isTaper) && (
+                {(isPostAssess || isCalibration || isDeload || isTaper) && (
                   <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
-                    background: isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(99,102,241,0.15)",
-                    color: isCalibration ? "#f59e0b" : isDeload ? C.emerald : "#818cf8",
+                    background: isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
+                    color: isPostAssess ? C.emerald : isCalibration ? "#f59e0b" : isDeload ? C.emerald : "var(--accent)",
                   }}>
-                    {isCalibration ? "Calibration" : isDeload ? "Deload" : "Taper"}
+                    {isPostAssess ? "Open" : isCalibration ? "On-ramp" : isDeload ? "Deload" : "Taper"}
                   </span>
                 )}
               </div>

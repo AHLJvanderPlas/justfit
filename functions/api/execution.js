@@ -285,9 +285,9 @@ export async function onRequestPost({ request, env }) {
       console.error('Cycling coach advance failed (non-fatal):', err.message);
     }
 
-    // ── 4c. Military coach — persist Cooper test result ───────────────────────
+    // ── 4c. Military coach — Cooper result + RPE-based cluster drift ─────────
     try {
-      await advanceMilitaryCoach(user_id, steps, env, now);
+      await advanceMilitaryCoach(user_id, steps, perceived_exertion, env, now);
     } catch (err) {
       console.error('Military coach update failed (non-fatal):', err.message);
     }
@@ -488,24 +488,24 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
   ).bind(JSON.stringify({ ...prefs, cycling_coach: updatedCc }), nowMs, userId).run();
 }
 
-// ─── Military coach — Cooper test result persistence ─────────────────────────
-// Week/day are derived from the calendar in plan.js (no counter needed).
-// This function only persists Cooper test distances so the planner and dashboard
-// can surface last_cooper_distance_m for benchmark display and calibration hints.
+// ─── Military coach — post-session update ────────────────────────────────────
+// Handles three things after every military session:
+//   1. Cooper test result → persists last_cooper_distance_m
+//   2. RPE-based cluster drift — cluster_current silently adjusts up/down based
+//      on consecutive easy (RPE=3) or hard (RPE=8) sessions; this lets users
+//      exceed their assessment target naturally without any explicit prompt
+//   3. Post-assessment rollover — when target_date has passed, mode flips to
+//      'open' so training continues seamlessly on the rolling phase cycle
+//
+// Cluster drift rules:
+//   - 3 consecutive easy sessions  → cluster_current + 1 (no ceiling other than track max)
+//   - 2 consecutive hard sessions  → cluster_current - 1 (floor = 1)
+//   - Any other RPE → resets streak counters
+//   - cluster_current is used by plan.js for group selection; cluster_target is
+//     preserved forever as the original assessment benchmark
 
-async function advanceMilitaryCoach(userId, steps, env, nowMs) {
-  if (!userId || !steps?.length) return;
-
-  // Look for a Cooper test step with a recorded distance
-  let cooperDistanceM = null;
-  for (const s of steps) {
-    const actual = typeof s.actual === 'string' ? JSON.parse(s.actual) : (s.actual ?? {});
-    if (actual.cooper_distance_m != null && actual.cooper_distance_m > 0) {
-      cooperDistanceM = actual.cooper_distance_m;
-      break;
-    }
-  }
-  if (cooperDistanceM === null) return; // nothing to update
+async function advanceMilitaryCoach(userId, steps, perceivedExertion, env, nowMs) {
+  if (!userId) return;
 
   const prefsRow = await env.DB.prepare(
     `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
@@ -516,11 +516,61 @@ async function advanceMilitaryCoach(userId, steps, env, nowMs) {
   const mil   = prefs.military_coach;
   if (!mil?.active) return;
 
-  const updated = {
-    ...mil,
-    last_cooper_distance_m:    cooperDistanceM,
-    last_cooper_at_ms:         nowMs,
-  };
+  let updated = { ...mil };
+
+  // ── 1. Cooper test result ─────────────────────────────────────────────────
+  if (steps?.length) {
+    for (const s of steps) {
+      const actual = typeof s.actual === 'string' ? JSON.parse(s.actual) : (s.actual ?? {});
+      if (actual.cooper_distance_m != null && actual.cooper_distance_m > 0) {
+        updated.last_cooper_distance_m = actual.cooper_distance_m;
+        updated.last_cooper_at_ms      = nowMs;
+        break;
+      }
+    }
+  }
+
+  // ── 2. RPE-based cluster drift ────────────────────────────────────────────
+  const trackMax       = (mil.track ?? 'keuring') === 'keuring' ? 6 : 7;
+  let clusterCurrent   = mil.cluster_current ?? mil.cluster_target ?? 1;
+  let easyStreak       = mil.rpe_easy_streak  ?? 0;
+  let hardStreak       = mil.rpe_hard_streak  ?? 0;
+
+  if (perceivedExertion === 3) {        // too easy
+    easyStreak += 1;
+    hardStreak  = 0;
+    if (easyStreak >= 3) {
+      clusterCurrent = Math.min(clusterCurrent + 1, trackMax);
+      easyStreak = 0;
+    }
+  } else if (perceivedExertion === 8) { // too hard
+    hardStreak += 1;
+    easyStreak  = 0;
+    if (hardStreak >= 2) {
+      clusterCurrent = Math.max(clusterCurrent - 1, 1);
+      hardStreak = 0;
+    }
+  } else {
+    easyStreak = 0;
+    hardStreak = 0;
+  }
+
+  updated.cluster_current = clusterCurrent;
+  updated.rpe_easy_streak = easyStreak;
+  updated.rpe_hard_streak = hardStreak;
+
+  // ── 3. Post-assessment rollover ───────────────────────────────────────────
+  if (mil.mode === 'target' && mil.target_date) {
+    const assessMs = new Date(mil.target_date + 'T00:00:00Z').getTime();
+    if (nowMs >= assessMs) {
+      // Assessment day has arrived — roll to open mode silently.
+      // enrolled_at_ms is reset to today so open phase cycle starts fresh.
+      updated.mode           = 'open';
+      updated.target_date    = null;
+      updated.enrolled_at_ms = nowMs;
+    }
+  }
+
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, military_coach: updated }), nowMs, userId).run();
