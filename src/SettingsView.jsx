@@ -81,6 +81,7 @@ const EXPERIENCE = [
 
 const ALL_EQUIPMENT = [
   { value: "running_shoes",      label: "Running shoes" },
+  { value: "trail_shoes",        label: "Trail shoes / hiking boots" },
   { value: "yoga_mat",           label: "Yoga mat" },
   { value: "dumbbell",           label: "Dumbbells" },
   { value: "resistance_bands",   label: "Resistance bands" },
@@ -470,7 +471,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   const [milMode,         setMilMode]         = useState(() => prefs.preferences?.military_coach?.mode ?? 'target');
   const [milTargetDate,   setMilTargetDate]   = useState(() => prefs.preferences?.military_coach?.target_date ?? '');
   const [milPackWeight,   setMilPackWeight]   = useState(() => String(prefs.preferences?.military_coach?.pack_weight_max_kg ?? 0));
-  const [milHasBoots,     setMilHasBoots]     = useState(() => !!(prefs.preferences?.military_coach?.has_trail_shoes));
+  // has_trail_shoes is now derived from planEquipment.includes("trail_shoes") — no separate state needed
   const [localExpLevel, setLocalExpLevel] = useState(prefs.experience_level ?? "beginner");
   const [focusSaveStatus, setFocusSaveStatus] = useState("");
   const handleFocusTap = (val) => { setFocusSel(val); };
@@ -499,7 +500,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           active: true, track: milTrack, cluster_target: milCluster, cluster_current: milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           pack_weight_max_kg: parseInt(milPackWeight) || 0,
-          has_trail_shoes: milHasBoots,
+          has_trail_shoes: planEquipment.includes("trail_shoes"),
           enrolled_at_ms: prefs.preferences?.military_coach?.enrolled_at_ms ?? Date.now(),
         };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
@@ -1081,38 +1082,68 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                       <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Backpack or weighted vest. 0 = bodyweight march sessions only.</div>
                     </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <button onClick={() => setMilHasBoots(v => !v)}
-                        style={{ width: 20, height: 20, borderRadius: 6, border: `1px solid ${milHasBoots ? C.emeraldBorder : C.border}`, background: milHasBoots ? C.emeraldDim : "rgba(255,255,255,0.03)", cursor: "pointer", flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                        {milHasBoots && <span style={{ color: C.emerald, fontSize: 12, fontWeight: 900 }}>✓</span>}
+                    {!planEquipment.includes("trail_shoes") ? (
+                      <button
+                        onClick={() => setPlanEquipment(eq => eq.includes("trail_shoes") ? eq : [...eq.filter(v => v !== "none"), "trail_shoes"])}
+                        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
+                      >
+                        <span style={{ fontSize: 18 }}>👟</span>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add trail shoes / hiking boots</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions — tap to add to your equipment list.</div>
+                        </div>
                       </button>
-                      <div>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>I have hiking boots or trail shoes</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions with load — not required.</div>
+                    ) : (
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+                        <span style={{ fontSize: 14, color: C.emerald }}>✓</span>
+                        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted }}>Trail shoes / hiking boots in equipment list</div>
                       </div>
-                    </div>
+                    )}
                     {milMode === 'target' && milTargetDate && (() => {
-                      const weeks = Math.floor((new Date(milTargetDate) - Date.now()) / (7 * 86400000));
-                      if (weeks < 4) return (
+                      const msLeft  = new Date(milTargetDate + 'T00:00:00Z').getTime() - Date.now();
+                      const daysLeft = Math.ceil(msLeft / 86400000);
+                      const weeks   = Math.floor(daysLeft / 7);
+                      if (daysLeft < 28) return (
                         <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderLeft: "2px solid #f43f5e" }}>
-                          <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.rose, marginBottom: 3 }}>Too short</div>
+                          <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f43f5e", marginBottom: 3 }}>Too short</div>
                           <span style={{ fontSize: 11, color: "#fda4af", fontWeight: 600 }}>Minimum 4 weeks needed for safe preparation. Choose a later date.</span>
                         </div>
                       );
-                      return null;
+                      const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
+                      return (
+                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{weeks} weeks until assessment · Starting in {phase} phase</div>
+                          <div style={{ fontSize: 10, color: C.muted }}>Training anchors to your assessment date — phases shift automatically as the date approaches.</div>
+                        </div>
+                      );
                     })()}
                   </div>
                 )}
-                {isActive && (
-                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                    <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>
-                      Week {mc.week ?? 1} of 6 · {mc.track === 'keuring' ? 'Keuring' : 'Opleiding'} {mc.cluster_target}
+                {isActive && (() => {
+                  const trackLabel  = mc.track === 'keuring' ? 'Keuring' : 'Opleiding';
+                  const clusterCode = `${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`;
+                  let statusLine, subLine;
+                  if (mc.mode === 'target' && mc.target_date) {
+                    const daysLeft = Math.ceil((new Date(mc.target_date + 'T00:00:00Z').getTime() - Date.now()) / 86400000);
+                    const weeksLeft = Math.max(0, Math.ceil(daysLeft / 7));
+                    const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
+                    statusLine = `${weeksLeft} weeks to assessment · ${phase} phase`;
+                    subLine    = `Assessment: ${mc.target_date}`;
+                  } else {
+                    const enrolledMs   = mc.enrolled_at_ms ?? Date.now();
+                    const weeksElapsed = Math.floor((Date.now() - enrolledMs) / (7 * 86400000));
+                    const openLevel    = (weeksElapsed % 6) + 1;
+                    const openPhase    = ["On-ramp","Build","Build","Peak","Deload","Taper"][openLevel - 1] ?? "Build";
+                    statusLine = `Open mode · Level ${openLevel} (${openPhase})`;
+                    subLine    = "Cycling through training phases continuously";
+                  }
+                  return (
+                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
+                      <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>{trackLabel} · {clusterCode} · {statusLine}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{subLine}</div>
                     </div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                      {mc.calibration_done === false ? "Week 1 — calibration week" : mc.mode === 'target' && mc.target_date ? `Assessment: ${mc.target_date}` : "Open progression mode"}
-                    </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             );
           })()}
