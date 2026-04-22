@@ -285,6 +285,13 @@ export async function onRequestPost({ request, env }) {
       console.error('Cycling coach advance failed (non-fatal):', err.message);
     }
 
+    // ── 4c. Military coach — persist Cooper test result ───────────────────────
+    try {
+      await advanceMilitaryCoach(user_id, steps, env, now);
+    } catch (err) {
+      console.error('Military coach update failed (non-fatal):', err.message);
+    }
+
     // ── 5. Track polarised endurance type (zone2 / hiit) for R558 balance ────
     try {
       await updatePolarisedEnduranceType(user_id, steps, env, now);
@@ -479,6 +486,44 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, cycling_coach: updatedCc }), nowMs, userId).run();
+}
+
+// ─── Military coach — Cooper test result persistence ─────────────────────────
+// Week/day are derived from the calendar in plan.js (no counter needed).
+// This function only persists Cooper test distances so the planner and dashboard
+// can surface last_cooper_distance_m for benchmark display and calibration hints.
+
+async function advanceMilitaryCoach(userId, steps, env, nowMs) {
+  if (!userId || !steps?.length) return;
+
+  // Look for a Cooper test step with a recorded distance
+  let cooperDistanceM = null;
+  for (const s of steps) {
+    const actual = typeof s.actual === 'string' ? JSON.parse(s.actual) : (s.actual ?? {});
+    if (actual.cooper_distance_m != null && actual.cooper_distance_m > 0) {
+      cooperDistanceM = actual.cooper_distance_m;
+      break;
+    }
+  }
+  if (cooperDistanceM === null) return; // nothing to update
+
+  const prefsRow = await env.DB.prepare(
+    `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+  ).bind(userId).first();
+  if (!prefsRow?.preferences_json) return;
+
+  const prefs = JSON.parse(prefsRow.preferences_json);
+  const mil   = prefs.military_coach;
+  if (!mil?.active) return;
+
+  const updated = {
+    ...mil,
+    last_cooper_distance_m:    cooperDistanceM,
+    last_cooper_at_ms:         nowMs,
+  };
+  await env.DB.prepare(
+    `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
+  ).bind(JSON.stringify({ ...prefs, military_coach: updated }), nowMs, userId).run();
 }
 
 // ─── Polarised endurance type tracker ────────────────────────────────────────

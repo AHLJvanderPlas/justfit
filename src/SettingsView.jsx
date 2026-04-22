@@ -453,10 +453,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const newMil = {
           active: true, track: milTrack, cluster_target: milCluster, cluster_current: milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
-          week: 1, day: 1, session_in_week: 0,
-          calibration_done: false, calibration_curve: 'standard',
-          pack_weight_kg: 0, pack_weight_max_kg: parseInt(milPackWeight) || 0,
-          has_trail_shoes: milHasBoots, enrolled_at_ms: Date.now(),
+          pack_weight_max_kg: parseInt(milPackWeight) || 0,
+          has_trail_shoes: milHasBoots,
+          enrolled_at_ms: prefs.preferences?.military_coach?.enrolled_at_ms ?? Date.now(),
         };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
