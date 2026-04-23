@@ -2368,10 +2368,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 >
                   <svg width="16" height="16" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
                     <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
-                    <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
+                    <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
+                    <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
                     <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
-                    <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
-                    <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="36" strokeLinejoin="round" strokeLinecap="round"/>
+                    <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
+                    <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                   </svg>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
@@ -2389,19 +2391,23 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               <div style={{ position: "absolute", top: -20, right: -20, opacity: 0.06 }}>
                 <svg width="160" height="160" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
                   <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round"/>
-                  <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="30" strokeLinecap="round"/>
-                  <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="30" strokeLinejoin="round" strokeLinecap="round"/>
+                  <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="12" strokeLinejoin="round"/>
+                  <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="10" strokeLinejoin="round"/>
+                  <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="30" strokeLinecap="round"/>
+                  <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                 </svg>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
                   <svg width="18" height="18" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
                     <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
-                    <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
+                    <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
+                    <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
                     <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
-                    <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
-                    <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="36" strokeLinejoin="round" strokeLinecap="round"/>
+                    <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
+                    <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                   </svg>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
@@ -5739,11 +5745,17 @@ export default function App() {
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <svg width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
                 <rect x="28" y="28" width="968" height="968" rx="180" fill="var(--accent)"/>
+                {/* Outer hexagon */}
                 <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="28" strokeLinejoin="round"/>
-                <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
+                {/* Inner web rings — solid */}
+                <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="14" strokeLinejoin="round"/>
+                <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="12" strokeLinejoin="round"/>
+                {/* S-curve route */}
+                <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="512" cy="294" r="32" fill="white"/>
-                <path d="M 512 294 L 512 176" stroke="white" strokeWidth="30" strokeLinecap="round"/>
-                <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" fill="none" stroke="white" strokeWidth="30" strokeLinejoin="round" strokeLinecap="round"/>
+                {/* Pole + filled flag */}
+                <path d="M 512 294 L 512 172" stroke="white" strokeWidth="30" strokeLinecap="round"/>
+                <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="white" stroke="white" strokeWidth="8" strokeLinejoin="round"/>
               </svg>
               <span
                 style={{

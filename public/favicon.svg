@@ -21,11 +21,11 @@
     <style>
       .outer { stroke:#B8CFE8; stroke-width:14; fill:none; stroke-linecap:round; stroke-linejoin:round; }
       .node  { fill:#08142C; stroke:#B8CFE8; stroke-width:10; }
-      .web   { stroke:#6B8FAD; stroke-width:6; fill:none; stroke-linecap:round; stroke-linejoin:round; opacity:0.9; stroke-dasharray:14 18; }
-      .axis  { stroke:#4A6882; stroke-width:5; fill:none; stroke-linecap:round; opacity:0.75; stroke-dasharray:12 18; }
+      .web   { stroke:#6B8FAD; stroke-width:7;  fill:none; stroke-linecap:round; stroke-linejoin:round; opacity:0.8; }
+      .axis  { stroke:#4A6882; stroke-width:5;  fill:none; stroke-linecap:round; opacity:0.6; }
       .route { stroke:#10b981; stroke-width:22; fill:none; stroke-linecap:round; stroke-linejoin:round; }
-      .flag  { stroke:#10b981; stroke-width:15; fill:none; stroke-linecap:round; stroke-linejoin:round; }
       .pole  { stroke:#10b981; stroke-width:15; fill:none; stroke-linecap:round; }
+      .flag  { fill:#10b981; stroke:#10b981; stroke-width:8; stroke-linejoin:round; stroke-linecap:round; }
       .endpoint { fill:#10b981; }
     </style>
   </defs>
@@ -33,25 +33,39 @@
   <rect x="28" y="28" width="968" height="968" rx="180" fill="url(#bg)"/>
 
   <!-- Outer hexagon -->
-  <path class="outer" d="M 512.0 132.0 L 841.1 322.0 L 841.1 702.0 L 512.0 892.0 L 182.9 702.0 L 182.9 322.0 Z"/>
-  <circle class="node" cx="512.0" cy="132.0" r="22"/><circle class="node" cx="841.1" cy="322.0" r="22"/><circle class="node" cx="841.1" cy="702.0" r="22"/><circle class="node" cx="512.0" cy="892.0" r="22"/><circle class="node" cx="182.9" cy="702.0" r="22"/><circle class="node" cx="182.9" cy="322.0" r="22"/>
+  <path class="outer" d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z"/>
+  <circle class="node" cx="512" cy="132" r="22"/>
+  <circle class="node" cx="841" cy="322" r="22"/>
+  <circle class="node" cx="841" cy="702" r="22"/>
+  <circle class="node" cx="512" cy="892" r="22"/>
+  <circle class="node" cx="183" cy="702" r="22"/>
+  <circle class="node" cx="183" cy="322" r="22"/>
 
-  <!-- Centered dotted web -->
-  <path class="web" d="M 512.0 277.0 L 715.5 394.5 L 715.5 629.5 L 512.0 747.0 L 308.5 629.5 L 308.5 394.5 Z"/>
-  <path class="web" d="M 512.0 387.0 L 620.3 449.5 L 620.3 574.5 L 512.0 637.0 L 403.7 574.5 L 403.7 449.5 Z"/>
-  <path class="axis" d="M 512 512 L 512.0 132.0"/><path class="axis" d="M 512 512 L 841.1 322.0"/><path class="axis" d="M 512 512 L 841.1 702.0"/><path class="axis" d="M 512 512 L 512.0 892.0"/><path class="axis" d="M 512 512 L 182.9 702.0"/><path class="axis" d="M 512 512 L 182.9 322.0"/>
+  <!-- Inner web rings — solid, half outer thickness -->
+  <path class="web" d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z"/>
+  <path class="web" d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z"/>
+
+  <!-- Axis lines — solid, thin -->
+  <path class="axis" d="M 512 512 L 512 132"/>
+  <path class="axis" d="M 512 512 L 841 322"/>
+  <path class="axis" d="M 512 512 L 841 702"/>
+  <path class="axis" d="M 512 512 L 512 892"/>
+  <path class="axis" d="M 512 512 L 183 702"/>
+  <path class="axis" d="M 512 512 L 183 322"/>
 
   <!-- Route + flag (primary accent colour) -->
   <g filter="url(#greenGlow)">
+    <!-- S-curve route -->
     <path class="route" d="
-      M 480 850
-      C 430 810, 420 760, 470 710
-      C 545 636, 690 602, 728 506
-      C 754 438, 714 370, 612 336
-      C 560 318, 528 305, 512 294
+      M 615 868
+      C 730 808, 758 706, 658 638
+      C 545 562, 338 552, 368 444
+      C 393 350, 558 318, 512 294
     "/>
     <circle class="endpoint" cx="512" cy="294" r="18"/>
-    <path class="pole" d="M 512 294 L 512 176"/>
-    <path class="flag" d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245"/>
+    <!-- Flag pole -->
+    <path class="pole" d="M 512 294 L 512 172"/>
+    <!-- Filled flag -->
+    <path class="flag" d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z"/>
   </g>
 </svg>
