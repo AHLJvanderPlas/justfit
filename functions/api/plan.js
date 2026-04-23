@@ -756,6 +756,17 @@ const MIL_SCHEDULE = {
 // W1 on-ramp, W2-3 build, W4 peak, W5 deload, W6 taper
 const MIL_WEEK_VOLUME = [0.70, 0.85, 1.00, 1.15, 0.55, 0.60];
 
+// Base-building session pattern (Mon–Fri) used when > 6 weeks from assessment or in 'fit' mode.
+// Same day-of-week structure as MIL_SCHEDULE but without a fixed weekly periodization.
+const MIL_BASE_BUILD = {
+  keuring_low:    ['duurloop', 'kracht',        'interval',       'kracht',        'rust'],
+  keuring_mid:    ['duurloop', 'kracht',        'interval',       'kracht_marsen', 'rust'],
+  keuring_high:   ['interval', 'kracht',        'duurloop',       'kracht_marsen', 'rust'],
+  opleiding_low:  ['duurloop', 'kracht',        'interval',       'kracht',        'rust'],
+  opleiding_mid:  ['duurloop', 'kracht',        'interval',       'kracht_marsen', 'rust'],
+  opleiding_high: ['interval', 'kracht',        'duurloop',       'kracht_marsen', 'rust'],
+};
+
 // Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
 // R577 caps actual increase at +5 kg from last week's weight
 const MIL_MARCH_KG = {
@@ -1678,26 +1689,38 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // Six weeks map to program phases; week is re-derived every day from the calendar,
     // so no session counter is needed — the program advances automatically with time.
     let milWeek;
-    const assessmentDate = milCoach.target_date; // YYYY-MM-DD or null (cleared after rollover)
+    let inBaseBuild = false; // true during base-building phase (> 6 weeks out or fit mode)
+    const assessmentDate = milCoach.target_date; // YYYY-MM-DD or null
     const todayMs        = new Date(date + 'T00:00:00Z').getTime();
     const assessMs       = assessmentDate ? new Date(assessmentDate + 'T00:00:00Z').getTime() : null;
     // Post-assessment: target_date is in the past (execution.js will flip mode→open on next save,
     // but plan.js also handles it transparently in case prefs haven't been written yet today)
     const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
 
-    if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
-      // Target mode: days remaining → phase
+    if (milCoach.mode === 'fit') {
+      // R570a — Fit target mode: base building indefinitely toward cluster_target.
+      // No fixed end date; RPE drift advances cluster_current silently.
+      inBaseBuild = true;
+      milWeek = 2; // use build-week volume/run-offset for session selection
+    } else if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
       const daysRemaining = Math.ceil((assessMs - todayMs) / 86_400_000);
-      if      (daysRemaining >= 36) milWeek = 1;
-      else if (daysRemaining >= 29) milWeek = 2;
-      else if (daysRemaining >= 22) milWeek = 3;
-      else if (daysRemaining >= 15) milWeek = 4;
-      else if (daysRemaining >= 8)  milWeek = 5;
-      else                          milWeek = 6; // taper / assessment week
+      if (daysRemaining > 42) {
+        // R570b — Base building phase: > 6 weeks to assessment.
+        // Progressive training at cluster_current; specific prep begins at 6 weeks out.
+        inBaseBuild = true;
+        milWeek = 2; // build-week volume/run-offset
+      } else {
+        // R570c — Specific prep phase: fixed 6-week schedule anchored to assessment date.
+        if      (daysRemaining >= 36) milWeek = 1;
+        else if (daysRemaining >= 29) milWeek = 2;
+        else if (daysRemaining >= 22) milWeek = 3;
+        else if (daysRemaining >= 15) milWeek = 4;
+        else if (daysRemaining >= 8)  milWeek = 5;
+        else                          milWeek = 6; // taper / assessment week
+      }
     } else {
       // Open mode, no date, or post-assessment: rolling 6-week cycle.
-      // Post-assessment uses enrolled_at_ms reset to assessment day by execution.js,
-      // so the cycle restarts cleanly from the day after assessment.
+      // Post-assessment uses enrolled_at_ms reset to assessment day by execution.js.
       const enrolledMs   = milCoach.enrolled_at_ms ?? todayMs;
       const weeksElapsed = Math.floor((todayMs - enrolledMs) / (7 * 86_400_000));
       milWeek = (weeksElapsed % 6) + 1;
@@ -1717,14 +1740,25 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // cluster_target is preserved as the original assessment benchmark and never changes.
     const milClusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
     const milGroup = getMilitaryGroup(milCoach.track ?? 'keuring', milClusterLive);
-    const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
-    const sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
+
+    // Select session type: base build uses day-of-week pattern; specific prep uses MIL_SCHEDULE.
+    let sessionType;
+    if (inBaseBuild) {
+      const baseSchedule = MIL_BASE_BUILD[milGroup] ?? MIL_BASE_BUILD.keuring_low;
+      sessionType = milDay === null ? 'rust' : (baseSchedule[milDay - 1] ?? 'rust');
+      // First session ever: run Cooper test to establish baseline cluster_current.
+      if (!milCoach.last_cooper_distance_m && milDay === 1) sessionType = 'cooper_test';
+    } else {
+      const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
+      sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
+    }
     militarySessionType = sessionType;
 
-    // R578 — Volume multiplier from week position (on-ramp/build/peak/deload/taper)
-    const milVol = MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0;
+    // R578 — Volume multiplier: base build uses build-week volume (0.85); specific prep uses phase table.
+    const milVol = inBaseBuild ? 0.85 : (MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0);
     volumeMultiplier = Math.min(volumeMultiplier, milVol);
-    trace.push(`R570 — Military Coach: ${milGroup} W${milWeek}D${milDay ?? 'rest'} → ${sessionType} (vol ×${milVol})`);
+    const phaseLabel = inBaseBuild ? 'BaseBuild' : `W${milWeek}`;
+    trace.push(`R570 — Military Coach: ${milGroup} ${phaseLabel}D${milDay ?? 'rest'} → ${sessionType} (vol ×${milVol})`);
 
     if (sessionType === 'rust') {
       // R570 — Military rest day
@@ -2279,15 +2313,18 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
       : null,
     military_program: militaryActive ? (() => {
-      // Re-derive milWeek/milDay here for return object (vars are block-scoped above)
-      let retWeek;
+      // Re-derive milWeek/inBaseBuild/milDay here for return object (vars are block-scoped above)
+      let retWeek; let retInBaseBuild = false;
       const retAssessDate     = milCoach.target_date;
       const retTodayMs        = new Date(date + 'T00:00:00Z').getTime();
       const retAssessMs       = retAssessDate ? new Date(retAssessDate + 'T00:00:00Z').getTime() : null;
       const retIsPostAssess   = retAssessMs !== null && retTodayMs > retAssessMs && milCoach.mode !== 'open';
-      if (retAssessDate && milCoach.mode !== 'open' && !retIsPostAssess) {
+      if (milCoach.mode === 'fit') {
+        retInBaseBuild = true; retWeek = 2;
+      } else if (retAssessDate && milCoach.mode !== 'open' && !retIsPostAssess) {
         const dr = Math.ceil((retAssessMs - retTodayMs) / 86_400_000);
-        if      (dr >= 36) retWeek = 1;
+        if (dr > 42) { retInBaseBuild = true; retWeek = 2; }
+        else if (dr >= 36) retWeek = 1;
         else if (dr >= 29) retWeek = 2;
         else if (dr >= 22) retWeek = 3;
         else if (dr >= 15) retWeek = 4;
@@ -2311,9 +2348,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         march_kg:              militaryMarchKg  || null,
         march_sec:             militaryMarchSec || null,
         target_date:           retAssessDate ?? null,
-        is_calibration_week:   retWeek === 1,
-        is_deload_week:        retWeek === 5,
-        is_taper_week:         retWeek === 6,
+        mode:                  milCoach.mode ?? 'target',
+        is_base_build:         retInBaseBuild,
+        is_calibration_week:   retWeek === 1 && !retInBaseBuild,
+        is_deload_week:        retWeek === 5 && !retInBaseBuild,
+        is_taper_week:         retWeek === 6 && !retInBaseBuild,
         is_post_assessment:    retIsPostAssess || milCoach.mode === 'open',
         last_cooper_distance_m: milCoach.last_cooper_distance_m ?? null,
       };

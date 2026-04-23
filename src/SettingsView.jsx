@@ -1050,7 +1050,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Mode</div>
                       <div style={{ display: "flex", gap: 6 }}>
-                        {[{v:'target',label:'Target date',sub:'Assessment on a set date'},{v:'open',label:'Open progression',sub:'No fixed end date'}].map(m => (
+                        {[
+                          {v:'target', label:'Target date', sub:'Assessment on a set date'},
+                          {v:'fit',    label:'Fit target',  sub:'Goal level, no fixed date'},
+                          {v:'open',   label:'Open',        sub:'No goal or end date'},
+                        ].map(m => (
                           <button key={m.v} onClick={() => setMilMode(m.v)}
                             style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milMode === m.v ? C.emeraldBorder : C.border}`, background: milMode === m.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                             <span style={{ fontSize: 12, fontWeight: 900, color: milMode === m.v ? C.emerald : C.text }}>{m.label}</span>
@@ -1067,10 +1071,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                           min={new Date(Date.now() + 21 * 86400000).toISOString().slice(0,10)}
                           style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                         {milTargetDate && (() => {
-                          const weeks = Math.floor((new Date(milTargetDate) - Date.now()) / (7 * 86400000));
-                          const ramp = weeks >= 10 ? "Spread programme — great ramp-up time" : weeks >= 6 ? "Standard 6-week programme" : weeks >= 4 ? "Short ramp — injury caution shown" : "Too short — minimum 4 weeks needed";
-                          const col = weeks < 4 ? C.rose : weeks < 6 ? C.amber : C.emerald;
-                          return <div style={{ fontSize: 11, color: col, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · {ramp}</div>;
+                          const days  = Math.ceil((new Date(milTargetDate + 'T00:00:00Z') - Date.now()) / 86400000);
+                          const weeks = Math.floor(days / 7);
+                          if (days < 28) return <div style={{ fontSize: 11, color: C.rose, marginTop: 5, fontWeight: 600 }}>Too short — minimum 4 weeks needed</div>;
+                          if (days > 42) return <div style={{ fontSize: 11, color: C.emerald, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · Base building now → 6-week specific prep in week {weeks - 5}</div>;
+                          return <div style={{ fontSize: 11, color: C.emerald, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · Entering specific prep phase directly</div>;
                         })()}
                       </div>
                     )}
@@ -1099,6 +1104,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         <div style={{ fontSize: 12, fontWeight: 700, color: C.muted }}>Trail shoes / hiking boots in equipment list</div>
                       </div>
                     )}
+                    {milMode === 'fit' && (
+                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Fit target · Progressive base building</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>Train toward your goal level at your own pace. RPE signals advance your training automatically — no assessment date required.</div>
+                      </div>
+                    )}
                     {milMode === 'target' && milTargetDate && (() => {
                       const msLeft  = new Date(milTargetDate + 'T00:00:00Z').getTime() - Date.now();
                       const daysLeft = Math.ceil(msLeft / 86400000);
@@ -1107,6 +1118,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderLeft: "2px solid #f43f5e" }}>
                           <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f43f5e", marginBottom: 3 }}>Too short</div>
                           <span style={{ fontSize: 11, color: "#fda4af", fontWeight: 600 }}>Minimum 4 weeks needed for safe preparation. Choose a later date.</span>
+                        </div>
+                      );
+                      if (daysLeft > 42) return (
+                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{weeks} weeks until assessment · Base building now</div>
+                          <div style={{ fontSize: 10, color: C.muted }}>Progressive training starts today. Specific 6-week prep begins automatically at 6 weeks out — phases shift without any action from you.</div>
                         </div>
                       );
                       const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
@@ -1123,11 +1140,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                   const trackLabel  = mc.track === 'keuring' ? 'Keuring' : 'Opleiding';
                   const clusterCode = `${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`;
                   let statusLine, subLine;
-                  if (mc.mode === 'target' && mc.target_date) {
-                    const daysLeft = Math.ceil((new Date(mc.target_date + 'T00:00:00Z').getTime() - Date.now()) / 86400000);
+                  if (mc.mode === 'fit') {
+                    statusLine = `Fit target · ${clusterCode} · Progressive base building`;
+                    subLine    = "Training toward your goal level — no assessment date set";
+                  } else if (mc.mode === 'target' && mc.target_date) {
+                    const daysLeft  = Math.ceil((new Date(mc.target_date + 'T00:00:00Z').getTime() - Date.now()) / 86400000);
                     const weeksLeft = Math.max(0, Math.ceil(daysLeft / 7));
-                    const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
-                    statusLine = `${weeksLeft} weeks to assessment · ${phase} phase`;
+                    const phase     = daysLeft > 42 ? "Base building" : daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
+                    statusLine = `${weeksLeft} weeks to assessment · ${phase}`;
                     subLine    = `Assessment: ${mc.target_date}`;
                   } else {
                     const enrolledMs   = mc.enrolled_at_ms ?? Date.now();
@@ -1165,7 +1185,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                focusSaveStatus === "saving" ? "Saving…" :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
-               focusSel === "military" ? `Activate · Military Coach · ${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}` :
+               focusSel === "military" ? `Activate · Military Coach · ${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}${milMode === 'fit' ? ' · Fit target' : milMode === 'open' ? ' · Open' : ''}` :
                `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
             </button>
           </div>

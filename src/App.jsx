@@ -2768,6 +2768,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const isDeload        = mp?.is_deload_week;
           const isTaper         = mp?.is_taper_week;
           const isPostAssess    = mp?.is_post_assessment;
+          const isBaseBuild     = mp?.is_base_build;
+          const milMode         = mp?.mode ?? mil.mode ?? 'target';
           const trackLabel      = track === 'keuring' ? 'Keuring' : 'Opleiding';
           const overperforming  = clusterCurrent > clusterTarget;
           // Last Cooper benchmark
@@ -2799,12 +2801,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Cooper: {cooperBenchmark}</div>
                   )}
                 </div>
-                {(isPostAssess || isCalibration || isDeload || isTaper) && (
+                {(isPostAssess || isBaseBuild || milMode === 'fit' || isCalibration || isDeload || isTaper) && (
                   <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
-                    background: isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
-                    color: isPostAssess ? C.emerald : isCalibration ? "#f59e0b" : isDeload ? C.emerald : "var(--accent)",
+                    background: (milMode === 'fit' || isBaseBuild) ? "rgba(16,185,129,0.12)" : isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
+                    color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? "#f59e0b" : isDeload ? C.emerald : "var(--accent)",
                   }}>
-                    {isPostAssess ? "Open" : isCalibration ? "On-ramp" : isDeload ? "Deload" : "Taper"}
+                    {milMode === 'fit' ? "Fit target" : isBaseBuild ? "Base build" : isPostAssess ? "Open" : isCalibration ? "On-ramp" : isDeload ? "Deload" : "Taper"}
                   </span>
                 )}
               </div>
