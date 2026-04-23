@@ -83,7 +83,7 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow, authUser, lastExecRow, lastCheckinRow, usersRow] = await Promise.all([
+    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, usersRow] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
@@ -101,7 +101,13 @@ export async function onRequestGet({ request, env }) {
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT email, email_verified, last_login_at_ms FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
+        `SELECT email, email_verified FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT MAX(last_login_at_ms) as t FROM auth_users WHERE user_id = ?`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT MAX(last_used_at_ms) as t FROM passkey_credentials WHERE user_id = ?`
       ).bind(user.userId).first(),
       env.DB.prepare(
         `SELECT MAX(created_at_ms) as t FROM executions WHERE user_id = ? LIMIT 1`
@@ -116,11 +122,12 @@ export async function onRequestGet({ request, env }) {
 
     if (!prefs) return Response.json({ exists: false });
 
-    // Most recent meaningful activity: latest of executions, check-ins, or last login
+    // Most recent meaningful activity: latest of executions, check-ins, or any login method
     const lastActivityMs = Math.max(
       lastExecRow?.t ?? 0,
       lastCheckinRow?.t ?? 0,
-      authUser?.last_login_at_ms ?? 0,
+      lastLoginRow?.t ?? 0,
+      lastPasskeyRow?.t ?? 0,
     ) || null;
 
     const bodyMode = cycleRow?.mode ?? 'standard';
