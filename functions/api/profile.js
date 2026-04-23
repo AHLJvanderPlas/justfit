@@ -83,7 +83,7 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, usersRow] = await Promise.all([
+    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, lastPlanRow, usersRow] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
@@ -116,16 +116,20 @@ export async function onRequestGet({ request, env }) {
         `SELECT MAX(created_at_ms) as t FROM daily_checkins WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
+        `SELECT MAX(created_at_ms) as t FROM day_plans WHERE user_id = ? LIMIT 1`
+      ).bind(user.userId).first(),
+      env.DB.prepare(
         `SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`
       ).bind(user.userId).first(),
     ]);
 
     if (!prefs) return Response.json({ exists: false });
 
-    // Most recent meaningful activity: latest of executions, check-ins, or any login method
+    // Most recent meaningful activity: latest across all activity sources
     const lastActivityMs = Math.max(
       lastExecRow?.t ?? 0,
       lastCheckinRow?.t ?? 0,
+      lastPlanRow?.t ?? 0,
       lastLoginRow?.t ?? 0,
       lastPasskeyRow?.t ?? 0,
     ) || null;
