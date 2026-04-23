@@ -403,9 +403,9 @@ async function handleMagicVerify(token, env, secret) {
     return Response.json({ ok: false, needsSignup: true, email: row.email });
   }
 
-  // Magic link login proves inbox ownership — auto-mark email as verified
-  await env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`)
-    .bind(row.user_id).run();
+  // Magic link login proves inbox ownership — auto-mark email as verified + record last login
+  await env.DB.prepare(`UPDATE auth_users SET email_verified = 1, last_login_at_ms = ? WHERE user_id = ?`)
+    .bind(now, row.user_id).run();
 
   const sessionToken = await createJWT({ userId: row.user_id, email: row.email }, secret);
   return Response.json({ ok: true, token: sessionToken, userId: row.user_id });
@@ -568,11 +568,16 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
 
   if (!valid) return Response.json({ error: 'Invalid signature' }, { status: 401 });
 
-  // 7. Update counter + backed_up + last_used
+  // 7. Update counter + backed_up + last_used; also stamp last_login_at_ms on auth_users
   const now = Date.now();
-  await env.DB.prepare(
-    `UPDATE passkey_credentials SET counter = ?, backed_up = ?, last_used_at_ms = ?, updated_at_ms = ? WHERE credential_id = ?`
-  ).bind(newCounter, flags.backedUp ? 1 : 0, now, now, credentialId).run();
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE passkey_credentials SET counter = ?, backed_up = ?, last_used_at_ms = ?, updated_at_ms = ? WHERE credential_id = ?`
+    ).bind(newCounter, flags.backedUp ? 1 : 0, now, now, credentialId),
+    env.DB.prepare(
+      `UPDATE auth_users SET last_login_at_ms = ? WHERE user_id = ?`
+    ).bind(now, cred.user_id),
+  ]);
 
   // 8. Issue session token
   const token = await createJWT({ userId: cred.user_id, email: cred.email }, secret);
