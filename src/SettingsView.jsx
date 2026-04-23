@@ -1330,7 +1330,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
               ))}
             </div>
           ) : (() => {
-            const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 999];
+            const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 270, 300, 330, 999];
             const fmtStep = v => {
               if (v === 0)   return 'Rest';
               if (v === 999) return '∞';
