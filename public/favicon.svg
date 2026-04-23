@@ -1,11 +1,57 @@
-<svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
   <defs>
-    <filter id="g" x="-40%" y="-40%" width="180%" height="180%">
-      <feGaussianBlur stdDeviation="3" result="b"/>
-      <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+    <linearGradient id="bg" x1="120" y1="90" x2="900" y2="940" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#07183F"/>
+      <stop offset="1" stop-color="#020814"/>
+    </linearGradient>
+
+    <filter id="greenGlow" x="-40%" y="-40%" width="180%" height="180%">
+      <feGaussianBlur stdDeviation="16" result="blur"/>
+      <feColorMatrix in="blur" type="matrix"
+        values="0 0 0 0 0.06
+                0 0 0 0 0.73
+                0 0 0 0 0.51
+                0 0 0 1 0" result="glow"/>
+      <feMerge>
+        <feMergeNode in="glow"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
     </filter>
+
+    <style>
+      .outer { stroke:#B8CFE8; stroke-width:14; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+      .node  { fill:#08142C; stroke:#B8CFE8; stroke-width:10; }
+      .web   { stroke:#6B8FAD; stroke-width:6; fill:none; stroke-linecap:round; stroke-linejoin:round; opacity:0.9; stroke-dasharray:14 18; }
+      .axis  { stroke:#4A6882; stroke-width:5; fill:none; stroke-linecap:round; opacity:0.75; stroke-dasharray:12 18; }
+      .route { stroke:#10b981; stroke-width:22; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+      .flag  { stroke:#10b981; stroke-width:15; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+      .pole  { stroke:#10b981; stroke-width:15; fill:none; stroke-linecap:round; }
+      .endpoint { fill:#10b981; }
+    </style>
   </defs>
-  <rect width="64" height="64" rx="14" fill="#020617"/>
-  <polygon points="34,13 15,36 32,36 30,51 49,28 32,28" fill="#10b981" opacity="0.28" filter="url(#g)"/>
-  <polygon points="34,13 15,36 32,36 30,51 49,28 32,28" fill="#10b981"/>
+
+  <rect x="28" y="28" width="968" height="968" rx="180" fill="url(#bg)"/>
+
+  <!-- Outer hexagon -->
+  <path class="outer" d="M 512.0 132.0 L 841.1 322.0 L 841.1 702.0 L 512.0 892.0 L 182.9 702.0 L 182.9 322.0 Z"/>
+  <circle class="node" cx="512.0" cy="132.0" r="22"/><circle class="node" cx="841.1" cy="322.0" r="22"/><circle class="node" cx="841.1" cy="702.0" r="22"/><circle class="node" cx="512.0" cy="892.0" r="22"/><circle class="node" cx="182.9" cy="702.0" r="22"/><circle class="node" cx="182.9" cy="322.0" r="22"/>
+
+  <!-- Centered dotted web -->
+  <path class="web" d="M 512.0 277.0 L 715.5 394.5 L 715.5 629.5 L 512.0 747.0 L 308.5 629.5 L 308.5 394.5 Z"/>
+  <path class="web" d="M 512.0 387.0 L 620.3 449.5 L 620.3 574.5 L 512.0 637.0 L 403.7 574.5 L 403.7 449.5 Z"/>
+  <path class="axis" d="M 512 512 L 512.0 132.0"/><path class="axis" d="M 512 512 L 841.1 322.0"/><path class="axis" d="M 512 512 L 841.1 702.0"/><path class="axis" d="M 512 512 L 512.0 892.0"/><path class="axis" d="M 512 512 L 182.9 702.0"/><path class="axis" d="M 512 512 L 182.9 322.0"/>
+
+  <!-- Route + flag (primary accent colour) -->
+  <g filter="url(#greenGlow)">
+    <path class="route" d="
+      M 480 850
+      C 430 810, 420 760, 470 710
+      C 545 636, 690 602, 728 506
+      C 754 438, 714 370, 612 336
+      C 560 318, 528 305, 512 294
+    "/>
+    <circle class="endpoint" cx="512" cy="294" r="18"/>
+    <path class="pole" d="M 512 294 L 512 176"/>
+    <path class="flag" d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245"/>
+  </g>
 </svg>
