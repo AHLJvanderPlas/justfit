@@ -773,12 +773,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         </div>
         <Glass style={{ padding: 24 }}>
           {/* 4-mode selector */}
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 20 }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
             {[
-              { id: "general",  label: "General",  sub: null },
-              { id: "running",  label: "Run",       sub: !planEquipment.includes("running_shoes") ? "Add shoes" : null },
-              { id: "cycling",  label: "Cycle",     sub: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) ? "Add bike" : null },
-              { id: "military", label: "Military",  sub: null, icon: true },
+              { id: "general",  label: "General" },
+              { id: "running",  label: "Run",      sub: !planEquipment.includes("running_shoes") ? "Add shoes" : null },
+              { id: "cycling",  label: "Cycle",    sub: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) ? "Add bike" : null },
+              { id: "military", label: "Military" },
             ].map(opt => {
               const disabled = !!opt.sub;
               const sel = opt.id === "general"
@@ -798,18 +798,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     }
                   }}
                   style={{
-                    flex: "1 1 auto", padding: "10px 6px", borderRadius: 14, cursor: disabled ? "not-allowed" : "pointer",
+                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: disabled ? "not-allowed" : "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
                     background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                    opacity: disabled ? 0.35 : 1, minWidth: 60,
+                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
+                    opacity: disabled ? 0.35 : 1, minHeight: 44,
                   }}
                 >
-                  {opt.icon && (
-                    <span style={{ color: sel ? "var(--accent)" : C.muted, display: "flex", alignItems: "center" }}>
-                      <MilitaryIcon size={18} />
-                    </span>
-                  )}
                   <span style={{ fontSize: 12, fontWeight: 900, color: sel ? "var(--accent)" : C.text }}>{opt.label}</span>
                   {opt.sub && <span style={{ fontSize: 9, color: C.subtle }}>{opt.sub}</span>}
                 </button>
@@ -1014,39 +1009,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Military Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
                   {isActive
-                    ? `${mc.track === 'keuring' ? 'Keuring' : 'Opleiding'} · Cluster ${mc.cluster_target} · Week ${mc.week ?? 1} of 6`
-                    : "Dutch Defensie prep — structured 6-week programme toward your target cluster."}
+                    ? `${mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness'} · ${mc.mode === 'open' ? 'Open progression' : `Target ${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`}`
+                    : "Dutch Defensie prep — train toward your target level at your own pace or with a fixed assessment date."}
                 </div>
                 {!isActive && (
                   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {/* Track */}
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Track</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {[{v:'keuring',label:'Keuring',sub:'Fitness assessment prep'},{v:'opleiding',label:'Opleiding',sub:'Training programme prep'}].map(t => (
-                          <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(t.v === 'keuring' ? 3 : 3); }}
-                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`, background: milTrack === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                            <span style={{ fontSize: 12, fontWeight: 900, color: milTrack === t.v ? C.emerald : C.text }}>{t.label}</span>
-                            <span style={{ fontSize: 10, color: C.muted }}>{t.sub}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* Cluster */}
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Target cluster</div>
-                      <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                        {clusters.map(c => (
-                          <button key={c.v} onClick={() => setMilCluster(c.v)}
-                            title={c.desc}
-                            style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
-                            {c.label}
-                          </button>
-                        ))}
-                      </div>
-                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 5 }}>{clusters.find(c => c.v === milCluster)?.desc ?? ""}</div>
-                    </div>
-                    {/* Mode */}
+                    {/* ── Mode — first ── */}
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Mode</div>
                       <div style={{ display: "flex", gap: 6 }}>
@@ -1063,7 +1031,35 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         ))}
                       </div>
                     </div>
-                    {/* Assessment date — only for target mode */}
+                    {/* ── Track + Cluster — only for target / fit (open needs no cluster) ── */}
+                    {milMode !== 'open' && (<>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Track</div>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          {[{v:'keuring',label:'Physical Assessment',sub:'Fitness test prep'},{v:'opleiding',label:'Educational Fitness',sub:'Training programme prep'}].map(t => (
+                            <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(3); }}
+                              style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`, background: milTrack === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                              <span style={{ fontSize: 11, fontWeight: 900, color: milTrack === t.v ? C.emerald : C.text }}>{t.label}</span>
+                              <span style={{ fontSize: 10, color: C.muted }}>{t.sub}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Target cluster</div>
+                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
+                          {clusters.map(c => (
+                            <button key={c.v} onClick={() => setMilCluster(c.v)}
+                              title={c.desc}
+                              style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
+                              {c.label}
+                            </button>
+                          ))}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.subtle, marginTop: 5 }}>{clusters.find(c => c.v === milCluster)?.desc ?? ""}</div>
+                      </div>
+                    </>)}
+                    {/* ── Assessment date — only for target mode ── */}
                     {milMode === 'target' && (
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Assessment date</div>
@@ -1079,7 +1075,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         })()}
                       </div>
                     )}
-                    {/* Equipment */}
+                    {/* ── Pack weight ── */}
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Pack weight available (kg)</div>
                       <input type="number" min={0} max={50} value={milPackWeight} onChange={e => setMilPackWeight(e.target.value)}
@@ -1104,6 +1100,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         <div style={{ fontSize: 12, fontWeight: 700, color: C.muted }}>Trail shoes / hiking boots in equipment list</div>
                       </div>
                     )}
+                    {/* ── Summary / feedback ── */}
                     {milMode === 'fit' && (
                       <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                         <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Fit target · Progressive base building</div>
@@ -1123,7 +1120,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                       if (daysLeft > 42) return (
                         <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                           <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{weeks} weeks until assessment · Base building now</div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Progressive training starts today. Specific 6-week prep begins automatically at 6 weeks out — phases shift without any action from you.</div>
+                          <div style={{ fontSize: 10, color: C.muted }}>Progressive training starts today. Specific 6-week prep begins automatically at 6 weeks out.</div>
                         </div>
                       );
                       const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
@@ -1137,10 +1134,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                   </div>
                 )}
                 {isActive && (() => {
-                  const trackLabel  = mc.track === 'keuring' ? 'Keuring' : 'Opleiding';
+                  const trackLabel  = mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
                   const clusterCode = `${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`;
                   let statusLine, subLine;
-                  if (mc.mode === 'fit') {
+                  if (mc.mode === 'open') {
+                    statusLine = "Open progression";
+                    subLine    = "Cycling through training phases continuously";
+                  } else if (mc.mode === 'fit') {
                     statusLine = `Fit target · ${clusterCode} · Progressive base building`;
                     subLine    = "Training toward your goal level — no assessment date set";
                   } else if (mc.mode === 'target' && mc.target_date) {
@@ -1150,16 +1150,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     statusLine = `${weeksLeft} weeks to assessment · ${phase}`;
                     subLine    = `Assessment: ${mc.target_date}`;
                   } else {
-                    const enrolledMs   = mc.enrolled_at_ms ?? Date.now();
-                    const weeksElapsed = Math.floor((Date.now() - enrolledMs) / (7 * 86400000));
-                    const openLevel    = (weeksElapsed % 6) + 1;
-                    const openPhase    = ["On-ramp","Build","Build","Peak","Deload","Taper"][openLevel - 1] ?? "Build";
-                    statusLine = `Open mode · Level ${openLevel} (${openPhase})`;
-                    subLine    = "Cycling through training phases continuously";
+                    statusLine = "No assessment date set";
+                    subLine    = "Add a date to activate the 6-week specific prep phase";
                   }
+                  const showCluster = mc.mode !== 'open';
                   return (
                     <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                      <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>{trackLabel} · {clusterCode} · {statusLine}</div>
+                      <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>
+                        {trackLabel}{showCluster ? ` · ${clusterCode}` : ""} · {statusLine}
+                      </div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{subLine}</div>
                     </div>
                   );

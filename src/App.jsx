@@ -2771,7 +2771,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const isPostAssess    = mp?.is_post_assessment;
           const isBaseBuild     = mp?.is_base_build;
           const milMode         = mp?.mode ?? mil.mode ?? 'target';
-          const trackLabel      = track === 'keuring' ? 'Keuring' : 'Opleiding';
+          const trackLabel      = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
           const overperforming  = clusterCurrent > clusterTarget;
           // Last Cooper benchmark
           const lastCooper = mp?.last_cooper_distance_m ?? mil.last_cooper_distance_m ?? null;
