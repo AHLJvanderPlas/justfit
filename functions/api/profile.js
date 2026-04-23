@@ -207,6 +207,27 @@ export async function onRequestPost({ request, env }) {
 
     const now = Date.now();
 
+    // ── Normalize preferences: validate military fields + enforce one-active-coach ─
+    if (preferences && typeof preferences === 'object') {
+      const mil = preferences.military_coach;
+      if (mil && typeof mil === 'object') {
+        // Clamp / whitelist military coach fields before persisting
+        if (!['keuring', 'opleiding'].includes(mil.track)) mil.track = 'keuring';
+        if (!['target', 'fit', 'open'].includes(mil.mode))  mil.mode  = 'open';
+        const trackMax = mil.track === 'opleiding' ? 7 : 6;
+        mil.cluster_target  = Math.max(1, Math.min(trackMax, Math.floor(Number(mil.cluster_target)  || 1)));
+        mil.cluster_current = Math.max(1, Math.min(trackMax, Math.floor(Number(mil.cluster_current) || mil.cluster_target)));
+        mil.pack_weight_max_kg = Math.max(0, Math.min(60, Math.floor(Number(mil.pack_weight_max_kg) || 0)));
+        if (mil.target_date && !/^\d{4}-\d{2}-\d{2}$/.test(mil.target_date)) mil.target_date = null;
+        if (mil.mode !== 'target') mil.target_date = null;
+        // Enforce one active coach: military active → deactivate run/cycle
+        if (mil.active) {
+          if (preferences.run_coach)    preferences.run_coach    = { ...preferences.run_coach,    enrolled: false };
+          if (preferences.cycling_coach) preferences.cycling_coach = { ...preferences.cycling_coach, active:   false };
+        }
+      }
+    }
+
     // ── user_preferences ──────────────────────────────────────────────────────
     const existing = await env.DB.prepare(
       `SELECT user_id FROM user_preferences WHERE user_id = ? LIMIT 1`

@@ -62,7 +62,7 @@ const api = {
     return data.score ?? 0;
   },
 
-  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout") {
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null) {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
@@ -70,6 +70,7 @@ const api = {
         date,
         day_plan_id: planId ?? null,
         session_type: sessionType,
+        session_program: sessionProgram ?? undefined,
         duration_sec: durationSec,
         perceived_exertion: perceivedExertion ?? null,
         steps: steps.map((s) => ({

@@ -767,6 +767,61 @@ const MIL_BASE_BUILD = {
   opleiding_high: ['interval', 'kracht',        'duurloop',       'kracht_marsen', 'rust'],
 };
 
+// ---------------------------------------------------------------------------
+// computeMilitaryPhase — single source of truth for week/phase/session-type
+// ---------------------------------------------------------------------------
+// Returns { milWeek, inBaseBuild, milDay, milGroup, clusterLive, sessionType, milVol, isPostAssessment }
+// Used in both the planning block and the military_program return object.
+function computeMilitaryPhase(milCoach, date) {
+  const assessmentDate  = milCoach.target_date;
+  const todayMs         = new Date(date + 'T00:00:00Z').getTime();
+  const assessMs        = assessmentDate ? new Date(assessmentDate + 'T00:00:00Z').getTime() : null;
+  const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
+
+  let milWeek; let inBaseBuild = false;
+
+  if (milCoach.mode === 'fit') {
+    inBaseBuild = true; milWeek = 2;
+  } else if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
+    const daysRemaining = Math.ceil((assessMs - todayMs) / 86_400_000);
+    if (daysRemaining > 42) {
+      inBaseBuild = true; milWeek = 2;
+    } else {
+      if      (daysRemaining >= 36) milWeek = 1;
+      else if (daysRemaining >= 29) milWeek = 2;
+      else if (daysRemaining >= 22) milWeek = 3;
+      else if (daysRemaining >= 15) milWeek = 4;
+      else if (daysRemaining >= 8)  milWeek = 5;
+      else                          milWeek = 6;
+    }
+  } else {
+    const enrolledMs   = milCoach.enrolled_at_ms ?? todayMs;
+    const weeksElapsed = Math.floor((todayMs - enrolledMs) / (7 * 86_400_000));
+    milWeek = (weeksElapsed % 6) + 1;
+  }
+  milWeek = Math.max(1, Math.min(milWeek, 6));
+
+  const jsDay = new Date(date + 'T00:00:00Z').getUTCDay();
+  const milDay = (jsDay === 0 || jsDay === 6) ? null : jsDay;
+
+  const clusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
+  const milGroup    = getMilitaryGroup(milCoach.track ?? 'keuring', clusterLive);
+
+  let sessionType;
+  if (inBaseBuild) {
+    const baseSchedule = MIL_BASE_BUILD[milGroup] ?? MIL_BASE_BUILD.keuring_low;
+    sessionType = milDay === null ? 'rust' : (baseSchedule[milDay - 1] ?? 'rust');
+    if (!milCoach.last_cooper_distance_m && milDay === 1) sessionType = 'cooper_test';
+  } else {
+    const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
+    sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
+  }
+
+  const milVol = inBaseBuild ? 0.85 : (MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0);
+
+  return { milWeek, inBaseBuild, milDay, milGroup, clusterLive, sessionType, milVol, isPostAssessment };
+}
+
 // Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
 // R577 caps actual increase at +5 kg from last week's weight
 const MIL_MARCH_KG = {
@@ -1685,80 +1740,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     && slot_type !== 'rest' && slot_type !== 'micro';
 
   if (militaryActive) {
-    // R570 — Derive milWeek from assessment date (target mode) or enrollment date (open mode).
-    // Six weeks map to program phases; week is re-derived every day from the calendar,
-    // so no session counter is needed — the program advances automatically with time.
-    let milWeek;
-    let inBaseBuild = false; // true during base-building phase (> 6 weeks out or fit mode)
-    const assessmentDate = milCoach.target_date; // YYYY-MM-DD or null
-    const todayMs        = new Date(date + 'T00:00:00Z').getTime();
-    const assessMs       = assessmentDate ? new Date(assessmentDate + 'T00:00:00Z').getTime() : null;
-    // Post-assessment: target_date is in the past (execution.js will flip mode→open on next save,
-    // but plan.js also handles it transparently in case prefs haven't been written yet today)
-    const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
-
-    if (milCoach.mode === 'fit') {
-      // R570a — Fit target mode: base building indefinitely toward cluster_target.
-      // No fixed end date; RPE drift advances cluster_current silently.
-      inBaseBuild = true;
-      milWeek = 2; // use build-week volume/run-offset for session selection
-    } else if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
-      const daysRemaining = Math.ceil((assessMs - todayMs) / 86_400_000);
-      if (daysRemaining > 42) {
-        // R570b — Base building phase: > 6 weeks to assessment.
-        // Progressive training at cluster_current; specific prep begins at 6 weeks out.
-        inBaseBuild = true;
-        milWeek = 2; // build-week volume/run-offset
-      } else {
-        // R570c — Specific prep phase: fixed 6-week schedule anchored to assessment date.
-        if      (daysRemaining >= 36) milWeek = 1;
-        else if (daysRemaining >= 29) milWeek = 2;
-        else if (daysRemaining >= 22) milWeek = 3;
-        else if (daysRemaining >= 15) milWeek = 4;
-        else if (daysRemaining >= 8)  milWeek = 5;
-        else                          milWeek = 6; // taper / assessment week
-      }
-    } else {
-      // Open mode, no date, or post-assessment: rolling 6-week cycle.
-      // Post-assessment uses enrolled_at_ms reset to assessment day by execution.js.
-      const enrolledMs   = milCoach.enrolled_at_ms ?? todayMs;
-      const weeksElapsed = Math.floor((todayMs - enrolledMs) / (7 * 86_400_000));
-      milWeek = (weeksElapsed % 6) + 1;
-    }
-    milWeek = Math.max(1, Math.min(milWeek, 6));
-
-    // milDay from day of calendar week: Mon=1 Tue=2 Wed=3 Thu=4 Fri=5 Sat/Sun=rest
-    const jsDay = new Date(date + 'T00:00:00Z').getUTCDay(); // 0=Sun,1=Mon…6=Sat
-    let milDay;
-    if (jsDay === 0 || jsDay === 6) {
-      milDay = null; // weekend → force rest regardless of schedule
-    } else {
-      milDay = jsDay; // Mon=1 … Fri=5
-    }
-
-    // Use cluster_current for group selection — this is the RPE-adjusted live level.
-    // cluster_target is preserved as the original assessment benchmark and never changes.
-    const milClusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
-    const milGroup = getMilitaryGroup(milCoach.track ?? 'keuring', milClusterLive);
-
-    // Select session type: base build uses day-of-week pattern; specific prep uses MIL_SCHEDULE.
-    let sessionType;
-    if (inBaseBuild) {
-      const baseSchedule = MIL_BASE_BUILD[milGroup] ?? MIL_BASE_BUILD.keuring_low;
-      sessionType = milDay === null ? 'rust' : (baseSchedule[milDay - 1] ?? 'rust');
-      // First session ever: run Cooper test to establish baseline cluster_current.
-      if (!milCoach.last_cooper_distance_m && milDay === 1) sessionType = 'cooper_test';
-    } else {
-      const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
-      sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
-    }
+    // R570 — computeMilitaryPhase() is the single source of truth for week/phase/session-type.
+    const {
+      milWeek, inBaseBuild, milDay, milGroup, sessionType, milVol,
+    } = computeMilitaryPhase(milCoach, date);
     militarySessionType = sessionType;
 
-    // R578 — Volume multiplier: base build uses build-week volume (0.85); specific prep uses phase table.
-    const milVol = inBaseBuild ? 0.85 : (MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0);
+    // R578 — Volume multiplier from phase (base-build=0.85; specific-prep from phase table).
     volumeMultiplier = Math.min(volumeMultiplier, milVol);
-    const phaseLabel = inBaseBuild ? 'BaseBuild' : `W${milWeek}`;
-    trace.push(`R570 — Military Coach: ${milGroup} ${phaseLabel}D${milDay ?? 'rest'} → ${sessionType} (vol ×${milVol})`);
+    trace.push(`R570 — Military Coach: ${milGroup} ${inBaseBuild ? 'BaseBuild' : `W${milWeek}`}D${milDay ?? 'rest'} → ${sessionType} (vol ×${milVol})`);
 
     if (sessionType === 'rust') {
       // R570 — Military rest day
@@ -2313,30 +2303,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
       : null,
     military_program: militaryActive ? (() => {
-      // Re-derive milWeek/inBaseBuild/milDay here for return object (vars are block-scoped above)
-      let retWeek; let retInBaseBuild = false;
-      const retAssessDate     = milCoach.target_date;
-      const retTodayMs        = new Date(date + 'T00:00:00Z').getTime();
-      const retAssessMs       = retAssessDate ? new Date(retAssessDate + 'T00:00:00Z').getTime() : null;
-      const retIsPostAssess   = retAssessMs !== null && retTodayMs > retAssessMs && milCoach.mode !== 'open';
-      if (milCoach.mode === 'fit') {
-        retInBaseBuild = true; retWeek = 2;
-      } else if (retAssessDate && milCoach.mode !== 'open' && !retIsPostAssess) {
-        const dr = Math.ceil((retAssessMs - retTodayMs) / 86_400_000);
-        if (dr > 42) { retInBaseBuild = true; retWeek = 2; }
-        else if (dr >= 36) retWeek = 1;
-        else if (dr >= 29) retWeek = 2;
-        else if (dr >= 22) retWeek = 3;
-        else if (dr >= 15) retWeek = 4;
-        else if (dr >= 8)  retWeek = 5;
-        else               retWeek = 6;
-      } else {
-        const eMs = milCoach.enrolled_at_ms ?? retTodayMs;
-        retWeek   = (Math.floor((retTodayMs - eMs) / (7 * 86_400_000)) % 6) + 1;
-      }
-      retWeek = Math.max(1, Math.min(retWeek, 6));
-      const retClusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
-      const retDay = (() => { const d = new Date(date + 'T00:00:00Z').getUTCDay(); return (d === 0 || d === 6) ? null : d; })();
+      // computeMilitaryPhase() is the single source of truth — reuse without re-deriving.
+      const {
+        milWeek: retWeek, inBaseBuild: retInBaseBuild, milDay: retDay, milGroup: retGroup,
+        clusterLive: retClusterLive, isPostAssessment: retIsPostAssess,
+      } = computeMilitaryPhase(milCoach, date);
       return {
         week:                  retWeek,
         day:                   retDay,
@@ -2344,10 +2315,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         track:                 milCoach.track ?? 'keuring',
         cluster_target:        milCoach.cluster_target ?? 1,
         cluster_current:       retClusterLive,
-        group:                 getMilitaryGroup(milCoach.track ?? 'keuring', retClusterLive),
+        group:                 retGroup,
         march_kg:              militaryMarchKg  || null,
         march_sec:             militaryMarchSec || null,
-        target_date:           retAssessDate ?? null,
+        target_date:           milCoach.target_date ?? null,
         mode:                  milCoach.mode ?? 'target',
         is_base_build:         retInBaseBuild,
         is_calibration_week:   retWeek === 1 && !retInBaseBuild,

@@ -219,7 +219,7 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, day_plan_id, session_type, steps, perceived_exertion, duration_sec } = body;
+    const { date, day_plan_id, session_type, session_program, steps, perceived_exertion, duration_sec } = body;
 
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -286,10 +286,14 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ── 4c. Military coach — Cooper result + RPE-based cluster drift ─────────
-    try {
-      await advanceMilitaryCoach(user_id, steps, perceived_exertion, env, now);
-    } catch (err) {
-      console.error('Military coach update failed (non-fatal):', err.message);
+    // Only advance when the session that was just completed was a military session.
+    // Non-military RPE (yoga, strength, etc.) must not drift cluster_current.
+    if (session_program === 'military') {
+      try {
+        await advanceMilitaryCoach(user_id, steps, perceived_exertion, env, now);
+      } catch (err) {
+        console.error('Military coach update failed (non-fatal):', err.message);
+      }
     }
 
     // ── 5. Track polarised endurance type (zone2 / hiit) for R558 balance ────

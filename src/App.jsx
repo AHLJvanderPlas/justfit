@@ -2495,7 +2495,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
                       <MilitaryIcon size={10} />
-                      {plan.military_program.session_type === 'cooper_test' ? 'Cooper Test' : plan.military_program.session_type ?? 'Military'} · W{plan.military_program.week}
+                      {({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military'}
+                      {plan.military_program.is_base_build ? ' · Base build' : ` · W${plan.military_program.week}`}
                     </span>
                   )}
                   <div
@@ -5507,6 +5508,7 @@ export default function App() {
       }
       try {
         const mergedSteps = (stepsActual ?? plan?.steps ?? []);
+        const isMilSession = !!(plan?.military_program);
         await api.saveExecution(
           userId,
           plan?.id,
@@ -5514,6 +5516,8 @@ export default function App() {
           mergedSteps,
           durationSec,
           perceivedExertion,
+          "workout",
+          isMilSession ? "military" : null,
         );
         const [newScore, newHistory] = await Promise.all([
           api.getScore(),
@@ -5548,7 +5552,7 @@ export default function App() {
       setShowCooperModal(false);
       setCooperPending(null);
       try {
-        await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion);
+        await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion, "workout", "military");
         const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]);
         setPrevScore(score);
         setScore(newScore);
