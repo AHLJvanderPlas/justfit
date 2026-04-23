@@ -1325,7 +1325,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     cursor: "pointer",
                   }}
                 >
-                  {d} min
+                  {d === 60 ? '1h' : d === 90 ? '1.5h' : d === 120 ? '2h' : `${d} min`}
                 </button>
               ))}
             </div>
@@ -1345,7 +1345,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     {label}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 5, flex: 1 }}>
-                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "60m" }, { v: 90, l: "90m" }, { v: 120, l: "120m" }, { v: 999, l: "120+" }].map(({ v, l }) => {
+                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "1h" }, { v: 90, l: "1.5h" }, { v: 120, l: "2h" }, { v: 999, l: "∞" }].map(({ v, l }) => {
                       const sel = weeklySchedule[key] === v;
                       const isRest = v === 0;
                       return (

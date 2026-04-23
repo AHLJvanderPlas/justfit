@@ -868,7 +868,7 @@ function OnboardingModal({ token, onComplete, onBack }) {
                       fontWeight: 800, fontSize: 13, cursor: "pointer",
                     }}
                   >
-                    {d === 999 ? "120+" : `${d}m`}
+                    {d === 999 ? '∞' : d === 60 ? '1h' : d === 90 ? '1.5h' : d === 120 ? '2h' : `${d}m`}
                   </button>
                 ))}
               </div>
