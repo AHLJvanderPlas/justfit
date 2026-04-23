@@ -776,8 +776,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
             {[
               { id: "general",  label: "General" },
-              { id: "running",  label: "Run",      sub: !planEquipment.includes("running_shoes") ? "Add shoes" : null },
-              { id: "cycling",  label: "Cycle",    sub: !planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) ? "Add bike" : null },
+              { id: "running",  label: "Run" },
+              { id: "cycling",  label: "Cycle" },
               { id: "military", label: "Military" },
             ].map(opt => {
               const disabled = !!opt.sub;
@@ -866,6 +866,18 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           )}
 
           {/* ── Run Coach sub-section ── */}
+          {focusSel === "running" && !planEquipment.includes("running_shoes") && (
+            <button
+              onClick={() => setPlanEquipment(eq => eq.includes("running_shoes") ? eq : [...eq.filter(v => v !== "none"), "running_shoes"])}
+              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
+            >
+              <span style={{ fontSize: 18 }}>👟</span>
+              <div>
+                <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add running shoes</div>
+                <div style={{ fontSize: 11, color: C.muted }}>Required for the running programme — tap to add to your equipment list.</div>
+              </div>
+            </button>
+          )}
           {focusSel === "running" && planEquipment.includes("running_shoes") && (() => {
             const rcState = prefs.preferences?.run_coach ?? null;
             const isActive = rcState?.enrolled === true && !rcState?.completed;
@@ -921,7 +933,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           })()}
 
           {/* ── Cycle Coach sub-section ── */}
-          {focusSel === "cycling" && planEquipment.some(e => ['road_bike','mountain_bike','indoor_bike','exercise_bike'].includes(e)) && (() => {
+          {focusSel === "cycling" && (() => {
             const ccState = prefs.preferences?.cycling_coach ?? null;
             const ccActive = ccState?.active === true && !ccState?.completed;
             const ftp = parseInt(cycleFtpInput) || 200;
@@ -1083,7 +1095,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                       <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Backpack or weighted vest. 0 = bodyweight march sessions only.</div>
                     </div>
-                    {!planEquipment.includes("trail_shoes") ? (
+                    {!planEquipment.includes("trail_shoes") && (
                       <button
                         onClick={() => setPlanEquipment(eq => eq.includes("trail_shoes") ? eq : [...eq.filter(v => v !== "none"), "trail_shoes"])}
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
@@ -1094,11 +1106,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                           <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions — tap to add to your equipment list.</div>
                         </div>
                       </button>
-                    ) : (
-                      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
-                        <span style={{ fontSize: 14, color: C.emerald }}>✓</span>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: C.muted }}>Trail shoes / hiking boots in equipment list</div>
-                      </div>
                     )}
                     {/* ── Summary / feedback ── */}
                     {milMode === 'fit' && (
