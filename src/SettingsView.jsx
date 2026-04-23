@@ -1107,11 +1107,23 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         </div>
                       </button>
                     )}
-                    {/* ── Summary / feedback ── */}
+                    {/* ── Mode info panels ── */}
+                    {milMode === 'open' && (
+                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Open progression · Rolling 6-week cycle</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>No assessment date needed. Continuously cycles through training phases — great for long-term fitness maintenance.</div>
+                      </div>
+                    )}
                     {milMode === 'fit' && (
                       <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                         <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Fit target · Progressive base building</div>
                         <div style={{ fontSize: 10, color: C.muted }}>Train toward your goal level at your own pace. RPE signals advance your training automatically — no assessment date required.</div>
+                      </div>
+                    )}
+                    {milMode === 'target' && !milTargetDate && (
+                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Assessment target · Two-phase training</div>
+                        <div style={{ fontSize: 10, color: C.muted }}>Training anchors to your assessment date. Base building starts immediately; a structured 6-week specific prep begins automatically at 6 weeks out.</div>
                       </div>
                     )}
                     {milMode === 'target' && milTargetDate && (() => {
