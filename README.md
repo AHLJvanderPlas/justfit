@@ -18,7 +18,7 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 ## Features
 
-- Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R565); sport-aware bias layer nudges strength targets to support your primary sport; **injury-aware filtering** (knee/shoulder/lower back/ankle) removes contraindicated exercises and supplements with safe mobility alternatives
+- Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R582); sport-aware bias layer nudges strength targets to support your primary sport; **injury-aware filtering** (knee/shoulder/lower back/ankle) removes contraindicated exercises and supplements with safe mobility alternatives
 - **Severity-based messaging** — `src/messagePolicy.js` maps all planner rule codes to severity buckets; BMI/adaptation notes replaced with compact `AdaptationChip` pill + collapsible "Why this plan?" panel (non-shaming, safety-first copy); postnatal clearance gate shows persistent `BlockingSafetyBanner` (ARIA role="alert"); run coach ramp-up warning scoped to Settings enrollment only
 - **Production hardening** — auth rate limiting (DB-backed sliding window, migration 0022); generic API 500s (no internal leakage); `src/errorReporter.js` client error reporting; AwardsView lazy-loaded (535→528KB main chunk + 8.76KB async chunk); `npm run smoke` pre-deploy script; `/api/ping` DB check + `OPERATIONS.md` runbook
 - **In-app legal docs** — Mission / How it works / Privacy / Terms / Disclaimer available in Settings with full-page links; all five full pages support Share + Email actions; `/api/legal-email` supports all five document IDs
@@ -37,9 +37,10 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 - Responsive dashboard: full-width session card + compact score strip on mobile (< 600px)
 - Weight unit toggle (kg ↔ lbs) — single tap-to-toggle button
 - **11-colour accent picker** — synced to D1, applied on every device at load
-- SVG polygon goal icons (stroke style matching lightning bolt logo) with watermark positioning
+- SVG polygon goal icons with watermark positioning; hexagon+route+flag app icon (route/flag = accent colour, hexagon web = secondary blue-grey)
 - PWA — installable, dark theme (`#020617`), default accent emerald (`#10b981`)
 - Ghost Partner counter (circadian formula, updates every 60s)
+- **Military Coach** (4th trainer, Basic tier) — Keuring K1–K6 and Opleiding O1–O7 tracks; three modes: target (two-phase: base build → 6-week specific prep), fit (indefinite base building), open (rolling 6-week cycle); RPE-based progressive overload drift; Cooper test post-session modal; wizard in Settings (4th Focus tab)
 - Weekly plan view (7-day session strip)
 - Explicit terms & privacy acceptance gate — versioned consent recorded on signup and re-prompted automatically on Terms/Privacy version bumps (migration 0023)
 
@@ -79,7 +80,7 @@ See `RELEASE_SMOKE.md` for the full manual pre-deploy checklist and `OPERATIONS.
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0002_seed.sql` → `0026_db_hardening.sql` (next: `0028+`)
+- Migrations: `migrations/0002_seed.sql` → `0030_military_tags.sql` (next: `0031+`)
 - Migration prefixes are unique and monotonic — never reuse a number.
 
 ```bash

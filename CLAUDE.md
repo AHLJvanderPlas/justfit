@@ -859,6 +859,26 @@ adds +15s for pregnancy/postnatal on top of this.
 | R543 | rebuilding | add diastasis recti check note to session_notes |
 | R544 | running_today signal | add running clearance note to session_notes |
 
+### Military rules (mode = 'military', prefs.military_coach enabled)
+| Rule | Trigger | Effect |
+|---|---|---|
+| R570 | military_coach enrolled | Load `mil_mode`, `mil_level`, `mil_track`, `mil_target_date`, `cluster_current` from preferences_json |
+| R571 | always | Select exercise pool filtered by `military` tag; use `MIL_SCHEDULE[dayOfWeek]` for session type (run/strength/rest) |
+| R572 | mode = 'target', > 42 days out | Phase 1: base building — `MIL_BASE_BUILD` pattern, volume 0.85 |
+| R573 | mode = 'target', ≤ 42 days out | Phase 2: specific 6-week prep — week-by-week intensity ramp toward assessment |
+| R574 | mode = 'fit' | Indefinite base building at goal level; no date anchor |
+| R575 | mode = 'open' | Rolling 6-week cycle through phases regardless of date |
+| R576 | RPE feedback (perceived_exertion) | Silent `cluster_current` drift: PE=3 → level up, PE=8 → level down (progressive overload) |
+| R577 | run day | Prescribe run distance/time from current Keuring/Opleiding level table |
+| R578 | strength day | Prescribe military strength circuit from current level |
+| R579 | rest day | slot_type = 'rest', session_name = "Recovery" |
+| R580 | post-session (run day) | Prompt Cooper test modal to capture distance for level progression |
+| R581 | always | Bypass standard R510–R565 rules (military takes full control of session) |
+| R582 | always | Set goal target profile on hexagon radar to military fitness vector |
+
+**Tracks**: Keuring K1–K6 (fitness assessment), Opleiding O1–O7 (training program)
+**Storage**: `preferences_json.military_coach` object — `{enrolled, mode, level, track, target_date, cluster_current}`
+
 ### Pregnancy/postnatal vocabulary overrides
 - Pregnancy: "Today's movement", "Strong & supported", "Five minutes for you"
 - Postnatal: "A gentle moment", "Rebuilding your foundation", "Today's recovery"
@@ -867,7 +887,7 @@ adds +15s for pregnancy/postnatal on top of this.
 Key tags: `no_floor`, `low_impact`, `quiet`, `high_impact`, `floor`, `loud`,
 `bodyweight`, `dumbbell`, `strength`, `cardio`, `mobility`, `recovery`,
 `pregnancy_safe`, `postnatal_safe`, `pelvic_floor`, `kegel`, `breathing`,
-`supine`, `prone`, `crunch`, `valsalva`, `inversion`
+`supine`, `prone`, `crunch`, `valsalva`, `inversion`, `military`
 
 ---
 
@@ -900,12 +920,12 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0024) |
+| D1 schema + migrations | ✅ Live (0002–0030) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine v1.8.0 (R510–R565) | ✅ Live — template-based, profile-aware, pregnancy/postnatal rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle) |
+| Planner engine v1.8.0 (R510–R582) | ✅ Live — template-based, profile-aware, pregnancy/postnatal/military rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle); Military Coach R570–R582 (Keuring/Opleiding tracks, three modes, two-phase target, RPE drift, Cooper test) |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
