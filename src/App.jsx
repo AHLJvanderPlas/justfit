@@ -2366,8 +2366,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     display: "flex", alignItems: "center", justifyContent: "center",
                   }}
                 >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  <svg width="16" height="16" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
+                    <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
+                    <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
+                    <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
+                    <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="36" strokeLinejoin="round" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
@@ -2383,14 +2387,21 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             /* ── Full vertical card (desktop) ── */
             <>
               <div style={{ position: "absolute", top: -20, right: -20, opacity: 0.06 }}>
-                <svg width="160" height="160" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="1">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                <svg width="160" height="160" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
+                  <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round"/>
+                  <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="30" strokeLinecap="round"/>
+                  <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="30" strokeLinejoin="round" strokeLinecap="round"/>
                 </svg>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
                 <div style={{ width: 36, height: 36, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                    <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+                  <svg width="18" height="18" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
+                    <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
+                    <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
+                    <path d="M 512 294 L 512 176" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
+                    <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" stroke="var(--accent)" strokeWidth="36" strokeLinejoin="round" strokeLinecap="round"/>
                   </svg>
                 </div>
                 <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
@@ -5726,11 +5737,13 @@ export default function App() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <svg width="38" height="38" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
-                <rect x="2" y="2" width="60" height="60" rx="14" fill="var(--accent)"/>
-                <g transform="translate(8 4) scale(2.2)">
-                  <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="#ffffff" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round"/>
-                </g>
+              <svg width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
+                <rect x="28" y="28" width="968" height="968" rx="180" fill="var(--accent)"/>
+                <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="28" strokeLinejoin="round"/>
+                <path d="M 480 850 C 430 810, 420 760, 470 710 C 545 636, 690 602, 728 506 C 754 438, 714 370, 612 336 C 560 318, 528 305, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="512" cy="294" r="32" fill="white"/>
+                <path d="M 512 294 L 512 176" stroke="white" strokeWidth="30" strokeLinecap="round"/>
+                <path d="M 512 180 L 610 180 C 594 201, 594 223, 610 245 L 512 245" fill="none" stroke="white" strokeWidth="30" strokeLinejoin="round" strokeLinecap="round"/>
               </svg>
               <span
                 style={{
