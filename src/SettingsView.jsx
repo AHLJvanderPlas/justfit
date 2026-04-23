@@ -1329,45 +1329,61 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 </button>
               ))}
             </div>
-          ) : (
-            <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                { key: "mon", label: "Mon" },
-                { key: "tue", label: "Tue" },
-                { key: "wed", label: "Wed" },
-                { key: "thu", label: "Thu" },
-                { key: "fri", label: "Fri" },
-                { key: "sat", label: "Sat" },
-                { key: "sun", label: "Sun" },
-              ].map(({ key, label }) => (
-                <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 32, fontSize: 11, fontWeight: 900, color: weeklySchedule[key] === 0 ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
-                    {label}
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 5, flex: 1 }}>
-                    {[{ v: 0, l: "Rest" }, { v: 15, l: "15m" }, { v: 20, l: "20m" }, { v: 30, l: "30m" }, { v: 45, l: "45m" }, { v: 60, l: "1h" }, { v: 90, l: "1.5h" }, { v: 120, l: "2h" }, { v: 999, l: "∞" }].map(({ v, l }) => {
-                      const sel = weeklySchedule[key] === v;
-                      const isRest = v === 0;
-                      return (
-                        <button
-                          key={v}
-                          onClick={() => setWeeklySchedule((s) => ({ ...s, [key]: v }))}
-                          style={{
-                            padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, cursor: "pointer",
-                            border: `1px solid ${sel ? (isRest ? "rgba(255,255,255,0.15)" : C.emeraldBorder) : C.border}`,
-                            background: sel ? (isRest ? "rgba(255,255,255,0.07)" : C.emeraldDim) : "rgba(255,255,255,0.02)",
-                            color: sel ? (isRest ? C.muted : C.emerald) : C.subtle,
-                          }}
-                        >
-                          {l}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 999];
+            const fmtStep = v => {
+              if (v === 0)   return 'Rest';
+              if (v === 999) return '∞';
+              if (v < 60)    return `${v}m`;
+              const h = Math.floor(v / 60), m = v % 60;
+              return m === 0 ? `${h}h` : `${h}h ${m}m`;
+            };
+            return (
+              <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+                {[
+                  { key: "mon", label: "Mon" },
+                  { key: "tue", label: "Tue" },
+                  { key: "wed", label: "Wed" },
+                  { key: "thu", label: "Thu" },
+                  { key: "fri", label: "Fri" },
+                  { key: "sat", label: "Sat" },
+                  { key: "sun", label: "Sun" },
+                ].map(({ key, label }) => {
+                  const raw = weeklySchedule[key] ?? planDuration;
+                  const val = ADV_STEPS.reduce((best, s) => Math.abs(s - raw) < Math.abs(best - raw) ? s : best, ADV_STEPS[0]);
+                  const idx = ADV_STEPS.indexOf(val);
+                  const isRest = val === 0;
+                  const btnStyle = (disabled) => ({
+                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                    border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)",
+                    color: disabled ? C.subtle : C.text,
+                    fontSize: 22, fontWeight: 300, cursor: disabled ? "default" : "pointer",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                  });
+                  return (
+                    <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ width: 34, fontSize: 11, fontWeight: 900, color: isRest ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+                        {label}
+                      </div>
+                      <button
+                        onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.max(0, idx - 1)] }))}
+                        disabled={idx === 0}
+                        style={btnStyle(idx === 0)}
+                      >−</button>
+                      <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 900, color: isRest ? C.muted : C.emerald }}>
+                        {fmtStep(val)}
+                      </div>
+                      <button
+                        onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.min(ADV_STEPS.length - 1, idx + 1)] }))}
+                        disabled={idx === ADV_STEPS.length - 1}
+                        style={btnStyle(idx === ADV_STEPS.length - 1)}
+                      >+</button>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
 
           <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
 
