@@ -862,6 +862,23 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                   );
                 })}
               </div>
+              {(() => {
+                const info = {
+                  health:      { title: "General Health · Balanced movement",      body: "Strength, cardio, mobility and recovery in rotation — the foundation of long-term fitness." },
+                  strength:    { title: "Build Strength · Progressive overload",   body: "Compound movements with increasing resistance. Push/pull/legs cycling ensures full recovery between sessions." },
+                  fat_loss:    { title: "Lose Weight · Mixed intensity",           body: "Cardio and strength combined to maximise calorie burn and build metabolic resilience over time." },
+                  muscle_gain: { title: "Build Muscle · Volume focus",             body: "Higher set counts and controlled tempo. Progressive overload accumulates the stimulus needed for hypertrophy." },
+                  endurance:   { title: "Endurance · Aerobic development",         body: "Longer sessions with steady-state cardio and zone 2 work to expand your aerobic base sustainably." },
+                  mobility:    { title: "Mobility & Flex · Joint health",          body: "Stretching, flows and recovery work to improve range of motion, posture and injury resilience." },
+                }[focusSel];
+                if (!info) return null;
+                return (
+                  <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                    <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{info.title}</div>
+                    <div style={{ fontSize: 10, color: C.muted }}>{info.body}</div>
+                  </div>
+                );
+              })()}
             </div>
           )}
 
@@ -928,6 +945,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 ) : (
                   <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Run Coach.</div>
                 )}
+              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Running Coach · Structured progression</div>
+                <div style={{ fontSize: 10, color: C.muted }}>3 sessions per week, any days you choose. Each target unlocks the next — safely building from 5 km to 30 km over time.</div>
+              </div>
               </div>
             );
           })()}
@@ -990,6 +1011,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 ) : (
                   <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Cycle Coach.</div>
                 )}
+              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
+                <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Cycling Coach · FTP-based training</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3 sessions per week in 8-week blocks.</div>
+              </div>
               </div>
             );
           })()}
