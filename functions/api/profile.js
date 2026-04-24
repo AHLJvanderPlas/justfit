@@ -237,6 +237,10 @@ export async function onRequestPost({ request, env }) {
           if (preferences.cycling_coach) preferences.cycling_coach = { ...preferences.cycling_coach, active:   false };
         }
       }
+      // Enforce one active coach between run and cycling (run takes precedence)
+      if (preferences.run_coach?.enrolled && preferences.cycling_coach?.active) {
+        preferences.cycling_coach = { ...preferences.cycling_coach, active: false };
+      }
     }
 
     // ── user_preferences ──────────────────────────────────────────────────────

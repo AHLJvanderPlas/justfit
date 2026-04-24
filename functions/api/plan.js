@@ -423,7 +423,7 @@ const SPORT_AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 // Primary sport weighted 0.6, secondary sports share 0.4.
 // Nudge = (sportAxis - 0.5) × 24, capped at ±12 points per axis.
 // Guardrail: halve legs/conditioning nudge if user ran or rode in the last 24 h.
-function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRideAtMs) {
+function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRideAtMs, planDateMs) {
   const sports = sportPrefs?.sports ?? [];
   const knownSports = sports.filter(s => SPORT_DEMAND[s]);
   if (!knownSports.length) return { targets: baseTargets, biasTrace: null };
@@ -441,9 +441,9 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRid
 
   // External-load guardrail: recent run or ride → halve legs/conditioning nudge
   const ms24h = 24 * 3600 * 1000;
-  const now = Date.now();
-  const recentRun  = !!(lastRunAtMs  && (now - lastRunAtMs)  < ms24h);
-  const recentRide = !!(lastRideAtMs && (now - lastRideAtMs) < ms24h);
+  const refMs  = planDateMs ?? Date.now();
+  const recentRun  = !!(lastRunAtMs  && (refMs - lastRunAtMs)  < ms24h);
+  const recentRide = !!(lastRideAtMs && (refMs - lastRideAtMs) < ms24h);
   const guardrailApplied = recentRun || recentRide;
 
   const adjustedTargets = {};
@@ -962,6 +962,8 @@ function getDefaultRest(exercise, slotType) {
 function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false) {
   const trace = [];
   const isProEnabled = !!isPro;
+  // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
+  const planDateMs = new Date(date + 'T12:00:00Z').getTime();
   const goal = prefs?.training_goal ?? 'health';
   const expLevel = prefs?.experience_level ?? 'intermediate';
   const runCoach = prefs?.preferences?.run_coach;
@@ -1734,6 +1736,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let militarySessionType = null;     // raw session type string, passed to return object
   let militaryMarchKg  = 0;
   let militaryMarchSec = 0;
+  let milWeekComputed  = 1;
 
   const milCoach = prefs?.preferences?.military_coach;
   const militaryActive = !!(milCoach?.active) && !inSpecialMode
@@ -1744,6 +1747,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const {
       milWeek, inBaseBuild, milDay, milGroup, sessionType, milVol,
     } = computeMilitaryPhase(milCoach, date);
+    milWeekComputed = milWeek;
     militarySessionType = sessionType;
 
     // R578 — Volume multiplier from phase (base-build=0.85; specific-prep from phase table).
@@ -1909,7 +1913,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const lastRunAtMs  = prefs?.preferences?.run_coach?.last_run_at_ms ?? null;
     const lastRideAtMs = prefs?.preferences?.cycling_coach?.last_ride_at_ms ?? null;
     const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride)
-      ? computeSportBiasedTargets(baseTargets, prefs?.preferences?.sport_prefs, lastRunAtMs, lastRideAtMs)
+      ? computeSportBiasedTargets(baseTargets, prefs?.preferences?.sport_prefs, lastRunAtMs, lastRideAtMs, planDateMs)
       : { targets: baseTargets, biasTrace: null };
     if (biasTrace) {
       const adj = Object.entries(biasTrace.adjustments).filter(([, v]) => v !== 0).map(([ax, v]) => `${ax}${v > 0 ? '+' : ''}${v}`).join(', ');
@@ -1962,7 +1966,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // R553 — Mobility decay maintenance
     const mob = progScores.mobility;
     const daysSinceMobility = mob?.last_mobility_stimulus_at_ms
-      ? Math.floor((Date.now() - mob.last_mobility_stimulus_at_ms) / 86_400_000)
+      ? Math.floor((planDateMs - mob.last_mobility_stimulus_at_ms) / 86_400_000)
       : 999;
     if (daysSinceMobility >= T.MOBILITY_DECAY_DAYS && goal !== 'mobility' && slot_type !== 'rest') {
       addNote('Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.');
@@ -2030,7 +2034,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const supportsReps = metrics.supports?.includes('reps');
     // base_duration_sec lets conditioning exercises specify their own duration (e.g. 1200 = 20 min)
     const baseDuration = metrics.base_duration_sec ?? 30;
-    let reps = supportsReps ? (GOAL_REPS[goal] ?? 10) : undefined;
+    let reps = supportsReps ? (isRunWarmup ? 10 : (GOAL_REPS[goal] ?? 10)) : undefined;
 
     // Determine if this is a weighted (non-bodyweight) exercise for coaching guidance
     const equipmentRequired = JSON.parse(ex.equipment_required_json || '["none"]');
@@ -2244,11 +2248,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   } else if (militaryProgramOverride?.type === 'interval') {
     session_name = `Military · Intervals · Week ${militaryProgramOverride.week}`;
   } else if (militarySessionType === 'kracht_marsen') {
-    session_name = `Military · Strength & March · Week ${milCoach?.week ?? 1}`;
+    session_name = `Military · Strength & March · Week ${milWeekComputed}`;
   } else if (militarySessionType === 'circuit') {
-    session_name = `Military · Circuit · Week ${milCoach?.week ?? 1}`;
+    session_name = `Military · Circuit · Week ${milWeekComputed}`;
   } else if (militarySessionType === 'kracht' && militaryActive) {
-    session_name = `Military · Strength · Week ${milCoach?.week ?? 1}`;
+    session_name = `Military · Strength · Week ${milWeekComputed}`;
   } else if (runProgramOverride) {
     session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
   } else if (cyclingProgramOverride) {

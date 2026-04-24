@@ -147,6 +147,9 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   if (accepted_terms_version !== CURRENT_TERMS_VERSION) {
     return Response.json({ error: 'You must accept the Terms & Conditions to create an account.' }, { status: 400 });
   }
+  if (accepted_privacy_version !== CURRENT_PRIVACY_VERSION) {
+    return Response.json({ error: 'You must accept the Privacy Policy to create an account.' }, { status: 400 });
+  }
   const emailLower = email.toLowerCase().trim();
 
   const existing = await env.DB.prepare(
@@ -172,7 +175,7 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   const rawVerifyToken   = generateSecureToken();
   const verifyTokenHash  = await sha256b64url(rawVerifyToken);
   const verifyCode       = generateCode();
-  const privacyVersion = accepted_privacy_version ?? CURRENT_PRIVACY_VERSION;
+  const privacyVersion = accepted_privacy_version;
 
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO users (id, status, primary_email, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)`)
@@ -207,19 +210,26 @@ async function handleLogin({ email, password }, request, env, secret) {
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
   const emailLower = email.toLowerCase().trim();
   const HOUR = 60 * 60 * 1000;
+  const ipBucket    = `login:ip:${clientIp(request)}`;
+  const emailBucket = `login:email:${emailLower}`;
 
-  if (await isRateLimited(`login:ip:${clientIp(request)}`, 20, HOUR, env) ||
-      await isRateLimited(`login:email:${emailLower}`, 10, HOUR, env)) {
+  // Check current bucket state without incrementing — only failures count
+  if (await checkRateLimit(ipBucket, 20, HOUR, env) ||
+      await checkRateLimit(emailBucket, 10, HOUR, env)) {
     return Response.json({ error: 'Too many login attempts — please try again later' }, { status: 429 });
   }
 
   const authUser = await env.DB.prepare(
     `SELECT a.id, a.user_id, a.password_hash FROM auth_users a WHERE a.email = ? AND a.provider = 'password' LIMIT 1`
   ).bind(emailLower).first();
-  if (!authUser) return Response.json({ error: 'Invalid email or password' }, { status: 401 });
+  if (!authUser) {
+    await Promise.all([recordAttempt(ipBucket, HOUR, env), recordAttempt(emailBucket, HOUR, env)]);
+    return Response.json({ error: 'Invalid email or password' }, { status: 401 });
+  }
 
   const [salt, storedHash] = authUser.password_hash.split(':');
   if (await hashPassword(password, salt, secret) !== storedHash) {
+    await Promise.all([recordAttempt(ipBucket, HOUR, env), recordAttempt(emailBucket, HOUR, env)]);
     return Response.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
@@ -238,8 +248,10 @@ async function handleLogin({ email, password }, request, env, secret) {
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
-// Sliding-window counter backed by auth_rate_limits table (migration 0022).
-// Returns true if the bucket has exceeded maxCount within windowMs.
+// Sliding-window counters backed by auth_rate_limits table (migration 0022).
+
+// isRateLimited — increment-then-check. Used for paths where every request counts
+// (forgot password, magic link, verify). Returns true if limit exceeded.
 async function isRateLimited(bucket, maxCount, windowMs, env) {
   const now    = Date.now();
   const cutoff = now - windowMs;
@@ -251,10 +263,32 @@ async function isRateLimited(bucket, maxCount, windowMs, env) {
       window_start_ms  = CASE WHEN window_start_ms <= ? THEN ?            ELSE window_start_ms END
   `).bind(bucket, now, cutoff, cutoff, now).run();
   const row = await env.DB.prepare(`SELECT count FROM auth_rate_limits WHERE bucket = ?`).bind(bucket).first();
-  // Opportunistic cleanup: delete rows expired longer than 24h ago (fire-and-forget)
   env.DB.prepare('DELETE FROM auth_rate_limits WHERE window_start_ms < ?')
     .bind(now - 86_400_000).run().catch(() => {});
   return (row?.count ?? 1) > maxCount;
+}
+
+// checkRateLimit — read-only check, no increment. Used for login: only failures
+// should consume quota so legitimate users can't rate-limit themselves.
+async function checkRateLimit(bucket, maxCount, windowMs, env) {
+  const now    = Date.now();
+  const cutoff = now - windowMs;
+  const row    = await env.DB.prepare(`SELECT count, window_start_ms FROM auth_rate_limits WHERE bucket = ?`).bind(bucket).first();
+  if (!row || row.window_start_ms <= cutoff) return false;
+  return row.count > maxCount;
+}
+
+// recordAttempt — increment only, no check. Called after a failed login.
+async function recordAttempt(bucket, windowMs, env) {
+  const now    = Date.now();
+  const cutoff = now - windowMs;
+  await env.DB.prepare(`
+    INSERT INTO auth_rate_limits (bucket, count, window_start_ms)
+    VALUES (?, 1, ?)
+    ON CONFLICT(bucket) DO UPDATE SET
+      count           = CASE WHEN window_start_ms <= ? THEN 1 ELSE count + 1 END,
+      window_start_ms = CASE WHEN window_start_ms <= ? THEN ? ELSE window_start_ms END
+  `).bind(bucket, now, cutoff, cutoff, now).run();
 }
 
 function clientIp(request) {

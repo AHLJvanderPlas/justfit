@@ -4668,6 +4668,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
   // Primitive deps derived from prefs/plan — avoids object identity churn in effect deps
   const runEnrolled = prefs?.preferences?.run_coach?.enrolled ? 1 : 0;
   const cycleActive = prefs?.preferences?.cycling_coach?.active ? 1 : 0;
+  const milActive   = prefs?.preferences?.military_coach?.active ? 1 : 0;
   const isPro = prefs?.isPro ?? false;
   const planSessionName = plan?.session_name ?? null;
 
@@ -4692,7 +4693,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
 
   useEffect(() => {
     if (!userId) return;
-    const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}`;
+    const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}_mc${milActive}_pro${isPro ? 1 : 0}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -4747,7 +4748,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
       setUpcomingPlans(result);
       setLoadingUpcoming(false);
     })();
-  }, [userId, today, runEnrolled, cycleActive, isPro, planSessionName, upcomingDates]);
+  }, [userId, today, runEnrolled, cycleActive, milActive, isPro, planSessionName, upcomingDates]);
 
   // Build last 7 days
   const days = Array.from({ length: 7 }, (_, i) => {
