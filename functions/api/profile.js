@@ -202,13 +202,13 @@ export async function onRequestPost({ request, env }) {
 
     const body = await request.json();
     const {
-      units = 'metric',
-      training_goal = 'health',
-      experience_level = 'beginner',
-      intensity_pref = 5,
-      session_duration_min = 30,
-      days_per_week_target = 3,
-      preferences = {},
+      units,
+      training_goal,
+      experience_level,
+      intensity_pref,
+      session_duration_min,
+      days_per_week_target,
+      preferences: bodyPreferences,
       // Body-aware fields
       sex,
       weight_kg,
@@ -217,6 +217,27 @@ export async function onRequestPost({ request, env }) {
     } = body;
 
     const now = Date.now();
+
+    // ── Read existing row for merge (prevents partial saves from resetting fields) ──
+    const existingRow = await env.DB.prepare(
+      `SELECT units, training_goal, experience_level, intensity_pref,
+              session_duration_min, days_per_week_target, preferences_json
+       FROM user_preferences WHERE user_id = ? LIMIT 1`
+    ).bind(user.userId).first();
+
+    // Merge: body wins → existing DB value → hard default
+    const units_f                = units                ?? existingRow?.units                ?? 'metric';
+    const training_goal_f        = training_goal        ?? existingRow?.training_goal        ?? 'health';
+    const experience_level_f     = experience_level     ?? existingRow?.experience_level     ?? 'beginner';
+    const intensity_pref_f       = intensity_pref       ?? existingRow?.intensity_pref       ?? 5;
+    const session_duration_min_f = session_duration_min ?? existingRow?.session_duration_min ?? 30;
+    const days_per_week_target_f = days_per_week_target ?? existingRow?.days_per_week_target ?? 3;
+
+    // For preferences: shallow merge body into existing so unrelated keys are preserved
+    const existingParsed = existingRow?.preferences_json ? JSON.parse(existingRow.preferences_json) : {};
+    let preferences = bodyPreferences !== undefined
+      ? { ...existingParsed, ...bodyPreferences }
+      : existingParsed;
 
     // ── Normalize preferences: validate military fields + enforce one-active-coach ─
     if (preferences && typeof preferences === 'object') {
@@ -250,11 +271,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ── user_preferences ──────────────────────────────────────────────────────
-    const existing = await env.DB.prepare(
-      `SELECT user_id FROM user_preferences WHERE user_id = ? LIMIT 1`
-    ).bind(user.userId).first();
-
-    if (existing) {
+    if (existingRow) {
       await env.DB.prepare(`
         UPDATE user_preferences SET
           units = ?, training_goal = ?, experience_level = ?,
@@ -262,8 +279,8 @@ export async function onRequestPost({ request, env }) {
           preferences_json = ?, updated_at_ms = ?
         WHERE user_id = ?
       `).bind(
-        units, training_goal, experience_level,
-        intensity_pref, session_duration_min, days_per_week_target,
+        units_f, training_goal_f, experience_level_f,
+        intensity_pref_f, session_duration_min_f, days_per_week_target_f,
         JSON.stringify(preferences), now, user.userId
       ).run();
     } else {
@@ -274,8 +291,8 @@ export async function onRequestPost({ request, env }) {
            created_at_ms, updated_at_ms)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
-        user.userId, units, training_goal, experience_level,
-        intensity_pref, session_duration_min, days_per_week_target,
+        user.userId, units_f, training_goal_f, experience_level_f,
+        intensity_pref_f, session_duration_min_f, days_per_week_target_f,
         JSON.stringify(preferences), now, now
       ).run();
     }

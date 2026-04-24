@@ -7,8 +7,8 @@
 const AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 
 // Default baseline and starting score for every user
-const DEFAULT_BASELINE = 15;
-const DEFAULT_SCORE    = 15;
+const DEFAULT_BASELINE = 0;
+const DEFAULT_SCORE    = 0;
 
 // Decay parameters — tune these without changing logic
 const DECAY_CONFIG = {

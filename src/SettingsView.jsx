@@ -501,7 +501,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const newMil = {
           active: true, track: milTrack,
           cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
-          cluster_current: milCluster,
+          cluster_current: prefs.preferences?.military_coach?.cluster_current ?? milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),
@@ -1240,7 +1240,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                focusSaveStatus === "saving" ? "Saving…" :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
-               focusSel === "military" ? `Activate · Military Coach · ${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}${milMode === 'fit' ? ' · Fit target' : milMode === 'open' ? ' · Open' : ''}` :
+               focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
                `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
             </button>
           </div>
