@@ -74,12 +74,83 @@ Keep all responses short. The user reads results, not reasoning.
 # JustFit.cc — Claude Code Project Context
 
 ## What this project is
-JustFit.cc is a privacy-first, consistency-driven fitness PWA. Core philosophy: **Consistency > Intensity**.
-The app adapts daily to the user's real life (sleep, stress, travel, injury) via a deterministic rule-based
-planner engine. It is not a social app, not a medical app, and does not use free-form AI to control plans.
+**JustFit is a trustworthy daily training coach that adapts to real life so users can stay consistent.**
+
+JustFit.cc is a privacy-first, consistency-driven fitness PWA built on a deterministic rule-based planner.
+It is not a social app, not a medical app, and does not use free-form AI to control plans.
 
 Live URL: https://justfit.cc (also justfit.pages.dev)
 GitHub: https://github.com/AHLJvanderPlas/justfit
+
+---
+
+## Product Vision
+Make adaptive, trustworthy personal coaching available every day, without requiring perfect motivation, perfect health, or perfect circumstances.
+
+## Product Mission
+Help people stay consistently active by turning real-life constraints into safe, clear, daily training decisions.
+
+---
+
+## Product Principles
+
+These seven principles are the decision framework. When a feature, rule, or design choice is unclear, the right answer is the one most consistent with these principles.
+
+1. **Consistency beats intensity** — A completed session is better than a perfect session that gets skipped.
+2. **Real life outranks plan purity** — Sleep, stress, pain, travel, schedule, pregnancy, postnatal state, and recovery signals may immediately change the session.
+3. **Safety beats ambition** — The system must prefer safe downgrades over risky progression.
+4. **The planner must be explainable** — Meaningful plan changes should be traceable to understandable rules.
+5. **One active training intent at a time** — The engine may consider many signals, but it must always know the single primary thing it is optimising for today.
+6. **Privacy is part of the product** — Data minimisation, explicit consent, clear storage boundaries, and user control are core product behaviour, not just legal text.
+7. **During training, speed wins** — Workout interactions should be one-thumb, glanceable, and usable in about 2 seconds.
+
+---
+
+## Product Boundaries
+
+**JustFit is:**
+- a privacy-first adaptive daily training coach
+- a deterministic rule-based planner
+- a practical execution coach during workouts
+- a consistency tool, not just a workout generator
+
+**JustFit is not:**
+- a social fitness network
+- a medical device or medical advisor
+- a black-box AI coach
+- a "max performance at any cost" app
+- a feature-heavy platform where every mode competes equally
+
+---
+
+## Product Roadmap Priorities
+
+Primary items — directly support the core principles.
+
+1. **Return-to-training mode** — Detect inactivity gaps and re-ramp safely instead of resuming normal load immediately. *(Principle 2 + 3)*
+2. **Primary-intent conflict hierarchy** — Define which goal/programme wins when general goals, sport bias, military/running/cycling coaches, injury rules, and body-aware states collide. *(Principle 5)*
+3. **Recovery mode** — Make recovery a first-class temporary state for overload, illness, injury flare-up, poor sleep streaks, or post-travel reset. *(Principle 2 + 3)*
+4. **Self-service data export** — Support the privacy-first promise with direct user access to their own data. *(Principle 6)*
+5. **Weekly outcome summary** — Show whether the user is actually moving toward their goal, not just completing daily sessions. *(Principle 1 + 4)*
+
+## Secondary Roadmap Ideas
+
+- Program readiness / baseline assessment
+- User-facing adaptation memory (visible log of why the plan changed)
+- Better offline / weak-network workout resilience
+
+---
+
+## Product Drift Risk
+
+The main risk for JustFit is not missing features — it is adding too many modes and specialties without preserving:
+
+- **One primary intent** per session (Principle 5)
+- **One clear safety hierarchy** (Principle 3)
+- **One explainability model** (Principle 4)
+- **One trust model** — privacy-first, honest about what the system does and does not know (Principle 6)
+
+Each new coach, programme, or mode must be evaluated against these four constraints before being added. Complexity that cannot be explained to the user is complexity that should not exist.
 
 ---
 
