@@ -225,9 +225,14 @@ export async function onRequestPost({ request, env }) {
     // Fetch progression state for the planner (ignored for bonus sessions to keep them light)
     let progressionState = null;
     if (user_id && !bonus_session) {
-      const progRow = await env.DB.prepare(
-        `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
-      ).bind(user_id).first();
+      const [progRow, lastExRow] = await Promise.all([
+        env.DB.prepare(
+          `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
+        ).bind(user_id).first(),
+        env.DB.prepare(
+          `SELECT date FROM executions WHERE user_id = ? AND status != 'skipped' ORDER BY date DESC LIMIT 1`
+        ).bind(user_id).first(),
+      ]);
       if (progRow) {
         progressionState = {
           scores: JSON.parse(progRow.scores_json),
@@ -235,6 +240,7 @@ export async function onRequestPost({ request, env }) {
             ?? { health:'balanced', strength:'power', fat_loss:'endurance',
                  muscle_gain:'power', endurance:'endurance', mobility:'mobility' }[prefs?.training_goal ?? 'health']
             ?? 'balanced',
+          last_workout_date: lastExRow?.date ?? null,
         };
       }
     }
@@ -1075,6 +1081,24 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
+  // R558: Return-to-Training Inactivity Re-Ramp
+  // If last workout was ≥14 days ago, cap volume at 0.75 to prevent
+  // post-break overload. Bypassed for military coach (has own periodisation)
+  // and pregnancy/postnatal (has own safety rules).
+  // ------------------------------------------------------------------
+  const lastWorkoutDate = progressionState?.last_workout_date ?? null;
+  const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active);
+  if (lastWorkoutDate && !isMilCoachActive && !pregnancyContext) {
+    const planDateMsLocal = new Date(date + 'T12:00:00Z').getTime();
+    const lastWorkoutMs = new Date(lastWorkoutDate + 'T12:00:00Z').getTime();
+    const gapDays = Math.floor((planDateMsLocal - lastWorkoutMs) / 86_400_000);
+    if (gapDays >= 14) {
+      volumeMultiplier = Math.min(volumeMultiplier, 0.75);
+      trace.push(`R558 — Back after ${gapDays}-day break → volume ×0.75 (return-to-training re-ramp)`);
+    }
+  }
+
+  // ------------------------------------------------------------------
   // R514: Pain Safety Override
   // pain_level ≥ PAIN_REST AND (no scope OR scope='general') → rest day.
   // pain_level ≥ 1 AND scope='specific' with named areas → handled by R562–R563.
@@ -1134,6 +1158,21 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const noteAreas = injuryAreas.map(a => AREA_LABELS[a] ?? a).join(' & ');
     addNote(`Session adjusted for ${noteAreas} discomfort. Stop any exercise that causes sharp or worsening pain.`);
     trace.push(`R565 — Session note added for injury areas: ${noteAreas}`);
+  }
+
+  // ------------------------------------------------------------------
+  // R559: User-Initiated Recovery Mode
+  // "Taking it easy today" toggle → low intensity, mobility/recovery pool.
+  // Bypassed for military/pregnancy modes (they own their session type).
+  // ------------------------------------------------------------------
+  const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
+  if (recoveryMode && !isMilCoachActive && !pregnancyContext) {
+    intensity = 'low';
+    pool = pool.filter(ex => {
+      const tags = JSON.parse(ex.tags_json || '[]');
+      return tags.includes('mobility') || tags.includes('recovery') || ex.category === 'mobility' || ex.category === 'recovery';
+    });
+    trace.push('R559 — Recovery mode → low intensity, mobility/recovery pool');
   }
 
   // ------------------------------------------------------------------

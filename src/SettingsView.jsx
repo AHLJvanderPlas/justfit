@@ -359,6 +359,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
+  // Data export state
+  const [exporting, setExporting] = useState(false);
   // Delete account state
   const [deleteStep, setDeleteStep]   = useState(null); // null | "confirm" | "type"
   const [deleteText, setDeleteText]   = useState("");
@@ -1965,6 +1967,45 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
             </div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
               Your unique identifier — links your workouts, plan, and score to your account privately and securely.
+            </div>
+          </div>
+
+          {/* Data export */}
+          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Data export</div>
+            <button
+              disabled={exporting}
+              onClick={async () => {
+                setExporting(true);
+                try {
+                  const [progressionRes, historyRes] = await Promise.all([
+                    api.getProgression(token),
+                    api.getHistory(),
+                  ]);
+                  const bundle = {
+                    exported_at: new Date().toISOString(),
+                    profile: prefs,
+                    progression: progressionRes,
+                    history: historyRes,
+                  };
+                  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url;
+                  a.download = `justfit-data-${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(a);
+                  a.click();
+                  document.body.removeChild(a);
+                  URL.revokeObjectURL(url);
+                } catch { /* silent */ }
+                setExporting(false);
+              }}
+              style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1, marginBottom: 8 }}
+            >
+              {exporting ? "Preparing…" : "Download my data (JSON)"}
+            </button>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              Your profile, settings, and workout history as a portable machine-readable file.
             </div>
           </div>
 

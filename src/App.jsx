@@ -1261,7 +1261,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
       energy: 4, sleep_hours: 8, motivation: 4, stress: 1,
       time_budget: defaultTimeBudget ?? 30,
       no_clothing: false, no_gear: false, no_time: false,
-      gym_today: false, traveling: false, pain_level: 0,
+      gym_today: false, traveling: false, recovery_mode: false, pain_level: 0,
       pain_scope: null, pain_areas: [],
       period_today: false, free_text: "",
       pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
@@ -1301,6 +1301,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
         no_time: d.no_time,
         gym_today: d.gym_today,
         traveling: d.traveling,
+        recovery_mode: d.recovery_mode,
         pain_level: d.pain_level,
         pain_scope: d.pain_scope,
         pain_areas: d.pain_areas,
@@ -1573,6 +1574,12 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
               sub="Away from home setup"
               active={d.traveling}
               onToggle={() => upd({ traveling: !d.traveling })}
+            />
+            <Toggle
+              label="Taking it easy today"
+              sub="Gentle mobility or recovery session"
+              active={d.recovery_mode}
+              onToggle={() => upd({ recovery_mode: !d.recovery_mode })}
             />
             {showPeriodToggle && (
               <button
@@ -2329,6 +2336,23 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           >
             Your consistency is your superpower.
           </div>
+          {/* Active coach badge */}
+          {(() => {
+            const milActive = !!(prefs?.preferences?.military_coach?.active);
+            const rcActive  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+            const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
+            if (!milActive && !rcActive && !ccActive) return null;
+            const label = milActive
+              ? `Military · ${prefs.preferences.military_coach.track === 'keuring' ? 'K' : 'O'}${prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 1}`
+              : rcActive ? `Running · ${prefs.preferences.run_coach.target_km}km`
+              : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
+            return (
+              <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 999, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", fontSize: 11, fontWeight: 800, color: "var(--accent)" }}>
+                {milActive && <MilitaryIcon size={10} />}
+                {label}
+              </div>
+            );
+          })()}
         </div>
         <GhostCounter />
       </div>
@@ -4175,7 +4199,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
 
   const runCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
-  const sportMode = runCoachActive ? "running" : cycleCoachActive ? "cycling" : "general";
+  const militaryCoachActive = !!(prefs?.preferences?.military_coach?.active);
+  const sportMode = militaryCoachActive ? "military" : runCoachActive ? "running" : cycleCoachActive ? "cycling" : "general";
 
   const CHART_MODES = [
     { id: "power",     label: "Power",     desc: "Maximum strength output per muscle group" },
@@ -4202,6 +4227,9 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
     setRecomputing(false);
     setTimeout(() => setRecomputeMsg(""), 4000);
   };
+
+  // Stable reference for component mount time — avoids Date.now() inside render
+  const [nowMs] = useState(() => Date.now());
 
   if (isLoading) {
     return (
@@ -4231,6 +4259,74 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
         </Glass>
       ) : (
         <>
+          {/* ── Military Coach header card ── */}
+          {sportMode === "military" && (() => {
+            const mil = prefs?.preferences?.military_coach ?? {};
+            const track = mil.track ?? 'keuring';
+            const pfx = track === 'keuring' ? 'K' : 'O';
+            const clusterCurrent = mil.cluster_current ?? 1;
+            const clusterTarget = mil.cluster_target ?? clusterCurrent;
+            const trackLabel = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
+            const mode = mil.mode ?? 'target';
+            const maxLevel = track === 'keuring' ? 6 : 7;
+            const CLUSTER_DESC = track === 'keuring'
+              ? { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
+              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced", 7: "Elite" };
+            const daysToAssessment = mode === 'target' && mil.target_date
+              ? Math.ceil((new Date(mil.target_date + 'T12:00:00').getTime() - nowMs) / 86_400_000)
+              : null;
+            return (
+              <Glass style={{ padding: 20, marginBottom: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                    <MilitaryIcon size={20} />
+                  </div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach · {trackLabel}</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
+                      Current: {pfx}{clusterCurrent}
+                      {clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {pfx}{clusterTarget}</span>}
+                    </div>
+                    {daysToAssessment !== null && (
+                      <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? "#f59e0b" : C.muted, marginTop: 2, fontWeight: 700 }}>
+                        {daysToAssessment > 0 ? `${daysToAssessment} days to assessment` : daysToAssessment === 0 ? "Assessment today" : "Assessment date passed"}
+                      </div>
+                    )}
+                    {mode === 'fit' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Fit target — no fixed date</div>}
+                    {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Open progression</div>}
+                  </div>
+                </div>
+                {/* Level ladder */}
+                <div style={{ display: "flex", gap: 4 }}>
+                  {Array.from({ length: maxLevel }, (_, i) => i + 1).map(lvl => {
+                    const isPast = lvl < clusterCurrent;
+                    const isCurrent = lvl === clusterCurrent;
+                    const isTarget = lvl === clusterTarget;
+                    const isGap = lvl > clusterCurrent && lvl < clusterTarget;
+                    return (
+                      <div key={lvl} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                        <div style={{
+                          width: "100%", height: 6, borderRadius: 3,
+                          background: isCurrent ? accentHex : isPast ? `${accentHex}60` : isGap ? `${accentHex}20` : isTarget ? `${accentHex}40` : C.border,
+                          border: isTarget ? `1px solid ${accentHex}` : "none",
+                          transition: "background 0.3s ease",
+                        }} />
+                        <span style={{ fontSize: 9, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
+                          {pfx}{lvl}
+                        </span>
+                        {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>NOW</span>}
+                        {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>GOAL</span>}
+                      </div>
+                    );
+                  })}
+                </div>
+                {CLUSTER_DESC[clusterCurrent] && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>{pfx}{clusterCurrent} — {CLUSTER_DESC[clusterCurrent]}</div>
+                )}
+              </Glass>
+            );
+          })()}
+
           {/* ── Training Goal card (general mode only) — above diagram ── */}
           {sportMode === "general" && (() => {
             const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
@@ -4252,45 +4348,70 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             );
           })()}
 
-          {sportMode === "general" && (
+          {(sportMode === "general" || sportMode === "military") && (
             <>
-              {/* ── Chart mode tabs ── */}
-              <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
-                {CHART_MODES.map((m) => {
-                  const active = effectiveChartMode === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => handleChartModeChange(m.id)}
-                      style={{
-                        padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                        border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                        background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
-                        color: active ? C.emerald : C.muted,
-                      }}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-                <button
-                  onClick={() => setShowCompare((v) => !v)}
-                  style={{
-                    marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                    border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
-                    background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
-                    color: showCompare ? C.emerald : C.muted,
-                  }}
-                >
-                  {showCompare ? "Goal on" : "Goal off"}
-                </button>
-              </div>
+              {/* ── Chart mode tabs — general only ── */}
+              {sportMode === "general" && (
+                <div style={{ display: "flex", gap: 6, marginBottom: 20, overflowX: "auto", paddingBottom: 2 }}>
+                  {CHART_MODES.map((m) => {
+                    const active = effectiveChartMode === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => handleChartModeChange(m.id)}
+                        style={{
+                          padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                          border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                          background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                          color: active ? C.emerald : C.muted,
+                        }}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                  <button
+                    onClick={() => setShowCompare((v) => !v)}
+                    style={{
+                      marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                      border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
+                      background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                      color: showCompare ? C.emerald : C.muted,
+                    }}
+                  >
+                    {showCompare ? "Goal on" : "Goal off"}
+                  </button>
+                </div>
+              )}
 
-              {/* ── Mode description ── */}
-              <div style={{ marginBottom: 14, paddingLeft: 2 }}>
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
-                <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
-              </div>
+              {/* ── Mode description — general only ── */}
+              {sportMode === "general" && (
+                <div style={{ marginBottom: 14, paddingLeft: 2 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
+                </div>
+              )}
+
+              {/* ── Military fitness profile label ── */}
+              {sportMode === "military" && (
+                <div style={{ marginBottom: 14, paddingLeft: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <div>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>Fitness Profile</span>
+                    <span style={{ fontSize: 11, color: C.muted }}> — your current scores vs. military target vector</span>
+                  </div>
+                  <button
+                    onClick={() => setShowCompare((v) => !v)}
+                    style={{
+                      padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
+                      border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
+                      background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                      color: showCompare ? C.emerald : C.muted,
+                    }}
+                  >
+                    {showCompare ? "Target on" : "Target off"}
+                  </button>
+                </div>
+              )}
 
               {/* ── Radar chart ── */}
               <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
@@ -4308,7 +4429,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   {showCompare && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 16, height: 3, borderRadius: 2, background: `${accentHex}55`, borderTop: "2px dashed", borderColor: `${accentHex}55` }} />
-                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Goal target</span>
+                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{sportMode === "military" ? "Military target" : "Goal target"}</span>
                     </div>
                   )}
                 </div>
@@ -4335,13 +4456,15 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>
-                {sportMode === "running" ? "Program Fit" : sportMode === "cycling" ? "Program Fit" : "Goal Fit"}
+                {sportMode === "running" || sportMode === "cycling" ? "Program Fit" : sportMode === "military" ? "Military Fit" : "Goal Fit"}
               </div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
                 {sportMode === "running"
                   ? "How your conditioning aligns with your running target."
                   : sportMode === "cycling"
                   ? "How your conditioning aligns with your cycling programme."
+                  : sportMode === "military"
+                  ? "How close your current profile is to your military fitness target."
                   : (progression.goal_profile?.description ?? "How close your current profile matches your goal.")}
               </div>
             </div>
@@ -4453,8 +4576,116 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             );
           })()}
 
-          {/* ── Key insights + planner explanation ── */}
-          {(progression.insights || (progression.planner_explanation ?? []).length > 0 || (prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed)) && (
+          {/* ── Military coaching insights ── */}
+          {sportMode === "military" && (() => {
+            const mil = prefs?.preferences?.military_coach ?? {};
+            const track = mil.track ?? 'keuring';
+            const pfx = track === 'keuring' ? 'K' : 'O';
+            const clusterCurrent = mil.cluster_current ?? 1;
+            const clusterTarget = mil.cluster_target ?? clusterCurrent;
+            const lastCooper = mil.last_cooper_distance_m ?? null;
+            const cooperBenchmark = lastCooper ? (
+              lastCooper < 1800 ? `${lastCooper}m — Below K1` :
+              lastCooper < 2000 ? `${lastCooper}m — K1` :
+              lastCooper < 2200 ? `${lastCooper}m — K2` :
+              lastCooper < 2400 ? `${lastCooper}m — K3` :
+              lastCooper < 2600 ? `${lastCooper}m — K4` :
+              lastCooper < 2800 ? `${lastCooper}m — K5` : `${lastCooper}m — K6`
+            ) : null;
+            const tips = track === 'keuring' ? [
+              clusterCurrent < clusterTarget
+                ? `Your Cooper test result determines your ${pfx} level. Run 3×12-min efforts per week to build baseline endurance.`
+                : `You're at your target level — keep training consistently to maintain it.`,
+              "Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march.",
+              clusterCurrent <= 2 ? "At K1–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
+              clusterCurrent <= 4 ? "At K3–K4: mix interval runs with longer easy runs to build capacity." :
+              "At K5–K6: peak performance — taper carefully before your assessment.",
+            ] : [
+              `Opleiding programme trains all-round fitness. Build strength and running endurance in parallel.`,
+              "March sessions develop load-bearing endurance — the pack weight increases progressively.",
+              clusterCurrent <= 3 ? "Foundation phase: focus on completing all sessions rather than intensity." : "Progression phase: small weekly volume increases, watch for signs of overload.",
+            ];
+            const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
+            const sortedAxes = RADAR_AXES.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
+            const weakest = sortedAxes[0];
+            return (
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+                  Coach Insights
+                </div>
+                <Glass style={{ padding: 20 }}>
+                  {cooperBenchmark && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        </div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Last Cooper test</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>{cooperBenchmark}</div>
+                        </div>
+                      </div>
+                      <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+                    </>
+                  )}
+                  {weakest && (
+                    <>
+                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 15 }}>🎯</div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Priority axis: {RADAR_LABELS[weakest.axis]}</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>Score {weakest.score} — the planner is already biasing sessions here.</div>
+                        </div>
+                      </div>
+                      <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+                    </>
+                  )}
+                  {tips.map((tip, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < tips.length - 1 ? 12 : 0 }}>
+                      <div style={{ width: 6, height: 6, borderRadius: 3, background: C.emerald, flexShrink: 0, marginTop: 6 }} />
+                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{tip}</div>
+                    </div>
+                  ))}
+                </Glass>
+              </div>
+            );
+          })()}
+
+          {/* ── Axis breakdown for military ── */}
+          {sportMode === "military" && (
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+                Axis Breakdown
+              </div>
+              <Glass style={{ padding: "8px 0" }}>
+                {RADAR_AXES.map((axis, i) => {
+                  const current = Math.round(displayScores[axis] ?? 0);
+                  const target  = Math.round(goalScores?.[axis] ?? 50);
+                  const gap     = Math.max(0, target - current);
+                  return (
+                    <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+                        <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                          <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
+                          {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
+                        </div>
+                      </div>
+                      <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: accentHex, width: `${current}%`, transition: "width 0.5s ease" }} />
+                        {showCompare && goalScores && (
+                          <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${accentHex}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </Glass>
+            </div>
+          )}
+
+          {/* ── Key insights + planner explanation (general/running/cycling only) ── */}
+          {sportMode !== "military" && (progression.insights || (progression.planner_explanation ?? []).length > 0 || (prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed)) && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
                 Key Insights
@@ -4841,6 +5072,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
                 <div style={{ fontSize: 12, color: C.muted }}>
                   {(() => { const d = new Date(today + "T12:00:00"); return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()}`; })()}
                 </div>
+                {(() => { const chip = deriveChipLabel(plan.rule_trace, plan.session_notes); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={chip} /></div> : null; })()}
               </div>
               {estimateMins(plan) && (
                 <div style={{ padding: "4px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 12, fontWeight: 800, color: C.emerald, flexShrink: 0 }}>
