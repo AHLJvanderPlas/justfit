@@ -499,7 +499,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "military") {
         const newMil = {
-          active: true, track: milTrack, cluster_target: milCluster, cluster_current: milCluster,
+          active: true, track: milTrack,
+          cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
+          cluster_current: milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),

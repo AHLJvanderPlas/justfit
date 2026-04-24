@@ -4331,7 +4331,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach · {trackLabel}</div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
                       Current: {pfx}{clusterCurrent}
-                      {clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {pfx}{clusterTarget}</span>}
+                      {mode !== 'open' && clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {pfx}{clusterTarget}</span>}
+                      {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {pfx}{clusterCurrent + 1}</span>}
                     </div>
                     {daysToAssessment !== null && (
                       <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? "#f59e0b" : C.muted, marginTop: 2, fontWeight: 700 }}>
@@ -4339,7 +4340,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                       </div>
                     )}
                     {mode === 'fit' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Fit target — no fixed date</div>}
-                    {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Open progression</div>}
+                    {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Continuous progression</div>}
                   </div>
                 </div>
                 {/* Level ladder */}
@@ -4347,8 +4348,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   {Array.from({ length: maxLevel }, (_, i) => i + 1).map(lvl => {
                     const isPast = lvl < clusterCurrent;
                     const isCurrent = lvl === clusterCurrent;
-                    const isTarget = lvl === clusterTarget;
-                    const isGap = lvl > clusterCurrent && lvl < clusterTarget;
+                    const isTarget = mode !== 'open' && lvl === clusterTarget;
+                    const isGap = mode !== 'open' && lvl > clusterCurrent && lvl < clusterTarget;
                     return (
                       <div key={lvl} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
                         <div style={{
@@ -4629,19 +4630,35 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             const pfx = track === 'keuring' ? 'K' : 'O';
             const clusterCurrent = mil.cluster_current ?? 1;
             const clusterTarget = mil.cluster_target ?? clusterCurrent;
+            const mode = mil.mode ?? 'target';
+            const maxLevel = track === 'keuring' ? 6 : 7;
+            const nextLevel = Math.min(clusterCurrent + 1, maxLevel);
+            const CLUSTER_DESC_I = track === 'keuring'
+              ? { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
+              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced", 7: "Elite" };
+            // Cooper test metrics
             const lastCooper = mil.last_cooper_distance_m ?? null;
-            const cooperBenchmark = lastCooper ? (
-              lastCooper < 1800 ? `${lastCooper}m — Below K1` :
-              lastCooper < 2000 ? `${lastCooper}m — K1` :
-              lastCooper < 2200 ? `${lastCooper}m — K2` :
-              lastCooper < 2400 ? `${lastCooper}m — K3` :
-              lastCooper < 2600 ? `${lastCooper}m — K4` :
-              lastCooper < 2800 ? `${lastCooper}m — K5` : `${lastCooper}m — K6`
-            ) : null;
+            const COOPER_THRESHOLDS = [0, 1800, 2000, 2200, 2400, 2600, 2800];
+            const cooperLevel = lastCooper
+              ? COOPER_THRESHOLDS.reduce((lvl, t, i) => lastCooper >= t ? i : lvl, 0)
+              : null;
+            const cooperBenchmark = lastCooper
+              ? `${lastCooper}m — ${cooperLevel === 0 ? 'Below K1' : `${pfx}${cooperLevel}`}`
+              : null;
+            const nextCooperTarget = track === 'keuring' ? (COOPER_THRESHOLDS[nextLevel] ?? null) : null;
+            const cooperGap = lastCooper && nextCooperTarget && nextLevel <= maxLevel && clusterCurrent < maxLevel
+              ? Math.max(0, nextCooperTarget - lastCooper) : null;
+            // March weight metrics
+            const ownedWeights = Array.isArray(mil.pack_weights_available_kg) ? mil.pack_weights_available_kg : [];
+            const maxOwnedKg = ownedWeights.length > 0 ? Math.max(...ownedWeights) : null;
+            const MIL_MARCH_TARGET = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 25, 6: 30 };
+            const nextMarchTarget = track === 'keuring' ? (MIL_MARCH_TARGET[nextLevel] ?? null) : null;
             const tips = track === 'keuring' ? [
-              clusterCurrent < clusterTarget
-                ? `Your Cooper test result determines your ${pfx} level. Run 3×12-min efforts per week to build baseline endurance.`
-                : `You're at your target level — keep training consistently to maintain it.`,
+              mode === 'open'
+                ? `Next milestone: ${pfx}${nextLevel} — ${CLUSTER_DESC_I[nextLevel] ?? ''}. Cooper target: ≥${nextCooperTarget ?? '?'}m${cooperGap ? `, ${cooperGap}m to go` : ''}.`
+                : clusterCurrent < clusterTarget
+                  ? `Your Cooper test result determines your ${pfx} level. Run 3×12-min efforts per week to build baseline endurance.`
+                  : `You're at your target level — keep training consistently to maintain it.`,
               "Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march.",
               clusterCurrent <= 2 ? "At K1–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
               clusterCurrent <= 4 ? "At K3–K4: mix interval runs with longer easy runs to build capacity." :
@@ -4660,15 +4677,37 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   Coach Insights
                 </div>
                 <Glass style={{ padding: 20 }}>
-                  {cooperBenchmark && (
+                  {(cooperBenchmark || maxOwnedKg !== null) && (
                     <>
-                      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                      <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                        {/* Cooper test card */}
+                        <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cooper test</div>
+                          {cooperBenchmark
+                            ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{pfx}{cooperLevel}</span></div>
+                            : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>No test recorded</div>}
+                          {nextCooperTarget && clusterCurrent < maxLevel && (
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                              {pfx}{nextLevel} requires ≥{nextCooperTarget}m
+                              {cooperGap != null && cooperGap > 0 && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {cooperGap}m to go</span>}
+                              {cooperGap === 0 && <span style={{ color: C.emerald, fontWeight: 700 }}> · achieved</span>}
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Last Cooper test</div>
-                          <div style={{ fontSize: 11, color: C.muted }}>{cooperBenchmark}</div>
+                        {/* March weight card */}
+                        <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>March weight</div>
+                          {maxOwnedKg !== null
+                            ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>max</span></div>
+                            : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>Not set</div>}
+                          {nextMarchTarget && clusterCurrent < maxLevel && (
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                              {pfx}{nextLevel} target: {nextMarchTarget} kg
+                              {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: C.emerald, fontWeight: 700 }}> · ready</span>}
+                              {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
+                            </div>
+                          )}
+                          {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Set weights in Settings →</div>}
                         </div>
                       </div>
                       <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
