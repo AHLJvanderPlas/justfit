@@ -6,6 +6,7 @@ These rules apply to EVERY task in EVERY session, without exception.
 - Run `npm run smoke` first — lint + build + live API checks; must pass before pushing
 - Then commit and push (source backup): `git add . && git commit -m "..." && git push`
 - Then deploy: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- **After deploy**: update the "Current Build Status" table in `CLAUDE.md` and `README.md` to reflect the change — never leave docs stale after a deployment
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 

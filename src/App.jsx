@@ -2370,7 +2370,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
                     <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
                     <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
-                    <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
                     <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
                     <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
                     <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
@@ -2393,7 +2393,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round"/>
                   <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="12" strokeLinejoin="round"/>
                   <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="10" strokeLinejoin="round"/>
-                  <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
                   <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="30" strokeLinecap="round"/>
                   <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                 </svg>
@@ -2404,7 +2404,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
                     <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
                     <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
-                    <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
                     <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
                     <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
                     <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
@@ -5751,7 +5751,7 @@ export default function App() {
                 <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="14" strokeLinejoin="round"/>
                 <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="12" strokeLinejoin="round"/>
                 {/* S-curve route */}
-                <path d="M 615 868 C 730 808, 758 706, 658 638 C 545 562, 338 552, 368 444 C 393 350, 558 318, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="512" cy="294" r="32" fill="white"/>
                 {/* Pole + filled flag */}
                 <path d="M 512 294 L 512 172" stroke="white" strokeWidth="30" strokeLinecap="round"/>
