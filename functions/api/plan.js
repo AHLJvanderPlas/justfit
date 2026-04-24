@@ -1874,13 +1874,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         const prescribedKg  = MIL_MARCH_KG[milGroup]?.[milWeek - 1] ?? 0;
         const prescribedSec = MIL_MARCH_SEC[milGroup]?.[milWeek - 1] ?? 0;
 
-        // R577 — March weight guardrail: max +5 kg/week from last stored weight
-        const lastKg     = milCoach.pack_weight_kg ?? 0;
-        const safeKg     = Math.min(prescribedKg, lastKg + 5);
         // Injury cap: lower_back → 15 kg max, knee → 0 (substitute)
         const injuryCap  = injuryAreas.includes('lower_back') ? 15
           : injuryAreas.includes('knee') ? 0 : 999;
-        const weightCap  = Math.min(safeKg, injuryCap);
+        const weightCap  = Math.min(prescribedKg, injuryCap);
         // Snap to heaviest owned weight that fits within the cap
         const ownedWeights = Array.isArray(milCoach.pack_weights_available_kg) && milCoach.pack_weights_available_kg.length > 0
           ? milCoach.pack_weights_available_kg
@@ -1899,7 +1896,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           const lungeEx = exercises.find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
           if (lungeEx) pool = [lungeEx, ...pool.filter(ex => ex.id !== lungeEx.id)];
         } else if (prescribedSec > 0) {
-          trace.push(`R574 — March: ${militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg, safe +5 kg/wk → ${safeKg} kg)`);
+          trace.push(`R574 — March: ${militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg)`);
         }
       }
     }

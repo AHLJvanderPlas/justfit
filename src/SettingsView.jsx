@@ -498,14 +498,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "military") {
+        const existingMil = prefs.preferences?.military_coach ?? {};
         const newMil = {
+          ...existingMil,  // preserve rpe_easy/hard_streak, last_cooper_distance_m, last_cooper_at_ms, etc.
           active: true, track: milTrack,
           cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
-          cluster_current: prefs.preferences?.military_coach?.cluster_current ?? milCluster,
+          cluster_current: existingMil.cluster_current ?? milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),
-          enrolled_at_ms: prefs.preferences?.military_coach?.enrolled_at_ms ?? Date.now(),
+          enrolled_at_ms: existingMil.enrolled_at_ms ?? Date.now(),
         };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
