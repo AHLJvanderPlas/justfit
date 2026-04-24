@@ -1880,7 +1880,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         // Injury cap: lower_back → 15 kg max, knee → 0 (substitute)
         const injuryCap  = injuryAreas.includes('lower_back') ? 15
           : injuryAreas.includes('knee') ? 0 : 999;
-        militaryMarchKg  = Math.min(safeKg, injuryCap, milCoach.pack_weight_max_kg ?? 999);
+        const weightCap  = Math.min(safeKg, injuryCap);
+        // Snap to heaviest owned weight that fits within the cap
+        const ownedWeights = Array.isArray(milCoach.pack_weights_available_kg) && milCoach.pack_weights_available_kg.length > 0
+          ? milCoach.pack_weights_available_kg
+          : milCoach.pack_weight_max_kg != null ? [milCoach.pack_weight_max_kg] : null; // backwards compat
+        if (ownedWeights) {
+          const valid = ownedWeights.filter(w => w <= weightCap).sort((a, b) => b - a);
+          militaryMarchKg = valid.length > 0 ? valid[0] : 0;
+        } else {
+          militaryMarchKg = weightCap;
+        }
         militaryMarchSec = prescribedSec;
 
         if (injuryAreas.includes('knee') && prescribedSec > 0) {

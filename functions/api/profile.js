@@ -228,7 +228,13 @@ export async function onRequestPost({ request, env }) {
         const trackMax = mil.track === 'opleiding' ? 7 : 6;
         mil.cluster_target  = Math.max(1, Math.min(trackMax, Math.floor(Number(mil.cluster_target)  || 1)));
         mil.cluster_current = Math.max(1, Math.min(trackMax, Math.floor(Number(mil.cluster_current) || mil.cluster_target)));
-        mil.pack_weight_max_kg = Math.max(0, Math.min(60, Math.floor(Number(mil.pack_weight_max_kg) || 0)));
+        if (Array.isArray(mil.pack_weights_available_kg)) {
+          mil.pack_weights_available_kg = mil.pack_weights_available_kg
+            .map(v => Math.floor(Number(v))).filter(v => v >= 5 && v <= 35 && v % 5 === 0);
+        } else {
+          mil.pack_weights_available_kg = [];
+        }
+        delete mil.pack_weight_max_kg; // migrate legacy field
         if (mil.target_date && !/^\d{4}-\d{2}-\d{2}$/.test(mil.target_date)) mil.target_date = null;
         if (mil.mode !== 'target') mil.target_date = null;
         // Enforce one active coach: military active → deactivate run/cycle

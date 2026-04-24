@@ -472,7 +472,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   const [milCluster,      setMilCluster]      = useState(() => prefs.preferences?.military_coach?.cluster_target ?? 3);
   const [milMode,         setMilMode]         = useState(() => prefs.preferences?.military_coach?.mode ?? 'target');
   const [milTargetDate,   setMilTargetDate]   = useState(() => prefs.preferences?.military_coach?.target_date ?? '');
-  const [milPackWeight,   setMilPackWeight]   = useState(() => prefs.preferences?.military_coach?.pack_weight_max_kg ?? 0);
+  const [milPackWeight,   setMilPackWeight]   = useState(() => prefs.preferences?.military_coach?.pack_weights_available_kg ?? []);
   // has_trail_shoes is now derived from planEquipment.includes("trail_shoes") — no separate state needed
   const [localExpLevel, setLocalExpLevel] = useState(prefs.experience_level ?? "beginner");
   const [focusSaveStatus, setFocusSaveStatus] = useState("");
@@ -501,7 +501,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const newMil = {
           active: true, track: milTrack, cluster_target: milCluster, cluster_current: milCluster,
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
-          pack_weight_max_kg: milPackWeight,
+          pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),
           enrolled_at_ms: prefs.preferences?.military_coach?.enrolled_at_ms ?? Date.now(),
         };
@@ -1118,17 +1118,17 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Pack weight available (kg)</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {[0, 5, 10, 15, 20, 25, 30, 35].map(kg => {
-                          const sel = milPackWeight === kg;
+                        {[5, 10, 15, 20, 25, 30, 35].map(kg => {
+                          const sel = milPackWeight.includes(kg);
                           return (
-                            <button key={kg} onClick={() => setMilPackWeight(kg)}
+                            <button key={kg} onClick={() => setMilPackWeight(w => sel ? w.filter(v => v !== kg) : [...w, kg].sort((a, b) => a - b))}
                               style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 800, cursor: "pointer", border: sel ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`, background: sel ? C.emeraldDim : "rgba(255,255,255,0.04)", color: sel ? C.emerald : C.text, fontFamily: "inherit" }}>
-                              {kg === 0 ? "None" : `${kg} kg`}
+                              {kg} kg
                             </button>
                           );
                         })}
                       </div>
-                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 6 }}>Backpack or weighted vest. "None" = bodyweight march sessions only.</div>
+                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 6 }}>Select all weights you own. The planner picks the heaviest available weight for each session.</div>
                     </div>
                     {!planEquipment.includes("trail_shoes") && (
                       <button
