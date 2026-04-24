@@ -282,8 +282,10 @@ Password stored as `salt:hash` where hash = SHA-256(salt + password + JWT_SECRET
 id TEXT PK, user_id TEXT, date TEXT (YYYY-MM-DD),
 mood INT(1-10), energy INT(1-10), sleep_hours REAL, stress INT(1-10),
 checkin_json TEXT (JSON with toggles: no_clothing, no_gear, no_time, gym_today,
-                   traveling, pain_level, pain_scope, pain_areas,
-                                      free_text, motivation, time_budget),
+                   traveling, recovery_mode, pain_level, pain_scope, pain_areas,
+                   free_text, motivation, time_budget, pregnancy_signals, postnatal_signals),
+-- Note: UI exposes a 3-state SVG smiley ("feeling": 1/2/3) that maps to stress+motivation at
+-- submit time. The `feeling` field is not stored; stress and motivation in DB are derived values.
 created_at_ms INT, updated_at_ms INT
 ```
 Note: UI uses 1-5 scale, multiplied by 2 before storing (→ 2-10 range in DB)
@@ -949,7 +951,8 @@ adds +15s for pregnancy/postnatal on top of this.
 | R582 | always | Set goal target profile on hexagon radar to military fitness vector |
 
 **Tracks**: Keuring K1–K6 (fitness assessment), Opleiding O1–O7 (training program)
-**Storage**: `preferences_json.military_coach` object — `{enrolled, mode, level, track, target_date, cluster_current}`
+**Storage**: `preferences_json.military_coach` object — `{active, mode, track, cluster_current, cluster_target, target_date, pack_weights_available_kg, has_trail_shoes, enrolled_at_ms, last_cooper_distance_m}`
+Note: `cluster_target` for open mode = track max (K6/O7). Legacy `pack_weight_max_kg` migrated to `pack_weights_available_kg: number[]` on next profile save.
 
 ### Pregnancy/postnatal vocabulary overrides
 - Pregnancy: "Today's movement", "Strong & supported", "Five minutes for you"
@@ -1036,15 +1039,16 @@ Calculated server-side from executions table:
 | Safe running build-up (Option A) | ✅ Live — R555 rule replaces generic long-run exercises with level-appropriate run/walk intervals when running_shoes in equipment; 6 levels driven by conditioning.endurance score (migration 0015); walk recovery encoded as custom_rest_sec so rest timer = walk; fixed_sets prescribes interval count; automatic decay from skipped sessions reduces level safely |
 | Running Coach Program (Option B) | ✅ Live — R556 rule; structured 5/10/15/20/30km targets (unlocked sequentially); 3 sessions/week Mon/Wed/Fri; warm-up exercises prepended on run days; session named "Running Day · Week N"; run_coach state in preferences_json; advanceRunCoach in execution.js advances week/session counters; 15 continuous run levels 7–21 (20min–180min) + 4 warm-up exercises in migration 0016; enrollment UI in Settings |
 | API security hardening | ✅ Done — JWT HMAC-SHA256 verification inlined in all endpoints (profile.js, progression.js, plan.js, checkin.js, execution.js, score.js, cycle.js); IDOR fallbacks removed (all user-bound endpoints return 401 without valid JWT); execution DELETE verifies ownership before deleting steps; daily_checkins UNIQUE(user_id, date) index + atomic ON CONFLICT upsert (migration 0018); dead gesture handler state/code removed from WorkoutView |
-| Military Coach (4th trainer, Basic tier) | ✅ Live — Keuring (K1–K6) + Opleiding (O1–O7) tracks; three modes: target (assessment date, two-phase), fit (goal level no date, base building indefinitely), open (rolling 6-week cycle); two-phase target mode: base building (MIL_BASE_BUILD pattern, vol 0.85) when > 42 days out, fixed 6-week specific prep in final 6 weeks; MIL_SCHEDULE + R570–R582 planner rules; RPE-based cluster_current drift (silent progressive overload); Cooper test post-session modal; military 'military' tag on 15 exercises (migration 0030); military goal target profile on hexagon; wizard in Settings (4th Focus tab); Basic tier (no isProEnabled gate); session_name uses computeMilitaryPhase() milWeek (not stale stored week) |
+| Military Coach (4th trainer, Basic tier) | ✅ Live — Keuring (K1–K6) + Opleiding (O1–O7) tracks; three modes: target (assessment date, two-phase), fit (goal level no date, base building indefinitely), open (rolling 6-week cycle); open mode saves `cluster_target = trackMax` (K6/O7) so RPE drift and tip logic work correctly; two-phase target mode: base building (MIL_BASE_BUILD pattern, vol 0.85) when > 42 days out, fixed 6-week specific prep in final 6 weeks; MIL_SCHEDULE + R570–R582 planner rules; RPE-based cluster_current drift (silent progressive overload); Cooper test post-session modal; military 'military' tag on 15 exercises (migration 0030); military goal target profile on hexagon; wizard in Settings (4th Focus tab); Basic tier (no isProEnabled gate); session_name uses computeMilitaryPhase() milWeek (not stale stored week); pack weight stored as `pack_weights_available_kg: number[]` (multi-select, planner snaps to heaviest owned weight ≤ prescribed); `pack_weight_max_kg` legacy field migrated on next profile save |
 | Security + correctness hardening (audit pass) | ✅ Live — login rate limit now increments on failure only (successful logins no longer consume quota); privacy acceptance fail-closed at signup (explicit version required, no silent default); planner fully deterministic (planDateMs replaces Date.now() in sport-bias guardrail and mobility-decay rule); run warm-up reps fixed to 10 (not goal-based); run + cycling coach mutual exclusion enforced server-side in profile.js; upcoming-plan cache key includes milActive + isPro |
-| Military Progress Dashboard | ✅ Live — military sportMode detection (highest priority over running/cycling/general) in HistoryView; level ladder pip visualization (K1–K6 / O1–O7) with assessment countdown and Cooper benchmark; fitness profile radar with military target vector; Cooper interpretation, weakest-axis insight, track-specific training tips; goal fit ring re-labelled "Military Fit" |
+| Military Progress Dashboard | ✅ Live — military sportMode detection (highest priority over running/cycling/general) in HistoryView; level ladder pip visualization (K1–K6 / O1–O7) with assessment countdown; fitness profile radar with military target vector; goal fit ring re-labelled "Military Fit"; open mode: shows "Next: Kn" (no named target), "Continuous progression" subtitle, no GOAL pin on ladder; Cooper test + march weight side-by-side metric cards with gap-to-next-level (amber "Xm to go" / emerald "achieved") and march readiness ("ready" / "Xkg short"); coach insight tip is mode-aware (open shows next milestone + Cooper target) |
 | Data export — GDPR self-service (F1) | ✅ Live — "Download my data (JSON)" button in Settings; exports profile + progression + history as a portable JSON bundle; client-side Blob download; no server round-trip |
 | Mission/Vision v1.1 (F2) | ✅ Live — mission.html and getMissionEmail() updated to reflect current Product Vision, Mission, and all 7 Product Principles; "What JustFit Is — and Is Not" section added; version bumped to v1.1 April 2026 |
 | R558 Return-to-training re-ramp (F3) | ✅ Live — parallel D1 query for last execution date; ≥14-day gap → volumeMultiplier × 0.75; bypassed for military coach and pregnancy/postnatal; trace: "R558 — Back after N-day break → volume ×0.75" |
 | R559 Recovery mode toggle (F4) | ✅ Live — "Taking it easy today" toggle in check-in modal; sets intensity=low, filters exercise pool to mobility/recovery only; bypassed for military and pregnancy/postnatal; stored in checkin_json.recovery_mode |
 | AdaptationChip on PlanWeekView (F5) | ✅ Live — Today's Plan card in weekly view shows chip label (via deriveChipLabel) when a rule adaptation is active |
 | Active coach badge on Dashboard (F6) | ✅ Live — persistent inline badge below greeting shows active coach label (Military · K3 / Running · 10km / Cycling · Week 4); renders only when a coach is active |
+| Check-in simplification — SVG smiley row (F8) | ✅ Live — Motivation + Stress sliders replaced with 3-button SVG smiley row ("Not great" / "Okay" / "Good"); feeling maps to stress + motivation at submit time (sad→stress=10/motivation=2, neutral→stress=4/motivation=6, good→stress=2/motivation=10); DB schema and all planner rules (R511–R513) unchanged; pre-fill from last check-in derives feeling from stored stress/motivation |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
