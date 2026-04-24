@@ -510,8 +510,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
         const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil };
-        onUpdate((p) => ({ ...p, training_goal: 'military', preferences: newPrefs }));
-        await api.saveProfile(token, { training_goal: 'military', preferences: newPrefs });
+        onUpdate((p) => ({ ...p, preferences: newPrefs }));
+        await api.saveProfile(token, { preferences: newPrefs });
       } else {
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
@@ -559,7 +559,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
     const t = setTimeout(async () => {
       try {
         await api.saveProfile(token, {
-          training_goal: prefs.training_goal ?? "health",
+          training_goal: ['fat_loss','muscle_gain','endurance','strength','health','mobility','mixed'].includes(prefs.training_goal) ? prefs.training_goal : 'health',
           experience_level: prefs.experience_level ?? "beginner",
           session_duration_min: planDuration,
           days_per_week_target: prefs.days_per_week_target ?? 3,

@@ -537,8 +537,10 @@ export async function onRequestGet({ request, env }) {
 
     // Apply decay
     const scores   = applyAllDecay(rawScores, nowMs);
-    const goal     = prefs?.training_goal ?? 'health';
     const parsedPrefs = prefs?.preferences_json ? JSON.parse(prefs.preferences_json) : {};
+    // Military coach active → use military goal profile regardless of stored training_goal
+    // (training_goal can't store 'military' due to DB CHECK constraint)
+    const goal = parsedPrefs?.military_coach?.active ? 'military' : (prefs?.training_goal ?? 'health');
     const chartMode = parsedPrefs.progression_chart_mode
       ?? GOAL_TARGET_PROFILES[goal]?.chartMode
       ?? 'balanced';
