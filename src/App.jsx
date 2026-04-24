@@ -1252,13 +1252,44 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
+function SadFace({ size = 44 }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="20" cy="20" r="17" />
+      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
+      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
+      <path d="M 11 28 Q 20 21 29 28" />
+    </svg>
+  );
+}
+function NeutralFace({ size = 44 }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="20" cy="20" r="17" />
+      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
+      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
+      <line x1="13" y1="26" x2="27" y2="26" />
+    </svg>
+  );
+}
+function HappyFace({ size = 44 }) {
+  return (
+    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="20" cy="20" r="17" />
+      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
+      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
+      <path d="M 11 24 Q 20 33 29 24" />
+    </svg>
+  );
+}
+
 function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
   const bodyMode = cycle?.mode ?? "standard";
   const showPeriodToggle = sex === "female" && bodyMode === "standard";
   const [d, setD] = useState(() => {
     // First-check-in defaults (from design spec)
     const defaults = {
-      energy: 4, sleep_hours: 8, motivation: 4, stress: 1,
+      energy: 4, sleep_hours: 8, feeling: 2,
       time_budget: defaultTimeBudget ?? 30,
       no_clothing: false, no_gear: false, no_time: false,
       gym_today: false, traveling: false, recovery_mode: false, pain_level: 0,
@@ -1276,8 +1307,11 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
       ...defaults,
       energy:      lastCheckin.energy      ? Math.round(lastCheckin.energy / 2)   : defaults.energy,
       sleep_hours: lastCheckin.sleep_hours ?? defaults.sleep_hours,
-      motivation:  cj.motivation           ? Math.round(cj.motivation / 2)        : defaults.motivation,
-      stress:      lastCheckin.stress      ? Math.round(lastCheckin.stress / 2)   : defaults.stress,
+      feeling:     (() => {
+        const s = lastCheckin.stress    ? Math.round(lastCheckin.stress / 2)    : 2;
+        const m = cj.motivation         ? Math.round(cj.motivation / 2)         : 3;
+        return s >= 4 ? 1 : (m >= 4 && s <= 2) ? 3 : 2;
+      })(),
       pain_level:  cj.pain_level ?? 0,
       pain_scope:  cj.pain_scope  ?? null,
       pain_areas:  cj.pain_areas  ?? [],
@@ -1289,12 +1323,14 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
   const updPostnatalSignal = (key, val) => setD((prev) => ({ ...prev, postnatal_signals: { ...prev.postnatal_signals, [key]: val } }));
 
   const handleSubmit = () => {
-    // Map 1-5 stress scale to 1-10 for DB (spec uses 1-5 UI, DB stores 1-10)
+    // Map feeling (1=sad,2=neutral,3=good) → stress + motivation for DB (1-5 UI → ×2 for DB)
+    const feelingMap = { 1: { stress: 10, motivation: 2 }, 2: { stress: 4, motivation: 6 }, 3: { stress: 2, motivation: 10 } };
+    const fs = feelingMap[d.feeling] ?? feelingMap[2];
     onSave({
       ...d,
-      stress: d.stress * 2, // 1-5 → 2-10
-      energy: d.energy * 2, // 1-5 → 2-10
-      motivation: d.motivation * 2,
+      stress: fs.stress,
+      energy: d.energy * 2,
+      motivation: fs.motivation,
       checkin_json: {
         no_clothing: d.no_clothing,
         no_gear: d.no_gear,
@@ -1307,7 +1343,7 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
         pain_areas: d.pain_areas,
         period_today: d.period_today,
         free_text: d.free_text,
-        motivation: d.motivation,
+        motivation: fs.motivation,
         time_budget: d.time_budget,
         pregnancy_signals: d.pregnancy_signals,
         postnatal_signals: d.postnatal_signals,
@@ -1425,16 +1461,26 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
               value={Math.round(d.sleep_hours / 2)}
               onChange={(v) => upd({ sleep_hours: v * 2 })}
             />
-            <ScaleInput
-              label="Motivation"
-              value={d.motivation}
-              onChange={(v) => upd({ motivation: v })}
-            />
-            <ScaleInput
-              label="Stress"
-              value={d.stress}
-              onChange={(v) => upd({ stress: v })}
-            />
+            <div style={{ marginTop: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>How are you feeling?</div>
+              <div style={{ display: "flex", gap: 8 }}>
+                {[
+                  { val: 1, label: "Not great", color: "#f87171" },
+                  { val: 2, label: "Okay",      color: C.muted   },
+                  { val: 3, label: "Good",      color: C.emerald },
+                ].map(({ val, label, color }) => {
+                  const sel = d.feeling === val;
+                  const FaceComp = val === 1 ? SadFace : val === 3 ? HappyFace : NeutralFace;
+                  return (
+                    <button key={val} onClick={() => upd({ feeling: val })}
+                      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "12px 8px", borderRadius: 16, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(255,255,255,0.03)", cursor: "pointer", color: sel ? color : C.muted, transition: "all 0.15s", fontFamily: "inherit" }}>
+                      <FaceComp size={40} />
+                      <span style={{ fontSize: 11, fontWeight: 800 }}>{label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
 
           <div style={{ marginBottom: 28 }}>
