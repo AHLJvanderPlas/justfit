@@ -1737,7 +1737,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   }
 
   // ------------------------------------------------------------------
-  // R558 — Polarised training: balance HIIT and Zone 2 in general
+  // R568 — Polarised training: balance HIIT and Zone 2 in general
   //        endurance sessions. Removes the opposing endurance type from
   //        the pool so only the preferred type competes for selection.
   //        Activates when sport_prefs.polarised_training is enabled.
@@ -1761,7 +1761,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (preferredCount > 0) {
       pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(opposingType));
       const reasonNote = lifeRuleReducedIntensity ? ' (life-rule override: intensity=low → zone2)' : '';
-      trace.push(`R558 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
+      trace.push(`R568 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
     }
   }
 

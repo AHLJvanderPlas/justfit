@@ -51,10 +51,13 @@ export const RULE_POLICY = {
   R555: 'adaptive_safety',
   R556: 'adaptive_safety',
   R560: 'adaptive_safety',
+  R558: 'adaptive_safety',
+  R559: 'adaptive_safety',
   R562: 'adaptive_safety',
   R563: 'adaptive_safety',
   R564: 'adaptive_safety',
   R565: 'adaptive_safety',
+  R568: 'adaptive_safety',
 };
 
 // ── Rule code → human-readable label ─────────────────────────────────────────
@@ -95,10 +98,13 @@ export const RULE_LABELS = {
   R555: { category: 'Training adaptation', text: 'Safe run/walk intervals for your current conditioning level.' },
   R556: { category: 'Training adaptation', text: 'Running Coach programme active.' },
   R560: { category: 'Training adaptation', text: 'Session biased toward your primary sport.' },
+  R558: { category: 'Training adaptation', text: 'Volume reduced after a long break — easing back in safely.' },
+  R559: { category: 'Training adaptation', text: 'Recovery mode — low intensity, mobility and recovery exercises only.' },
   R562: { category: 'Safety adaptation',   text: 'Exercises adjusted around your injury areas.' },
   R563: { category: 'Safety adaptation',   text: 'Joint-load exercises filtered based on reported pain areas.' },
   R564: { category: 'Safety adaptation',   text: 'Safe mobility exercises added to supplement filtered pool.' },
   R565: { category: 'Safety adaptation',   text: 'Session adjusted for your current injury context. Stop any exercise that causes sharp or worsening pain.' },
+  R568: { category: 'Training adaptation', text: 'Polarised training — alternating Zone 2 endurance and HIIT sessions.' },
 };
 
 /**
@@ -169,8 +175,11 @@ export function deriveChipLabel(ruleTrace, sessionNotes) {
   if (traceStr.includes('R513'))                          return 'Mobility focus';
   if (traceStr.includes('R511'))                          return 'Low intensity';
   if (traceStr.includes('R512'))                          return 'Volume reduced';
+  if (traceStr.includes('R559'))                          return 'Recovery mode';
+  if (traceStr.includes('R558'))                          return 'Return to training';
   if (traceStr.includes('R553'))                          return 'Mobility added';
   if (traceStr.includes('R551'))                          return 'Weakness targeted';
+  if (traceStr.includes('R568'))                          return 'Polarised training';
   if (notesLower.includes('bmi'))                         return 'Adapted for you';
   if (sessionNotes)                                       return 'Adapted today';
   return null;

@@ -86,7 +86,7 @@
   <main>
     <div class="meta">Guide</div>
     <h1>How JustFit Works</h1>
-    <p class="version muted">Version 1.0 &mdash; Effective 1 April 2025</p>
+    <p class="version muted">Version 1.1 &mdash; Effective 1 April 2025 &mdash; Updated April 2026</p>
 
     <div class="actions">
       <button class="action-btn" id="share-btn">&#8679; Share</button>
@@ -105,16 +105,20 @@
     <p>If you skip the check-in or set it to manual, JustFit still generates a plan based on your goal, experience level, equipment, and schedule — automatically, without any input needed.</p>
 
     <h2>The Planner Engine</h2>
-    <p>A rule-based engine (not AI) generates a personalised session. Rules fire in priority order — life always wins over training preferences:</p>
+    <p>A deterministic rule-based engine (not AI) generates a personalised session. Rules fire in a fixed safety-first priority order — life always wins over training preferences:</p>
     <ul>
-      <li>Pain reported → rest day, no exceptions</li>
+      <li>General pain/high pain → recovery day; specific-area pain → injury-aware filtering and safer alternatives</li>
       <li>Low sleep (≤5h) → intensity and volume reduced</li>
       <li>High stress → session shifts toward mobility</li>
+      <li>Recovery mode (optional daily toggle) → low intensity, mobility and recovery pool only</li>
       <li>Travelling or no gear → bodyweight-only session</li>
       <li>No time (≤10 min) → micro session, 2 exercises</li>
-      <li>Pregnancy → high-impact excluded, pelvic floor included</li>
-      <li>Postnatal → phase-gated recovery programme</li>
-      <li>Running Coach enrolled → structured run session prescribed</li>
+      <li>≥14 days since last workout → return-to-training re-ramp at 75% volume</li>
+      <li>Pregnancy → high-impact excluded, pelvic floor included, phase-appropriate intensity</li>
+      <li>Postnatal → phase-gated recovery programme with medical clearance gate</li>
+      <li>Running Coach enrolled → structured run session prescribed (5–30km programmes)</li>
+      <li>Cycling Coach enrolled → Zone 2 and interval sessions prescribed (3×/week)</li>
+      <li>Military Coach enrolled → Keuring or Opleiding track, three programme modes</li>
       <li>Outdoor exercises always scheduled last</li>
     </ul>
 
@@ -142,7 +146,7 @@
     <h2>Contact</h2>
     <p>Questions about how the app works: <a href="mailto:support@justfit.cc">support@justfit.cc</a></p>
 
-    <p class="muted" style="margin-top: 48px; font-size: 12px;">JustFit.cc &mdash; How It Works v1.0 &mdash; 1 April 2025 &mdash; Netherlands</p>
+    <p class="muted" style="margin-top: 48px; font-size: 12px;">JustFit.cc &mdash; How It Works v1.1 &mdash; Updated April 2026 &mdash; Netherlands</p>
   </main>
 </body>
 </html>

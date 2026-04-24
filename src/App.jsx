@@ -80,54 +80,7 @@ function logout() {
 }
 
 
-// ─── GHOST COUNTER ────────────────────────────────────────────────────────────
-function GhostCounter() {
-  const [count, setCount] = useState(0);
-  useEffect(() => {
-    const tick = () => {
-      const T = new Date().getHours() + new Date().getMinutes() / 60;
-      const morning = 40 * Math.sin((Math.PI * (T - 2)) / 12);
-      const evening = 35 * Math.sin((Math.PI * (T - 14)) / 12);
-      const isWE = [0, 6].includes(new Date().getDay());
-      let raw = morning + evening + 25;
-      if (isWE) raw *= 0.8;
-      setCount(
-        Math.max(8, Math.min(92, Math.floor(raw + Math.random() * 6 - 3))),
-      );
-    };
-    tick();
-    const id = setInterval(tick, 60000);
-    return () => clearInterval(id);
-  }, []);
-  return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        background: "rgba(var(--accent-rgb),0.08)",
-        border: "1px solid rgba(var(--accent-rgb),0.2)",
-        borderRadius: 999,
-        padding: "6px 14px",
-        fontSize: 12,
-        fontWeight: 700,
-        color: "var(--accent)",
-      }}
-    >
-      <span
-        style={{
-          width: 6,
-          height: 6,
-          borderRadius: "50%",
-          background: "var(--accent)",
-          display: "inline-block",
-          animation: "pulse 2s ease-in-out infinite",
-        }}
-      />
-      {count} sporters actief
-    </div>
-  );
-}
+
 
 // ─── SHARED COMPONENTS ────────────────────────────────────────────────────────
 const Glass = ({ children, style = {}, onClick }) => (
@@ -2400,7 +2353,6 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             );
           })()}
         </div>
-        <GhostCounter />
       </div>
 
       <div
@@ -2918,6 +2870,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         }
         if (ccActive) {
           const cc = prefs.preferences.cycling_coach;
+          const todaySessionType = plan?.cycling_program?.sessionType ?? null;
+          const sessionTypeLabel = todaySessionType === 'Zone 2'
+            ? 'Zone 2 — aerobic base'
+            : todaySessionType === 'Intervals'
+            ? 'Intervals — power development'
+            : null;
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🚴</div>
@@ -2925,12 +2883,24 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of 3 this week</div>
+                {sessionTypeLabel && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionTypeLabel}</div>
+                )}
               </div>
             </Glass>
           );
         }
         const goal = GOALS.find((g) => g.value === (prefs.training_goal ?? "health")) ?? GOALS[0];
         const exp  = EXPERIENCE.find((e) => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
+        const GOAL_FOCUS = {
+          health:       'Balanced movement & consistency',
+          fat_loss:     'Calorie burn & metabolic conditioning',
+          muscle_gain:  'Progressive strength overload',
+          strength:     'Maximum force & compound lifts',
+          endurance:    'Aerobic capacity & stamina',
+          mobility:     'Flexibility, range of motion & recovery',
+          mixed:        'Full-body variety across all domains',
+        };
         return (
           <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
@@ -2940,6 +2910,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               <div>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{goal.label}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{GOAL_FOCUS[goal.value] ?? 'Consistent daily movement'}</div>
               </div>
             </div>
             <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
@@ -4235,6 +4206,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
   const [chartMode, setChartMode] = useState(null); // null = use API default
   const [recomputing, setRecomputing] = useState(false);
   const [recomputeMsg, setRecomputeMsg] = useState("");
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
   const goal = prefs?.training_goal ?? progression?.goal ?? "health";
@@ -4865,6 +4837,35 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     </>
                   );
                 })()}
+
+                {/* Cycling Coach insight */}
+                {prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed && (() => {
+                  const cc = prefs.preferences.cycling_coach;
+                  const sessionInWeek = cc.session_in_week ?? 0;
+                  const sessionsLeft = 3 - sessionInWeek;
+                  // Determine current session emphasis: sessions 1 and 3 in each week are Zone 2, session 2 is intervals
+                  const nextSessionNum = sessionInWeek + 1;
+                  const emphasisLabel = nextSessionNum === 2 ? 'intervals (power)' : 'Zone 2 (aerobic base)';
+                  const unitLabel = cc.unit === 'hr' ? 'heart rate zones' : `FTP ${cc.ftp_watts ?? 200}W`;
+                  return (
+                    <>
+                      <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 18 }}>🚴</div>
+                        <div>
+                          <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
+                            Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
+                          </div>
+                          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                            {sessionsLeft > 0
+                              ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining this week. Next session focus: ${emphasisLabel}.`
+                              : 'Week complete — good work. Your next cycling week begins on your next session.'}
+                          </div>
+                        </div>
+                      </div>
+                    </>
+                  );
+                })()}
               </Glass>
             </div>
           )}
@@ -4902,22 +4903,29 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             </div>
           )}
 
-          {/* ── Debug: Recompute ── */}
+          {/* ── Advanced (hidden by default) ── */}
           <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
-              Advanced
-            </div>
             <button
-              onClick={handleRecompute}
-              disabled={recomputing}
-              style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
+              onClick={() => setShowAdvanced(s => !s)}
+              style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, color: C.muted, cursor: "pointer", letterSpacing: "0.05em" }}
             >
-              {recomputing ? "Recomputing…" : "Rebuild scores from history"}
+              {showAdvanced ? "▾ Advanced" : "▸ Advanced"}
             </button>
-            {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{recomputeMsg}</div>}
-            <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-              Recalculates your progression scores from scratch using your full workout history. Use this if you retune formulas or migrate accounts.
-            </div>
+            {showAdvanced && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  onClick={handleRecompute}
+                  disabled={recomputing}
+                  style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
+                >
+                  {recomputing ? "Recomputing…" : "Rebuild scores from history"}
+                </button>
+                {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{recomputeMsg}</div>}
+                <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                  Recalculates progression scores from your full workout history. Use if you migrate accounts or need a fresh score.
+                </div>
+              </div>
+            )}
           </div>
         </>
       )}

@@ -296,7 +296,7 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // ── 5. Track polarised endurance type (zone2 / hiit) for R558 balance ────
+    // ── 5. Track polarised endurance type (zone2 / hiit) for R568 balance ────
     try {
       await updatePolarisedEnduranceType(user_id, steps, env, now);
     } catch (err) {
@@ -582,7 +582,7 @@ async function advanceMilitaryCoach(userId, steps, perceivedExertion, env, nowMs
 
 // ─── Polarised endurance type tracker ────────────────────────────────────────
 // After each workout, detects whether any completed exercise was tagged 'hiit' or
-// 'zone2', then stores the result as sport_prefs.last_endurance_type. R558 in
+// 'zone2', then stores the result as sport_prefs.last_endurance_type. R568 in
 // plan.js reads this to alternate between types on the next session.
 
 async function updatePolarisedEnduranceType(userId, steps, env, nowMs) {
