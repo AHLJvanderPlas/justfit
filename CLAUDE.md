@@ -966,19 +966,6 @@ Key tags: `no_floor`, `low_impact`, `quiet`, `high_impact`, `floor`, `loud`,
 
 ---
 
-## Ghost Counter (client-side only, no API)
-
-Circadian formula, updates every 60s, range 8-92:
-```javascript
-const T = hours + minutes/60;
-const morning = 40 * Math.sin((Math.PI * (T - 2)) / 12);
-const evening = 35 * Math.sin((Math.PI * (T - 14)) / 12);
-let raw = morning + evening + 25;
-if (isWeekend) raw *= 0.8;
-count = clamp(floor(raw + jitter(±3)), 8, 92);
-```
-Displayed as: "{X} sporters actief" with a pulsing green dot.
-
 ---
 
 ## Consistency Score Formula (functions/api/score.js)
@@ -1070,6 +1057,8 @@ Calculated server-side from executions table:
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
 | Operational drift (migration numbering/version hygiene) | Resolved: duplicate `0019_*` renamed to `0027_taxonomy_fix.sql`; next number is `0031+` | Low | Enforce unique monotonic migration numbering; add pre-merge checklist item to verify no duplicate prefixes |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
+
+| Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
 
 ## Known Bugs to Fix
 
