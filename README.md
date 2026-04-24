@@ -41,6 +41,12 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 - PWA — installable, dark theme (`#020617`), default accent emerald (`#10b981`)
 - Ghost Partner counter (circadian formula, updates every 60s)
 - **Military Coach** (4th trainer, Basic tier) — Keuring K1–K6 and Opleiding O1–O7 tracks; three modes: target (two-phase: base build → 6-week specific prep), fit (indefinite base building), open (rolling 6-week cycle); RPE-based progressive overload drift; Cooper test post-session modal; wizard in Settings (4th Focus tab)
+- **Military Progress Dashboard** — military sportMode in Progress tab (highest priority); level ladder pip visualization, assessment countdown, Cooper benchmark, fitness profile radar with military target vector, weakest-axis insight, track-specific training tips
+- **GDPR data export** — "Download my data (JSON)" in Settings; exports profile + progression + history as a portable JSON bundle (F1)
+- **Return-to-training re-ramp** (R558) — ≥14-day inactivity gap detected via last execution date → volume ×0.75; bypassed for military coach and pregnancy/postnatal
+- **Recovery mode toggle** (R559) — "Taking it easy today" in check-in → low intensity + mobility/recovery pool; bypassed for military and pregnancy/postnatal
+- **Active coach badge** on Dashboard — persistent label showing current active coach (Military · K3 / Running · 10km / Cycling · Week 4)
+- **AdaptationChip on weekly plan** — Today's Plan card in the 7-day view shows the active adaptation chip label
 - Weekly plan view (7-day session strip)
 - Explicit terms & privacy acceptance gate — versioned consent recorded on signup and re-prompted automatically on Terms/Privacy version bumps (migration 0023)
 

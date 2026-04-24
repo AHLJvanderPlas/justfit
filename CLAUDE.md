@@ -127,10 +127,10 @@ These seven principles are the decision framework. When a feature, rule, or desi
 
 Primary items — directly support the core principles.
 
-1. **Return-to-training mode** — Detect inactivity gaps and re-ramp safely instead of resuming normal load immediately. *(Principle 2 + 3)*
+1. ~~**Return-to-training mode**~~ ✅ Done — R558: ≥14-day gap → volume ×0.75 re-ramp. *(Principle 2 + 3)*
 2. **Primary-intent conflict hierarchy** — Define which goal/programme wins when general goals, sport bias, military/running/cycling coaches, injury rules, and body-aware states collide. *(Principle 5)*
-3. **Recovery mode** — Make recovery a first-class temporary state for overload, illness, injury flare-up, poor sleep streaks, or post-travel reset. *(Principle 2 + 3)*
-4. **Self-service data export** — Support the privacy-first promise with direct user access to their own data. *(Principle 6)*
+3. ~~**Recovery mode**~~ ✅ Done — R559: "Taking it easy today" check-in toggle → low intensity + mobility/recovery pool. *(Principle 2 + 3)*
+4. ~~**Self-service data export**~~ ✅ Done — "Download my data (JSON)" in Settings (F1). *(Principle 6)*
 5. **Weekly outcome summary** — Show whether the user is actually moving toward their goal, not just completing daily sessions. *(Principle 1 + 4)*
 
 ## Secondary Roadmap Ideas
@@ -997,7 +997,7 @@ Calculated server-side from executions table:
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine v1.8.0 (R510–R582) | ✅ Live — template-based, profile-aware, pregnancy/postnatal/military rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle); Military Coach R570–R582 (Keuring/Opleiding tracks, three modes, two-phase target, RPE drift, Cooper test) |
+| Planner engine v1.9.0 (R510–R582 + R558–R559) | ✅ Live — template-based, profile-aware, pregnancy/postnatal/military rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle); Military Coach R570–R582 (Keuring/Opleiding tracks, three modes, two-phase target, RPE drift, Cooper test); R558 return-to-training re-ramp (≥14-day gap → volume ×0.75); R559 recovery mode (toggle in check-in → low intensity + mobility/recovery pool) |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
@@ -1038,6 +1038,13 @@ Calculated server-side from executions table:
 | API security hardening | ✅ Done — JWT HMAC-SHA256 verification inlined in all endpoints (profile.js, progression.js, plan.js, checkin.js, execution.js, score.js, cycle.js); IDOR fallbacks removed (all user-bound endpoints return 401 without valid JWT); execution DELETE verifies ownership before deleting steps; daily_checkins UNIQUE(user_id, date) index + atomic ON CONFLICT upsert (migration 0018); dead gesture handler state/code removed from WorkoutView |
 | Military Coach (4th trainer, Basic tier) | ✅ Live — Keuring (K1–K6) + Opleiding (O1–O7) tracks; three modes: target (assessment date, two-phase), fit (goal level no date, base building indefinitely), open (rolling 6-week cycle); two-phase target mode: base building (MIL_BASE_BUILD pattern, vol 0.85) when > 42 days out, fixed 6-week specific prep in final 6 weeks; MIL_SCHEDULE + R570–R582 planner rules; RPE-based cluster_current drift (silent progressive overload); Cooper test post-session modal; military 'military' tag on 15 exercises (migration 0030); military goal target profile on hexagon; wizard in Settings (4th Focus tab); Basic tier (no isProEnabled gate); session_name uses computeMilitaryPhase() milWeek (not stale stored week) |
 | Security + correctness hardening (audit pass) | ✅ Live — login rate limit now increments on failure only (successful logins no longer consume quota); privacy acceptance fail-closed at signup (explicit version required, no silent default); planner fully deterministic (planDateMs replaces Date.now() in sport-bias guardrail and mobility-decay rule); run warm-up reps fixed to 10 (not goal-based); run + cycling coach mutual exclusion enforced server-side in profile.js; upcoming-plan cache key includes milActive + isPro |
+| Military Progress Dashboard | ✅ Live — military sportMode detection (highest priority over running/cycling/general) in HistoryView; level ladder pip visualization (K1–K6 / O1–O7) with assessment countdown and Cooper benchmark; fitness profile radar with military target vector; Cooper interpretation, weakest-axis insight, track-specific training tips; goal fit ring re-labelled "Military Fit" |
+| Data export — GDPR self-service (F1) | ✅ Live — "Download my data (JSON)" button in Settings; exports profile + progression + history as a portable JSON bundle; client-side Blob download; no server round-trip |
+| Mission/Vision v1.1 (F2) | ✅ Live — mission.html and getMissionEmail() updated to reflect current Product Vision, Mission, and all 7 Product Principles; "What JustFit Is — and Is Not" section added; version bumped to v1.1 April 2026 |
+| R558 Return-to-training re-ramp (F3) | ✅ Live — parallel D1 query for last execution date; ≥14-day gap → volumeMultiplier × 0.75; bypassed for military coach and pregnancy/postnatal; trace: "R558 — Back after N-day break → volume ×0.75" |
+| R559 Recovery mode toggle (F4) | ✅ Live — "Taking it easy today" toggle in check-in modal; sets intensity=low, filters exercise pool to mobility/recovery only; bypassed for military and pregnancy/postnatal; stored in checkin_json.recovery_mode |
+| AdaptationChip on PlanWeekView (F5) | ✅ Live — Today's Plan card in weekly view shows chip label (via deriveChipLabel) when a rule adaptation is active |
+| Active coach badge on Dashboard (F6) | ✅ Live — persistent inline badge below greeting shows active coach label (Military · K3 / Running · 10km / Cycling · Week 4); renders only when a coach is active |
 | Offline / IndexedDB sync | ⬜ Not started |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
