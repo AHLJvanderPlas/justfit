@@ -992,6 +992,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let slot_type = 'main';
   let pool = [...exercises];
   pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+  pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('session_phase'));
 
   // Filter out already-done exercises (bonus session deduplication)
   if (completedIds?.length) {
@@ -1609,7 +1610,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
         }
 
-        runProgramOverride = { warmUps, runEx, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
+        const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
+        runProgramOverride = { warmUps, runEx, cooldownWalk, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
         trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
       }
     }
@@ -1790,15 +1792,19 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     } else if (sessionType === 'cooper_test') {
       // R576 — Cooper test milestone session (W1 baseline, W4 mid, W6 taper)
-      const cooperEx = exercises.find(ex => ex.slug === '12-minute-cooper-test');
-      const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const cooperEx    = exercises.find(ex => ex.slug === '12-minute-cooper-test');
+      const warmUps     = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const warmupJog   = exercises.find(ex => ex.slug === 'easy-jog-warmup');
+      const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (cooperEx) {
         const milWeekLabel = !milCoach.last_cooper_distance_m ? 'baseline'
           : cyclePosn === 6 ? 'assessment simulation' : 'progress check';
         militaryProgramOverride = {
           type: 'cooper_test',
           warmUps,
+          warmupJog,
           cooperEx,
+          cooldownWalk,
           week: milWeek,
           sessionType: 'Cooper Test',
           label: milWeekLabel,
@@ -1821,10 +1827,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           if ((m.base_duration_sec ?? 0) <= availRunSec) effectiveLvl = lvl;
         }
       }
-      const runEx   = exercises.find(ex => ex.slug === `run-continuous-level-${effectiveLvl}`);
-      const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const runEx    = exercises.find(ex => ex.slug === `run-continuous-level-${effectiveLvl}`);
+      const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (runEx && warmUps.length) {
-        militaryProgramOverride = { type: 'duurloop', warmUps, runEx, week: milWeek, sessionType: 'Zone 2 Run' };
+        militaryProgramOverride = { type: 'duurloop', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Zone 2 Run' };
         trace.push(`R571 — Military duurloop: run-continuous-level-${effectiveLvl} (target ${targetLvl})`);
       }
 
@@ -1833,10 +1840,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
       const offset     = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
       const targetLvl  = Math.max(1, Math.min(6, peakLevels.hiit + (offset < 0 ? offset : 0)));
-      const runEx   = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
-      const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const runEx    = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
+      const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (runEx && warmUps.length) {
-        militaryProgramOverride = { type: 'interval', warmUps, runEx, week: milWeek, sessionType: 'Intervals' };
+        militaryProgramOverride = { type: 'interval', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Intervals' };
         trace.push(`R572 — Military intervals: run-interval-level-${targetLvl}`);
       }
 
@@ -2041,13 +2049,26 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   const milIsCooperTest = militaryProgramOverride?.type === 'cooper_test';
 
   const selection = runProgramOverride
-    ? [...runProgramOverride.warmUps, runProgramOverride.runEx]
+    ? [
+        ...runProgramOverride.warmUps,
+        runProgramOverride.runEx,
+        ...(runProgramOverride.cooldownWalk ? [runProgramOverride.cooldownWalk] : []),
+      ]
     : cyclingProgramOverride
     ? [] // cycling uses synthetic step, no DB exercises needed
     : milIsCooperTest
-    ? [...(militaryProgramOverride.warmUps ?? []), militaryProgramOverride.cooperEx]
+    ? [
+        ...(militaryProgramOverride.warmUps ?? []),
+        ...(militaryProgramOverride.warmupJog ? [militaryProgramOverride.warmupJog] : []),
+        militaryProgramOverride.cooperEx,
+        ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
+      ]
     : milIsRunSession
-    ? [...militaryProgramOverride.warmUps, militaryProgramOverride.runEx]
+    ? [
+        ...militaryProgramOverride.warmUps,
+        militaryProgramOverride.runEx,
+        ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
+      ]
     : shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
@@ -2085,8 +2106,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
     const isLongCardio = !supportsReps && baseDuration > 300;
-    // Assessment exercises have a fixed, standardized duration — never scale them
-    const isFixedDuration = ex.slug === '12-minute-cooper-test';
+    // Assessment and session-phase exercises have fixed durations — never scale them
+    const isFixedDuration = ex.slug === '12-minute-cooper-test'
+      || ex.slug === 'easy-jog-warmup'
+      || ex.slug === 'cooldown-walk';
 
     // Sets: fixed_sets from metrics (run intervals), or goal base + experience offset
     let sets;
@@ -2107,7 +2130,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     // R502: Experience level scales reps AND duration
     if (repScale !== 1.0) {
       if (reps)     reps     = Math.round(reps     * repScale);
-      if (duration && !isLongCardio && !isRunWarmup) duration = Math.round(duration * repScale);
+      if (duration && !isLongCardio && !isRunWarmup && !isFixedDuration) duration = Math.round(duration * repScale);
     }
 
     // Apply volume multiplier (R521, R536) — assessment exercises exempt (fixed by standard)
