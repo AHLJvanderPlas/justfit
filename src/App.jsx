@@ -2282,7 +2282,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
   );
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs, planError, onRetryPlan, token }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs, planError, onRetryPlan, token, history }) {
   const isMobile = useNarrow();
   const intensityColor = {
     low: "#6ee7b7",
@@ -2302,6 +2302,24 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
     ? overheadProfileTotal(plan?.slot_type === "micro" ? timeOverhead.short : timeOverhead.long)
     : 0;
   const totalMins = estMins !== null ? estMins + overheadMins : null;
+
+  // ── Weekly outcome summary ───────────────────────────────────────────────
+  const weekSummary = (() => {
+    const goal = prefs?.preferences?.training_goal ?? 'health';
+    const targetMap = { health: 3, strength: 4, muscle: 4, fat_loss: 4, endurance: 5, mobility: 3 };
+    const target = targetMap[goal] ?? 3;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 6); // last 7 days including today
+    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const done = (history ?? []).filter(h => h.date >= cutoffStr).length;
+    const remaining = Math.max(0, target - done);
+    let message;
+    if (done === 0) message = `${target} sessions this week — let's get started.`;
+    else if (done >= target) message = `Goal hit — ${done} of ${target} sessions done. Bonus available.`;
+    else if (remaining === 1) message = `One more to hit your weekly goal.`;
+    else message = `${done} of ${target} done — ${remaining} to go.`;
+    return { done, target, message };
+  })();
 
   return (
     <div>
@@ -2538,6 +2556,19 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       {plan.military_program.is_base_build ? ' · Base build' : ` · W${plan.military_program.week}`}
                     </span>
                   )}
+                  {/* Primary-intent conflict label — shown when a structured coach overrides standard rules */}
+                  {(() => {
+                    const milActive = !!(prefs?.preferences?.military_coach?.active && plan?.military_program);
+                    const rcActive  = !!(prefs?.preferences?.run_coach?.enrolled && plan?.run_program);
+                    const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && plan?.cycling_program);
+                    if (!milActive && !rcActive && !ccActive) return null;
+                    const label = milActive
+                      ? "Military Coach is active — general rules paused for this session."
+                      : rcActive
+                        ? "Running Coach is driving today's session — standard strength rules adjusted."
+                        : "Cycling Coach is driving today's session — standard rules adjusted.";
+                    return <div style={{ fontSize: 11, color: C.muted, fontWeight: 500, marginTop: 5, lineHeight: 1.4 }}>{label}</div>;
+                  })()}
                   <div
                     style={{
                       display: "flex",
@@ -2786,6 +2817,19 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         )}
         </div>
       </div>
+
+      {/* Weekly outcome summary */}
+      <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>This week</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+          {Array.from({ length: weekSummary.target }).map((_, i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weekSummary.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weekSummary.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
+          ))}
+        </div>
+      </Glass>
 
       {/* Training intention card */}
       {(() => {
@@ -3506,13 +3550,23 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
           const cues = instr?.cues ?? [];
           const tags = JSON.parse(cur.tags_json || "[]");
 
+          // Pad to minimum 3 steps so the instruction phase never feels empty
+          const GENERIC_STEPS = [
+            "Set up in the correct starting position.",
+            "Focus on controlled movement — quality over speed.",
+            "Finish strong. You've got this.",
+          ];
+          const paddedSteps = rawSteps.length >= 3
+            ? rawSteps
+            : [...rawSteps, ...GENERIC_STEPS.slice(rawSteps.length)];
+
           // Build card slides: prepend pregnancy/postnatal notes as accented first card
           const pregnancyNote = isPregnancyMode && bodyMode === "pregnant" ? instr?.pregnancy_note : null;
           const postnatalNote = isPregnancyMode && bodyMode === "postnatal" ? instr?.postnatal_note : null;
           const isPelvicFloor = bodyMode === "postnatal" && tags.includes("pelvic_floor");
 
           // Card objects: { text, accent } — accent null means standard style
-          const rawCards = rawSteps.length > 0 ? rawSteps.map((s) => ({ text: s, accent: null })) : [{ text: "Focus on form. Quality over speed. You've got this.", accent: null }];
+          const rawCards = paddedSteps.map((s) => ({ text: s, accent: null }));
           if (pregnancyNote) rawCards.unshift({ text: pregnancyNote, accent: "amber" });
           if (postnatalNote) rawCards.unshift({ text: postnatalNote, accent: "rose" });
           if (isPelvicFloor) rawCards.push({ text: "Remember: the release is just as important as the squeeze. Full relaxation between each rep.", accent: "rose" });
@@ -3551,12 +3605,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
           const targetCardText = levelTargetText ?? intervalStructureText;
 
           // General cues = those without a level prefix (skip all level-specific ones)
+          // { text, level } — level = number of 💡 symbols; 1 = standard, 2 = intermediate key point
           const cleanCues = cues
             .filter(c => {
               const clean = c.replace(/^💡+\s*/, "").trim();
               return !LEVEL_PREFIXES.some(p => clean.toLowerCase().startsWith(p.toLowerCase() + ':'));
             })
-            .map(c => c.replace(/^💡+\s*/, "").trim());
+            .map(c => {
+              const m = c.match(/^(💡+)/);
+              return { text: c.replace(/^💡+\s*/, "").trim(), level: m ? m[1].length : 1 };
+            });
 
           return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -3611,16 +3669,14 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                 )}
 
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-                  {rawSteps.length > 0 ? rawSteps.map((step, i) => (
+                  {paddedSteps.map((step, i) => (
                     <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                       <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
                         <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
                       </div>
                       <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>{step}</p>
                     </div>
-                  )) : (
-                    <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>Focus on form. Quality over speed. You've got this.</p>
-                  )}
+                  ))}
                   {isPelvicFloor && (
                     <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 12, background: C.roseDim, border: "1px solid rgba(244,63,94,0.3)" }}>
                       <p style={{ fontSize: 13, fontWeight: 700, color: C.rose, margin: 0, lineHeight: 1.6 }}>Remember: the release is just as important as the squeeze. Full relaxation between each rep.</p>
@@ -3650,8 +3706,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {cleanCues.map((cue, i) => (
                       <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                        <div style={{ width: 4, height: 4, borderRadius: "50%", background: C.muted, flexShrink: 0, marginTop: 8 }} />
-                        <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0 }}>{cue}</p>
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginTop: 7, background: cue.level >= 2 ? "var(--accent)" : "rgba(var(--accent-rgb),0.35)" }} />
+                        <p style={{ fontSize: 13, color: cue.level >= 2 ? C.text : C.muted, lineHeight: 1.6, margin: 0 }}>{cue.text}</p>
                       </div>
                     ))}
                   </div>
@@ -6176,6 +6232,7 @@ export default function App() {
                   planError={planError}
                   onRetryPlan={handleRetryPlan}
                   token={token}
+                  history={history}
                 />
               </>
             )}

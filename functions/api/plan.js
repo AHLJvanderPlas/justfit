@@ -1555,7 +1555,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     if (enoughRest && weekNotFull) {
       const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
-      const weekIdx = Math.min((runCoach.week ?? 1) - 1, programWeeks.length - 1);
+      // Mirror execution.js regression: if >7 days since last run, step back one week
+      const daysSinceLastRun = runCoach.last_run_at_ms
+        ? Math.floor((planDateMs - runCoach.last_run_at_ms) / 86_400_000)
+        : 0;
+      const storedWeek = runCoach.week ?? 1;
+      const effectiveWeek = (daysSinceLastRun > 7 && storedWeek > 1) ? Math.max(1, storedWeek - 1) : storedWeek;
+      if (effectiveWeek < storedWeek) {
+        trace.push(`R556 — Back after ${daysSinceLastRun}-day break — plan stepping back to Week ${effectiveWeek} to rebuild safely`);
+        addNote(`Back after a ${daysSinceLastRun}-day break — starting at Week ${effectiveWeek} to protect your body and set you up for a strong return.`);
+      }
+      const weekIdx = Math.min(effectiveWeek - 1, programWeeks.length - 1);
       const weekConfig = programWeeks[weekIdx]; // { hiit: N, zone2: N }
       // session_in_week 1 = Zone 2 (mid-week easy run); 0 and 2 = HIIT
       const isZone2Session = sessionInWeek === 1;
@@ -1613,7 +1623,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
         const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
         runProgramOverride = { warmUps, runEx, cooldownWalk, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
-        trace.push(`R556 — Running Coach: Week ${runCoach.week ?? 1}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
+        trace.push(`R556 — Running Coach: Week ${effectiveWeek}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
       }
     }
   }

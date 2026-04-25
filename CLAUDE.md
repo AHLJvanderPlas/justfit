@@ -1073,18 +1073,20 @@ None currently. 🟢
 
 Improvements identified but not yet built. Ordered roughly by impact.
 
+### High Priority (next up)
+- **Images/GIFs in instruction cards** — `gif_url` already exists on every plan step; just needs a collapsible image area in the WorkoutView instruction card. Makes coaching feel premium and reduces form errors. High impact for beta users.
+- **Offline resilience** — PWA users on spotty gym wifi see a blank screen. Minimum: cache today's plan + exercise data in IndexedDB so the workout loads without network. Service worker or manual cache strategy in `src/`.
+
 ### Workout UX
 - **Level-appropriate cues** — Cues prefixed with `💡💡` in the DB indicate level-specific advice (Beginner / Intermediate / Advanced). In WorkoutView, filter cues by `experience_level` from prefs: show only the matching level's `💡💡` cues plus all single-`💡` cues. Requires a prefix convention in the data.
 - **"Why" + training target section** — Add a `why` field and a `muscle_target` / `cardio_target` field to `instructions_json` per exercise. Show in the instruction phase below the step cards. For now can be derived from `category` + `tags_json` without DB changes (e.g. strength + "core" tag → "Targets: Core & Stability").
-- **Minimum 3 instruction steps** — Exercises with fewer than 3 instruction steps feel sparse. Either enrich the DB data, or auto-generate a fallback ("Focus on form", "Quality > speed", "You've got this") if `rawSteps.length < 3`.
 - **BMI-aware pace guidance** — For cardio exercises, when user is in the obese BMI range, show lower pace ranges or a dedicated slow-build-up note. Could be a posture-like `bmi_note` field in `instructions_json`, or a rule in WorkoutView that replaces the standard cues.
-- **Images in instruction cards** — Future: show exercise GIF/image alongside the step text. `gif_url` already exists on plan steps; just needs a collapsible image area in the instruction card.
 
 ### After Session
 - **Log activity flow after session** — On the session complete card, the "Log activity" button logs a manual activity. Consider also showing extra-time input there so the user can immediately get a bonus plan suggestion without having to tap "Bonus session" separately.
 
 ### Running Coach — Future Enhancements
-- **Regression on skips**: If >7 days since last run while enrolled, regress 1 week. Prevents users from re-starting week 8 after a 3-week break. Not yet implemented — the decay in conditioning.endurance score already partially handles this via R555.
+- **Regression on skips**: ✅ Implemented — if >7 days since last run while enrolled, both plan.js (plan preview) and execution.js (on save) step back one week. User sees the correct regressed week before starting.
 - **Milestone awards**: Complete a target distance → unlock a hall-of-fame award. Needs a migration to add 5 running awards.
 - **Program progress in Progress tab**: Show run program current week/level on the Progression screen alongside body scores.
 
@@ -1092,7 +1094,7 @@ Improvements identified but not yet built. Ordered roughly by impact.
 - **R526 — Perimenopause phase** *(explicitly out of scope for v1)*: The current cycle rules (R520–R525) assume standard menstruation. Perimenopause involves irregular cycles and hormone fluctuations without pregnancy. A future R526 could detect `cycle_profile.mode = 'perimenopause'` and adapt: longer recovery windows, lower stress threshold (T.STRESS_PERIMENOPAUSE), reduced intensity defaults, and exercise bias toward mobility and low-impact strength rather than HIIT. Would require a new `mode` value in the `cycle_profile` table and a Settings toggle alongside the existing pregnancy/postnatal setup.
 
 ### Data Quality
-- **Enrich exercise instruction steps** — Several exercises (especially short bodyweight ones) have only 1–2 steps. Target minimum 3 concise steps + 2 cues for every exercise.
+- **Continue enriching exercise instructions** — Migration 0032 enriched 12 exercises with thin instructions (Diamond Push-up, Wall Sit, Goblet Squat, Shoulder Press, Lateral Raise, Floor Press, Step-Up, Child's Pose, Quad Stretch, Couch Stretch, 90/90 Hip Switch, Calf Stretch). More exercises may benefit from additional steps/cues — especially newer bodyweight and band exercises added in later migrations.
 - **Add `why` and `muscle_target` to all exercises** — New fields in `instructions_json`. Could be seeded via a migration script.
 
 ---
