@@ -236,6 +236,7 @@ justfit/
 │   ├── 0010_exercise_library.sql ← 100 new exercises (total: ~150); adds equipment_advised_json column; updates tags on existing exercises
 │   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
 │   ├── 0012_conditioning_exercises.sql ← conditioning exercises
+│   ├── 0031_session_phase_exercises.sql ← easy-jog-warmup (7 min) + cooldown-walk (5 min) session-phase exercises; updates Cooper test instructions
 │   ├── 0013_height.sql        ← height_cm column on user_profile
 │   ├── 0014_progression.sql   ← user_progression + user_progression_events tables
 │   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
@@ -254,7 +255,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0031+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0032+`; never reuse a number.
 
 ---
 
@@ -1060,6 +1061,7 @@ Calculated server-side from executions table:
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
 | Military scheduler redesign (April 2026) | ✅ Live — rolling block-counter replaces Mon-Fri calendar; 3 bug fixes: open mode K1 start, Walk-run chip guard, rest-day scheduling; check-in integration for military (body state overrides schedule) |
+| Session-phase warm-up/cooldown (April 2026) | ✅ Live — migration 0031 adds `easy-jog-warmup` (7 min Zone 1 jog) and `cooldown-walk` (5 min); tagged `session_phase` to exclude from general pool; Cooper test session: mobility warmups → easy jog → 12 min test → cooldown walk (~26 min total, accurate estimate); Running Coach (R556): cooldown walk appended after every run; Military Zone 2 (R571) + Intervals (R572): cooldown walk appended; all three exercises are `isFixedDuration` (exempt from volume/energy/experience scaling) |
 
 ## Known Bugs to Fix
 
