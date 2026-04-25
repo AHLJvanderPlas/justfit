@@ -2085,6 +2085,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
     const isLongCardio = !supportsReps && baseDuration > 300;
+    // Assessment exercises have a fixed, standardized duration — never scale them
+    const isFixedDuration = ex.slug === '12-minute-cooper-test';
 
     // Sets: fixed_sets from metrics (run intervals), or goal base + experience offset
     let sets;
@@ -2096,10 +2098,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       sets = Math.max(1, Math.min(5, goalSetsBase + setOffset));
     }
 
-    // R512: Low energy → volume × 0.6
+    // R512: Low energy → volume × 0.6 (assessment exercises exempt — duration is fixed by standard)
     if ((checkIn?.energy ?? 10) <= T.ENERGY_LOW) {
-      if (reps)     { reps     = Math.floor(reps     * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
-      if (duration) { duration = Math.floor(duration * 0.6); trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
+      if (reps)                      { reps     = Math.floor(reps     * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
+      if (duration && !isFixedDuration) { duration = Math.floor(duration * 0.6); trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
     }
 
     // R502: Experience level scales reps AND duration
@@ -2108,10 +2110,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       if (duration && !isLongCardio && !isRunWarmup) duration = Math.round(duration * repScale);
     }
 
-    // Apply volume multiplier (R521, R536)
+    // Apply volume multiplier (R521, R536) — assessment exercises exempt (fixed by standard)
     if (volumeMultiplier !== 1.0) {
-      if (reps)     reps     = Math.round(reps     * volumeMultiplier);
-      if (duration) duration = Math.round(duration * volumeMultiplier);
+      if (reps)                        reps     = Math.round(reps     * volumeMultiplier);
+      if (duration && !isFixedDuration) duration = Math.round(duration * volumeMultiplier);
     }
 
     // Clamp reps to sensible range
