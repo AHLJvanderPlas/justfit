@@ -1144,8 +1144,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     if (pool.length < 3) {
       const safePool = exercises.filter(ex => {
         const tags = JSON.parse(ex.tags_json || '[]');
-        const forbidden = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
-        if (forbidden.some(ft => tags.includes(ft))) return false;
+        if (forbiddenTags.some(ft => tags.includes(ft))) return false;
         return tags.includes('mobility') || tags.includes('recovery');
       });
       const toAdd = seededShuffle(safePool, date).slice(0, 3 - pool.length);
@@ -1274,7 +1273,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       (equip.includes('treadmill') && tags.includes('high_impact'));
   };
 
-  if (bmi !== null && bmi >= T.BMI_MODERATE && slot_type !== 'rest') {
+  if (bmi !== null && bmi >= T.BMI_MODERATE && slot_type !== 'rest' && !isMilCoachActive) {
     const hasPain     = (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR;
     const isNovice    = expLevel === 'beginner';
     // Strict tier: BMI ≥ 35, OR BMI ≥ 30 with pain — running fully removed
@@ -1757,9 +1756,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const lifeRuleReducedIntensity = intensity === 'low';
     const nextType = lifeRuleReducedIntensity ? 'zone2' : (lastType === 'hiit' ? 'zone2' : 'hiit');
     const opposingType = nextType === 'hiit' ? 'zone2' : 'hiit';
-    const preferredCount = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes(nextType)).length;
+    const poolWithTags = pool.map(ex => ({ ex, tags: JSON.parse(ex.tags_json || '[]') }));
+    const preferredCount = poolWithTags.filter(({ tags }) => tags.includes(nextType)).length;
     if (preferredCount > 0) {
-      pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(opposingType));
+      pool = poolWithTags.filter(({ tags }) => !tags.includes(opposingType)).map(({ ex }) => ex);
       const reasonNote = lifeRuleReducedIntensity ? ' (life-rule override: intensity=low → zone2)' : '';
       trace.push(`R568 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
     }

@@ -310,9 +310,9 @@ const DOCS = [
     id: "privacy",
     title: "Privacy Policy",
     subtitle: "What data we collect, your GDPR rights, and how to delete your data",
-    version: "1.1",
+    version: "1.0",
     effectiveDate: "1 April 2025",
-    lastUpdated: "April 2026",
+    lastUpdated: "1 April 2025",
     externalUrl: "/privacy.html",
     summaryBullets: [
       "We collect only account, profile, check-in, and workout data needed to run the service.",
@@ -362,6 +362,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   const [passkeyMsg, setPasskeyMsg]             = useState("");
   // Data export state
   const [exporting, setExporting] = useState(false);
+  const [exportMsg, setExportMsg] = useState("");
   // Delete account state
   const [deleteStep, setDeleteStep]   = useState(null); // null | "confirm" | "type"
   const [deleteText, setDeleteText]   = useState("");
@@ -504,7 +505,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           ...existingMil,  // preserve rpe_easy/hard_streak, last_cooper_distance_m, last_cooper_at_ms, etc.
           active: true, track: milTrack,
           cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
-          cluster_current: existingMil.cluster_current ?? milCluster,
+          cluster_current: existingMil.cluster_current ?? (milMode === 'open' ? 1 : milCluster),
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),
@@ -2010,13 +2011,19 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                   a.click();
                   document.body.removeChild(a);
                   URL.revokeObjectURL(url);
-                } catch { /* silent */ }
+                  setExportMsg("Downloaded.");
+                } catch { setExportMsg("Export failed — please try again."); }
                 setExporting(false);
               }}
               style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1, marginBottom: 8 }}
             >
               {exporting ? "Preparing…" : "Download my data (JSON)"}
             </button>
+            {exportMsg && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginBottom: 4 }}>
+                {exportMsg}
+              </div>
+            )}
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
               Your profile, settings, and workout history as a portable machine-readable file.
             </div>
