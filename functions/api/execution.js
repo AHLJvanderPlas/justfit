@@ -290,7 +290,7 @@ export async function onRequestPost({ request, env }) {
     // Non-military RPE (yoga, strength, etc.) must not drift cluster_current.
     if (session_program === 'military') {
       try {
-        await advanceMilitaryCoach(user_id, steps, perceived_exertion, env, now);
+        await advanceMilitaryCoach(user_id, day_plan_id, steps, perceived_exertion, env, now);
       } catch (err) {
         console.error('Military coach update failed (non-fatal):', err.message);
       }
@@ -508,7 +508,7 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
 //   - cluster_current is used by plan.js for group selection; cluster_target is
 //     preserved forever as the original assessment benchmark
 
-async function advanceMilitaryCoach(userId, steps, perceivedExertion, env, nowMs) {
+async function advanceMilitaryCoach(userId, planId, steps, perceivedExertion, env, nowMs) {
   if (!userId) return;
 
   const prefsRow = await env.DB.prepare(
@@ -563,15 +563,43 @@ async function advanceMilitaryCoach(userId, steps, perceivedExertion, env, nowMs
   updated.rpe_easy_streak = easyStreak;
   updated.rpe_hard_streak = hardStreak;
 
-  // ── 3. Post-assessment rollover ───────────────────────────────────────────
+  // ── 3. Rolling block advancement ─────────────────────────────────────────
+  // Determine if the session just completed was a rest day or a training session.
+  // Rest day completion → start a new block; training session → advance within block.
+  let isRestSession = false;
+  if (planId) {
+    try {
+      const planRow = await env.DB.prepare(
+        `SELECT plan_json FROM day_plans WHERE id = ? AND user_id = ? LIMIT 1`
+      ).bind(planId, userId).first();
+      if (planRow?.plan_json) {
+        isRestSession = JSON.parse(planRow.plan_json).slot_type === 'rest';
+      }
+    } catch { /* non-fatal — fall through with isRestSession = false */ }
+  }
+
+  const blockIdx = mil.block_session_index ?? 0;
+  const blockNum = mil.block_number ?? 1;
+
+  if (isRestSession) {
+    // Rest day done: earned recovery is complete, start fresh training block
+    updated.block_session_index = 0;
+    updated.block_number = blockNum + 1;
+  } else {
+    // Training session done: advance position within current block
+    updated.block_session_index = blockIdx + 1;
+    // block_number stays the same until the earned rest day is completed
+  }
+
+  // ── 4. Post-assessment rollover ───────────────────────────────────────────
   if (mil.mode === 'target' && mil.target_date) {
     const assessMs = new Date(mil.target_date + 'T00:00:00Z').getTime();
     if (nowMs >= assessMs) {
       // Assessment day has arrived — roll to open mode silently.
-      // enrolled_at_ms is reset to today so open phase cycle starts fresh.
       updated.mode           = 'open';
       updated.target_date    = null;
-      updated.enrolled_at_ms = nowMs;
+      updated.block_session_index = 0;
+      updated.block_number   = (blockNum + 1);
     }
   }
 

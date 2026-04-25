@@ -507,6 +507,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
           cluster_current: existingMil.cluster_current ?? (milMode === 'open' ? 1 : milCluster),
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
+          block_session_index: existingMil.block_session_index ?? 0,
+          block_number:        existingMil.block_number ?? 1,
           pack_weights_available_kg: milPackWeight,
           has_trail_shoes: planEquipment.includes("trail_shoes"),
           enrolled_at_ms: existingMil.enrolled_at_ms ?? Date.now(),

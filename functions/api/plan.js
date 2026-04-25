@@ -704,128 +704,118 @@ function getMilitaryGroup(track, cluster) {
   return 'keuring_high';
 }
 
-// Per-group 6-week session schedule [week][day] → session type
-// Improved periodization: on-ramp W1, build W2-3, peak W4, deload W5, taper W6
-// Session types: cooper_test | kracht | duurloop | interval | kracht_marsen | circuit | rust
-const MIL_SCHEDULE = {
-  keuring_low: [
-    ['cooper_test','kracht','duurloop','kracht','rust'],         // W1 calibration
-    ['duurloop','kracht','interval','kracht','rust'],             // W2 build1
-    ['kracht','duurloop','interval','kracht','rust'],             // W3 build2
-    ['interval','kracht','duurloop','kracht_marsen','rust'],     // W4 peak
-    ['duurloop','kracht','rust','rust','rust'],                   // W5 deload
-    ['cooper_test','kracht','duurloop','rust','rust'],            // W6 taper
-  ],
-  keuring_mid: [
-    ['cooper_test','kracht','duurloop','kracht','rust'],
-    ['duurloop','kracht','interval','kracht_marsen','rust'],
-    ['interval','kracht','duurloop','kracht','rust'],
-    ['interval','kracht','interval','kracht_marsen','rust'],
-    ['duurloop','kracht','rust','rust','rust'],
-    ['cooper_test','kracht','duurloop','rust','rust'],
-  ],
-  keuring_high: [
-    ['cooper_test','kracht','interval','kracht_marsen','rust'],
-    ['interval','kracht','duurloop','kracht_marsen','rust'],
-    ['interval','kracht','interval','circuit','rust'],
-    ['interval','kracht','duurloop','kracht_marsen','circuit'],
-    ['duurloop','kracht','rust','rust','rust'],
-    ['cooper_test','circuit','duurloop','rust','rust'],
-  ],
-  opleiding_low: [
-    ['cooper_test','kracht','duurloop','kracht','rust'],
-    ['duurloop','kracht','interval','kracht','rust'],
-    ['kracht','duurloop','interval','kracht','rust'],
-    ['interval','kracht','duurloop','kracht_marsen','rust'],
-    ['duurloop','kracht','rust','rust','rust'],
-    ['cooper_test','kracht','duurloop','rust','rust'],
-  ],
-  opleiding_mid: [
-    ['cooper_test','kracht','duurloop','kracht_marsen','rust'],
-    ['duurloop','kracht','interval','kracht_marsen','rust'],
-    ['kracht','interval','duurloop','kracht_marsen','rust'],
-    ['interval','kracht','interval','kracht_marsen','rust'],
-    ['duurloop','kracht','rust','rust','rust'],
-    ['cooper_test','kracht','duurloop','rust','rust'],
-  ],
-  opleiding_high: [
-    ['cooper_test','kracht','duurloop','kracht_marsen','rust'],
-    ['circuit','kracht','interval','kracht_marsen','rust'],
-    ['interval','kracht','interval','kracht_marsen','circuit'],
-    ['interval','kracht','circuit','kracht_marsen','interval'],
-    ['duurloop','kracht','rust','rust','rust'],
-    ['cooper_test','circuit','duurloop','rust','rust'],
-  ],
+// Rolling block sequences per group — 4 training sessions per block, then rest is earned.
+// No calendar-day dependency: any day can be a training day. Rest is a reward for work done.
+//
+// Sequence design (evidence-based periodization):
+//   Session 1 — Zone 2 run (duurloop): aerobic base, lowest CNS demand, safe day-1 opener
+//   Session 2 — Strength (kracht): neuromuscular work on aerobically-primed muscles
+//   Session 3 — Intervals: highest VO2max stimulus, separated from Zone2 by a strength day
+//   Session 4 — Strength/March: consolidates gains, lower intensity before earned rest
+//   REST: earned recovery — adaptation happens here, not in the training sessions
+const BLOCK_SEQUENCES = {
+  keuring_low:    ['duurloop', 'kracht',        'interval', 'kracht'],
+  keuring_mid:    ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
+  keuring_high:   ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
+  opleiding_low:  ['duurloop', 'kracht',        'interval', 'kracht'],
+  opleiding_mid:  ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
+  opleiding_high: ['duurloop', 'kracht_marsen', 'interval', 'kracht_marsen'],
 };
+const SESSIONS_PER_BLOCK = 4;
 
-// Volume multipliers per week (index = week - 1)
-// W1 on-ramp, W2-3 build, W4 peak, W5 deload, W6 taper
-const MIL_WEEK_VOLUME = [0.70, 0.85, 1.00, 1.15, 0.55, 0.60];
-
-// Base-building session pattern (Mon–Fri) used when > 6 weeks from assessment or in 'fit' mode.
-// Same day-of-week structure as MIL_SCHEDULE but without a fixed weekly periodization.
-const MIL_BASE_BUILD = {
-  keuring_low:    ['duurloop', 'kracht',        'interval',       'kracht',        'rust'],
-  keuring_mid:    ['duurloop', 'kracht',        'interval',       'kracht_marsen', 'rust'],
-  keuring_high:   ['interval', 'kracht',        'duurloop',       'kracht_marsen', 'rust'],
-  opleiding_low:  ['duurloop', 'kracht',        'interval',       'kracht',        'rust'],
-  opleiding_mid:  ['duurloop', 'kracht',        'interval',       'kracht_marsen', 'rust'],
-  opleiding_high: ['interval', 'kracht',        'duurloop',       'kracht_marsen', 'rust'],
-};
+// Volume progression across 6-block periodization cycle (index = cyclePosn - 1)
+// Blocks 1-2: base (on-ramp → build), Blocks 3-4: peak volume, Block 5: deload, Block 6: peak/taper
+const BLOCK_VOLUMES = [0.75, 0.85, 1.00, 1.10, 0.60, 0.90];
 
 // ---------------------------------------------------------------------------
-// computeMilitaryPhase — single source of truth for week/phase/session-type
+// computeMilitaryPhase — rolling block-counter scheduler
 // ---------------------------------------------------------------------------
-// Returns { milWeek, inBaseBuild, milDay, milGroup, clusterLive, sessionType, milVol, isPostAssessment }
-// Used in both the planning block and the military_program return object.
-function computeMilitaryPhase(milCoach, date) {
-  const assessmentDate  = milCoach.target_date;
-  const todayMs         = new Date(date + 'T00:00:00Z').getTime();
-  const assessMs        = assessmentDate ? new Date(assessmentDate + 'T00:00:00Z').getTime() : null;
+// Returns { blockNum, blockIdx, cyclePosn, inBaseBuild, milWeek (=blockNum),
+//           milDay (=blockIdx), milGroup, clusterLive, sessionType, milVol,
+//           isPostAssessment, checkInOverride }
+//
+// No calendar-day dependency. Scheduling is driven entirely by block_session_index
+// (how many sessions completed in the current block) and block_number (total blocks
+// completed since enrollment). Rest is earned after SESSIONS_PER_BLOCK training
+// sessions, not assigned to a fixed weekday.
+//
+// Check-in signals partially bypass R581 for safety (body always wins over schedule):
+//   recovery_mode or general pain → rest override
+//   low energy → intensity downgrade (interval → duurloop, duurloop → kracht)
+//   poor sleep → volume ×0.85
+function computeMilitaryPhase(milCoach, checkIn, date) {
+  const todayMs    = new Date(date + 'T12:00:00Z').getTime();
+  const blockIdx   = milCoach.block_session_index ?? 0;  // 0–3 = training; ≥4 = rest earned
+  const blockNum   = milCoach.block_number ?? 1;          // total blocks since enrollment
+
+  const assessmentDate = milCoach.target_date;
+  const assessMs = assessmentDate ? new Date(assessmentDate + 'T12:00:00Z').getTime() : null;
   const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
-
-  let milWeek; let inBaseBuild = false;
-
-  if (milCoach.mode === 'fit') {
-    inBaseBuild = true; milWeek = 2;
-  } else if (assessmentDate && milCoach.mode !== 'open' && !isPostAssessment) {
-    const daysRemaining = Math.ceil((assessMs - todayMs) / 86_400_000);
-    if (daysRemaining > 42) {
-      inBaseBuild = true; milWeek = 2;
-    } else {
-      if      (daysRemaining >= 36) milWeek = 1;
-      else if (daysRemaining >= 29) milWeek = 2;
-      else if (daysRemaining >= 22) milWeek = 3;
-      else if (daysRemaining >= 15) milWeek = 4;
-      else if (daysRemaining >= 8)  milWeek = 5;
-      else                          milWeek = 6;
-    }
-  } else {
-    const enrolledMs   = milCoach.enrolled_at_ms ?? todayMs;
-    const weeksElapsed = Math.floor((todayMs - enrolledMs) / (7 * 86_400_000));
-    milWeek = (weeksElapsed % 6) + 1;
-  }
-  milWeek = Math.max(1, Math.min(milWeek, 6));
-
-  const jsDay = new Date(date + 'T00:00:00Z').getUTCDay();
-  const milDay = (jsDay === 0 || jsDay === 6) ? null : jsDay;
 
   const clusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
   const milGroup    = getMilitaryGroup(milCoach.track ?? 'keuring', clusterLive);
 
-  let sessionType;
-  if (inBaseBuild) {
-    const baseSchedule = MIL_BASE_BUILD[milGroup] ?? MIL_BASE_BUILD.keuring_low;
-    sessionType = milDay === null ? 'rust' : (baseSchedule[milDay - 1] ?? 'rust');
-    if (!milCoach.last_cooper_distance_m && milDay === 1) sessionType = 'cooper_test';
-  } else {
-    const schedule = MIL_SCHEDULE[milGroup] ?? MIL_SCHEDULE.keuring_low;
-    sessionType = milDay === null ? 'rust' : (schedule[milWeek - 1]?.[milDay - 1] ?? 'rust');
+  // Position within 6-block periodization cycle (1–6)
+  const cyclePosn   = ((blockNum - 1) % 6) + 1;
+  const inBaseBuild = cyclePosn <= 2;
+
+  // Determine session type from rolling block sequence
+  const isRestBlock = blockIdx >= SESSIONS_PER_BLOCK;
+  const blockSeq    = BLOCK_SEQUENCES[milGroup] ?? BLOCK_SEQUENCES.keuring_low;
+  let sessionType   = isRestBlock ? 'rust' : (blockSeq[blockIdx] ?? 'kracht');
+
+  // Cooper test: on first-ever session (no baseline yet), or at cycle start (block 1 of each 6-block cycle)
+  if (!isRestBlock && blockIdx === 0 && (!milCoach.last_cooper_distance_m || cyclePosn === 1)) {
+    sessionType = 'cooper_test';
   }
 
-  const milVol = inBaseBuild ? 0.85 : (MIL_WEEK_VOLUME[milWeek - 1] ?? 1.0);
+  // Volume from 6-block periodization cycle
+  let milVol = BLOCK_VOLUMES[cyclePosn - 1] ?? 1.0;
 
-  return { milWeek, inBaseBuild, milDay, milGroup, clusterLive, sessionType, milVol, isPostAssessment };
+  // Target mode: taper intensity near assessment date
+  if (milCoach.mode === 'target' && assessMs && !isPostAssessment) {
+    const daysOut = Math.ceil((assessMs - todayMs) / 86_400_000);
+    if (daysOut <= 7)       milVol = Math.min(milVol, 0.60); // taper week
+    else if (daysOut <= 14) milVol = Math.min(milVol, 0.75); // pre-taper
+  }
+
+  // Check-in safety integration (partial R581 bypass — body state always wins over schedule)
+  const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
+  const energy    = checkIn?.energy    ?? 10;
+  const sleep     = checkIn?.sleep_hours ?? 8;
+  const painLevel = checkIn?.pain_level  ?? 0;
+  const painScope = checkIn?.pain_scope  ?? null;
+  const painGeneral = painLevel >= 2 && painScope !== 'specific';
+
+  let checkInOverride = null;
+  if (!isRestBlock) {
+    if (recoveryMode || painGeneral) {
+      sessionType = 'rust';
+      checkInOverride = recoveryMode ? 'recovery_mode' : 'pain';
+    } else if (energy <= 3 && sessionType === 'interval') {
+      sessionType = 'duurloop';   // downgrade HIIT to zone2 on low energy
+      checkInOverride = 'low_energy';
+    } else if (energy <= 3 && (sessionType === 'duurloop' || sessionType === 'kracht_marsen')) {
+      sessionType = 'kracht';     // downgrade to strength (safest low-energy option)
+      checkInOverride = 'low_energy';
+    }
+  }
+  if (sleep <= 5) milVol *= 0.85; // poor sleep → volume reduction regardless of session type
+
+  return {
+    blockNum,
+    blockIdx,
+    cyclePosn,
+    inBaseBuild,
+    milWeek: blockNum,   // alias kept for label compatibility
+    milDay:  blockIdx,   // alias kept for return-object compatibility
+    milGroup,
+    clusterLive,
+    sessionType,
+    milVol,
+    isPostAssessment,
+    checkInOverride,
+  };
 }
 
 // Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
@@ -1784,14 +1774,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   if (militaryActive) {
     // R570 — computeMilitaryPhase() is the single source of truth for week/phase/session-type.
     const {
-      milWeek, inBaseBuild, milDay, milGroup, sessionType, milVol,
-    } = computeMilitaryPhase(milCoach, date);
-    milWeekComputed = milWeek;
+      milWeek, blockIdx, cyclePosn, milGroup, sessionType, milVol, checkInOverride,
+    } = computeMilitaryPhase(milCoach, checkIn, date);
+    milWeekComputed = milWeek; // milWeek = blockNum for session label compatibility
     militarySessionType = sessionType;
 
-    // R578 — Volume multiplier from phase (base-build=0.85; specific-prep from phase table).
+    // R578 — Volume multiplier from 6-block periodization cycle.
     volumeMultiplier = Math.min(volumeMultiplier, milVol);
-    trace.push(`R570 — Military Coach: ${milGroup} ${inBaseBuild ? 'BaseBuild' : `W${milWeek}`}D${milDay ?? 'rest'} → ${sessionType} (vol ×${milVol})`);
+    trace.push(`R570 — Military Coach: ${milGroup} Block${milWeek}.${blockIdx + 1}/4 [cycle${cyclePosn}] → ${sessionType} (vol ×${milVol.toFixed(2)}${checkInOverride ? ` — check-in override: ${checkInOverride}` : ''})`);
 
     if (sessionType === 'rust') {
       // R570 — Military rest day
@@ -1803,7 +1793,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const cooperEx = exercises.find(ex => ex.slug === '12-minute-cooper-test');
       const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
       if (cooperEx) {
-        const milWeekLabel = milWeek === 1 ? 'baseline' : milWeek === 4 ? 'mid-point check' : 'assessment simulation';
+        const milWeekLabel = !milCoach.last_cooper_distance_m ? 'baseline'
+          : cyclePosn === 6 ? 'assessment simulation' : 'progress check';
         militaryProgramOverride = {
           type: 'cooper_test',
           warmUps,
@@ -1818,7 +1809,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     } else if (sessionType === 'duurloop') {
       // R571 — Zone 2 run: delegate to progressive continuous run levels
       const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
-      const offset     = MIL_RUN_WEEK_OFFSET[milWeek - 1] ?? 0;
+      const offset     = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
       const targetLvl  = Math.max(7, peakLevels.zone2 + offset);
       const sessionDurSec = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60;
       const availRunSec   = Math.max(600, sessionDurSec - 4 * 45); // warmup overhead
@@ -1840,7 +1831,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     } else if (sessionType === 'interval') {
       // R572 — HIIT run intervals
       const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
-      const offset     = MIL_RUN_WEEK_OFFSET[milWeek - 1] ?? 0;
+      const offset     = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
       const targetLvl  = Math.max(1, Math.min(6, peakLevels.hiit + (offset < 0 ? offset : 0)));
       const runEx   = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
       const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
@@ -1871,8 +1862,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
       if (sessionType === 'kracht_marsen') {
         // R574 — Kracht+Marsen: compute march parameters, march step added after steps are built
-        const prescribedKg  = MIL_MARCH_KG[milGroup]?.[milWeek - 1] ?? 0;
-        const prescribedSec = MIL_MARCH_SEC[milGroup]?.[milWeek - 1] ?? 0;
+        const prescribedKg  = MIL_MARCH_KG[milGroup]?.[cyclePosn - 1] ?? 0;
+        const prescribedSec = MIL_MARCH_SEC[milGroup]?.[cyclePosn - 1] ?? 0;
 
         // Injury cap: lower_back → 15 kg max, knee → 0 (substitute)
         const injuryCap  = injuryAreas.includes('lower_back') ? 15
@@ -2288,17 +2279,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
     else session_name = 'Today\'s recovery';
   } else if (militaryProgramOverride?.type === 'cooper_test') {
-    session_name = `Cooper Test · Week ${militaryProgramOverride.week} · ${militaryProgramOverride.label ?? 'Assessment'}`;
+    session_name = `Cooper Test · Block ${militaryProgramOverride.week} · ${militaryProgramOverride.label ?? 'Assessment'}`;
   } else if (militaryProgramOverride?.type === 'duurloop') {
-    session_name = `Military · Zone 2 Run · Week ${militaryProgramOverride.week}`;
+    session_name = `Military · Zone 2 Run · Block ${militaryProgramOverride.week}`;
   } else if (militaryProgramOverride?.type === 'interval') {
-    session_name = `Military · Intervals · Week ${militaryProgramOverride.week}`;
+    session_name = `Military · Intervals · Block ${militaryProgramOverride.week}`;
   } else if (militarySessionType === 'kracht_marsen') {
-    session_name = `Military · Strength & March · Week ${milWeekComputed}`;
+    session_name = `Military · Strength & March · Block ${milWeekComputed}`;
   } else if (militarySessionType === 'circuit') {
-    session_name = `Military · Circuit · Week ${milWeekComputed}`;
+    session_name = `Military · Circuit · Block ${milWeekComputed}`;
   } else if (militarySessionType === 'kracht' && militaryActive) {
-    session_name = `Military · Strength · Week ${milWeekComputed}`;
+    session_name = `Military · Strength · Block ${milWeekComputed}`;
   } else if (runProgramOverride) {
     session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
   } else if (cyclingProgramOverride) {
@@ -2353,14 +2344,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
       : null,
     military_program: militaryActive ? (() => {
-      // computeMilitaryPhase() is the single source of truth — reuse without re-deriving.
       const {
-        milWeek: retWeek, inBaseBuild: retInBaseBuild, milDay: retDay, milGroup: retGroup,
+        blockNum: retBlockNum, blockIdx: retBlockIdx, cyclePosn: retCyclePosn,
+        inBaseBuild: retInBaseBuild, milGroup: retGroup,
         clusterLive: retClusterLive, isPostAssessment: retIsPostAssess,
-      } = computeMilitaryPhase(milCoach, date);
+      } = computeMilitaryPhase(milCoach, checkIn, date);
       return {
-        week:                  retWeek,
-        day:                   retDay,
+        week:                  retBlockNum,    // block number (not calendar week)
+        day:                   retBlockIdx,    // session index within block (0–3)
+        sessions_per_block:    SESSIONS_PER_BLOCK,
         session_type:          militarySessionType,
         track:                 milCoach.track ?? 'keuring',
         cluster_target:        milCoach.cluster_target ?? 1,
@@ -2371,9 +2363,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         target_date:           milCoach.target_date ?? null,
         mode:                  milCoach.mode ?? 'target',
         is_base_build:         retInBaseBuild,
-        is_calibration_week:   retWeek === 1 && !retInBaseBuild,
-        is_deload_week:        retWeek === 5 && !retInBaseBuild,
-        is_taper_week:         retWeek === 6 && !retInBaseBuild,
+        is_calibration_week:   retCyclePosn === 1,
+        is_deload_week:        retCyclePosn === 5,
+        is_taper_week:         retCyclePosn === 6,
         is_post_assessment:    retIsPostAssess || milCoach.mode === 'open',
         last_cooper_distance_m: milCoach.last_cooper_distance_m ?? null,
       };
