@@ -504,8 +504,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const newMil = {
           ...existingMil,  // preserve rpe_easy/hard_streak, last_cooper_distance_m, last_cooper_at_ms, etc.
           active: true, track: milTrack,
-          cluster_target: milMode === 'open' ? (milTrack === 'opleiding' ? 7 : 6) : milCluster,
-          cluster_current: existingMil.cluster_current ?? (milMode === 'open' ? 1 : milCluster),
+          cluster_target: milMode === 'open' ? 6 : milCluster,
+          cluster_current: existingMil.cluster_current ?? (milMode === 'open' ? (milTrack === 'keuring' ? 0 : 1) : milCluster),
           mode: milMode, target_date: milMode === 'target' ? milTargetDate : null,
           block_session_index: existingMil.block_session_index ?? 0,
           block_number:        existingMil.block_number ?? 1,
@@ -1034,6 +1034,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
             const mc = prefs.preferences?.military_coach ?? null;
             const isActive = !!(mc?.active);
             const KEURING_CLUSTERS  = [
+              { v: 0, label: "KB", desc: "Basis — starting level" },
               { v: 1, label: "K1", desc: "Entry level service" },
               { v: 2, label: "K2", desc: "Standard service" },
               { v: 3, label: "K3", desc: "Infantry / most roles" },
@@ -1048,7 +1049,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
               { v: 4, label: "O4", desc: "Above average" },
               { v: 5, label: "O5", desc: "High performance" },
               { v: 6, label: "O6", desc: "Advanced training" },
-              { v: 7, label: "O7", desc: "Elite training" },
             ];
             const clusters = milTrack === 'keuring' ? KEURING_CLUSTERS : OPLEIDING_CLUSTERS;
             return (
@@ -1056,7 +1056,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Military Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
                   {isActive
-                    ? `${mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness'} · ${mc.mode === 'open' ? 'Open progression' : `Target ${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`}`
+                    ? `${mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness'} · ${mc.mode === 'open' ? 'Open progression' : `Target ${mc.track === 'keuring' ? (mc.cluster_target === 0 ? 'KB' : `K${mc.cluster_target}`) : `O${mc.cluster_target}`}`}`
                     : "Dutch Defensie prep — train toward your target level at your own pace or with a fixed assessment date."}
                 </div>
                 {!isActive && (
@@ -1197,7 +1197,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                 )}
                 {isActive && (() => {
                   const trackLabel  = mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
-                  const clusterCode = `${mc.track === 'keuring' ? 'K' : 'O'}${mc.cluster_target}`;
+                  const clusterCode = mc.track === 'keuring' ? (mc.cluster_target === 0 ? 'KB' : `K${mc.cluster_target}`) : `O${mc.cluster_target}`;
                   let statusLine, subLine;
                   if (mc.mode === 'open') {
                     statusLine = "Open progression";
@@ -1246,7 +1246,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                focusSaveStatus === "saving" ? "Saving…" :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
-               focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? 'K' : 'O'}${milCluster}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
+               focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
                `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
             </button>
           </div>

@@ -694,11 +694,12 @@ const RUN_WARMUP_TAG = 'run_warmup';
 // Map (track, cluster) → program group key
 function getMilitaryGroup(track, cluster) {
   if (track === 'opleiding') {
-    if (cluster <= 3) return 'opleiding_low';
-    if (cluster <= 5) return 'opleiding_mid';
+    // O1–O6 (6 levels): thirds = 1-2 / 3-4 / 5-6
+    if (cluster <= 2) return 'opleiding_low';
+    if (cluster <= 4) return 'opleiding_mid';
     return 'opleiding_high';
   }
-  // keuring
+  // Keuring KB–K6 (7 levels: 0–6): thirds = 0-2 / 3-4 / 5-6
   if (cluster <= 2) return 'keuring_low';
   if (cluster <= 4) return 'keuring_mid';
   return 'keuring_high';

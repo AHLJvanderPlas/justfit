@@ -951,7 +951,7 @@ adds +15s for pregnancy/postnatal on top of this.
 | R581 | always | Bypass standard R510–R565 rules (military takes full control of session) |
 | R582 | always | Set goal target profile on hexagon radar to military fitness vector |
 
-**Tracks**: Keuring K1–K6 (fitness assessment), Opleiding O1–O7 (training program)
+**Tracks**: Keuring KB–K6 (fitness assessment, 7 levels: Basis + K1–K6, source: clusters 0–6), Opleiding O1–O6 (training program, 6 levels, source: clusters 1–6)
 **Storage**: `preferences_json.military_coach` object — `{active, mode, track, cluster_current, cluster_target, target_date, pack_weights_available_kg, has_trail_shoes, enrolled_at_ms, last_cooper_distance_m}`
 Note: `cluster_target` for open mode = track max (K6/O7). Legacy `pack_weight_max_kg` migrated to `pack_weights_available_kg: number[]` on next profile save.
 

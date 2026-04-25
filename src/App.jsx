@@ -2342,7 +2342,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
             if (!milActive && !rcActive && !ccActive) return null;
             const label = milActive
-              ? `Military · ${prefs.preferences.military_coach.track === 'keuring' ? 'K' : 'O'}${prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 1}`
+              ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
               : rcActive ? `Running · ${prefs.preferences.run_coach.target_km}km`
               : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
             return (
@@ -2795,10 +2795,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         if (milActive) {
           const mil = prefs.preferences.military_coach;
           const track    = mil.track ?? 'keuring';
-          const pfx      = track === 'keuring' ? 'K' : 'O';
           const mp       = plan?.military_program;
           // Use cluster_current from plan (RPE-adjusted) if available, fall back to prefs
-          const clusterTarget  = mil.cluster_target ?? 1;
+          const clusterTarget  = mil.cluster_target ?? (track === 'keuring' ? 0 : 1);
           const clusterCurrent = mp?.cluster_current ?? mil.cluster_current ?? clusterTarget;
           const sessionLabel = mp?.session_type ? {
             cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run',
@@ -2831,8 +2830,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
-                    {trackLabel} · {pfx}{clusterCurrent}
-                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>↑ {pfx}{clusterTarget} target</span>}
+                    {trackLabel} · {milClL(track, clusterCurrent)}
+                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>↑ {milClL(track, clusterTarget)} target</span>}
                   </div>
                   {sessionLabel && (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionLabel}{mp?.march_kg ? ` · ${mp.march_kg} kg march` : ""}</div>
@@ -2870,7 +2869,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         }
         if (ccActive) {
           const cc = prefs.preferences.cycling_coach;
-          const todaySessionType = plan?.cycling_program?.sessionType ?? null;
+          const todaySessionType = plan?.cycling_program?.session_type ?? null;
           const sessionTypeLabel = todaySessionType === 'Zone 2'
             ? 'Zone 2 — aerobic base'
             : todaySessionType === 'Intervals'
@@ -4281,15 +4280,14 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
           {sportMode === "military" && (() => {
             const mil = prefs?.preferences?.military_coach ?? {};
             const track = mil.track ?? 'keuring';
-            const pfx = track === 'keuring' ? 'K' : 'O';
-            const clusterCurrent = mil.cluster_current ?? 1;
+            const clusterCurrent = mil.cluster_current ?? (track === 'keuring' ? 0 : 1);
             const clusterTarget = mil.cluster_target ?? clusterCurrent;
             const trackLabel = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
             const mode = mil.mode ?? 'target';
-            const maxLevel = track === 'keuring' ? 6 : 7;
+            const maxLevel = 6;
             const CLUSTER_DESC = track === 'keuring'
-              ? { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
-              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced", 7: "Elite" };
+              ? { 0: "Basis", 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
+              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced" };
             const daysToAssessment = mode === 'target' && mil.target_date
               ? Math.ceil((new Date(mil.target_date + 'T12:00:00').getTime() - nowMs) / 86_400_000)
               : null;
@@ -4302,9 +4300,9 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach · {trackLabel}</div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
-                      Current: {pfx}{clusterCurrent}
-                      {mode !== 'open' && clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {pfx}{clusterTarget}</span>}
-                      {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {pfx}{clusterCurrent + 1}</span>}
+                      Current: {milClL(track, clusterCurrent)}
+                      {mode !== 'open' && clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {milClL(track, clusterTarget)}</span>}
+                      {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {milClL(track, clusterCurrent + 1)}</span>}
                     </div>
                     {daysToAssessment !== null && (
                       <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? "#f59e0b" : C.muted, marginTop: 2, fontWeight: 700 }}>
@@ -4317,7 +4315,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                 </div>
                 {/* Level ladder */}
                 <div style={{ display: "flex", gap: 4 }}>
-                  {Array.from({ length: maxLevel }, (_, i) => i + 1).map(lvl => {
+                  {Array.from({ length: track === 'keuring' ? 7 : 6 }, (_, i) => track === 'keuring' ? i : i + 1).map(lvl => {
                     const isPast = lvl < clusterCurrent;
                     const isCurrent = lvl === clusterCurrent;
                     const isTarget = mode !== 'open' && lvl === clusterTarget;
@@ -4331,7 +4329,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                           transition: "background 0.3s ease",
                         }} />
                         <span style={{ fontSize: 9, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
-                          {pfx}{lvl}
+                          {milClL(track, lvl)}
                         </span>
                         {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>NOW</span>}
                         {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>GOAL</span>}
@@ -4339,8 +4337,8 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     );
                   })}
                 </div>
-                {CLUSTER_DESC[clusterCurrent] && (
-                  <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>{pfx}{clusterCurrent} — {CLUSTER_DESC[clusterCurrent]}</div>
+                {CLUSTER_DESC[clusterCurrent] !== undefined && (
+                  <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>{milClL(track, clusterCurrent)} — {CLUSTER_DESC[clusterCurrent]}</div>
                 )}
               </Glass>
             );
@@ -4599,15 +4597,14 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
           {sportMode === "military" && (() => {
             const mil = prefs?.preferences?.military_coach ?? {};
             const track = mil.track ?? 'keuring';
-            const pfx = track === 'keuring' ? 'K' : 'O';
-            const clusterCurrent = mil.cluster_current ?? 1;
+            const clusterCurrent = mil.cluster_current ?? (track === 'keuring' ? 0 : 1);
             const clusterTarget = mil.cluster_target ?? clusterCurrent;
             const mode = mil.mode ?? 'target';
-            const maxLevel = track === 'keuring' ? 6 : 7;
+            const maxLevel = 6;
             const nextLevel = Math.min(clusterCurrent + 1, maxLevel);
             const CLUSTER_DESC_I = track === 'keuring'
-              ? { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
-              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced", 7: "Elite" };
+              ? { 0: "Basis", 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
+              : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced" };
             // Cooper test metrics
             const lastCooper = mil.last_cooper_distance_m ?? null;
             const COOPER_THRESHOLDS = [0, 1800, 2000, 2200, 2400, 2600, 2800];
@@ -4615,7 +4612,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
               ? COOPER_THRESHOLDS.reduce((lvl, t, i) => lastCooper >= t ? i : lvl, 0)
               : null;
             const cooperBenchmark = lastCooper
-              ? `${lastCooper}m — ${cooperLevel === 0 ? 'Below K1' : `${pfx}${cooperLevel}`}`
+              ? `${lastCooper}m — ${cooperLevel === 0 ? 'Below KB' : milClL(track, cooperLevel)}`
               : null;
             const nextCooperTarget = track === 'keuring' ? (COOPER_THRESHOLDS[nextLevel] ?? null) : null;
             const cooperGap = lastCooper && nextCooperTarget && nextLevel <= maxLevel && clusterCurrent < maxLevel
@@ -4627,12 +4624,12 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             const nextMarchTarget = track === 'keuring' ? (MIL_MARCH_TARGET[nextLevel] ?? null) : null;
             const tips = track === 'keuring' ? [
               mode === 'open'
-                ? `Next milestone: ${pfx}${nextLevel} — ${CLUSTER_DESC_I[nextLevel] ?? ''}. Cooper target: ≥${nextCooperTarget ?? '?'}m${cooperGap ? `, ${cooperGap}m to go` : ''}.`
+                ? `Next milestone: ${milClL(track, nextLevel)} — ${CLUSTER_DESC_I[nextLevel] ?? ''}. Cooper target: ≥${nextCooperTarget ?? '?'}m${cooperGap ? `, ${cooperGap}m to go` : ''}.`
                 : clusterCurrent < clusterTarget
-                  ? `Your Cooper test result determines your ${pfx} level. Run 3×12-min efforts per week to build baseline endurance.`
+                  ? `Your Cooper test result determines your ${milClL(track, clusterCurrent)} level. Run 3×12-min efforts per week to build baseline endurance.`
                   : `You're at your target level — keep training consistently to maintain it.`,
               "Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march.",
-              clusterCurrent <= 2 ? "At K1–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
+              clusterCurrent <= 2 ? "At KB–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
               clusterCurrent <= 4 ? "At K3–K4: mix interval runs with longer easy runs to build capacity." :
               "At K5–K6: peak performance — taper carefully before your assessment.",
             ] : [
@@ -4656,11 +4653,11 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                         <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cooper test</div>
                           {cooperBenchmark
-                            ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{pfx}{cooperLevel}</span></div>
+                            ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{milClL(track, cooperLevel)}</span></div>
                             : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>No test recorded</div>}
                           {nextCooperTarget && clusterCurrent < maxLevel && (
                             <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                              {pfx}{nextLevel} requires ≥{nextCooperTarget}m
+                              {milClL(track, nextLevel)} requires ≥{nextCooperTarget}m
                               {cooperGap != null && cooperGap > 0 && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {cooperGap}m to go</span>}
                               {cooperGap === 0 && <span style={{ color: C.emerald, fontWeight: 700 }}> · achieved</span>}
                             </div>
@@ -4674,7 +4671,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                             : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>Not set</div>}
                           {nextMarchTarget && clusterCurrent < maxLevel && (
                             <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                              {pfx}{nextLevel} target: {nextMarchTarget} kg
+                              {milClL(track, nextLevel)} target: {nextMarchTarget} kg
                               {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: C.emerald, fontWeight: 700 }}> · ready</span>}
                               {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
                             </div>
@@ -4843,10 +4840,15 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   const cc = prefs.preferences.cycling_coach;
                   const sessionInWeek = cc.session_in_week ?? 0;
                   const sessionsLeft = 3 - sessionInWeek;
-                  // Determine current session emphasis: sessions 1 and 3 in each week are Zone 2, session 2 is intervals
-                  const nextSessionNum = sessionInWeek + 1;
-                  const emphasisLabel = nextSessionNum === 2 ? 'intervals (power)' : 'Zone 2 (aerobic base)';
+                  // Fixed week structure: session 1=Intervals, 2=Zone 2, 3=Intervals (matches planner R557)
+                  const WEEK_PATTERN = ['Intervals', 'Zone 2', 'Intervals'];
+                  const nextLabel = WEEK_PATTERN[sessionInWeek] ?? 'Intervals';
                   const unitLabel = cc.unit === 'hr' ? 'heart rate zones' : `FTP ${cc.ftp_watts ?? 200}W`;
+                  const insightText = sessionsLeft === 3
+                    ? `3 sessions this week — ${WEEK_PATTERN.join(' · ')}.`
+                    : sessionsLeft > 0
+                    ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining. Up next: ${nextLabel}.`
+                    : 'Week complete — good work. Your next cycling week begins on your next session.';
                   return (
                     <>
                       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
@@ -4857,9 +4859,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                             Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
                           </div>
                           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-                            {sessionsLeft > 0
-                              ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining this week. Next session focus: ${emphasisLabel}.`
-                              : 'Week complete — good work. Your next cycling week begins on your next session.'}
+                            {insightText}
                           </div>
                         </div>
                       </div>
@@ -4944,6 +4944,12 @@ function formatExDuration(sec) {
 }
 
 // ─── WEEKLY PLAN VIEW ─────────────────────────────────────────────────────────
+// Returns the display label for a military cluster (e.g. KB, K1–K6, O1–O6)
+function milClL(track, cluster) {
+  if (track === 'keuring') return cluster === 0 ? 'KB' : `K${cluster}`;
+  return `O${cluster}`;
+}
+
 function estimateMins(p) {
   if (!p || p.slot_type === "rest") return null;
   const steps = p.steps ?? [];
