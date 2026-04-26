@@ -4091,8 +4091,8 @@ function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
             dominantBaseline="central"
             fontSize="10"
             fontWeight="800"
-            fontFamily="system-ui, sans-serif"
-            fill={C.muted}
+            fontFamily={C.font.body}
+            fill={C.faint}
           >
             {RADAR_LABELS[axis]}
             {"\n"}
@@ -4110,7 +4110,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate }) {
+function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, history = [] }) {
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -4163,7 +4163,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
     return (
       <div>
         <div style={{ marginBottom: 36 }}>
-          <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>Progress</h1>
+          <h1 style={{ ...display(36), color: C.text }}>PROGRESS</h1>
         </div>
         <Glass style={{ padding: 48, textAlign: "center" }}>
           <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Loading your progression…</div>
@@ -4176,7 +4176,7 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
     <div>
       {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ fontSize: 36, fontWeight: 900, color: C.text, letterSpacing: "-0.03em" }}>Progress</h1>
+        <h1 style={{ ...display(36), color: C.text, margin: 0 }}>PROGRESS</h1>
       </div>
 
       {!progression ? (
@@ -4342,7 +4342,10 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
               )}
 
               {/* ── Radar chart ── */}
-              <Glass style={{ padding: 24, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+              <Glass style={{ padding: 20, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16, alignSelf: "flex-start" }}>
+                  TRAINING BALANCE
+                </div>
                 <RadarChart
                   scores={displayScores}
                   goalScores={showCompare ? goalScores : null}
@@ -4351,13 +4354,13 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                 />
                 <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 16, height: 3, borderRadius: 2, background: accentHex }} />
-                    <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>Current</span>
+                    <div style={{ width: 12, height: 3, borderRadius: 2, background: accentHex }} />
+                    <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>Current</span>
                   </div>
                   {showCompare && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 16, height: 3, borderRadius: 2, background: `${accentHex}55`, borderTop: "2px dashed", borderColor: `${accentHex}55` }} />
-                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{sportMode === "military" ? "Military target" : "Goal target"}</span>
+                      <div style={{ width: 12, height: 2, borderRadius: 1, background: `${accentHex}55`, borderTop: "1px dashed", borderColor: `${accentHex}55` }} />
+                      <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{sportMode === "military" ? "Military target" : "Goal target"}</span>
                     </div>
                   )}
                 </div>
@@ -4619,28 +4622,27 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
           {/* ── Axis breakdown for military ── */}
           {sportMode === "military" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-                Axis Breakdown
-              </div>
-              <Glass style={{ padding: "8px 0" }}>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>AXIS BREAKDOWN</div>
+              <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
                   const target  = Math.round(goalScores?.[axis] ?? 50);
-                  const gap     = Math.max(0, target - current);
+                  const delta   = current - target;
                   return (
-                    <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
-                          {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
-                        </div>
+                    <div key={axis} style={{ padding: "12px 0", margin: "0 16px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{RADAR_LABELS[axis]}</span>
+                        <span style={{ ...mono(12), color: C.text }}>
+                          {current}
+                          {delta !== 0 && (
+                            <span style={{ color: delta > 0 ? C.emerald : "#f59e0b", marginLeft: 8, fontSize: 11 }}>
+                              {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
+                            </span>
+                          )}
+                        </span>
                       </div>
-                      <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
-                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: accentHex, width: `${current}%`, transition: "width 0.5s ease" }} />
-                        {showCompare && goalScores && (
-                          <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${accentHex}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
-                        )}
+                      <div style={{ height: 6, marginTop: 8, background: C.bgCard, borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${current}%`, height: "100%", background: accentHex, borderRadius: 3, transition: "width 0.5s ease" }} />
                       </div>
                     </div>
                   );
@@ -4783,29 +4785,56 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
 
           {sportMode === "general" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-                Axis Breakdown
-              </div>
-              <Glass style={{ padding: "8px 0" }}>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>AXIS BREAKDOWN</div>
+              <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
                   const target  = Math.round(goalScores?.[axis] ?? 50);
-                  const gap     = Math.max(0, target - current);
-                  const pct     = current;
+                  const delta   = current - target;
                   return (
-                    <div key={axis} style={{ padding: "12px 20px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
-                        <span style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{RADAR_LABELS[axis]}</span>
-                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                          <span style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{current}</span>
-                          {gap > 0 && <span style={{ fontSize: 10, color: C.muted, fontWeight: 700 }}>/{target}</span>}
-                        </div>
+                    <div key={axis} style={{ padding: "12px 0", margin: "0 16px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{RADAR_LABELS[axis]}</span>
+                        <span style={{ ...mono(12), color: C.text }}>
+                          {current}
+                          {delta !== 0 && (
+                            <span style={{ color: delta > 0 ? C.emerald : "#f59e0b", marginLeft: 8, fontSize: 11 }}>
+                              {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
+                            </span>
+                          )}
+                        </span>
                       </div>
-                      <div style={{ position: "relative", height: 5, borderRadius: 3, background: C.border }}>
-                        <div style={{ position: "absolute", left: 0, top: 0, height: "100%", borderRadius: 3, background: C.emerald, width: `${pct}%`, transition: "width 0.5s ease" }} />
-                        {showCompare && (
-                          <div style={{ position: "absolute", top: -2, height: 9, width: 2, borderRadius: 1, background: `${C.emerald}80`, left: `${target}%`, transform: "translateX(-50%)" }} />
-                        )}
+                      <div style={{ height: 6, marginTop: 8, background: C.bgCard, borderRadius: 3, overflow: "hidden" }}>
+                        <div style={{ width: `${current}%`, height: "100%", background: C.emerald, borderRadius: 3, transition: "width 0.5s ease" }} />
+                      </div>
+                    </div>
+                  );
+                })}
+              </Glass>
+            </div>
+          )}
+
+          {/* ── Recent sessions ── */}
+          {history.filter(e => e.status === "completed").slice(0, 3).length > 0 && (
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>RECENT SESSIONS</div>
+              <Glass style={{ padding: "4px 0" }}>
+                {history.filter(e => e.status === "completed").slice(0, 3).map((ex, i, arr) => {
+                  const mins = ex.total_duration_sec ? Math.round(ex.total_duration_sec / 60) : null;
+                  const pe = ex.perceived_exertion;
+                  const peIcon = pe === 3 ? "💪" : pe === 8 ? "😰" : "😌";
+                  const dateStr = new Date(ex.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+                  return (
+                    <div key={ex.id} style={{ padding: "12px 0", margin: "0 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 10, background: C.bgCard2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>
+                        {pe ? peIcon : "🏋️"}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ ...eyebrow, color: C.mutedStrong, fontSize: 10 }}>{dateStr}</div>
+                        {mins && <div style={{ ...mono(12), color: C.text, marginTop: 2 }}>{mins} min</div>}
+                      </div>
+                      <div style={{ ...eyebrow, fontSize: 9, color: ex.execution_type === "bonus" ? C.emerald : C.faint }}>
+                        {ex.execution_type === "bonus" ? "BONUS" : "MAIN"}
                       </div>
                     </div>
                   );
@@ -5282,20 +5311,7 @@ const NAV_ITEMS = [
   {
     id: "history",
     label: "Progress",
-    icon: (a) => (
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={a ? "var(--accent)" : "#64748b"}
-        strokeWidth="2"
-      >
-        <path d="M3 3v5h5" />
-        <path d="M3.05 13A9 9 0 1 0 6 5.3L3 8" />
-        <path d="M12 7v5l4 2" />
-      </svg>
-    ),
+    icon: (a) => <Icons.chart size={22} c={a ? "var(--accent)" : "#64748b"} />,
   },
   {
     id: "awards",
@@ -6110,6 +6126,7 @@ export default function App() {
                 token={token}
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
+                history={history}
               />
             )}
             {view === "awards" && (
