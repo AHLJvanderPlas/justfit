@@ -2084,16 +2084,6 @@ function PregnancyProgressBanner({ cycle }) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-function useNarrow(bp = 600) {
-  const [narrow, setNarrow] = useState(() => window.innerWidth < bp);
-  useEffect(() => {
-    const fn = () => setNarrow(window.innerWidth < bp);
-    window.addEventListener("resize", fn);
-    return () => window.removeEventListener("resize", fn);
-  }, [bp]);
-  return narrow;
-}
-
 // ─── MESSAGE COMPONENTS ────────────────────────────────────────────────────────
 
 /** Compact status pill displayed in the session card header when a plan has been adapted. */
@@ -2318,8 +2308,36 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
   );
 }
 
+// Map exercise slug/tags → ExerciseIcon key
+function iconKeyFor(ex) {
+  const slug = (ex?.exercise_slug || ex?.name || "").toLowerCase().replace(/\s+/g, "-");
+  const tags = (() => { try { return JSON.parse(ex?.tags_json || "[]"); } catch { return []; } })();
+  if (slug.includes("push-up") || slug.includes("pushup")) return "pushup";
+  if (slug.includes("squat")) return "squat";
+  if (slug.includes("deadlift")) return "deadlift";
+  if (slug.includes("bench")) return "bench";
+  if (slug.includes("row")) return "row";
+  if (slug.includes("pull-up") || slug.includes("pullup") || slug.includes("chin")) return "pull";
+  if (slug.includes("plank")) return "plank";
+  if (slug.includes("lunge") || slug.includes("split-squat")) return "lunge";
+  if (slug.includes("curl")) return "curl";
+  if (slug.includes("sit-up") || slug.includes("crunch")) return "sit";
+  if (slug.includes("kettlebell") || slug.includes("swing")) return "kettle";
+  if (tags.includes("cardio") || slug.includes("run") || slug.includes("jog")) return "run";
+  return "default";
+}
+
+// Split session name into two display lines
+function splitTitle(name) {
+  if (!name) return ["NO SESSION", ""];
+  const upper = name.toUpperCase();
+  if (upper.length <= 12) return [upper, ""];
+  const i = upper.indexOf(" ", 8);
+  if (i < 0) return [upper, ""];
+  return [upper.slice(0, i), upper.slice(i + 1)];
+}
+
 function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs, planError, onRetryPlan, token, history }) {
-  const isMobile = useNarrow();
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -2345,7 +2363,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
     const targetMap = { health: 3, strength: 4, muscle: 4, fat_loss: 4, endurance: 5, mobility: 3 };
     const target = targetMap[goal] ?? 3;
     const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 6); // last 7 days including today
+    cutoff.setDate(cutoff.getDate() - 6);
     const cutoffStr = cutoff.toISOString().slice(0, 10);
     const done = (history ?? []).filter(h => h.date >= cutoffStr).length;
     const remaining = Math.max(0, target - done);
@@ -2357,509 +2375,283 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
     return { done, target, message };
   })();
 
+  // ── Greeting ─────────────────────────────────────────────────────────────
+  const hour = new Date().getHours();
+  const greeting =
+    hour < 5 ? "STILL UP," :
+    hour < 12 ? "GOOD MORNING," :
+    hour < 18 ? "GOOD AFTERNOON," :
+    "GOOD EVENING,";
+  const firstName = (prefs?.preferences?.display_name || prefs?.primary_email || "YOU")
+    .split(/[@ ]/)[0].toUpperCase();
+  const dateLine = new Date()
+    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
+    .toUpperCase().replace(",", " ·");
+
+  // ── Streak ────────────────────────────────────────────────────────────────
+  const historyDates = useMemo(() => new Set((history ?? []).map(h => h.date)), [history]);
+  const streak = (() => {
+    let count = 0;
+    const d = new Date();
+    while (true) {
+      const s = d.toISOString().slice(0, 10);
+      if (!historyDates.has(s)) break;
+      count++;
+      d.setDate(d.getDate() - 1);
+    }
+    return count;
+  })();
+
+  // ── Subtitle copy ─────────────────────────────────────────────────────────
+  const subtitleText = (() => {
+    if (score >= 80 && streak > 0) return `You're on a ${streak}-day streak. Today's session is dialed in for ${(plan?.session_name ?? "your training").toLowerCase()}.`;
+    if (streak >= 3) return `Streak of ${streak}. Stay with it — today is ${(plan?.session_name ?? "your training").toLowerCase()}.`;
+    return `Today's session: ${plan?.session_name ?? "ready when you are"}.`;
+  })();
+
+  // ── Weekly grid status ────────────────────────────────────────────────────
+  const weekStatusFor = (i) => {
+    // i: 0=Mon … 6=Sun
+    const now = new Date();
+    const todayDow = (now.getDay() + 6) % 7;
+    if (i > todayDow) return "future";
+    if (i === todayDow) return "today";
+    const d = new Date(now);
+    d.setDate(now.getDate() - (todayDow - i));
+    return historyDates.has(d.toISOString().slice(0, 10)) ? "done" : "rest";
+  };
+
+  // ── Derived plan helpers ──────────────────────────────────────────────────
+  const [line1, line2] = splitTitle(plan?.session_name);
+  const chipLabel = plan ? deriveChipLabel(plan.rule_trace, plan.session_notes) : null;
+
   return (
     <div>
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "flex-end",
-          marginBottom: 36,
-        }}
-      >
-        <div>
-          <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.1 }}>
-            Welcome back.
+
+      {/* ── Greeting ────────────────────────────────── */}
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ ...eyebrow, color: C.faint, marginBottom: 8 }}>{dateLine}</div>
+        <div style={{ ...display(34, 900), color: C.text }}>{greeting}</div>
+        <div style={{ ...display(34, 900), color: C.emerald, marginBottom: 0 }}>{firstName}.</div>
+        <p style={{ fontSize: 13, color: C.mutedStrong, lineHeight: 1.5, margin: "8px 0 0" }}>{subtitleText}</p>
+        {/* Active coach badge */}
+        {(() => {
+          const milActive = !!(prefs?.preferences?.military_coach?.active);
+          const rcActive  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+          const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
+          if (!milActive && !rcActive && !ccActive) return null;
+          const label = milActive
+            ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
+            : rcActive ? `Running · ${prefs.preferences.run_coach.target_km}km`
+            : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
+          return (
+            <div style={{ marginTop: 10, display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 999, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", fontSize: 11, fontWeight: 800, color: "var(--accent)" }}>
+              {milActive && <MilitaryIcon size={10} />}{label}
+            </div>
+          );
+        })()}
+      </div>
+
+      {/* ── KPI strip ──────────────────────────────── */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 16 }}>
+        <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 14px" }}>
+          <div style={{ ...eyebrow, color: C.faint, display: "flex", alignItems: "center", gap: 5, fontSize: 9.5 }}>
+            <Icons.flame size={12} c={C.emerald} filled /> STREAK
           </div>
-          <div
-            style={{
-              fontSize: 14,
-              color: C.muted,
-              marginTop: 6,
-              fontWeight: 500,
-            }}
-          >
-            Your consistency is your superpower.
+          <div style={{ ...display(28), color: C.text, marginTop: 4 }}>
+            {streak}<span style={{ ...mono(11), color: C.faint, marginLeft: 4 }}>days</span>
           </div>
-          {/* Active coach badge */}
-          {(() => {
-            const milActive = !!(prefs?.preferences?.military_coach?.active);
-            const rcActive  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
-            const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
-            if (!milActive && !rcActive && !ccActive) return null;
-            const label = milActive
-              ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
-              : rcActive ? `Running · ${prefs.preferences.run_coach.target_km}km`
-              : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
-            return (
-              <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 5, padding: "3px 10px", borderRadius: 999, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", fontSize: 11, fontWeight: 800, color: "var(--accent)" }}>
-                {milActive && <MilitaryIcon size={10} />}
-                {label}
-              </div>
-            );
-          })()}
+        </div>
+        <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 14px" }}>
+          <div style={{ ...eyebrow, color: C.faint, display: "flex", alignItems: "center", gap: 5, fontSize: 9.5 }}>
+            <Icons.target size={12} c={C.emerald} /> READY
+          </div>
+          <div style={{ ...display(28), color: C.text, marginTop: 4 }}>
+            {score}<span style={{ ...mono(11), color: C.faint, marginLeft: 4 }}>/100</span>
+          </div>
+        </div>
+        <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 14, padding: "12px 14px" }}>
+          <div style={{ ...eyebrow, color: C.faint, display: "flex", alignItems: "center", gap: 5, fontSize: 9.5 }}>
+            <Icons.calendar size={12} c={C.emerald} /> WEEK
+          </div>
+          <div style={{ ...display(28), color: C.text, marginTop: 4 }}>
+            {weekSummary.done}<span style={{ ...mono(11), color: C.faint, marginLeft: 4 }}>/{weekSummary.target}</span>
+          </div>
         </div>
       </div>
 
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: isMobile ? "1fr" : "5fr 7fr",
-          gap: 16,
-          marginBottom: 16,
-        }}
-      >
-        {/* Score card */}
-        <Glass
-          style={{
-            order: isMobile ? 2 : 0,
-            padding: isMobile ? "16px 20px" : 28,
-            minHeight: isMobile ? 0 : 220,
-            display: "flex",
-            flexDirection: isMobile ? "row" : "column",
-            alignItems: isMobile ? "center" : undefined,
-            justifyContent: isMobile ? "space-between" : "space-between",
-            overflow: "hidden",
-            position: "relative",
-          }}
-        >
-          {isMobile ? (
-            /* ── Compact horizontal strip (mobile) ── */
-            <>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div
-                  style={{
-                    width: 32, height: 32, borderRadius: 10,
-                    background: C.emeraldDim,
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  }}
-                >
-                  <svg width="16" height="16" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
-                    <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
-                    <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
-                    <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
-                    <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
-                    <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
-                    <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
-                  </svg>
+      {/* ── Session area ───────────────────────────── */}
+      {todayCompleted ? (
+        <DoneCard score={score} prevScore={prevScore} completedSession={completedSession} onLogActivity={onLogActivity} onBonusSession={onBonusSession} bonusDone={bonusDone} />
+      ) : planError && !plan ? (
+        <PlanErrorCard planError={planError} onRetry={onRetryPlan} token={token} prefs={prefs} />
+      ) : (
+        <div style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: `linear-gradient(180deg, ${C.bgCard2} 0%, ${C.bgCard} 100%)`, border: `1px solid ${C.border}`, marginBottom: 16 }}>
+          {/* top accent bar */}
+          <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 4, background: `linear-gradient(90deg, var(--accent), ${C.emeraldSoft})` }} />
+          {/* emerald glow */}
+          <div style={{ position: "absolute", top: -80, right: -80, width: 220, height: 220, borderRadius: "50%", background: C.emeraldGlow, filter: "blur(60px)", pointerEvents: "none" }} />
+          <div style={{ padding: 18, position: "relative" }}>
+            {isGenerating ? (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "32px 0" }}>
+                <div style={{ width: 40, height: 40, border: `3px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
+                <p style={{ fontSize: 14, color: C.emerald, fontWeight: 700 }}>Designing your session...</p>
+              </div>
+            ) : plan ? (
+              <>
+                {/* Session eyebrow + ID */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 10 }}>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>TODAY · DAY {(history ?? []).length + 1}</div>
+                  <div style={{ ...mono(9), color: C.faint }}>SESSION_{String(plan.steps?.length ?? 0).padStart(2, "0")}</div>
                 </div>
-                <span style={{ ...eyebrow, fontSize: 10, color: "rgba(var(--accent-rgb),0.7)" }}>
-                  Consistency
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                <span style={{ ...display(44, 900), color: C.text, lineHeight: 1 }}>{score}</span>
-                <span style={{ ...mono(14), color: C.muted }}>/100</span>
-              </div>
-            </>
-          ) : (
-            /* ── Full vertical card (desktop) ── */
-            <>
-              <div style={{ position: "absolute", top: -20, right: -20, opacity: 0.06 }}>
-                <svg width="160" height="160" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
-                  <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round"/>
-                  <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="12" strokeLinejoin="round"/>
-                  <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="10" strokeLinejoin="round"/>
-                  <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="30" strokeLinecap="round"/>
-                  <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
-                </svg>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 24 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                  <svg width="18" height="18" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" fill="none">
-                    <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" stroke="var(--accent)" strokeWidth="48" strokeLinejoin="round" opacity="0.5"/>
-                    <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" stroke="var(--accent)" strokeWidth="24" strokeLinejoin="round" opacity="0.3"/>
-                    <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" stroke="var(--accent)" strokeWidth="18" strokeLinejoin="round" opacity="0.2"/>
-                    <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" stroke="var(--accent)" strokeWidth="56" strokeLinecap="round" strokeLinejoin="round"/>
-                    <circle cx="512" cy="294" r="36" fill="var(--accent)"/>
-                    <path d="M 512 294 L 512 172" stroke="var(--accent)" strokeWidth="36" strokeLinecap="round"/>
-                    <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
-                  </svg>
+                {/* Session name split over two lines */}
+                <div style={{ marginBottom: 10 }}>
+                  <div style={{ ...display(30, 900), color: C.text, lineHeight: 1 }}>{line1}</div>
+                  {line2 && <div style={{ ...display(30, 900), color: C.emerald, lineHeight: 1 }}>{line2}</div>}
                 </div>
-                <span style={{ ...eyebrow, fontSize: 10, color: "rgba(var(--accent-rgb),0.7)" }}>
-                  Consistency
-                </span>
-              </div>
-              <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12 }}>
-                <span style={{ ...display(68, 900), color: C.text, lineHeight: 1 }}>{score}</span>
-                <span style={{ fontSize: 18, fontWeight: 700, color: C.muted }}>/100</span>
-              </div>
-              <p style={{ fontSize: 12, color: C.muted, fontWeight: 500, lineHeight: 1.5, maxWidth: 180 }}>
-                {score >= 80
-                  ? "Elite tier. The chain is unbroken."
-                  : score >= 50
-                    ? "Building momentum. Keep showing up."
-                    : "Every rep counts. Start today."}
-              </p>
-            </>
-          )}
-        </Glass>
-
-        {/* Session card — replaced by DoneCard after workout */}
-        <div style={{ order: isMobile ? 1 : 0 }}>
-        {todayCompleted ? (
-          <DoneCard
-            score={score}
-            prevScore={prevScore}
-            completedSession={completedSession}
-            onLogActivity={onLogActivity}
-            onBonusSession={onBonusSession}
-            bonusDone={bonusDone}
-          />
-        ) : planError && !plan ? (
-          <PlanErrorCard planError={planError} onRetry={onRetryPlan} token={token} prefs={prefs} />
-        ) : (
-        <Glass
-          style={{
-            padding: 28,
-            display: "flex",
-            flexDirection: "column",
-            background:
-              "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(2,6,23,0.6) 60%)",
-            border: `1px solid ${C.emeraldBorder}`,
-          }}
-        >
-          {isGenerating ? (
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: 14,
-              }}
-            >
-              <div
-                style={{
-                  width: 40,
-                  height: 40,
-                  border: `3px solid ${C.emeraldBorder}`,
-                  borderTopColor: C.emerald,
-                  borderRadius: "50%",
-                  animation: "spin 0.8s linear infinite",
-                }}
-              />
-              <p style={{ fontSize: 14, color: C.emerald, fontWeight: 700 }}>
-                Designing your session...
-              </p>
-            </div>
-          ) : plan ? (
-            <>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "space-between",
-                  alignItems: "flex-start",
-                  marginBottom: 20,
-                }}
-              >
-                <div>
-                  <div
-                    style={{
-                      fontSize: 20,
-                      fontWeight: 900,
-                      color: C.text,
-                      letterSpacing: "-0.02em",
-                    }}
-                  >
-                    {plan.session_name}
-                  </div>
+                {/* Coach / program badges */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
-                    <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {plan.run_program.session_type ?? "Run Day"} · Week {plan.run_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
-                    <span style={{ display: "inline-block", fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       🚴 {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px", marginTop: 4 }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       <MilitaryIcon size={10} />
                       {({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military'}
                       {plan.military_program.is_base_build ? ' · Base build' : ` · W${plan.military_program.week}`}
                     </span>
                   )}
-                  {/* Primary-intent conflict label — shown when a structured coach overrides standard rules */}
-                  {(() => {
-                    const milActive = !!(prefs?.preferences?.military_coach?.active && plan?.military_program);
-                    const rcActive  = !!(prefs?.preferences?.run_coach?.enrolled && plan?.run_program);
-                    const ccActive  = !!(prefs?.preferences?.cycling_coach?.active && plan?.cycling_program);
-                    if (!milActive && !rcActive && !ccActive) return null;
-                    const label = milActive
-                      ? "Military Coach is active — general rules paused for this session."
-                      : rcActive
-                        ? "Running Coach is driving today's session — standard strength rules adjusted."
-                        : "Cycling Coach is driving today's session — standard rules adjusted.";
-                    return <div style={{ fontSize: 11, color: C.muted, fontWeight: 500, marginTop: 5, lineHeight: 1.4 }}>{label}</div>;
-                  })()}
-                  <div
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 8,
-                      marginTop: 6,
-                    }}
-                  >
-                    <span
-                      style={{ fontSize: 12, fontWeight: 700, color: C.muted }}
-                    >
-                      {plan.steps?.length ?? 0} exercises
-                    </span>
-                    <span
-                      style={{
-                        width: 3,
-                        height: 3,
-                        borderRadius: "50%",
-                        background: C.subtle,
-                        display: "inline-block",
-                      }}
-                    />
-                    <span
-                      style={{
-                        fontSize: 11,
-                        fontWeight: 800,
-                        color: ic,
-                        textTransform: "uppercase",
-                        letterSpacing: "0.08em",
-                      }}
-                    >
-                      {plan.intensity}
-                    </span>
-                  </div>
                 </div>
-                {totalMins && plan.slot_type !== "rest" && (
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1 }}>
-                      ~{totalMins}
-                      <span style={{ fontSize: 12, fontWeight: 700, color: C.muted }}> min</span>
-                    </div>
-                    {overheadMins > 0 && (
-                      <div style={{ fontSize: 10, color: C.muted, marginTop: 4 }}>
-                        incl. {overheadMins}m overhead
+                {/* Session meta: time / moves / intensity */}
+                <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
+                  {totalMins && plan.slot_type !== "rest" && (
+                    <span style={{ ...mono(11), color: C.mutedStrong }}>⏱ {totalMins} min</span>
+                  )}
+                  {(plan.steps?.length ?? 0) > 0 && (
+                    <span style={{ ...mono(11), color: C.mutedStrong }}>📊 {plan.steps.length} moves</span>
+                  )}
+                  {plan.intensity && (
+                    <span style={{ ...mono(11), color: ic, textTransform: "uppercase" }}>🔥 {plan.intensity}</span>
+                  )}
+                </div>
+                {/* Primary-intent conflict label */}
+                {(() => {
+                  const milA = !!(prefs?.preferences?.military_coach?.active && plan?.military_program);
+                  const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && plan?.run_program);
+                  const ccA  = !!(prefs?.preferences?.cycling_coach?.active && plan?.cycling_program);
+                  if (!milA && !rcA && !ccA) return null;
+                  const lbl = milA ? "Military Coach is active — general rules paused for this session."
+                    : rcA ? "Running Coach is driving today's session — standard strength rules adjusted."
+                    : "Cycling Coach is driving today's session — standard rules adjusted.";
+                  return <div style={{ fontSize: 11, color: C.muted, fontWeight: 500, marginBottom: 12, lineHeight: 1.4 }}>{lbl}</div>;
+                })()}
+                {/* Exercise list — first 3 steps with icons */}
+                {plan.slot_type !== "rest" && (plan.steps?.length ?? 0) > 0 ? (
+                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                    {plan.steps.slice(0, 3).map((s, i) => (
+                      <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < Math.min(2, plan.steps.length - 1) ? `1px solid ${C.border}` : "none" }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                          <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
+                        </div>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</span>
+                        <span style={{ ...mono(11), color: C.muted }}>
+                          {(() => {
+                            const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
+                            if (isRunInterval && s.sets > 1 && s.target_duration_sec) return `${s.sets} × ${s.target_duration_sec}/${s.rest_sec}`;
+                            if (s.target_reps) return `${s.sets} × ${s.target_reps}`;
+                            return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
+                          })()}
+                        </span>
+                        <Icons.chevronRight size={14} c={C.subtle} />
+                      </div>
+                    ))}
+                    {plan.steps.length > 3 && (
+                      <div style={{ padding: "8px 14px", fontSize: 11, color: C.muted }}>
+                        + {plan.steps.length - 3} more · {plan.steps.slice(3, 6).map(s => s.name.toLowerCase()).join(", ")}
                       </div>
                     )}
                   </div>
-                )}
-              </div>
-
-              {/* Adaptation chip — compact status pill near session header */}
-              {(() => {
-                const chipLabel = deriveChipLabel(plan.rule_trace, plan.session_notes);
-                if (!chipLabel) return null;
-                return (
-                  <div style={{ marginBottom: 10 }}>
-                    <AdaptationChip label={chipLabel} />
-                  </div>
-                );
-              })()}
-
-              {/* Collapsible "Why this plan?" panel — always above exercise list */}
-              <WhyPlanPanel plan={plan} />
-
-              {/* Blocking safety banner — clearance gate (R539), always visible (role="alert") */}
-              {/* Triggered by rule code, not text matching, so copy changes don't silently break it */}
-              {hasBlockingSafety(plan.rule_trace) && (
-                <BlockingSafetyBanner
-                  text="Your session is kept gentle until you confirm exercise clearance with your healthcare provider."
-                  cta="Update clearance in Settings when you're cleared."
-                />
-              )}
-
-              <div style={{ flex: 1, marginBottom: 20 }}>
-                {(plan.steps ?? []).map((s, i) => (
-                  <div
-                    key={i}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      padding: "12px 14px",
-                      borderRadius: 14,
-                      marginBottom: 6,
-                      background: "rgba(255,255,255,0.04)",
-                      border: `1px solid ${C.border}`,
-                    }}
-                  >
-                    <div
-                      style={{ display: "flex", alignItems: "center", gap: 10 }}
-                    >
-                      {s.gif_url ? (
-                        <img
-                          src={s.gif_url}
-                          alt=""
-                          style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, background: "rgba(255,255,255,0.04)" }}
-                        />
-                      ) : (
-                        <div
-                          style={{
-                            width: 6,
-                            height: 6,
-                            borderRadius: "50%",
-                            background: C.emerald,
-                            flexShrink: 0,
-                          }}
-                        />
-                      )}
-                      <span
-                        style={{
-                          fontSize: 13,
-                          fontWeight: 700,
-                          color: "#cbd5e1",
-                        }}
-                      >
-                        {s.name}
-                      </span>
-                    </div>
-                    <span
-                      style={{ fontSize: 11, color: C.muted, fontWeight: 600 }}
-                    >
-                      {(() => {
-                        const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
-                        if (isRunInterval && s.sets > 1 && s.target_duration_sec) {
-                          return `${s.sets} × ${s.target_duration_sec}/${s.rest_sec}`;
-                        }
-                        if (s.target_reps) return `${s.sets} × ${s.target_reps} reps`;
-                        return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
-                      })()}
-                    </span>
-                  </div>
-                ))}
-                {(!plan.steps || plan.steps.length === 0) && plan.slot_type !== "rest" && (
-                  <PlanErrorCard
-                    planError={{
-                      code: "PLAN-EMPTY",
-                      detail: (plan.rule_trace ?? []).slice(-4).join(" | ") || null,
-                      ruleTrace: plan.rule_trace ?? [],
-                    }}
-                    onRetry={onRetryPlan}
-                    token={token}
-                    prefs={prefs}
-                  />
-                )}
-                {(!plan.steps || plan.steps.length === 0) && plan.slot_type === "rest" && (() => {
-                  // Route through policy parser — single source of truth for all rule explanations.
-                  // adapt:pain_rest (free-tier) reuses the R514 label since it is the same intent.
-                  const advisories = parseRuleTrace(plan.rule_trace ?? []);
-                  const REST_CODES = ["R514", "R539", "R540"];
-                  const whyEntry =
-                    [...advisories.blocking, ...advisories.safety].find(a => REST_CODES.includes(a.code)) ??
-                    ((plan.rule_trace ?? []).some(t => t.includes("adapt:pain_rest"))
-                      ? { text: "Your check-in reported significant pain — rest is the right call today." }
-                      : null);
-                  return (
-                    <div>
-                      <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>
-                        Recovery day. Rest is training.
-                      </p>
-                      {whyEntry && (
+                ) : plan.slot_type === "rest" ? (
+                  <div style={{ marginBottom: 16 }}>
+                    <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Recovery day. Rest is training.</p>
+                    {(() => {
+                      const advisories = parseRuleTrace(plan.rule_trace ?? []);
+                      const REST_CODES = ["R514", "R539", "R540"];
+                      const whyEntry =
+                        [...advisories.blocking, ...advisories.safety].find(a => REST_CODES.includes(a.code)) ??
+                        ((plan.rule_trace ?? []).some(t => t.includes("adapt:pain_rest"))
+                          ? { text: "Your check-in reported significant pain — rest is the right call today." }
+                          : null);
+                      return whyEntry ? (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
                           {whyEntry.text}
                           {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {whyEntry.cta}</span>}
                         </div>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <button
-                onClick={() => plan.slot_type !== "rest" && onStartWorkout()}
-                style={{
-                  width: "100%",
-                  padding: "16px 0",
-                  borderRadius: 18,
-                  fontSize: 15,
-                  fontWeight: 900,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  background: plan.slot_type === "rest" ? C.subtle : C.emerald,
-                  border: "none",
-                  color: plan.slot_type === "rest" ? C.muted : "#fff",
-                  cursor: plan.slot_type === "rest" ? "not-allowed" : "pointer",
-                  boxShadow:
-                    plan.slot_type === "rest"
-                      ? "none"
-                      : "0 8px 30px rgba(var(--accent-rgb),0.3)",
-                }}
-              >
-                {plan.slot_type === "rest" ? (
-                  "Recovery Mode Active"
-                ) : (
-                  <>
-                    <svg
-                      width="18"
-                      height="18"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                    >
-                      <polygon points="5 3 19 12 5 21 5 3" />
-                    </svg>{" "}
-                    Start Session
-                  </>
-                )}
-              </button>
-              {plan.slot_type !== "rest" && (
+                      ) : null;
+                    })()}
+                  </div>
+                ) : (plan.steps?.length ?? 0) === 0 ? (
+                  <PlanErrorCard
+                    planError={{ code: "PLAN-EMPTY", detail: (plan.rule_trace ?? []).slice(-4).join(" | ") || null, ruleTrace: plan.rule_trace ?? [] }}
+                    onRetry={onRetryPlan} token={token} prefs={prefs}
+                  />
+                ) : null}
+                {/* START SESSION button */}
                 <button
-                  onClick={onWhyNot}
-                  style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}
+                  onClick={() => plan.slot_type !== "rest" && onStartWorkout()}
+                  style={{
+                    width: "100%", height: 56,
+                    background: plan.slot_type === "rest" ? C.subtle : "var(--accent)",
+                    color: plan.slot_type === "rest" ? C.muted : "#000",
+                    border: "none", borderRadius: 16,
+                    ...display(18, 800), letterSpacing: "0.02em",
+                    display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
+                    boxShadow: plan.slot_type !== "rest" ? `0 8px 24px ${C.emeraldGlow}` : "none",
+                    cursor: plan.slot_type === "rest" ? "not-allowed" : "pointer",
+                  }}
                 >
-                  Can't do this today?
+                  {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c="#000" /></>}
                 </button>
-              )}
-            </>
-          ) : (
-            <div
-              style={{
-                flex: 1,
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                justifyContent: "center",
-                textAlign: "center",
-                gap: 12,
-              }}
-            >
-              <div style={{ fontSize: 40 }}>🎯</div>
-              <p
-                style={{
-                  fontSize: 14,
-                  color: C.muted,
-                  fontWeight: 500,
-                  lineHeight: 1.5,
-                }}
-              >
-                Complete the daily check-in to
-                <br />
-                generate today's session.
-              </p>
-            </div>
+                {plan.slot_type !== "rest" && (
+                  <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}>
+                    Can't do this today?
+                  </button>
+                )}
+              </>
+            ) : (
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 12, padding: "32px 0" }}>
+                <div style={{ fontSize: 40 }}>🎯</div>
+                <p style={{ fontSize: 14, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>
+                  Complete the daily check-in to<br />generate today's session.
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Adaptation chip + Why panel + Safety banner ── */}
+      {plan && !todayCompleted && (
+        <>
+          {chipLabel && <div style={{ marginBottom: 10 }}><AdaptationChip label={chipLabel} /></div>}
+          <WhyPlanPanel plan={plan} />
+          {hasBlockingSafety(plan.rule_trace) && (
+            <BlockingSafetyBanner
+              text="Your session is kept gentle until you confirm exercise clearance with your healthcare provider."
+              cta="Update clearance in Settings when you're cleared."
+            />
           )}
-        </Glass>
-        )}
-        </div>
-      </div>
+        </>
+      )}
 
-      {/* Weekly outcome summary */}
-      <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>This week</div>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
-        </div>
-        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-          {Array.from({ length: weekSummary.target }).map((_, i) => (
-            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weekSummary.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weekSummary.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
-          ))}
-        </div>
-      </Glass>
-
-      {/* Training intention card */}
+      {/* ── Training intention card ─────────────────── */}
       {(() => {
         const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
         const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
@@ -2868,13 +2660,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const mil = prefs.preferences.military_coach;
           const track    = mil.track ?? 'keuring';
           const mp       = plan?.military_program;
-          // Use cluster_current from plan (RPE-adjusted) if available, fall back to prefs
           const clusterTarget  = mil.cluster_target ?? (track === 'keuring' ? 0 : 1);
           const clusterCurrent = mp?.cluster_current ?? mil.cluster_current ?? clusterTarget;
-          const sessionLabel = mp?.session_type ? {
+          const sessionLabel = mp?.session_type ? ({
             cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run',
             interval: 'Interval Run', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest',
-          }[mp.session_type] ?? mp.session_type : null;
+          })[mp.session_type] ?? mp.session_type : null;
           const isCalibration   = mp?.is_calibration_week;
           const isDeload        = mp?.is_deload_week;
           const isTaper         = mp?.is_taper_week;
@@ -2883,7 +2674,6 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const milMode         = mp?.mode ?? mil.mode ?? 'target';
           const trackLabel      = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
           const overperforming  = clusterCurrent > clusterTarget;
-          // Last Cooper benchmark
           const lastCooper = mp?.last_cooper_distance_m ?? mil.last_cooper_distance_m ?? null;
           const cooperBenchmark = lastCooper ? (
             lastCooper < 1800 ? `${lastCooper}m · Below K1` :
@@ -2990,6 +2780,43 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           </Glass>
         );
       })()}
+
+      {/* ── Weekly grid ─────────────────────────────── */}
+      <Glass style={{ padding: "16px 20px", marginBottom: 16 }}>
+        <div style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>THIS WEEK</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+          {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => {
+            const status = weekStatusFor(i);
+            return (
+              <div key={i} style={{ textAlign: "center" }}>
+                <div style={{ ...eyebrow, fontSize: 9, color: C.faint, marginBottom: 6 }}>{d}</div>
+                <div style={{
+                  height: 36, borderRadius: 10,
+                  background: status === "today" ? "var(--accent)" : C.bgCard,
+                  border: `1px solid ${status === "today" ? "var(--accent)" : C.border}`,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                }}>
+                  {status === "done" && <Icons.check size={14} c={C.emerald} />}
+                  {status === "today" && <Icons.bolt size={14} c="#000" filled />}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Glass>
+
+      {/* ── Weekly outcome summary ──────────────────── */}
+      <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 6 }}>This week</div>
+          <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
+        </div>
+        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
+          {Array.from({ length: weekSummary.target }).map((_, i) => (
+            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weekSummary.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weekSummary.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
+          ))}
+        </div>
+      </Glass>
 
     </div>
   );
