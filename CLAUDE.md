@@ -61,8 +61,8 @@ Keep all responses short. The user reads results, not reasoning.
 - Background: #020617, accent: #10b981 emerald, cards: rgba(255,255,255,0.04)
 - Border radius: 28px for cards, 14px for inputs, 16px for buttons
 - All styles inline — no Tailwind, no CSS modules, no external stylesheets
-- Typography: font-weight 900 for headings, 700 for labels, 500 for body
-- Use a system font stack for performance and consistency; avoid adding external webfont dependencies unless explicitly approved
+- Typography: Barlow Condensed (display), Inter Tight (body), JetBrains Mono (data). Loaded via Google Fonts. Use the `display()`, `eyebrow`, `mono()` helpers in `App.jsx` instead of writing inline font-family strings.
+- font-weight 900 for display headings, 700 for labels, 500 for body
 
 ## Testing before push
 - Run `npm run build` locally and confirm it succeeds before pushing

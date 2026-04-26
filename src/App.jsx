@@ -6,6 +6,7 @@ const SettingsView = lazy(() => import("./SettingsView.jsx"));
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 import { reportError } from "./errorReporter.js";
+import { Icons, ExerciseIcon } from "./icons.jsx";
 
 // ─── LEGAL VERSIONS ───────────────────────────────────────────────────────────
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
@@ -15,13 +16,19 @@ const LEGAL_VERSIONS = { terms: '1.1', privacy: '1.0' };
 const C = {
   bg: "#020617",
   bgCard: "rgba(255,255,255,0.04)",
+  bgCard2: "rgba(255,255,255,0.06)",
   border: "rgba(255,255,255,0.08)",
   borderHover: "rgba(255,255,255,0.14)",
+  borderStrong: "rgba(255,255,255,0.14)",
   emerald: "var(--accent)",
+  emeraldSoft: "#34d399",
   emeraldDim: "var(--accent-dim)",
   emeraldBorder: "var(--accent-border)",
+  emeraldGlow: "rgba(16,185,129,0.45)",
   text: "#f8fafc",
   muted: "#64748b",
+  mutedStrong: "rgba(255,255,255,0.55)",
+  faint: "rgba(255,255,255,0.32)",
   subtle: "#334155",
   amber: '#f59e0b',
   amberDim: 'rgba(245,158,11,0.08)',
@@ -29,7 +36,36 @@ const C = {
   rose: '#f43f5e',
   roseDim: 'rgba(244,63,94,0.08)',
   roseBorder: 'rgba(244,63,94,0.3)',
+  font: {
+    display: '"Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif',
+    body: '"Inter Tight", "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif',
+    mono: '"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace',
+  },
 };
+
+// ─── TYPOGRAPHY HELPERS ───────────────────────────────────────────────────────
+const display = (size, weight = 800) => ({
+  fontFamily: C.font.display,
+  fontWeight: weight,
+  fontSize: size,
+  letterSpacing: "-0.005em",
+  lineHeight: 0.95,
+});
+
+const eyebrow = {
+  fontFamily: C.font.body,
+  fontSize: 10.5,
+  fontWeight: 600,
+  letterSpacing: "0.16em",
+  textTransform: "uppercase",
+};
+
+const mono = (size = 11) => ({
+  fontFamily: C.font.mono,
+  fontSize: size,
+  letterSpacing: "0.05em",
+  fontVariantNumeric: "tabular-nums",
+});
 
 // ─── ACCENT COLOUR SYSTEM ─────────────────────────────────────────────────────
 const ACCENT_COLORS = [
@@ -2332,15 +2368,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         }}
       >
         <div>
-          <div
-            style={{
-              fontSize: 36,
-              fontWeight: 900,
-              color: C.text,
-              letterSpacing: "-0.03em",
-              lineHeight: 1.1,
-            }}
-          >
+          <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.1 }}>
             Welcome back.
           </div>
           <div
@@ -2416,13 +2444,13 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
+                <span style={{ ...eyebrow, fontSize: 10, color: "rgba(var(--accent-rgb),0.7)" }}>
                   Consistency
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-                <span style={{ fontSize: 44, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.03em" }}>{score}</span>
-                <span style={{ fontSize: 14, fontWeight: 700, color: C.muted }}>/100</span>
+                <span style={{ ...display(44, 900), color: C.text, lineHeight: 1 }}>{score}</span>
+                <span style={{ ...mono(14), color: C.muted }}>/100</span>
               </div>
             </>
           ) : (
@@ -2450,12 +2478,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="var(--accent)" stroke="var(--accent)" strokeWidth="8" strokeLinejoin="round"/>
                   </svg>
                 </div>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(var(--accent-rgb),0.7)", textTransform: "uppercase" }}>
+                <span style={{ ...eyebrow, fontSize: 10, color: "rgba(var(--accent-rgb),0.7)" }}>
                   Consistency
                 </span>
               </div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 6, marginBottom: 12 }}>
-                <span style={{ fontSize: 68, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.04em" }}>{score}</span>
+                <span style={{ ...display(68, 900), color: C.text, lineHeight: 1 }}>{score}</span>
                 <span style={{ fontSize: 18, fontWeight: 700, color: C.muted }}>/100</span>
               </div>
               <p style={{ fontSize: 12, color: C.muted, fontWeight: 500, lineHeight: 1.5, maxWidth: 180 }}>
@@ -5557,6 +5585,15 @@ export default function App() {
     // userId and token are read from localStorage at render time (not React state).
     // They are session-stable; the page reloads on logout so this is safe as mount-only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (document.getElementById("jf-fonts")) return;
+    const l = document.createElement("link");
+    l.id = "jf-fonts";
+    l.rel = "stylesheet";
+    l.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap";
+    document.head.appendChild(l);
   }, []);
 
   const today = new Date().toISOString().split("T")[0];
