@@ -808,21 +808,28 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
               { id: "military", emoji: "🎖", title: "MILITARY COACH",  sub: "Keuring KCT · MARSOF · CSE" },
             ].map(card => {
               const isGeneral = card.id === "general";
-              const active = isGeneral
+              // selected = currently open/editing (drives highlight + expands settings)
+              const selected = isGeneral
                 ? !["running","cycling","military"].includes(focusSel)
                 : focusSel === card.id;
+              // saved = actually committed to DB (drives ACTIVE pill only)
+              const saved = isGeneral
+                ? !runCoachActive && !cycleCoachActive && !milCoachActive
+                : card.id === "running" ? runCoachActive
+                : card.id === "cycling" ? cycleCoachActive
+                : milCoachActive;
               return (
                 <button
                   key={card.id}
                   onClick={() => {
                     if (isGeneral) {
-                      if (!active) {
+                      if (!selected) {
                         const lastGoal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
                           ? "health" : (prefs.training_goal ?? "health");
                         handleFocusTap(lastGoal);
                       }
                     } else {
-                      if (active) {
+                      if (selected) {
                         const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
                           ? "health" : (prefs.training_goal ?? "health");
                         handleFocusTap(goal);
@@ -834,17 +841,17 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                   style={{
                     width: "100%", textAlign: "left", cursor: "pointer",
                     padding: "14px 16px", borderRadius: 14,
-                    border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                    background: active ? C.emeraldDim : C.bgCard,
+                    border: `1px solid ${selected ? C.emeraldBorder : C.border}`,
+                    background: selected ? C.emeraldDim : C.bgCard,
                     display: "flex", alignItems: "center", gap: 12,
                   }}
                 >
                   <span style={{ fontSize: 20, flexShrink: 0 }}>{card.emoji}</span>
                   <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ ...sv_eyebrow, fontSize: 11, color: active ? C.emerald : C.text }}>{card.title}</div>
+                    <div style={{ ...sv_eyebrow, fontSize: 11, color: selected ? C.emerald : C.text }}>{card.title}</div>
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{card.sub}</div>
                   </div>
-                  {active
+                  {saved
                     ? <span style={{ ...sv_eyebrow, fontSize: 9, color: C.emerald, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, padding: "3px 8px", borderRadius: 999, flexShrink: 0 }}>ACTIVE</span>
                     : <span style={{ color: C.faint, fontSize: 16, flexShrink: 0 }}>›</span>
                   }
