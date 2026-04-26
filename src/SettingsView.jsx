@@ -800,25 +800,36 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           Your primary intent. JustFit can hold one at a time.
         </div>
         <Glass style={{ padding: 20 }}>
-          {/* ── Sport coach cards ── */}
-          <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>SPORT COACH</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
+          {/* ── Training mode cards ── */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
             {[
-              { id: "running",  emoji: "🏃", title: "RUNNING COACH",  sub: "5K → marathon plans · R556 ladder" },
-              { id: "cycling",  emoji: "🚴", title: "CYCLING COACH",  sub: "Indoor + outdoor intervals" },
-              { id: "military", emoji: "🎖", title: "MILITARY COACH", sub: "Keuring KCT · MARSOF · CSE" },
+              { id: "general",  emoji: "⚡", title: "GENERAL HEALTH",  sub: "Strength · fat loss · mobility · endurance" },
+              { id: "running",  emoji: "🏃", title: "RUNNING COACH",   sub: "5K → marathon plans · R556 ladder" },
+              { id: "cycling",  emoji: "🚴", title: "CYCLING COACH",   sub: "Indoor + outdoor intervals" },
+              { id: "military", emoji: "🎖", title: "MILITARY COACH",  sub: "Keuring KCT · MARSOF · CSE" },
             ].map(card => {
-              const active = focusSel === card.id;
+              const isGeneral = card.id === "general";
+              const active = isGeneral
+                ? !["running","cycling","military"].includes(focusSel)
+                : focusSel === card.id;
               return (
                 <button
                   key={card.id}
                   onClick={() => {
-                    if (active) {
-                      const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
-                        ? "health" : (prefs.training_goal ?? "health");
-                      handleFocusTap(goal);
+                    if (isGeneral) {
+                      if (!active) {
+                        const lastGoal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
+                          ? "health" : (prefs.training_goal ?? "health");
+                        handleFocusTap(lastGoal);
+                      }
                     } else {
-                      handleFocusTap(card.id);
+                      if (active) {
+                        const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
+                          ? "health" : (prefs.training_goal ?? "health");
+                        handleFocusTap(goal);
+                      } else {
+                        handleFocusTap(card.id);
+                      }
                     }
                   }}
                   style={{
@@ -843,43 +854,42 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
             })}
           </div>
 
-          {/* ── YOUR GOALS — always visible ── */}
-          <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>
-            YOUR GOALS <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>— pick up to 3</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
-            {GOALS.map(g => {
-              const sel = generalGoals.includes(g.value);
-              return (
-                <button
-                  key={g.value}
-                  onClick={() => setGeneralGoals(prev => {
-                    if (sel) return prev.filter(v => v !== g.value);
-                    if (prev.length >= 3) return [...prev.slice(1), g.value];
-                    return [...prev, g.value];
-                  })}
-                  style={{
-                    display: "flex", alignItems: "center", gap: 10,
-                    padding: "10px 12px", borderRadius: 14, cursor: "pointer",
-                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : C.bgCard,
-                    textAlign: "left",
-                  }}
-                >
-                  <span style={{ color: sel ? C.emerald : C.muted, flexShrink: 0 }}>
-                    <GoalIcon value={g.value} size={18} />
-                  </span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: sel ? C.emerald : C.text, lineHeight: 1.3 }}>
-                    {g.label}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-
           {/* ── General Training sub-section ── */}
           {!["running","cycling","military"].includes(focusSel) && (
             <div>
+              {/* Multi-select goals — up to 3 */}
+              <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>
+                YOUR GOALS <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>— pick up to 3</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {GOALS.map(g => {
+                  const sel = generalGoals.includes(g.value);
+                  return (
+                    <button
+                      key={g.value}
+                      onClick={() => setGeneralGoals(prev => {
+                        if (sel) return prev.filter(v => v !== g.value);
+                        if (prev.length >= 3) return [...prev.slice(1), g.value];
+                        return [...prev, g.value];
+                      })}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 12px", borderRadius: 14, cursor: "pointer",
+                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                        background: sel ? C.emeraldDim : C.bgCard,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ color: sel ? C.emerald : C.muted, flexShrink: 0 }}>
+                        <GoalIcon value={g.value} size={18} />
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: sel ? C.emerald : C.text, lineHeight: 1.3 }}>
+                        {g.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
               <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
               <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>PRIMARY FOCUS</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16 }}>
