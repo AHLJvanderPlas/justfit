@@ -2530,15 +2530,21 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   )}
                 </div>
                 {/* Session meta: time / moves / intensity */}
-                <div style={{ display: "flex", gap: 16, marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 14 }}>
                   {totalMins && plan.slot_type !== "rest" && (
-                    <span style={{ ...mono(11), color: C.mutedStrong }}>⏱ {totalMins} min</span>
+                    <span style={{ ...mono(11), color: C.mutedStrong }}>{totalMins} min</span>
+                  )}
+                  {totalMins && plan.slot_type !== "rest" && (plan.steps?.length ?? 0) > 0 && (
+                    <span style={{ ...mono(11), color: C.faint, margin: "0 8px" }}>|</span>
                   )}
                   {(plan.steps?.length ?? 0) > 0 && (
-                    <span style={{ ...mono(11), color: C.mutedStrong }}>📊 {plan.steps.length} moves</span>
+                    <span style={{ ...mono(11), color: C.mutedStrong }}>{plan.steps.length} moves</span>
+                  )}
+                  {plan.intensity && (plan.steps?.length ?? 0) > 0 && (
+                    <span style={{ ...mono(11), color: C.faint, margin: "0 8px" }}>|</span>
                   )}
                   {plan.intensity && (
-                    <span style={{ ...mono(11), color: ic, textTransform: "uppercase" }}>🔥 {plan.intensity}</span>
+                    <span style={{ ...mono(11), color: ic, textTransform: "uppercase" }}>{plan.intensity}</span>
                   )}
                 </div>
                 {/* Primary-intent conflict label */}
