@@ -22,13 +22,18 @@ function clearPlanCache() {
 const C = {
   bg: "#020617",
   bgCard: "rgba(255,255,255,0.04)",
+  bgCard2: "rgba(255,255,255,0.06)",
   border: "rgba(255,255,255,0.08)",
+  borderStrong: "rgba(255,255,255,0.14)",
   borderHover: "rgba(255,255,255,0.14)",
   emerald: "var(--accent)",
   emeraldDim: "var(--accent-dim)",
   emeraldBorder: "var(--accent-border)",
+  emeraldSoft: "#34d399",
   text: "#f8fafc",
   muted: "#64748b",
+  mutedStrong: "rgba(255,255,255,0.55)",
+  faint: "rgba(255,255,255,0.32)",
   amber: '#f59e0b',
   amberDim: 'rgba(245,158,11,0.08)',
   amberBorder: 'rgba(245,158,11,0.3)',
@@ -36,7 +41,25 @@ const C = {
   roseDim: 'rgba(244,63,94,0.08)',
   roseBorder: 'rgba(244,63,94,0.3)',
   subtle: "#334155",
+  font: {
+    display: '"Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif',
+    body: '"Inter Tight", "Inter", -apple-system, "SF Pro Text", system-ui, sans-serif',
+    mono: '"JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace',
+  },
 };
+
+const sv_display = (size, weight = 800) => ({
+  fontFamily: C.font.display, fontWeight: weight, fontSize: size,
+  letterSpacing: "-0.005em", lineHeight: 0.95,
+});
+const sv_eyebrow = {
+  fontFamily: C.font.body, fontSize: 10.5, fontWeight: 600,
+  letterSpacing: "0.16em", textTransform: "uppercase",
+};
+const sv_mono = (size = 11) => ({
+  fontFamily: C.font.mono, fontSize: size,
+  letterSpacing: "0.05em", fontVariantNumeric: "tabular-nums",
+});
 
 function hexToRgbParts(hex) {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
@@ -462,7 +485,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
   );
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
-  // Training Focus — single selection: one of 6 general goals, or a sport coach
+  // Training Focus
+  const [generalGoals, setGeneralGoals] = useState(() => prefs.preferences?.general_goals ?? []);
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
   const milCoachActive   = !!(prefs.preferences?.military_coach?.active);
@@ -487,7 +511,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const unlockedTargets = rcState?.unlocked_targets ?? [];
         const newRc = { enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false };
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...ccPatch, run_coach: newRc };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...ccPatch, run_coach: newRc, general_goals: generalGoals };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "cycling") {
@@ -496,7 +520,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         const targetFtp = parseInt(cycleTargetFtpInput) || 250;
         const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc, general_goals: generalGoals };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "military") {
@@ -515,14 +539,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
         };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil, general_goals: generalGoals };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else {
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
         const milPatch = prefs.preferences?.military_coach ? { military_coach: { ...(prefs.preferences.military_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, ...milPatch };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, ...milPatch, general_goals: generalGoals };
         onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
         await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
         onProgressionRefresh?.();
@@ -764,59 +788,56 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
       )}
 
       <div style={{ marginBottom: 36 }}>
-        <h1
-          style={{
-            fontSize: 36,
-            fontWeight: 900,
-            color: C.text,
-            letterSpacing: "-0.03em",
-          }}
-        >
-          Settings
-        </h1>
+        <h1 style={{ ...sv_display(36), color: C.text, margin: 0 }}>SETTINGS</h1>
       </div>
 
       {/* ── Training Focus ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Training Focus
+        <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16 }}>
+          TRAINING FOCUS
         </div>
-        <Glass style={{ padding: 24 }}>
-          {/* 4-mode selector */}
-          <div style={{ display: "flex", gap: 6, marginBottom: 20 }}>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
+          Your primary intent. JustFit can hold one at a time.
+        </div>
+        <Glass style={{ padding: 20 }}>
+          {/* ── Sport coach cards ── */}
+          <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>SPORT COACH</div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 20 }}>
             {[
-              { id: "general",  label: "General" },
-              { id: "running",  label: "Run" },
-              { id: "cycling",  label: "Cycle" },
-              { id: "military", label: "Military" },
-            ].map(opt => {
-              const disabled = !!opt.sub;
-              const sel = opt.id === "general"
-                ? !["running","cycling","military"].includes(focusSel)
-                : focusSel === opt.id;
+              { id: "running",  emoji: "🏃", title: "RUNNING COACH",  sub: "5K → marathon plans · R556 ladder" },
+              { id: "cycling",  emoji: "🚴", title: "CYCLING COACH",  sub: "Indoor + outdoor intervals" },
+              { id: "military", emoji: "🎖", title: "MILITARY COACH", sub: "Keuring KCT · MARSOF · CSE" },
+            ].map(card => {
+              const active = focusSel === card.id;
               return (
                 <button
-                  key={opt.id}
+                  key={card.id}
                   onClick={() => {
-                    if (disabled) return;
-                    if (opt.id === "general") {
+                    if (active) {
                       const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
                         ? "health" : (prefs.training_goal ?? "health");
                       handleFocusTap(goal);
                     } else {
-                      handleFocusTap(opt.id);
+                      handleFocusTap(card.id);
                     }
                   }}
                   style={{
-                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: disabled ? "not-allowed" : "pointer",
-                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                    display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 3,
-                    opacity: disabled ? 0.35 : 1, minHeight: 44,
+                    width: "100%", textAlign: "left", cursor: "pointer",
+                    padding: "14px 16px", borderRadius: 14,
+                    border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                    background: active ? C.emeraldDim : C.bgCard,
+                    display: "flex", alignItems: "center", gap: 12,
                   }}
                 >
-                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? "var(--accent)" : C.text }}>{opt.label}</span>
-                  {opt.sub && <span style={{ fontSize: 9, color: C.subtle }}>{opt.sub}</span>}
+                  <span style={{ fontSize: 20, flexShrink: 0 }}>{card.emoji}</span>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ ...sv_eyebrow, fontSize: 11, color: active ? C.emerald : C.text }}>{card.title}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{card.sub}</div>
+                  </div>
+                  {active
+                    ? <span style={{ ...sv_eyebrow, fontSize: 9, color: C.emerald, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, padding: "3px 8px", borderRadius: 999, flexShrink: 0 }}>ACTIVE</span>
+                    : <span style={{ color: C.faint, fontSize: 16, flexShrink: 0 }}>›</span>
+                  }
                 </button>
               );
             })}
@@ -825,7 +846,41 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
           {/* ── General Training sub-section ── */}
           {!["running","cycling","military"].includes(focusSel) && (
             <div>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Your goal</div>
+              {/* Multi-select goals — up to 3 */}
+              <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>
+                YOUR GOALS <span style={{ fontWeight: 400, letterSpacing: 0, textTransform: "none" }}>— pick up to 3</span>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 20 }}>
+                {GOALS.map(g => {
+                  const sel = generalGoals.includes(g.value);
+                  return (
+                    <button
+                      key={g.value}
+                      onClick={() => setGeneralGoals(prev => {
+                        if (sel) return prev.filter(v => v !== g.value);
+                        if (prev.length >= 3) return [...prev.slice(1), g.value];
+                        return [...prev, g.value];
+                      })}
+                      style={{
+                        display: "flex", alignItems: "center", gap: 10,
+                        padding: "10px 12px", borderRadius: 14, cursor: "pointer",
+                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                        background: sel ? C.emeraldDim : C.bgCard,
+                        textAlign: "left",
+                      }}
+                    >
+                      <span style={{ color: sel ? C.emerald : C.muted, flexShrink: 0 }}>
+                        <GoalIcon value={g.value} size={18} />
+                      </span>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: sel ? C.emerald : C.text, lineHeight: 1.3 }}>
+                        {g.label}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+              <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>PRIMARY FOCUS</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16 }}>
                 {GOALS.map(g => {
                   const sel = focusSel === g.value;
@@ -1081,16 +1136,25 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                     {/* ── Track + Cluster — only for target / fit (open needs no cluster) ── */}
                     {milMode !== 'open' && (<>
                       <div>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Track</div>
-                        <div style={{ display: "flex", gap: 6 }}>
-                          {[{v:'keuring',label:'Physical Assessment',sub:'Fitness test prep'},{v:'opleiding',label:'Educational Fitness',sub:'Training programme prep'}].map(t => (
-                            <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(3); }}
-                              style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`, background: milTrack === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                              <span style={{ fontSize: 11, fontWeight: 900, color: milTrack === t.v ? C.emerald : C.text }}>{t.label}</span>
-                              <span style={{ fontSize: 10, color: C.muted }}>{t.sub}</span>
-                            </button>
-                          ))}
-                        </div>
+                        <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>TRACK</div>
+                        {[
+                          { v: 'keuring',   title: 'KEURING',   body: 'Fitness assessment', sub: 'Basis → K6 · 7 levels' },
+                          { v: 'opleiding', title: 'OPLEIDING', body: 'Training programme', sub: 'O1 → O6 · 6 levels' },
+                        ].map(t => (
+                          <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(3); }}
+                            style={{
+                              width: "100%", textAlign: "left",
+                              background: milTrack === t.v ? C.emeraldDim : C.bgCard,
+                              borderLeft: `4px solid ${milTrack === t.v ? C.emerald : "transparent"}`,
+                              border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`,
+                              borderRadius: 14, padding: "14px 16px", marginBottom: 8,
+                              cursor: "pointer",
+                            }}>
+                            <div style={{ ...sv_eyebrow, color: milTrack === t.v ? C.emerald : C.faint }}>{t.title}</div>
+                            <div style={{ ...sv_display(18), color: C.text, marginTop: 4 }}>{t.body}</div>
+                            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.sub}</div>
+                          </button>
+                        ))}
                       </div>
                       <div>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Target cluster</div>
@@ -1193,6 +1257,23 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         </div>
                       );
                     })()}
+                    {/* ── Cooper test stub ── */}
+                    <div style={{ padding: "14px 16px", borderRadius: 14, background: C.bgCard2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ ...sv_eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 4 }}>COOPER TEST</div>
+                        <div style={{ ...sv_mono(12), color: C.mutedStrong }}>
+                          {prefs.preferences?.military_coach?.last_cooper_distance_m
+                            ? `Last result: ${prefs.preferences.military_coach.last_cooper_distance_m} m`
+                            : "No test recorded yet"}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => console.log("TODO: cooper test modal")}
+                        style={{ padding: "8px 14px", borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap", flexShrink: 0 }}
+                      >
+                        Log test →
+                      </button>
+                    </div>
                   </div>
                 )}
                 {isActive && (() => {
