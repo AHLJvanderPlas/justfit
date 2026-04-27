@@ -2570,7 +2570,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                         <span style={{ ...mono(11), color: C.muted }}>
                           {(() => {
                             const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
-                            if (isRunInterval && s.sets > 1 && s.target_duration_sec) return `${s.sets} × ${s.target_duration_sec}/${s.rest_sec}`;
+                            if (isRunInterval && s.sets > 1 && s.target_duration_sec) return `${s.sets} × ${formatExDuration(s.target_duration_sec)} run`;
                             if (s.target_reps) return `${s.sets} × ${s.target_reps}`;
                             return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
                           })()}
