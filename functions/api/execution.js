@@ -2,34 +2,7 @@
 // GET  /api/execution — fetch execution history for a user
 // DELETE /api/execution — delete an execution and its steps
 
-// ─── JWT AUTH HELPER (inlined — Pages Functions cannot import across files) ───
-async function _hmacSign(data, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-async function _verifyJWT(token, secret) {
-  try {
-    const [header, body, sig] = token.split('.');
-    if (sig !== await _hmacSign(`${header}.${body}`, secret)) return null;
-    const payload = JSON.parse(atob(body));
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch { return null; }
-}
-
-async function getAuthUserId(request, env) {
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
-  if (!token || !env.JWT_SECRET) return null;
-  const payload = await _verifyJWT(token, env.JWT_SECRET);
-  return payload?.userId ?? null;
-}
+import { getAuthUserId } from './_shared/auth.js';
 
 // ─── PROGRESSION ENGINE (inline copy — kept in sync with progression.js) ─────
 // Cloudflare Pages Functions cannot import across api/*.js files, so the
@@ -120,7 +93,7 @@ function progApplyDecay(currentScore, baseline, lastStimulusAtMs, nowMs, mode) {
 }
 
 function progApplyAllDecay(scores, nowMs) {
-  const decayed = JSON.parse(JSON.stringify(scores));
+  const decayed = structuredClone(scores);
   for (const axis of ['push', 'pull', 'legs', 'core', 'conditioning']) {
     const ax = decayed[axis];
     ax.power     = Math.max(ax.baseline, progApplyDecay(ax.power,     ax.baseline, ax.last_power_stimulus_at_ms,     nowMs, 'power'));
@@ -132,7 +105,7 @@ function progApplyAllDecay(scores, nowMs) {
 }
 
 function progApplyStimulus(scores, stimulus, eventMs) {
-  const updated = JSON.parse(JSON.stringify(scores));
+  const updated = structuredClone(scores);
   for (const [axis, gains] of Object.entries(stimulus)) {
     if (axis === 'mobility') {
       const mob = updated.mobility;

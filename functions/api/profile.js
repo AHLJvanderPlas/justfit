@@ -3,32 +3,7 @@
 
 import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
 
-async function hmacSign(data, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-async function verifyJWT(token, secret) {
-  try {
-    const [header, body, sig] = token.split('.');
-    if (sig !== await hmacSign(`${header}.${body}`, secret)) return null;
-    const payload = JSON.parse(atob(body));
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch { return null; }
-}
-
-async function getUser(request, env) {
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
-  if (!token || !env.JWT_SECRET) return null;
-  return verifyJWT(token, env.JWT_SECRET);
-}
+import { getUser } from './_shared/auth.js';
 
 function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
   if (!lastPeriodStart) return null;

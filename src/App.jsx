@@ -6270,6 +6270,7 @@ export default function App() {
                   userId={userId}
                   token={token}
                   onRedoOnboarding={() => setShowOnboarding(true)}
+                  onOpenCooperModal={() => setShowCooperModal(true)}
                   onProgressionRefresh={() =>
                     api.getProgression(token)
                       .then((data) => { if (data?.ok) setProgression(data); })

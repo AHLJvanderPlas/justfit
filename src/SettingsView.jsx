@@ -379,7 +379,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProgressionRefresh }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpenCooperModal, onProgressionRefresh }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -1251,7 +1251,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onProg
                         </div>
                       </div>
                       <button
-                        onClick={() => console.log("TODO: cooper test modal")}
+                        onClick={() => onOpenCooperModal?.()}
                         style={{ padding: "8px 14px", borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap", flexShrink: 0 }}
                       >
                         Log test →

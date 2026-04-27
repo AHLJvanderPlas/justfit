@@ -2,6 +2,8 @@
 // POST /api/progression          — update sport/progression preferences
 // POST /api/progression?action=recompute — admin: rebuild from execution history
 
+import { getUser } from './_shared/auth.js';
+
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
 const AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
@@ -98,7 +100,7 @@ function applyDecay(currentScore, baseline, lastStimulusAtMs, nowMs, mode) {
 
 // Apply decay to all axes — returns a new scores object (does not mutate)
 function applyAllDecay(scores, nowMs) {
-  const decayed = JSON.parse(JSON.stringify(scores)); // deep clone
+  const decayed = structuredClone(scores);
 
   for (const axis of ['push', 'pull', 'legs', 'core', 'conditioning']) {
     const ax = decayed[axis];
@@ -247,35 +249,6 @@ function buildPlannerExplanation(scores, goal, chartMode) {
 function formatGoalLabel(goal) {
   return { health: 'General Health', strength: 'Build Strength', fat_loss: 'Lose Weight',
     muscle_gain: 'Build Muscle', endurance: 'Endurance', mobility: 'Mobility & Flex' }[goal] ?? goal;
-}
-
-// ─── AUTH HELPER ─────────────────────────────────────────────────────────────
-
-async function hmacSign(data, secret) {
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
-  );
-  const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(data));
-  return btoa(String.fromCharCode(...new Uint8Array(sig)))
-    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
-}
-
-async function verifyJWT(token, secret) {
-  try {
-    const [header, body, sig] = token.split('.');
-    if (sig !== await hmacSign(`${header}.${body}`, secret)) return null;
-    const payload = JSON.parse(atob(body));
-    if (payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch { return null; }
-}
-
-async function getUser(request, env) {
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
-  if (!token || !env.JWT_SECRET) return null;
-  return verifyJWT(token, env.JWT_SECRET);
 }
 
 // ─── FETCH OR INITIALISE PROGRESSION ROW ─────────────────────────────────────
@@ -483,7 +456,7 @@ function computeStimulusFromSteps(steps, exec, exerciseMap, _eventMs) {
 }
 
 function applyStimulusToScores(scores, stimulus, eventMs) {
-  const updated = JSON.parse(JSON.stringify(scores));
+  const updated = structuredClone(scores);
 
   for (const [axis, gains] of Object.entries(stimulus)) {
     if (axis === 'mobility') {
