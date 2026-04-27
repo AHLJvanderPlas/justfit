@@ -4201,12 +4201,80 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
     );
   }
 
+  // ── Weekly outcome ──────────────────────────────────────────────────────
+  const weeklyOutcome = (() => {
+    const cutoff = new Date(nowMs); cutoff.setDate(cutoff.getDate() - 6);
+    const lastEnd = new Date(nowMs); lastEnd.setDate(lastEnd.getDate() - 7);
+    const lastStart = new Date(nowMs); lastStart.setDate(lastStart.getDate() - 13);
+    const cutoffStr   = cutoff.toISOString().slice(0, 10);
+    const lastEndStr  = lastEnd.toISOString().slice(0, 10);
+    const lastStartStr = lastStart.toISOString().slice(0, 10);
+    const thisWeek = history.filter(h => h.date >= cutoffStr);
+    const lastWeek = history.filter(h => h.date >= lastStartStr && h.date <= lastEndStr);
+    const targetMap = { health: 3, strength: 4, muscle_gain: 4, fat_loss: 4, endurance: 5, mobility: 3 };
+    const target = targetMap[goal] ?? 3;
+    const done = thisWeek.length;
+    const trend = done - lastWeek.length;
+    const rated = thisWeek.filter(h => h.perceived_exertion != null);
+    const avgPE = rated.length ? rated.reduce((s, h) => s + h.perceived_exertion, 0) / rated.length : null;
+    const exertionLabel = avgPE == null ? null : avgPE >= 7 ? "Tough week" : avgPE <= 4 ? "Light week" : "Well-paced";
+    const verdict = done >= target ? "on-track" : done >= Math.ceil(target * 0.6) ? "building" : "behind";
+    const verdictLabel = { "on-track": "On track", "building": "Building", "behind": "Behind" }[verdict];
+    const verdictColor = { "on-track": C.emerald, "building": "#f59e0b", "behind": "#f43f5e" }[verdict];
+    const insightMap = {
+      health:      "Variety is the plan — strength, cardio and mobility in rotation.",
+      strength:    "Progressive overload accumulates. 4 sessions per week is the minimum.",
+      muscle_gain: "Volume drives hypertrophy. 4 sessions per week builds the stimulus.",
+      fat_loss:    "Consistent sessions + varied intensity keeps metabolism active.",
+      endurance:   "Zone 2 is the engine. 5 sessions per week expands your aerobic base.",
+      mobility:    "Regularity beats intensity. 3 sessions per week is your foundation.",
+    };
+    const insight = insightMap[goal] ?? "Consistency is your most powerful tool.";
+    return { done, target, trend, exertionLabel, verdict, verdictLabel, verdictColor, insight };
+  })();
+
   return (
     <div>
       {/* Header */}
-      <div style={{ marginBottom: 28 }}>
+      <div style={{ marginBottom: 20 }}>
         <h1 style={{ ...display(36), color: C.text, margin: 0 }}>PROGRESS</h1>
       </div>
+
+      {/* ── Weekly outcome card ── */}
+      <Glass style={{ padding: 20, marginBottom: 24 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+          <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>THIS WEEK</div>
+          <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: weeklyOutcome.verdictColor, background: `${weeklyOutcome.verdictColor}18`, border: `1px solid ${weeklyOutcome.verdictColor}40`, padding: "3px 10px", borderRadius: 999 }}>
+            {weeklyOutcome.verdictLabel}
+          </span>
+        </div>
+        {/* Session dots + count */}
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+          <div style={{ display: "flex", gap: 5 }}>
+            {Array.from({ length: weeklyOutcome.target }).map((_, i) => (
+              <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weeklyOutcome.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weeklyOutcome.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
+            ))}
+          </div>
+          <span style={{ ...mono(12), color: C.text }}>
+            {weeklyOutcome.done} / {weeklyOutcome.target} sessions
+          </span>
+          {weeklyOutcome.trend !== 0 && (
+            <span style={{ ...mono(11), color: weeklyOutcome.trend > 0 ? C.emerald : C.muted }}>
+              {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${weeklyOutcome.trend}`} vs last week
+            </span>
+          )}
+          {weeklyOutcome.exertionLabel && (
+            <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginLeft: "auto" }}>
+              {weeklyOutcome.exertionLabel}
+            </span>
+          )}
+        </div>
+        {/* Goal insight */}
+        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
+          <span style={{ fontWeight: 700, color: C.text }}>Goal: {goal.replace(/_/g, " ")} — </span>
+          {weeklyOutcome.insight}
+        </div>
+      </Glass>
 
       {!progression ? (
         <Glass style={{ padding: 48, textAlign: "center" }}>
