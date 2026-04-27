@@ -4352,6 +4352,31 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
             );
           })()}
 
+          {/* ── Running Coach header card ── */}
+          {sportMode === "running" && prefs?.preferences?.run_coach?.enrolled && (() => {
+            const rc = prefs.preferences.run_coach;
+            const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+            const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+            const week = rc.week ?? 1;
+            const sessionInWeek = rc.session_in_week ?? 0;
+            const pct = Math.min(100, Math.round(((week - 1) * 3 + sessionInWeek) / (totalWeeks * 3) * 100));
+            return (
+              <Glass style={{ padding: 20, marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Running Coach</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 8 }}>Week {week} of {totalWeeks} · {rc.target_km}km Program</div>
+                  <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 5 }}>
+                    <div style={{ width: `${pct}%`, height: "100%", background: accentHex, borderRadius: 999, transition: "width 0.5s ease" }} />
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted }}>Session {sessionInWeek} of 3 this week · {pct}% complete</div>
+                </div>
+              </Glass>
+            );
+          })()}
+
           {/* ── Training Goal card (general mode only) — above diagram ── */}
           {sportMode === "general" && (() => {
             const currentGoal = GOALS.find((g) => g.value === goal) ?? GOALS[0];
