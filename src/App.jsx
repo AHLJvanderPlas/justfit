@@ -3449,6 +3449,24 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
             ? levelTarget.replace(/^💡+\s*/, "").replace(/^(Beginner|Intermediate|Advanced):\s*/i, "").trim()
             : null;
 
+          // Derive muscle/body target from category + tags + name (no DB change needed)
+          const deriveTarget = () => {
+            const n = (cur.name ?? "").toLowerCase();
+            if (tags.includes("pelvic_floor")) return "Pelvic Floor";
+            if (tags.includes("crunch") || n.includes("crunch") || n.includes("sit-up") || n.includes("sit up")) return "Core & Abs";
+            if (cur.category === "recovery") return "Active Recovery";
+            if (cur.category === "mobility") return "Flexibility & Joint Health";
+            if (cur.category === "cardio") return "Cardiovascular System";
+            if (n.includes("push") || n.includes("press") || n.includes("chest") || n.includes("dip") || n.includes("tricep")) return "Chest & Triceps";
+            if (n.includes("pull") || n.includes("row") || n.includes("back") || n.includes("bicep") || n.includes("curl") || n.includes("lat")) return "Back & Biceps";
+            if (n.includes("squat") || n.includes("lunge") || n.includes("leg") || n.includes("glute") || n.includes("hip") || n.includes("deadlift") || n.includes("rdl")) return "Legs & Glutes";
+            if (n.includes("shoulder") || n.includes("lateral") || n.includes("overhead") || n.includes("ohp")) return "Shoulders";
+            if (n.includes("plank") || n.includes("core") || n.includes("bridge") || n.includes("hollow") || n.includes("rotation") || n.includes("twist")) return "Core & Stability";
+            if (tags.includes("strength")) return "Full Body Strength";
+            return null;
+          };
+          const muscleTarget = deriveTarget();
+
           // Interval structure: detected by slug for run/walk intervals
           // Shows "Run Xmin · Walk Ymin · × N rounds" as a concrete beginner-friendly target
           const isRunInterval = (cur.exercise_slug ?? '').startsWith('run-interval-level-');
@@ -3495,6 +3513,11 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                     {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
                   </span>
                 </div>
+                {muscleTarget && (
+                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                    Targets: {muscleTarget}
+                  </div>
+                )}
               </div>
 
               {/* ── Card 1: Equipment (only when needed) ── */}
