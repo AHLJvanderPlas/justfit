@@ -237,6 +237,9 @@ justfit/
 │   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
 │   ├── 0012_conditioning_exercises.sql ← conditioning exercises
 │   ├── 0031_session_phase_exercises.sql ← easy-jog-warmup (7 min) + cooldown-walk (5 min) session-phase exercises; updates Cooper test instructions
+│   ├── 0032_run_interval_instructions.sql ← removes hardcoded durations from all 6 run-interval-level-* instruction steps (json_patch)
+│   ├── 0033_running_milestone_awards.sql ← seeds 5 running milestone awards (run-5k/10k/15k/hm/30k); criteria_json type=run_distance
+│   ├── 0034_exercise_instructions_enrichment.sql ← enriched instructions with 💡 coaching cues for 30 exercises (dumbbell/band/kettlebell/mobility/recovery)
 │   ├── 0013_height.sql        ← height_cm column on user_profile
 │   ├── 0014_progression.sql   ← user_progression + user_progression_events tables
 │   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
@@ -255,7 +258,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0032+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0035+`; never reuse a number.
 
 ---
 
@@ -983,10 +986,10 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0030) |
+| D1 schema + migrations | ✅ Live (0002–0034) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
-| Awards (12 awards in D1, 26 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 26 client-side |
+| Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
 | Pages Functions API | ✅ Live at /api/* |
 | Planner engine v1.9.0 (R510–R582 + R558–R559) | ✅ Live — template-based, profile-aware, pregnancy/postnatal/military rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle); Military Coach R570–R582 (Keuring/Opleiding tracks, three modes, two-phase target, RPE drift, Cooper test); R558 return-to-training re-ramp (≥14-day gap → volume ×0.75); R559 recovery mode (toggle in check-in → low intensity + mobility/recovery pool) |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
@@ -1062,6 +1065,7 @@ Calculated server-side from executions table:
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
 | Military scheduler redesign (April 2026) | ✅ Live — rolling block-counter replaces Mon-Fri calendar; 3 bug fixes: open mode K1 start, Walk-run chip guard, rest-day scheduling; check-in integration for military (body state overrides schedule) |
 | Session-phase warm-up/cooldown (April 2026) | ✅ Live — migration 0031 adds `easy-jog-warmup` (7 min Zone 1 jog) and `cooldown-walk` (5 min); tagged `session_phase` to exclude from general pool; Cooper test session: mobility warmups → easy jog → 12 min test → cooldown walk (~26 min total, accurate estimate); Running Coach (R556): cooldown walk appended after every run; Military Zone 2 (R571) + Intervals (R572): cooldown walk appended; all three exercises are `isFixedDuration` (exempt from volume/energy/experience scaling) |
+| Running milestones + progress (April 2026) | ✅ Live — migration 0033 seeds 5 running milestone awards; AwardsView gets `runUnlocked` prop; Progress tab adds Running Coach header card (Week X of Y · Nkm · progress bar) above Goal Fit, parallel to Military Coach header; run interval instruction steps de-hardcoded (migration 0032); instruction enrichment pass: migration 0034 adds 💡 coaching cues to 30 dumbbell/band/kettlebell/mobility/recovery exercises |
 | Visual refresh v2 (April 2026) | ✅ Live — 4-PR design system overhaul: Barlow Condensed/Inter Tight/JetBrains Mono fonts via Google Fonts; extended C tokens (bgCard2, borderStrong, emeraldSoft/Glow now accent-variable); `display()`, `eyebrow`, `mono()` helpers; `src/icons.jsx` with Icons (UI SVGs) + ExerciseIcon (movement line-art); Today screen: greeting, KPI strip (STREAK/READY/WEEK), hero session card with gradient + glow (tracks accent colour), ExerciseIcon per step, weekly 7-day grid; Progress screen: Barlow headers, TRAINING BALANCE eyebrow on radar, redesigned axis bars with delta, recent sessions block, chart icon in nav; Settings: Barlow header, stacked sport-coach cards with ACTIVE badge, multi-select general_goals chips (up to 3), Military track left-bar redesign, Cooper stub card |
 
 ## Known Bugs to Fix
@@ -1088,14 +1092,14 @@ Improvements identified but not yet built. Ordered roughly by impact.
 
 ### Running Coach — Future Enhancements
 - **Regression on skips**: ✅ Implemented — if >7 days since last run while enrolled, both plan.js (plan preview) and execution.js (on save) step back one week. User sees the correct regressed week before starting.
-- **Milestone awards**: Complete a target distance → unlock a hall-of-fame award. Needs a migration to add 5 running awards.
-- **Program progress in Progress tab**: Show run program current week/level on the Progression screen alongside body scores.
+- ~~**Milestone awards**~~ ✅ Done — migration 0033 adds 5 running milestone awards; AwardsView reads `run_coach.unlocked_targets[]` via `runUnlocked` prop.
+- ~~**Program progress in Progress tab**~~ ✅ Done — Running Coach header card (Week X of Y · Nkm Program + progress bar) added above Goal Fit card, parallel to Military Coach header.
 
 ### Women's Health — v2 Roadmap
 - **R526 — Perimenopause phase** *(explicitly out of scope for v1)*: The current cycle rules (R520–R525) assume standard menstruation. Perimenopause involves irregular cycles and hormone fluctuations without pregnancy. A future R526 could detect `cycle_profile.mode = 'perimenopause'` and adapt: longer recovery windows, lower stress threshold (T.STRESS_PERIMENOPAUSE), reduced intensity defaults, and exercise bias toward mobility and low-impact strength rather than HIIT. Would require a new `mode` value in the `cycle_profile` table and a Settings toggle alongside the existing pregnancy/postnatal setup.
 
 ### Data Quality
-- **Continue enriching exercise instructions** — Migration 0032 enriched 12 exercises with thin instructions (Diamond Push-up, Wall Sit, Goblet Squat, Shoulder Press, Lateral Raise, Floor Press, Step-Up, Child's Pose, Quad Stretch, Couch Stretch, 90/90 Hip Switch, Calf Stretch). More exercises may benefit from additional steps/cues — especially newer bodyweight and band exercises added in later migrations.
+- ~~**Continue enriching exercise instructions**~~ ✅ Done — Migration 0034 enriched 30 exercises (dumbbell rows/presses/legs, resistance bands, kettlebells, cat-cow, shoulder rolls, progressive muscle relaxation). All active exercises now have steps + cues. Future: add `why` and `muscle_target` fields for deeper coaching context.
 - **Add `why` and `muscle_target` to all exercises** — New fields in `instructions_json`. Could be seeded via a migration script.
 
 ---
