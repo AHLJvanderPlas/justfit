@@ -28,7 +28,7 @@ const Glass = ({ children, style = {}, onClick }) => (
   </div>
 );
 
-export default function AwardsView({ history, score, isPro, progression }) {
+export default function AwardsView({ history, score, isPro, progression, runUnlocked = [] }) {
   const n = history.length;
 
   // Derived metrics used across multiple awards
@@ -122,6 +122,12 @@ export default function AwardsView({ history, score, isPro, progression }) {
     },
     { id: "prog_goal_fit", title: "Goal Seeker", desc: "Your profile matches your goal by 50% or more. The plan is working.", icon: "🎯", unlocked: (progression?.goal_fit ?? 0) >= 50, req: "Goal fit ≥ 50%" },
     { id: "prog_aligned",  title: "Aligned",     desc: "80% goal fit achieved. Your training is precisely dialled in.",       icon: "🔮", unlocked: (progression?.goal_fit ?? 0) >= 80, req: "Goal fit ≥ 80%" },
+    // ── Running milestones ────────────────────────────────────────────────────
+    { id: "run_5k",    title: "First 5K",       desc: "You ran your first 5 kilometres. A real milestone — most people never start.",         icon: "🏃", unlocked: runUnlocked.includes(5),  req: "Complete 5K run program" },
+    { id: "run_10k",   title: "10K Runner",     desc: "Double digits. Ten kilometres under your belt and a whole new aerobic level.",         icon: "🏃", unlocked: runUnlocked.includes(10), req: "Complete 10K run program" },
+    { id: "run_15k",   title: "Beyond 10K",     desc: "Fifteen kilometres. You've left the beginner category behind for good.",               icon: "🏃", unlocked: runUnlocked.includes(15), req: "Complete 15K run program" },
+    { id: "run_hm",    title: "Half the Way",   desc: "Twenty kilometres. Half-marathon territory — you can call yourself a distance runner.", icon: "🏃", unlocked: runUnlocked.includes(20), req: "Complete 20K run program" },
+    { id: "run_30k",   title: "Distance Runner", desc: "Thirty kilometres. You've entered the long-distance category. Respect.",              icon: "🏃", unlocked: runUnlocked.includes(30), req: "Complete 30K run program" },
     // ── Special ───────────────────────────────────────────────────────────────
     { id: "pro", title: "Pro Status", desc: "Unlock the full JustFit adaptive engine.", icon: "⭐", unlocked: isPro, req: "Pro active" },
   ];

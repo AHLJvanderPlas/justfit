@@ -6165,6 +6165,7 @@ export default function App() {
                   score={score}
                   isPro={!!prefs.isPro}
                   progression={progression}
+                  runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []}
                 />
               </Suspense>
             )}
