@@ -7,7 +7,50 @@ import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 import { reportError } from "./errorReporter.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
-import { MuscleMap, musclesFor } from "./MuscleMap.jsx";
+// MuscleMap is large (SVG paths) — lazy-loaded so it only downloads during an active session.
+const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
+
+function musclesFor(ex) {
+  const tryParse = (s) => { try { return JSON.parse(s || "[]"); } catch { return []; } };
+  const primary = tryParse(ex?.primary_muscles_json);
+  const secondary = tryParse(ex?.secondary_muscles_json);
+  if (primary.length || secondary.length) return { primary, secondary };
+  const slug = (ex?.exercise_slug || ex?.name || "").toLowerCase();
+  const has = (s) => slug.includes(s);
+  if (has("bench") || has("push-up") || has("pushup") || has("dip"))
+    return { primary: ["chest", "triceps"], secondary: ["delts_front", "core"] };
+  if (has("squat"))
+    return { primary: ["quads", "glutes"], secondary: ["hamstrings", "core", "lower_back"] };
+  if (has("deadlift") || has("rdl") || has("romanian"))
+    return { primary: ["hamstrings", "glutes", "lower_back"], secondary: ["traps", "forearms"] };
+  if (has("row"))
+    return { primary: ["lats", "traps"], secondary: ["biceps", "delts_rear"] };
+  if (has("pull-up") || has("pullup") || has("chin"))
+    return { primary: ["lats", "biceps"], secondary: ["traps", "delts_rear", "forearms"] };
+  if (has("press") || has("overhead") || has("shoulder-press"))
+    return { primary: ["delts_front", "triceps"], secondary: ["traps", "core"] };
+  if (has("curl"))
+    return { primary: ["biceps"], secondary: ["forearms"] };
+  if (has("lunge") || has("split-squat") || has("step-up"))
+    return { primary: ["quads", "glutes"], secondary: ["hamstrings", "calves", "core"] };
+  if (has("plank"))
+    return { primary: ["abs", "obliques"], secondary: ["delts_front", "glutes"] };
+  if (has("sit-up") || has("crunch"))
+    return { primary: ["abs"], secondary: ["obliques"] };
+  if (has("kettlebell") || has("swing"))
+    return { primary: ["glutes", "hamstrings"], secondary: ["lower_back", "core", "delts_front"] };
+  if (has("hip-thrust") || has("glute-bridge"))
+    return { primary: ["glutes"], secondary: ["hamstrings", "core"] };
+  if (has("calf"))
+    return { primary: ["calves"], secondary: [] };
+  if (has("lateral-raise"))
+    return { primary: ["delts_front", "delts_rear"], secondary: ["traps"] };
+  if (has("face-pull") || has("rear-delt"))
+    return { primary: ["delts_rear"], secondary: ["traps"] };
+  if (has("run") || has("jog") || has("sprint") || has("cycling") || has("bike"))
+    return { primary: ["quads", "hamstrings", "calves"], secondary: ["glutes", "core"] };
+  return { primary: [], secondary: [] };
+}
 
 // ─── LEGAL VERSIONS ───────────────────────────────────────────────────────────
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
@@ -3538,16 +3581,18 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                   const gender = prefs?.sex === "female" ? "female" : "male";
                   if (hasMuscles) {
                     return (
-                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                        <MuscleMap
-                          primary={muscles.primary}
-                          secondary={muscles.secondary}
-                          gender={gender}
-                          size={180}
-                          showLabels={false}
-                          primaryColor={accentHex}
-                          secondaryColor={`${accentHex}50`}
-                        />
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, maxWidth: 180, flexShrink: 0 }}>
+                        <Suspense fallback={null}>
+                          <MuscleMap
+                            primary={muscles.primary}
+                            secondary={muscles.secondary}
+                            gender={gender}
+                            size={180}
+                            showLabels={false}
+                            primaryColor={accentHex}
+                            secondaryColor={`${accentHex}50`}
+                          />
+                        </Suspense>
                         {muscleTarget && (
                           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
                             {muscleTarget}
