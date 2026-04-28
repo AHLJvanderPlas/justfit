@@ -2874,6 +2874,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
   const totalExercises = exercises.length;
   const startTimeRef = useRef(Date.now());
   const bodyMode = cycle?.mode ?? "standard";
+  const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
 
   // ── Core state ──────────────────────────────────────────────────────────────
   const [exIdx, setExIdx] = useState(0);
@@ -3544,6 +3545,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                           gender={gender}
                           size={180}
                           showLabels={false}
+                          primaryColor={accentHex}
+                          secondaryColor={`${accentHex}50`}
                         />
                         {muscleTarget && (
                           <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
