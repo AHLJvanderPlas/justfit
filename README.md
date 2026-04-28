@@ -9,7 +9,7 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite; app shell/state orchestration in `src/App.jsx`; Settings and Awards split into lazy-loaded view modules (`src/SettingsView.jsx`, `src/AwardsView.jsx`); non-React modules in `src/` (`apiClient.js`, `messagePolicy.js`, `errorReporter.js`); no router library |
+| Frontend | React + Vite; app shell/state orchestration in `src/App.jsx`; Settings, Awards and MuscleMap split into lazy-loaded view modules (`src/SettingsView.jsx`, `src/AwardsView.jsx`, `src/MuscleMap.jsx`); non-React modules in `src/` (`apiClient.js`, `messagePolicy.js`, `errorReporter.js`); no router library |
 | Hosting | Cloudflare Pages (manual deploy via Wrangler; GitHub push is source backup only) |
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) — binding: `DB` |
