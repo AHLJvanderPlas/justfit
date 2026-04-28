@@ -229,6 +229,218 @@ const EXERCISE_PATHS = {
       <line x1="9" y1="19" x2="7" y2="22" />
     </>
   ),
+  // Press: standing, arms pressing dumbbell overhead
+  press: (
+    <>
+      <circle cx="11" cy="7" r="1.8" />
+      <line x1="11" y1="8.8" x2="11" y2="16" />
+      <line x1="11" y1="9.5" x2="11" y2="3" />
+      <line x1="11" y1="3" x2="9" y2="3" />
+      <line x1="11" y1="3" x2="13" y2="3" />
+      <circle cx="9" cy="3" r="1.5" />
+      <circle cx="13" cy="3" r="1.5" />
+      <line x1="11" y1="16" x2="9" y2="22" />
+      <line x1="11" y1="16" x2="13" y2="22" />
+    </>
+  ),
+  // Dip: arms on parallel bars, body lowered
+  dip: (
+    <>
+      <line x1="3" y1="9" x2="11" y2="9" />
+      <line x1="13" y1="9" x2="21" y2="9" />
+      <circle cx="12" cy="6" r="1.8" />
+      <line x1="12" y1="7.8" x2="12" y2="14" />
+      <line x1="12" y1="9" x2="9" y2="11" />
+      <line x1="9" y1="11" x2="9" y2="9" />
+      <line x1="12" y1="9" x2="15" y2="11" />
+      <line x1="15" y1="11" x2="15" y2="9" />
+      <line x1="12" y1="14" x2="10" y2="18" />
+      <line x1="10" y1="18" x2="13" y2="20" />
+      <line x1="12" y1="14" x2="14" y2="18" />
+      <line x1="14" y1="18" x2="17" y2="20" />
+    </>
+  ),
+  // Hip thrust: lying on back, hips driven up
+  hip: (
+    <>
+      <circle cx="4" cy="17" r="1.8" />
+      <line x1="5.5" y1="16.5" x2="13" y2="11" />
+      <line x1="5.5" y1="17.5" x2="9" y2="19" />
+      <line x1="13" y1="11" x2="17" y2="14" />
+      <line x1="17" y1="14" x2="17" y2="20" />
+      <line x1="3" y1="20.5" x2="20" y2="20.5" />
+    </>
+  ),
+  // Stretch: seated forward fold
+  stretch: (
+    <>
+      <circle cx="6" cy="11" r="1.8" />
+      <line x1="7.5" y1="11.5" x2="14" y2="15" />
+      <line x1="11" y1="13" x2="18" y2="17" />
+      <line x1="14" y1="15" x2="20" y2="17" />
+      <line x1="20" y1="17" x2="21" y2="15.5" />
+      <line x1="4" y1="18.5" x2="22" y2="18.5" />
+    </>
+  ),
+  // Band: standing, resistance band stretched wide at chest
+  band: (
+    <>
+      <circle cx="12" cy="3.5" r="1.8" />
+      <line x1="12" y1="5.3" x2="12" y2="14" />
+      <line x1="12" y1="9" x2="4" y2="9" />
+      <line x1="12" y1="9" x2="20" y2="9" />
+      <path d="M4 9 Q12 11 20 9" fill="none" />
+      <circle cx="4" cy="9" r="1.5" />
+      <circle cx="20" cy="9" r="1.5" />
+      <line x1="12" y1="14" x2="9" y2="21" />
+      <line x1="12" y1="14" x2="15" y2="21" />
+    </>
+  ),
+  // Step-up: one foot on raised box
+  step: (
+    <>
+      <circle cx="8" cy="4" r="1.8" />
+      <line x1="8" y1="5.8" x2="8" y2="13" />
+      <line x1="8" y1="9" x2="5" y2="11" />
+      <line x1="8" y1="9" x2="11" y2="7" />
+      <line x1="8" y1="13" x2="14" y2="14" />
+      <line x1="14" y1="14" x2="14" y2="18" />
+      <line x1="8" y1="13" x2="7" y2="22" />
+      <line x1="13" y1="18" x2="22" y2="18" />
+      <line x1="13" y1="18" x2="13" y2="22" />
+      <line x1="22" y1="18" x2="22" y2="22" />
+      <line x1="13" y1="22" x2="22" y2="22" />
+    </>
+  ),
+  // Walk: mid-stride, relaxed upright
+  walk: (
+    <>
+      <circle cx="11" cy="4" r="1.8" />
+      <line x1="11" y1="5.8" x2="11" y2="13" />
+      <line x1="11" y1="9" x2="14" y2="11.5" />
+      <line x1="11" y1="9" x2="8" y2="11.5" />
+      <line x1="11" y1="13" x2="15" y2="18" />
+      <line x1="15" y1="18" x2="16" y2="22" />
+      <line x1="11" y1="13" x2="8" y2="19" />
+      <line x1="8" y1="19" x2="6" y2="22" />
+    </>
+  ),
+  // Sprint: explosive forward lean
+  sprint: (
+    <>
+      <circle cx="15" cy="4" r="1.8" />
+      <line x1="14.5" y1="5.7" x2="11" y2="13" />
+      <line x1="13" y1="9" x2="19" y2="6" />
+      <line x1="13" y1="9" x2="6" y2="11" />
+      <line x1="11" y1="13" x2="17" y2="15" />
+      <line x1="17" y1="15" x2="20" y2="11" />
+      <line x1="11" y1="13" x2="7" y2="18" />
+      <line x1="7" y1="18" x2="3" y2="20" />
+    </>
+  ),
+  // Rotation: torso twist with weight
+  rotation: (
+    <>
+      <circle cx="12" cy="3.5" r="1.8" />
+      <line x1="12" y1="5.3" x2="12" y2="14" />
+      <line x1="12" y1="9" x2="18" y2="11" />
+      <circle cx="19" cy="11.5" r="2" />
+      <path d="M5 9 Q3 12 5 14" fill="none" />
+      <line x1="5" y1="14" x2="6.5" y2="13.5" />
+      <line x1="5" y1="14" x2="4.5" y2="12.5" />
+      <line x1="12" y1="14" x2="9" y2="21" />
+      <line x1="12" y1="14" x2="15" y2="21" />
+    </>
+  ),
+  // Breathe: arms open, inhale arcs
+  breathe: (
+    <>
+      <circle cx="12" cy="3.5" r="1.8" />
+      <line x1="12" y1="5.3" x2="12" y2="14" />
+      <line x1="12" y1="8" x2="6" y2="11" />
+      <line x1="12" y1="8" x2="18" y2="11" />
+      <path d="M8 3 Q9 1.5 11 1.5" fill="none" />
+      <path d="M16 3 Q15 1.5 13 1.5" fill="none" />
+      <line x1="12" y1="14" x2="10" y2="21" />
+      <line x1="12" y1="14" x2="14" y2="21" />
+    </>
+  ),
+  // Foam roll: person on side over cylinder
+  foam: (
+    <>
+      <circle cx="4" cy="11" r="1.8" />
+      <line x1="5.5" y1="11.5" x2="13" y2="14" />
+      <line x1="5.5" y1="11.5" x2="7" y2="16" />
+      <line x1="7" y1="16" x2="6" y2="20" />
+      <line x1="13" y1="14" x2="18" y2="13" />
+      <line x1="18" y1="13" x2="20" y2="17" />
+      <ellipse cx="13" cy="17" rx="3" ry="1.5" fill="none" />
+      <line x1="2" y1="20.5" x2="22" y2="20.5" />
+    </>
+  ),
+  // Military march: upright with weighted pack
+  military: (
+    <>
+      <circle cx="10" cy="4" r="1.8" />
+      <line x1="10" y1="5.8" x2="10" y2="13" />
+      <line x1="6" y1="7" x2="6" y2="12" />
+      <line x1="6" y1="7" x2="9" y2="7" />
+      <line x1="6" y1="12" x2="9" y2="12" />
+      <line x1="10" y1="9" x2="13" y2="7" />
+      <line x1="10" y1="9" x2="8" y2="12" />
+      <line x1="10" y1="13" x2="14" y2="16" />
+      <line x1="14" y1="16" x2="14" y2="20" />
+      <line x1="10" y1="13" x2="9" y2="22" />
+    </>
+  ),
+  // Bike: seated cycling
+  bike: (
+    <>
+      <circle cx="5" cy="18" r="2.5" />
+      <circle cx="19" cy="18" r="2.5" />
+      <line x1="5" y1="18" x2="12" y2="18" />
+      <line x1="12" y1="18" x2="19" y2="18" />
+      <line x1="12" y1="18" x2="14" y2="11" />
+      <line x1="19" y1="18" x2="14" y2="11" />
+      <line x1="13" y1="11" x2="15" y2="11" />
+      <circle cx="13" cy="6" r="1.8" />
+      <line x1="13" y1="7.8" x2="14" y2="11" />
+      <line x1="13.5" y1="9" x2="18" y2="11" />
+      <line x1="14" y1="11" x2="12" y2="18" />
+      <line x1="14" y1="11" x2="16" y2="14" />
+      <line x1="16" y1="14" x2="13" y2="17" />
+    </>
+  ),
+  // Climb: ascending stairs
+  climb: (
+    <>
+      <line x1="3" y1="22" x2="11" y2="22" />
+      <line x1="11" y1="22" x2="11" y2="18" />
+      <line x1="11" y1="18" x2="17" y2="18" />
+      <line x1="17" y1="18" x2="17" y2="14" />
+      <line x1="17" y1="14" x2="22" y2="14" />
+      <circle cx="9" cy="5" r="1.8" />
+      <line x1="9" y1="6.8" x2="10" y2="13" />
+      <line x1="9.5" y1="9" x2="14" y2="6" />
+      <line x1="9.5" y1="9" x2="6" y2="11" />
+      <line x1="10" y1="13" x2="14" y2="14" />
+      <line x1="14" y1="14" x2="14" y2="18" />
+      <line x1="10" y1="13" x2="9" y2="22" />
+    </>
+  ),
+  // Shoulder lateral raise: arms out at shoulder height with dumbbells
+  shoulder: (
+    <>
+      <circle cx="12" cy="3.5" r="1.8" />
+      <line x1="12" y1="5.3" x2="12" y2="14" />
+      <line x1="12" y1="8" x2="5" y2="8" />
+      <line x1="12" y1="8" x2="19" y2="8" />
+      <circle cx="4" cy="8" r="1.5" />
+      <circle cx="20" cy="8" r="1.5" />
+      <line x1="12" y1="14" x2="10" y2="21" />
+      <line x1="12" y1="14" x2="14" y2="21" />
+    </>
+  ),
   // Default: dumbbell icon
   default: (
     <>

@@ -7,6 +7,7 @@ import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveChipLabel } from "./messagePolicy.js";
 import { reportError } from "./errorReporter.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
+import { MuscleMap, musclesFor } from "./MuscleMap.jsx";
 
 // ─── LEGAL VERSIONS ───────────────────────────────────────────────────────────
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
@@ -2312,6 +2313,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
 function iconKeyFor(ex) {
   const slug = (ex?.exercise_slug || ex?.name || "").toLowerCase().replace(/\s+/g, "-");
   const tags = (() => { try { return JSON.parse(ex?.tags_json || "[]"); } catch { return []; } })();
+  // Existing matches
   if (slug.includes("push-up") || slug.includes("pushup")) return "pushup";
   if (slug.includes("squat")) return "squat";
   if (slug.includes("deadlift")) return "deadlift";
@@ -2324,6 +2326,22 @@ function iconKeyFor(ex) {
   if (slug.includes("sit-up") || slug.includes("crunch")) return "sit";
   if (slug.includes("kettlebell") || slug.includes("swing")) return "kettle";
   if (tags.includes("cardio") || slug.includes("run") || slug.includes("jog")) return "run";
+  // New matches
+  if (slug.includes("lateral-raise") || slug.includes("front-raise") || slug.includes("face-pull") || slug.includes("upright-row")) return "shoulder";
+  if (slug.includes("press") || slug.includes("overhead") || slug.includes("shoulder-press")) return "press";
+  if (slug.includes("dip")) return "dip";
+  if (slug.includes("hip-thrust") || slug.includes("glute-bridge") || slug.includes("rdl") || slug.includes("romanian")) return "hip";
+  if (slug.includes("band") || slug.includes("resistance-band")) return "band";
+  if (slug.includes("step-up") || slug.includes("box-jump") || slug.includes("stair")) return "step";
+  if (slug.includes("stair-climb")) return "climb";
+  if (slug.includes("sprint") || slug.includes("high-knees") || slug.includes("mountain-climber") || slug.includes("jumping-jack") || slug.includes("burpee") || slug.includes("jump")) return "sprint";
+  if ((slug.includes("walk") || slug.includes("march") || slug.includes("carry")) && !slug.includes("run") && !slug.includes("jog")) return "walk";
+  if (slug.includes("twist") || slug.includes("rotation") || slug.includes("woodchop")) return "rotation";
+  if (slug.includes("breath") || slug.includes("box-breathing") || slug.includes("diaphragm")) return "breathe";
+  if (slug.includes("foam-roll")) return "foam";
+  if (tags.includes("military") || slug.includes("cooper") || slug.includes("pack")) return "military";
+  if (slug.includes("cycling") || slug.includes("bike") || slug.includes("cycle")) return "bike";
+  if (tags.includes("mobility") || tags.includes("recovery") || slug.includes("stretch") || slug.includes("child") || slug.includes("pigeon") || slug.includes("foam")) return "stretch";
   return "default";
 }
 
@@ -3513,11 +3531,34 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                     {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
                   </span>
                 </div>
-                {muscleTarget && (
-                  <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                    Targets: {muscleTarget}
-                  </div>
-                )}
+                {(() => {
+                  const muscles = musclesFor(cur);
+                  const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
+                  const gender = prefs?.sex === "female" ? "female" : "male";
+                  if (hasMuscles) {
+                    return (
+                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                        <MuscleMap
+                          primary={muscles.primary}
+                          secondary={muscles.secondary}
+                          gender={gender}
+                          size={180}
+                          showLabels={false}
+                        />
+                        {muscleTarget && (
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                            {muscleTarget}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  }
+                  return muscleTarget ? (
+                    <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
+                      Targets: {muscleTarget}
+                    </div>
+                  ) : null;
+                })()}
               </div>
 
               {/* ── Card 1: Equipment (only when needed) ── */}
