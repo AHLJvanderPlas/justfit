@@ -237,7 +237,8 @@ justfit/
 │   ├── 0011_pregnancy_templates.sql ← 8 pregnancy/postnatal session templates (total: 16)
 │   ├── 0012_conditioning_exercises.sql ← conditioning exercises
 │   ├── 0031_session_phase_exercises.sql ← easy-jog-warmup (7 min) + cooldown-walk (5 min) session-phase exercises; updates Cooper test instructions
-│   ├── 0032_run_interval_instructions.sql ← removes hardcoded durations from all 6 run-interval-level-* instruction steps (json_patch)
+│   ├── 0032a_enrich_instructions.sql ← enriches 12 exercises (Diamond Push-up, Wall Sit, Goblet Squat, Shoulder Press, Lateral Raise, Floor Press, Step-Up, Child's Pose, Quad Stretch, Couch Stretch, 90/90 Hip Switch, Calf Stretch)
+│   ├── 0032b_run_interval_instructions.sql ← removes hardcoded durations from all 6 run-interval-level-* instruction steps (json_patch)
 │   ├── 0033_running_milestone_awards.sql ← seeds 5 running milestone awards (run-5k/10k/15k/hm/30k); criteria_json type=run_distance
 │   ├── 0034_exercise_instructions_enrichment.sql ← enriched instructions with 💡 coaching cues for 30 exercises (dumbbell/band/kettlebell/mobility/recovery)
 │   ├── 0013_height.sql        ← height_cm column on user_profile
