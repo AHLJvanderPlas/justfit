@@ -3684,12 +3684,14 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
 
             </div>
             <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px max(20px, env(safe-area-inset-bottom))", background: "linear-gradient(to top, #020617 65%, transparent)" }}>
-              <button
-                onClick={() => setPhase("working")}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
-              >
-                Ready — let's go →
-              </button>
+              <div style={{ maxWidth: 560, margin: "0 auto" }}>
+                <button
+                  onClick={() => setPhase("working")}
+                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
+                >
+                  Ready — let's go →
+                </button>
+              </div>
             </div>
           </>
           );
