@@ -4208,7 +4208,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, history = [] }) {
+function HistoryView({ progression, cyclingPmc, isLoading, token, prefs, onProgressionUpdate, history = [] }) {
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -4962,6 +4962,49 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                   const ftpStale = !testedAtMs || (todayMs - testedAtMs) > intervalWeeks * 7 * 86400000;
                   const weeksAgo = testedAtMs ? Math.floor((todayMs - testedAtMs) / (7 * 86400000)) : null;
 
+                  // PMC data from cyclingPmc state
+                  const pmcSeries = cyclingPmc?.series ?? [];
+                  const pmcLatest = cyclingPmc?.latest ?? null;
+                  const pmcHasData = pmcSeries.length > 0 && pmcLatest;
+
+                  // PMC chart SVG helpers
+                  const pmcChartW = 300, pmcChartH = 52;
+                  const pmcN = pmcSeries.length;
+                  const pmcMaxY = pmcN > 0
+                    ? pmcSeries.reduce((m, d) => Math.max(m, d.ctl, d.atl), 10)
+                    : 100;
+                  const pmcToX = (i) => pmcN > 1 ? (i / (pmcN - 1)) * pmcChartW : pmcChartW / 2;
+                  const pmcToY = (v) => pmcChartH - (v / pmcMaxY) * (pmcChartH - 6) - 2;
+                  const ctlPts = pmcSeries.map((d, i) => `${pmcToX(i).toFixed(1)},${pmcToY(d.ctl).toFixed(1)}`).join(' ');
+                  const atlPts = pmcSeries.map((d, i) => `${pmcToX(i).toFixed(1)},${pmcToY(d.atl).toFixed(1)}`).join(' ');
+
+                  // TSB zone message
+                  const tsb = pmcLatest?.tsb ?? null;
+                  const tsbMsg = tsb === null ? null
+                    : tsb < -25 ? 'Fatigue is high — keep it easy or take a recovery day'
+                    : tsb < -10 ? 'Good training load — keep building'
+                    : tsb <= 5  ? 'Fresh enough for quality work'
+                    : 'Very fresh — good day for a hard session, test, or longer ride';
+                  const tsbColor = tsb === null ? C.muted
+                    : tsb < -25 ? '#f43f5e'
+                    : tsb < -10 ? '#f59e0b'
+                    : C.emerald;
+
+                  // FTP sparkline
+                  const ftpHistory = cc.ftp_history ?? [];
+                  const ftpSparkN = ftpHistory.length;
+                  const ftpSparkH = 32, ftpSparkW = 300;
+                  const ftpMin = ftpSparkN >= 2 ? ftpHistory.reduce((m, h) => Math.min(m, h.ftp_watts), ftpHistory[0].ftp_watts) : 0;
+                  const ftpMax = ftpSparkN >= 2 ? ftpHistory.reduce((m, h) => Math.max(m, h.ftp_watts), ftpHistory[0].ftp_watts) : 1;
+                  const ftpRange = ftpMax - ftpMin || 1;
+                  const ftpPts = ftpSparkN >= 2
+                    ? ftpHistory.map((h, i) => {
+                        const x = (i / (ftpSparkN - 1)) * ftpSparkW;
+                        const y = ftpSparkH - ((h.ftp_watts - ftpMin) / ftpRange) * (ftpSparkH - 8) - 4;
+                        return `${x.toFixed(1)},${y.toFixed(1)}`;
+                      }).join(' ')
+                    : '';
+
                   return (
                     <>
                       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
@@ -4983,6 +5026,107 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                           )}
                         </div>
                       </div>
+
+                      {/* PMC chart — only when cycling TSS data exists */}
+                      {pmcHasData && (
+                        <div style={{ marginTop: 14 }}>
+                          {/* CTL / ATL line chart */}
+                          <svg
+                            viewBox={`0 0 ${pmcChartW} ${pmcChartH}`}
+                            width="100%"
+                            height={pmcChartH}
+                            style={{ display: "block", overflow: "visible" }}
+                          >
+                            {/* ATL — amber dashed */}
+                            <polyline
+                              points={atlPts}
+                              fill="none"
+                              stroke="#f59e0b"
+                              strokeWidth="1.5"
+                              strokeDasharray="4 3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            {/* CTL — emerald solid */}
+                            <polyline
+                              points={ctlPts}
+                              fill="none"
+                              stroke={C.emerald}
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                          </svg>
+
+                          {/* Legend */}
+                          <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: C.emerald }}>
+                              <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={C.emerald} strokeWidth="2" strokeLinecap="round" /></svg>
+                              CTL fitness
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#f59e0b" }}>
+                              <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
+                              ATL fatigue
+                            </div>
+                          </div>
+
+                          {/* CTL / ATL / TSB metric pills */}
+                          <div style={{ display: "flex", gap: 8 }}>
+                            {[
+                              { label: 'CTL', value: pmcLatest.ctl, color: C.emerald },
+                              { label: 'ATL', value: pmcLatest.atl, color: "#f59e0b" },
+                              { label: 'TSB', value: pmcLatest.tsb, color: tsbColor },
+                            ].map(({ label, value, color }) => (
+                              <div key={label} style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px", textAlign: "center" }}>
+                                <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 2 }}>{label}</div>
+                                <div style={{ ...mono(13), color, fontWeight: 700 }}>{value > 0 ? value.toFixed(0) : value.toFixed(0)}</div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* TSB zone message */}
+                          {tsbMsg && (
+                            <div style={{ marginTop: 8, fontSize: 11, color: tsbColor, lineHeight: 1.5 }}>
+                              {tsbMsg}
+                              {cyclingPmc?.hasEstimated && (
+                                <span style={{ color: C.muted }}> · ~est.</span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* FTP history sparkline — only when >= 2 tests recorded */}
+                      {ftpSparkN >= 2 && (
+                        <div style={{ marginTop: 14 }}>
+                          <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>FTP PROGRESS</div>
+                          <svg
+                            viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`}
+                            width="100%"
+                            height={ftpSparkH}
+                            style={{ display: "block", overflow: "visible" }}
+                          >
+                            <polyline
+                              points={ftpPts}
+                              fill="none"
+                              stroke={C.emerald}
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            />
+                            {/* Dots at each test */}
+                            {ftpHistory.map((h, i) => {
+                              const x = (i / (ftpSparkN - 1)) * ftpSparkW;
+                              const y = ftpSparkH - ((h.ftp_watts - ftpMin) / ftpRange) * (ftpSparkH - 8) - 4;
+                              return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="3" fill={C.emerald} />;
+                            })}
+                          </svg>
+                          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                            <div style={{ fontSize: 10, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
+                            <div style={{ ...mono(11), color: C.emerald, fontWeight: 700 }}>{ftpHistory[ftpSparkN - 1].ftp_watts}W current</div>
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
@@ -5660,6 +5804,7 @@ export default function App() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
+  const [cyclingPmc, setCyclingPmc] = useState(null);
 
   // Post-workout state
   const [todayCompleted, setTodayCompleted] = useState(
@@ -5824,6 +5969,10 @@ export default function App() {
       .then((data) => { if (data?.ok) setProgression(data); })
       .catch(() => {})
       .finally(() => setIsLoadingProgression(false));
+    api
+      .getCyclingPmc(token)
+      .then((data) => { if (data?.ok) setCyclingPmc(data); })
+      .catch(() => {});
     api
       .getHistory(userId)
       .then((h) => {
@@ -6341,6 +6490,7 @@ export default function App() {
             {view === "history" && (
               <HistoryView
                 progression={progression}
+                cyclingPmc={cyclingPmc}
                 isLoading={isLoadingProgression}
                 token={token}
                 prefs={prefs}

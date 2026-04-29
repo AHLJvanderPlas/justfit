@@ -197,6 +197,13 @@ const api = {
     return res.json();
   },
 
+  async getCyclingPmc(token) {
+    const res = await fetch("/api/cycling-pmc", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async saveProgressionPrefs(token, prefs) {
     const res = await fetch("/api/progression", {
       method: "POST",
