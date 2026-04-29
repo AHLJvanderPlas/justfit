@@ -483,6 +483,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [cycleTargetFtpInput, setCycleTargetFtpInput] = useState(
     String(prefs.preferences?.cycling_coach?.target_ftp ?? 250)
   );
+  const [cycleSubGoalSelect, setCycleSubGoalSelect] = useState(
+    prefs.preferences?.cycling_coach?.sub_goal ?? 'build_fitness'
+  );
+  // FTP test modal
+  const [showFtpTestModal, setShowFtpTestModal] = useState(false);
+  const [ftpTestType, setFtpTestType] = useState('20min');
+  const [ftpTestInput, setFtpTestInput] = useState('');
+  const [ftpTestSaving, setFtpTestSaving] = useState(false);
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
   // Training Focus
@@ -517,7 +525,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         const ftp = parseInt(cycleFtpInput) || 200;
         const maxHr = parseInt(cycleMaxHrInput) || 180;
         const targetFtp = parseInt(cycleTargetFtpInput) || 250;
-        const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false };
+        const existingCc = prefs.preferences?.cycling_coach ?? {};
+        const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, sub_goal: cycleSubGoalSelect, ftp_tested_at_ms: existingCc.ftp_tested_at_ms ?? null, ftp_test_interval_weeks: existingCc.ftp_test_interval_weeks ?? 6, ftp_history: existingCc.ftp_history ?? [], week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
@@ -741,9 +750,107 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
     setAddingPasskey(false);
   };
 
+  // ── FTP test constants + handler ──────────────────────────────────────────
+  const CYCLE_SUB_GOALS = [
+    { v: 'build_fitness', label: 'Build fitness' },
+    { v: 'climbing',      label: 'Climbing' },
+    { v: 'sprint',        label: 'Sprint power' },
+    { v: 'aerobic_base',  label: 'Aerobic base' },
+    { v: 'race_fitness',  label: 'Race fitness' },
+  ];
+
+  function computeFtpFromTest(type, avgWatts) {
+    if (type === 'ramp')  return Math.round(avgWatts * 0.75);
+    if (type === '12min') return Math.round(avgWatts * 0.85);
+    return Math.round(avgWatts * 0.95); // 20min
+  }
+
+  async function handleFtpTestSave() {
+    const avgWatts = parseInt(ftpTestInput) || 0;
+    if (avgWatts <= 0) return;
+    setFtpTestSaving(true);
+    const newFtp = computeFtpFromTest(ftpTestType, avgWatts);
+    const cc = prefs.preferences?.cycling_coach ?? {};
+    const now = Date.now();
+    const updatedHistory = [...(cc.ftp_history ?? []), { ftp_watts: newFtp, tested_at_ms: now, test_type: ftpTestType }];
+    const updatedCc = { ...cc, ftp_watts: newFtp, ftp_tested_at_ms: now, ftp_history: updatedHistory };
+    const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: updatedCc };
+    try {
+      await api.saveProfile(token, { preferences: newPrefs });
+      onUpdate(p => ({ ...p, preferences: newPrefs }));
+      setCycleFtpInput(String(newFtp));
+    } catch (e) {
+      console.error('FTP test save failed:', e);
+    }
+    setFtpTestSaving(false);
+    setShowFtpTestModal(false);
+    setFtpTestInput('');
+  }
+
   return (
     <div>
       {/* ── Doc overlay ──────────────────────────────────────── */}
+      {/* ── FTP test modal ────────────────────────────────────── */}
+      {showFtpTestModal && (() => {
+        const avgWatts = parseInt(ftpTestInput) || 0;
+        const previewFtp = avgWatts > 0 ? computeFtpFromTest(ftpTestType, avgWatts) : null;
+        const TEST_TYPES = [
+          { v: 'ramp',  label: 'Ramp test',     formula: 'last step × 0.75', hint: 'Enter the last completed step in watts' },
+          { v: '12min', label: '12-min test',    formula: 'avg watts × 0.85', hint: 'Enter your average watts over 12 min' },
+          { v: '20min', label: '20-min test',    formula: 'avg watts × 0.95', hint: 'Enter your average watts over 20 min' },
+        ];
+        const selected = TEST_TYPES.find(t => t.v === ftpTestType);
+        return (
+          <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
+            <div style={{ width: "100%", maxWidth: 560, background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "24px 20px calc(32px + env(safe-area-inset-bottom)) 20px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+              <div style={{ width: 36, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 20px" }} />
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 4 }}>FTP Test Result</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Enter your test result to calculate your new FTP.</div>
+
+              <div style={{ marginBottom: 16 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Test type</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {TEST_TYPES.map(t => (
+                    <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: ftpTestType === t.v ? C.emerald : C.muted }}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                  {selected?.hint ?? 'Enter watts'}
+                </div>
+                <input
+                  type="number" min={50} max={600} placeholder="e.g. 280"
+                  value={ftpTestInput} onChange={e => setFtpTestInput(e.target.value)}
+                  autoFocus
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 18, fontWeight: 700, boxSizing: "border-box" }}
+                />
+              </div>
+
+              {previewFtp && (
+                <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}` }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>New FTP</div>
+                  <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>{previewFtp}W</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{selected?.formula} = {previewFtp}W</div>
+                </div>
+              )}
+
+              <div style={{ display: "flex", gap: 10 }}>
+                <button onClick={() => { setShowFtpTestModal(false); setFtpTestInput(''); }} style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                  Cancel
+                </button>
+                <button onClick={handleFtpTestSave} disabled={!previewFtp || ftpTestSaving} style={{ flex: 2, padding: "14px 0", borderRadius: 14, background: previewFtp ? C.emerald : "rgba(255,255,255,0.06)", border: "none", color: previewFtp ? "#020617" : C.muted, fontSize: 14, fontWeight: 900, cursor: previewFtp ? "pointer" : "default" }}>
+                  {ftpTestSaving ? "Saving…" : `Save ${previewFtp ? `— ${previewFtp}W` : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
       {activeDoc && (
         <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "calc(80px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom)) 20px" }}>
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 61, background: C.bg, borderBottom: `1px solid ${C.border}`, paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: "16px", paddingLeft: "max(20px, env(safe-area-inset-left))", paddingRight: "max(20px, env(safe-area-inset-right))", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -1018,7 +1125,19 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                 {prefs.isPro ? (
                   <>
                     {!ccActive && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 12 }}>
+                      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+                        {/* Training goal (sub-goal) */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {CYCLE_SUB_GOALS.map(g => (
+                              <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
+                                {g.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        {/* Training unit */}
                         <div>
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
                           <div style={{ display: "flex", gap: 6 }}>
@@ -1029,7 +1148,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                             ))}
                           </div>
                         </div>
-                        <div style={{ display: "flex", gap: 8 }}>
+                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
                           {cycleUnitSelect === 'watts' ? (
                             <>
                               <div style={{ flex: 1 }}>
@@ -1040,6 +1159,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
                                 <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                               </div>
+                              <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                                Test FTP
+                              </button>
                             </>
                           ) : (
                             <div style={{ flex: 1 }}>
@@ -1053,6 +1175,17 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                           {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
                           {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
                         </div>
+                      </div>
+                    )}
+                    {/* When active: FTP test button */}
+                    {ccActive && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          Goal: <span style={{ color: C.text, fontWeight: 700 }}>{CYCLE_SUB_GOALS.find(g => g.v === (ccState?.sub_goal ?? 'build_fitness'))?.label ?? 'Build fitness'}</span>
+                        </div>
+                        <button onClick={() => setShowFtpTestModal(true)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                          Test FTP
+                        </button>
                       </div>
                     )}
                   </>

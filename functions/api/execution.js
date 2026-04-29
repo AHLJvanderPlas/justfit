@@ -201,18 +201,45 @@ export async function onRequestPost({ request, env }) {
     const id  = crypto.randomUUID();
     const now = Date.now();
 
-    // ── 1. Insert execution ───────────────────────────────────────────────────
+    // ── 1a. Compute TSS for cycling coach sessions ────────────────────────────
+    // Detected by synthetic exercise_id prefix 'cycling_coach_'.
+    // tss_planned: estimated from step duration + IF (zone2=0.65, intervals=0.75 avg).
+    // tss_actual:  tss_planned × RPE modifier (rpe_estimated); null when no tss_planned.
+    let tss_planned_val = null;
+    let tss_actual_val  = null;
+    let tss_source_val  = null;
+
+    const cyclingStep = (steps ?? []).find(
+      s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_')
+    );
+    if (cyclingStep) {
+      const stepDurationSec = cyclingStep.prescribed?.duration_sec ?? duration_sec ?? 0;
+      // Identify session type from exercise_id: cycling_coach_z2_* or cycling_coach_intervals_*
+      const isZ2 = cyclingStep.exercise_id.includes('_z2_');
+      const avgIF = isZ2 ? 0.65 : 0.75;
+      tss_planned_val = Math.round((stepDurationSec / 3600) * avgIF * avgIF * 100 * 10) / 10;
+      const rpeModifier = { 3: 0.85, 5: 1.0, 8: 1.15 }[perceived_exertion] ?? 1.0;
+      tss_actual_val  = Math.round(tss_planned_val * rpeModifier * 10) / 10;
+      tss_source_val  = 'rpe_estimated';
+    }
+
+    // ── 1b. Insert execution ──────────────────────────────────────────────────
     await env.DB.prepare(`
       INSERT INTO executions
         (id, user_id, date, day_plan_id, execution_type, status,
-         total_duration_sec, perceived_exertion, created_at_ms, updated_at_ms)
-      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?)
+         total_duration_sec, perceived_exertion,
+         tss_planned, tss_actual, tss_source,
+         created_at_ms, updated_at_ms)
+      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, user_id, date,
       day_plan_id ?? null,
       session_type ?? 'workout',
       duration_sec ?? null,
       perceived_exertion ?? null,
+      tss_planned_val,
+      tss_actual_val,
+      tss_source_val,
       now, now
     ).run();
 
@@ -634,7 +661,8 @@ export async function onRequestGet({ request, env }) {
 
     const result = await env.DB.prepare(
       `SELECT id, date, execution_type, status, total_duration_sec,
-              perceived_exertion, created_at_ms
+              perceived_exertion, tss_planned, tss_actual, tss_source,
+              created_at_ms
        FROM executions
        WHERE user_id = ?
        ORDER BY created_at_ms DESC

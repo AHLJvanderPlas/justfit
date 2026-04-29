@@ -4953,18 +4953,34 @@ function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate
                     : sessionsLeft > 0
                     ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining. Up next: ${nextLabel}.`
                     : 'Week complete — good work. Your next cycling week begins on your next session.';
+
+                  // FTP stale check — recommend retest when ftp_tested_at_ms is null or overdue.
+                  // Use today (stable date string, not Date.now()) to keep render pure.
+                  const intervalWeeks = cc.ftp_test_interval_weeks ?? 6;
+                  const testedAtMs = cc.ftp_tested_at_ms ?? null;
+                  const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z').getTime();
+                  const ftpStale = !testedAtMs || (todayMs - testedAtMs) > intervalWeeks * 7 * 86400000;
+                  const weeksAgo = testedAtMs ? Math.floor((todayMs - testedAtMs) / (7 * 86400000)) : null;
+
                   return (
                     <>
                       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                         <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 18 }}>🚴</div>
-                        <div>
+                        <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
                             Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
                           </div>
                           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
                             {insightText}
                           </div>
+                          {ftpStale && cc.unit === 'watts' && (
+                            <div style={{ marginTop: 8, fontSize: 11, color: "#f59e0b", lineHeight: 1.5 }}>
+                              FTP refresh recommended
+                              {weeksAgo !== null ? ` — last tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no FTP test on record'}.
+                              Use the FTP test button in Settings.
+                            </div>
+                          )}
                         </div>
                       </div>
                     </>
