@@ -2423,9 +2423,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
     const goal = prefs?.preferences?.training_goal ?? 'health';
     const targetMap = { health: 3, strength: 4, muscle: 4, fat_loss: 4, endurance: 5, mobility: 3 };
     const target = targetMap[goal] ?? 3;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - 6);
-    const cutoffStr = cutoff.toISOString().slice(0, 10);
+    const now = new Date();
+    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon…
+    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
+    const monday = new Date(now);
+    monday.setDate(now.getDate() - daysToMonday);
+    const cutoffStr = monday.toISOString().slice(0, 10);
     const done = (history ?? []).filter(h => h.date >= cutoffStr).length;
     const remaining = Math.max(0, target - done);
     let message;
@@ -2979,7 +2982,7 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
   const wakeLockRef = useRef(null);
   const [wakeLockDenied, setWakeLockDenied] = useState(false);
   useEffect(() => {
-    const activePhases = ["instruction", "working", "resting", "exerciseComplete"];
+    const activePhases = ["instruction", "working", "resting"];
     if (!activePhases.includes(phase)) {
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
       return;
@@ -3065,19 +3068,15 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
     }
   }, [phase, restRemaining]);
 
-  // ── Exercise complete auto-advance (2s) ──────────────────────────────────────
-  useEffect(() => {
-    if (phase !== "exerciseComplete") return;
-    const id = setTimeout(() => {
-      setExIdx((i) => i + 1);
-      setCurrentSet(1);
-      setRepCount(0);
-      setAdjustedReps(null);
-      setAdjustedDuration(null);
-      setPhase("instruction");
-    }, 2000);
-    return () => clearTimeout(id);
-  }, [phase]);
+  function handlePrevExercise() {
+    if (exIdx <= 0) return;
+    setExIdx((i) => i - 1);
+    setCurrentSet(1);
+    setRepCount(0);
+    setAdjustedReps(null);
+    setAdjustedDuration(null);
+    setPhase("instruction");
+  }
 
   // ── Helpers ──────────────────────────────────────────────────────────────────
   function getRestDuration(ex) {
@@ -3127,7 +3126,12 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
       setPhase("resting");
     } else {
       if (exIdx < totalExercises - 1) {
-        setPhase("exerciseComplete");
+        setExIdx((i) => i + 1);
+        setCurrentSet(1);
+        setRepCount(0);
+        setAdjustedReps(null);
+        setAdjustedDuration(null);
+        setPhase("instruction");
       } else {
         setPhase("sessionFeedback");
       }
@@ -3319,18 +3323,18 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
               </button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
-                  {phase === "resting" || phase === "exerciseComplete" ? exercises[exIdx]?.name : cur?.name}
+                  {phase === "resting" ? exercises[exIdx]?.name : cur?.name}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                  {phase === "exerciseComplete" ? `Exercise ${exIdx + 1} of ${totalExercises}` : `${exIdx + 1} of ${totalExercises} exercises`}
+                  {exIdx + 1} of {totalExercises} exercises
                 </div>
               </div>
-              <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase", minWidth: 56, textAlign: "right" }}>
+              <div style={{ minWidth: 56, textAlign: "right" }}>
                 {phase === "resting" || phase === "working"
-                  ? `Set ${currentSet}/${totalSets}`
-                  : phase === "exerciseComplete"
-                  ? "Done ✓"
-                  : ""}
+                  ? <span style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase" }}>Set {currentSet}/{totalSets}</span>
+                  : phase === "instruction" && exIdx > 0
+                  ? <button onClick={handlePrevExercise} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center", marginLeft: "auto" }}>← Prev</button>
+                  : null}
               </div>
             </div>
             {/* Progress bar */}
@@ -3942,23 +3946,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
             </div>
           );
         })()}
-
-        {/* ── EXERCISE COMPLETE PHASE ── */}
-        {phase === "exerciseComplete" && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "80px 20px", display: "flex", flexDirection: "column", alignItems: "center", gap: 16, textAlign: "center" }}>
-            <div style={{ width: 80, height: 80, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", marginBottom: 8 }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </div>
-            <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
-              {exercises[exIdx]?.name} done ✓
-            </div>
-            <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
-              {exercises[exIdx]?.sets ?? 3} sets complete · Next up: {exercises[exIdx + 1]?.name}
-            </div>
-          </div>
-        )}
 
         {/* ── SESSION FEEDBACK PHASE ── */}
         {phase === "sessionFeedback" && (() => {
@@ -6032,14 +6019,26 @@ export default function App() {
 
   const handleCooperSubmit = useCallback(
     async (distanceM) => {
-      if (!cooperPending) return;
+      setShowCooperModal(false);
+      setCooperPending(null);
+      if (!cooperPending) {
+        // Standalone entry from Settings — just persist the benchmark distance
+        if (!distanceM || distanceM <= 0) return;
+        const mil = prefs?.preferences?.military_coach ?? {};
+        const updated = { ...mil, last_cooper_distance_m: distanceM, last_cooper_at_ms: Date.now() };
+        try {
+          const result = await api.saveProfile(token, { preferences: { ...prefs?.preferences, military_coach: updated } });
+          if (result?.ok !== false) setPrefs(p => ({ ...p, preferences: { ...(p?.preferences ?? {}), military_coach: updated } }));
+        } catch (e) {
+          console.error("Failed to save Cooper benchmark:", e);
+        }
+        return;
+      }
       const { durationSec, perceivedExertion, stepsActual } = cooperPending;
       // Inject cooper_distance_m into the first step's actual_json
       const enriched = (stepsActual ?? plan?.steps ?? []).map((s, i) =>
         i === 0 ? { ...s, actual: { ...(s.actual ?? {}), cooper_distance_m: distanceM } } : s
       );
-      setShowCooperModal(false);
-      setCooperPending(null);
       try {
         await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion, "workout", "military");
         const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]);
@@ -6055,7 +6054,7 @@ export default function App() {
         console.error("Failed to save Cooper execution:", e);
       }
     },
-    [cooperPending, userId, plan, today, score],
+    [cooperPending, userId, plan, today, score, token, prefs],
   );
 
   const handleBonusComplete = useCallback(
