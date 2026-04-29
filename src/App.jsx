@@ -3528,6 +3528,9 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
             return null;
           };
           const muscleTarget = deriveTarget();
+          const muscles = musclesFor(cur);
+          const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
+          const gender = prefs?.sex === "female" ? "female" : "male";
 
           // Interval structure: detected by slug for run/walk intervals
           // Shows "Run Xmin · Walk Ymin · × N rounds" as a concrete beginner-friendly target
@@ -3558,7 +3561,8 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
             });
 
           return (
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px max(32px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", gap: 16 }}>
+            <>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
 
               {/* Exercise name + target */}
               <div style={{ textAlign: "center", marginBottom: 4 }}>
@@ -3575,38 +3579,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                     {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
                   </span>
                 </div>
-                {(() => {
-                  const muscles = musclesFor(cur);
-                  const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
-                  const gender = prefs?.sex === "female" ? "female" : "male";
-                  if (hasMuscles) {
-                    return (
-                      <div style={{ marginTop: 12, display: "flex", flexDirection: "column", alignItems: "center", gap: 4, maxWidth: 180, flexShrink: 0 }}>
-                        <Suspense fallback={null}>
-                          <MuscleMap
-                            primary={muscles.primary}
-                            secondary={muscles.secondary}
-                            gender={gender}
-                            size={180}
-                            showLabels={false}
-                            primaryColor={accentHex}
-                            secondaryColor={`${accentHex}50`}
-                          />
-                        </Suspense>
-                        {muscleTarget && (
-                          <div style={{ fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                            {muscleTarget}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  }
-                  return muscleTarget ? (
-                    <div style={{ marginTop: 8, fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                      Targets: {muscleTarget}
-                    </div>
-                  ) : null;
-                })()}
               </div>
 
               {/* ── Card 1: Equipment (only when needed) ── */}
@@ -3625,6 +3597,21 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                       </span>
                     )}
                   </div>
+                </div>
+              )}
+
+              {/* ── Card: Muscles targeted ── */}
+              {hasMuscles && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Muscles targeted</div>
+                  <div style={{ display: "flex", justifyContent: "center" }}>
+                    <Suspense fallback={null}>
+                      <MuscleMap primary={muscles.primary} secondary={muscles.secondary} gender={gender} size={180} showLabels={false} primaryColor={accentHex} secondaryColor={`${accentHex}50`} />
+                    </Suspense>
+                  </div>
+                  {muscleTarget && (
+                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 8 }}>{muscleTarget}</div>
+                  )}
                 </div>
               )}
 
@@ -3695,13 +3682,16 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                 </div>
               )}
 
+            </div>
+            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, padding: "12px 20px max(20px, env(safe-area-inset-bottom))", background: "linear-gradient(to top, #020617 65%, transparent)" }}>
               <button
                 onClick={() => setPhase("working")}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em", flexShrink: 0, marginTop: 4 }}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
               >
                 Ready — let's go →
               </button>
             </div>
+          </>
           );
         })()}
 
