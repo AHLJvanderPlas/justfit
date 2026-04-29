@@ -259,7 +259,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0035+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0037+`; never reuse a number.
 
 ---
 
@@ -987,7 +987,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0034) |
+| D1 schema + migrations | ✅ Live (0002–0036) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
@@ -1072,6 +1072,7 @@ Calculated server-side from executions table:
 | Professional MuscleMap SVG + lazy-load (April 2026) | ✅ Live — MuscleMap.jsx replaced with professional anatomical SVG paths for all 4 views (male/female front+back, viewBox 1320.92×1206.46); primary/secondary muscle group fills via color prop; body outline stroke on top; MuscleMap lazy-loaded (64KB async chunk, main bundle −57KB); `musclesFor` inlined in App.jsx; wrapper gets `maxWidth:180, flexShrink:0` |
 | Instruction phase UX polish (April 2026) | ✅ Live — "Ready — let's go →" button now sticky/fixed to bottom (matches pre-overview "Start Workout" pattern); MuscleMap centered and wrapped in "Muscles targeted" card with uppercase title (matches Equipment card style); all 4 body outline path arrays complete (MB/MF/FF/FB) |
 | Workout UX & bug fixes (April 2026) | ✅ Live — (1) exerciseComplete phase removed: last set advances directly to next exercise instruction, no 2-second dead screen; (2) "← Prev" button in top-right header during instruction phase (exIdx > 0) navigates back to previous exercise; (3) Cooper modal standalone save fixed: opening from Settings now persists `last_cooper_distance_m` via `api.saveProfile` instead of silently returning on null `cooperPending`; (4) weekly summary cutoff changed from rolling last-7-days to Monday of current calendar week |
+| Cycling Coach Phase 1 — FTP foundation + load capture (April 2026) | ✅ Live — migration 0035: `cycling_workouts` table seeded with 23 structured workouts (5 sub-goals × 4 archetypes + 3 FTP tests); migration 0036: `executions.tss_planned/actual/source` load provenance columns; execution.js auto-computes cycling TSS (IF=0.65 Z2 / IF=0.75 intervals × RPE modifier, source='rpe_estimated'); SettingsView: sub-goal chips (build_fitness/climbing/sprint/aerobic_base/race_fitness) in enrollment + FTP test modal (ramp ×0.75 / 12min ×0.85 / 20min ×0.95 formula, saves ftp_watts + ftp_tested_at_ms + ftp_history); enrollment stores sub_goal + ftp_test_interval_weeks=6 + ftp_history=[]; App.jsx cycling insight block: amber FTP retest recommendation when ftp_tested_at_ms is null or stale (> interval_weeks × 7 days), suppressed for HR-based users |
 
 ## Known Bugs to Fix
 
