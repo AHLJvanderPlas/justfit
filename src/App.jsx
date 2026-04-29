@@ -3570,11 +3570,15 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                 <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
                   {cur.name}
                 </h1>
-                <div style={{ display: "flex", justifyContent: "center", gap: 16 }}>
+                <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                  {muscleTarget && <>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>{muscleTarget}</span>
+                    <span style={{ fontSize: 13, color: C.subtle }}>·</span>
+                  </>}
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
                     {totalSets} {totalSets === 1 ? "set" : "sets"}
                   </span>
-                  <span style={{ fontSize: 13, color: C.muted }}>·</span>
+                  <span style={{ fontSize: 13, color: C.subtle }}>·</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
                     {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
                   </span>
@@ -3609,9 +3613,6 @@ function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
                       <MuscleMap primary={muscles.primary} secondary={muscles.secondary} gender={gender} size={180} showLabels={false} primaryColor={accentHex} secondaryColor={`${accentHex}50`} />
                     </Suspense>
                   </div>
-                  {muscleTarget && (
-                    <div style={{ textAlign: "center", fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginTop: 8 }}>{muscleTarget}</div>
-                  )}
                 </div>
               )}
 
