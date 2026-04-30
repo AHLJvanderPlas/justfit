@@ -474,6 +474,7 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
   const TOTAL_WEEKS = 8;
   let week = cc.week ?? 1;
   let sessionInWeek = cc.session_in_week ?? 0;
+  let sessionsTotal = cc.sessions_total ?? 0;
   let completed = cc.completed ?? false;
 
   // Regression: >10 day gap → step back one week
@@ -484,6 +485,7 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
     sessionInWeek = 0;
   }
 
+  sessionsTotal += 1;
   sessionInWeek = sessionInWeek + 1;
   if (sessionInWeek >= 3) {
     sessionInWeek = 0;
@@ -494,7 +496,7 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
     week = TOTAL_WEEKS;
   }
 
-  const updatedCc = { ...cc, week, session_in_week: sessionInWeek, completed, last_ride_at_ms: nowMs };
+  const updatedCc = { ...cc, week, session_in_week: sessionInWeek, sessions_total: sessionsTotal, completed, last_ride_at_ms: nowMs };
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, cycling_coach: updatedCc }), nowMs, userId).run();
