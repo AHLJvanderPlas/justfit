@@ -259,7 +259,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0037+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0038+`; never reuse a number.
 
 ---
 
@@ -1074,6 +1074,7 @@ Calculated server-side from executions table:
 | Workout UX & bug fixes (April 2026) | ✅ Live — (1) exerciseComplete phase removed: last set advances directly to next exercise instruction, no 2-second dead screen; (2) "← Prev" button in top-right header during instruction phase (exIdx > 0) navigates back to previous exercise; (3) Cooper modal standalone save fixed: opening from Settings now persists `last_cooper_distance_m` via `api.saveProfile` instead of silently returning on null `cooperPending`; (4) weekly summary cutoff changed from rolling last-7-days to Monday of current calendar week |
 | Cycling Coach Phase 1 — FTP foundation + load capture (April 2026) | ✅ Live — migration 0035: `cycling_workouts` table seeded with 23 structured workouts (5 sub-goals × 4 archetypes + 3 FTP tests); migration 0036: `executions.tss_planned/actual/source` load provenance columns; execution.js auto-computes cycling TSS (IF=0.65 Z2 / IF=0.75 intervals × RPE modifier, source='rpe_estimated'); SettingsView: sub-goal chips (build_fitness/climbing/sprint/aerobic_base/race_fitness) in enrollment + FTP test modal (ramp ×0.75 / 12min ×0.85 / 20min ×0.95 formula, saves ftp_watts + ftp_tested_at_ms + ftp_history); enrollment stores sub_goal + ftp_test_interval_weeks=6 + ftp_history=[]; App.jsx cycling insight block: amber FTP retest recommendation when ftp_tested_at_ms is null or stale (> interval_weeks × 7 days), suppressed for HR-based users |
 | Cycling Coach Phase 2 — PMC chart (April 2026) | ✅ Live — GET /api/cycling-pmc endpoint: queries cycling executions (tss_source IS NOT NULL), computes CTL (42-day EMA) / ATL (7-day EMA) / TSB series, returns last 90 days; cyclingPmc state in App → passed as prop to HistoryView; Progress tab cycling insight block extended with: CTL/ATL SVG line chart (emerald solid / amber dashed), CTL/ATL/TSB metric pills with zone-colour TSB, TSB insight message (4 ranges), ~est. footnote when hasEstimated=true, FTP history sparkline (≥2 tests required) |
+| Cycling Coach Phase 3a — Structured workout library (April 2026) | ✅ Live — migration 0037: 6 new FIT-file-inspired workouts (cw24-cw29: VO2max Pyramid, Sprint–VO2–Sprint, Sprint Pyramid, 40-20s ×2 sub-goals, Flamme Rouge); min_sets/max_sets scaling on cw06/cw10/cw18 + cw27/28/29 for time-budget adaptation; plan.js R557 rewritten: CYCLING_PROFILES rotation (3-session weekly cycle per sub_goal), getCyclingBlockPhase 7-week block periodization (base→build→recovery), scaleCyclingIntervals scales repetitions to time budget, calcCyclingTSS from intervals_json, buildCyclingCoachNote with FTP/HR targets, date-seeded variety for interval selection; cycling_workouts fetched from DB in onRequestPost; tss_planned embedded on plan step; execution.js uses pre-computed tss_planned (IF heuristic retained as fallback) |
 
 ## Known Bugs to Fix
 
