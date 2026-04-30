@@ -52,6 +52,58 @@ function musclesFor(ex) {
   return { primary: [], secondary: [] };
 }
 
+// ─── TCX EXPORT (Phase 4) ─────────────────────────────────────────────────────
+// Client-side XML generation for Garmin Connect / TrainingPeaks structured workout import.
+// Expands sets into individual steps (no Repeat_t) for maximum device compatibility.
+function generateCyclingTcx(sessionName, intervals, ftpWatts, maxHr) {
+  const useHr = !ftpWatts || ftpWatts <= 0;
+  let stepId = 0;
+  const steps = intervals.flatMap(iv => {
+    const sets = iv.sets ?? 1;
+    const isRest = (iv.power_pct_high ?? 0) <= 62;
+    const intensity = isRest ? 'Rest' : 'Active';
+    const out = [];
+    for (let s = 0; s < sets; s++) {
+      stepId++;
+      const label = sets > 1 ? `${iv.label} ${s + 1}` : iv.label;
+      let target;
+      if (useHr && maxHr) {
+        const lo = Math.round(maxHr * iv.power_pct_low / 100);
+        const hi = Math.round(maxHr * iv.power_pct_high / 100);
+        target = `<Target xsi:type="HeartRate_t"><HeartRateZone xsi:type="CustomHeartRateZone_t"><LowBpm>${lo}</LowBpm><HighBpm>${hi}</HighBpm></HeartRateZone></Target>`;
+      } else if (ftpWatts) {
+        const lo = Math.round(ftpWatts * iv.power_pct_low / 100);
+        const hi = Math.round(ftpWatts * iv.power_pct_high / 100);
+        target = `<Target xsi:type="Power_t"><PowerZone xsi:type="CustomPowerZone_t"><LowWatts>${lo}</LowWatts><HighWatts>${hi}</HighWatts></PowerZone></Target>`;
+      } else {
+        target = `<Target xsi:type="None_t"/>`;
+      }
+      out.push(`    <Step xsi:type="Step_t"><StepId>${stepId}</StepId><Name>${label}</Name><Duration xsi:type="Time_t"><Seconds>${iv.duration_sec}</Seconds></Duration><Intensity>${intensity}</Intensity>${target}</Step>`);
+    }
+    return out;
+  });
+  const today = new Date().toISOString().slice(0, 10);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<TrainingCenterDatabase xmlns="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.garmin.com/xmlschemas/TrainingCenterDatabase/v2 http://www.garmin.com/xmlschemas/TrainingCenterDatabasev2.xsd">
+  <Workouts>
+    <Workout Sport="Biking">
+      <Name>${sessionName}</Name>
+${steps.join('\n')}
+      <ScheduledOn>${today}</ScheduledOn>
+    </Workout>
+  </Workouts>
+</TrainingCenterDatabase>`;
+}
+
+function triggerFileDownload(content, filename, mime) {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click();
+  document.body.removeChild(a); URL.revokeObjectURL(url);
+}
+
 // ─── LEGAL VERSIONS ───────────────────────────────────────────────────────────
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
 const LEGAL_VERSIONS = { terms: '1.1', privacy: '1.0' };
@@ -2802,15 +2854,15 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         if (ccActive) {
           const cc = prefs.preferences.cycling_coach;
           const todaySessionType = plan?.cycling_program?.session_type ?? null;
-          const sessionTypeLabel = todaySessionType === 'Zone 2'
-            ? 'Zone 2 — aerobic base'
-            : todaySessionType === 'Intervals'
-            ? 'Intervals — power development'
+          const sessionTypeLabel = todaySessionType
+            ? { 'Zone 2': 'Zone 2 — aerobic base', 'Sweet Spot': 'Sweet Spot — sub-threshold', 'Threshold': 'Threshold — FTP work', 'VO2max': 'VO2max — high intensity', 'Anaerobic': 'Anaerobic — sprint power', 'Intervals': 'Intervals — power development' }[todaySessionType] ?? todaySessionType
             : null;
+          const cycStep = plan?.steps?.find(s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_'));
+          const canExportTcx = !!(cycStep?.intervals_json);
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🚴</div>
-              <div>
+              <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of 3 this week</div>
@@ -2818,6 +2870,25 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionTypeLabel}</div>
                 )}
               </div>
+              {canExportTcx && (
+                <button
+                  onClick={() => {
+                    const intervals = JSON.parse(cycStep.intervals_json);
+                    const tcx = generateCyclingTcx(
+                      cycStep.name,
+                      intervals,
+                      cc.unit !== 'hr' ? (cc.ftp_watts ?? 200) : null,
+                      cc.unit === 'hr' ? (cc.max_hr ?? 180) : null
+                    );
+                    const slug = cycStep.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
+                    const dateStr = new Date().toISOString().slice(0, 10);
+                    triggerFileDownload(tcx, `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml');
+                  }}
+                  style={{ flexShrink: 0, padding: "6px 12px", borderRadius: 10, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" }}
+                >
+                  ↓ TCX
+                </button>
+              )}
             </Glass>
           );
         }
