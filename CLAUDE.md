@@ -259,7 +259,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0038+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0039+`; never reuse a number.
 
 ---
 
@@ -1077,6 +1077,7 @@ Calculated server-side from executions table:
 | Cycling Coach Phase 3b — TSB-aware autoregulation (April 2026) | ✅ Live — `computeCyclingTsb()` helper in plan.js recomputes CTL/ATL/TSB from execution history (same EMA as cycling-pmc.js); onRequestPost fetches TSS executions in parallel with progression query when cycling_coach is active; R557b gate: TSB < -25 → force endurance (fatigue override), TSB > +5 + build phase → promote quality session type; no-op when TSB is null (new users with no data) |
 | Cycling Coach Phase 4 — TCX export (April 2026) | ✅ Live — `generateCyclingTcx()` client-side XML generator + `triggerFileDownload()` helper in App.jsx; cycling coach today card shows "↓ TCX" button when plan step has `intervals_json`; expands all sets into individual `<Step>` elements (no Repeat_t); power targets in watts (FTP-based) or BPM (HR-based); Garmin Connect / TrainingPeaks compatible; filename: `{workout_slug}_{date}.tcx` |
 | Cycling Coach Phase 3a — Structured workout library (April 2026) | ✅ Live — migration 0037: 6 new FIT-file-inspired workouts (cw24-cw29: VO2max Pyramid, Sprint–VO2–Sprint, Sprint Pyramid, 40-20s ×2 sub-goals, Flamme Rouge); min_sets/max_sets scaling on cw06/cw10/cw18 + cw27/28/29 for time-budget adaptation; plan.js R557 rewritten: CYCLING_PROFILES rotation (3-session weekly cycle per sub_goal), getCyclingBlockPhase 7-week block periodization (base→build→recovery), scaleCyclingIntervals scales repetitions to time budget, calcCyclingTSS from intervals_json, buildCyclingCoachNote with FTP/HR targets, date-seeded variety for interval selection; cycling_workouts fetched from DB in onRequestPost; tss_planned embedded on plan step; execution.js uses pre-computed tss_planned (IF heuristic retained as fallback) |
+| Cycling Coach Phase 5a — Strava OAuth connect (April 2026) | ✅ Live — migration 0038: `strava_connections` table; `functions/api/strava-auth.js`: GET returns auth URL + connection status, POST exchanges code for tokens (upserts strava_connections), DELETE disconnects; SettingsView: "Integrations" section above Security with Strava card (connect/disconnect + athlete name display); App.jsx: detects `?code=&scope=activity` on mount, exchanges code, shows "Strava connected · {name} ✓" activity toast; requires `STRAVA_CLIENT_ID` + `STRAVA_CLIENT_SECRET` env vars |
 
 ## Known Bugs to Fix
 
@@ -1091,7 +1092,7 @@ Improvements identified but not yet built. Ordered roughly by impact.
 ### High Priority (next up)
 - **Images/GIFs in instruction cards** — `gif_url` already exists on every plan step; just needs a collapsible image area in the WorkoutView instruction card. Makes coaching feel premium and reduces form errors. High impact for beta users.
 - **Offline resilience** — PWA users on spotty gym wifi see a blank screen. Minimum: cache today's plan + exercise data in IndexedDB so the workout loads without network. Service worker or manual cache strategy in `src/`.
-- **Strava integration** — Connect Strava via OAuth2 in Settings; webhook at `/api/strava-webhook` receives `activity.create` events; maps `Run`→running exercises, `Ride`→cycling; if today's plan has a matching step, marks it executed (inserts execution record); if no match, counts as a consistency event (same as manual "Log activity"). Garmin: skip (no public webhook API). Edge cases to handle: partial distance (≥70% of target = credit), Running Coach week advancement gate, duplicate prevention if user also starts in-app workout. Implementation: `strava_connections` table (migration 0035), `strava-auth.js` + `strava-webhook.js` Pages Functions, Settings connect/disconnect UI. Directly supports Principles 1 + 2 (consistency beats intensity; real life outranks plan purity).
+- **Strava Phase 5b — Sync rides** — Manual "Sync" button in Integrations section; `functions/api/strava-sync.js` fetches recent rides from Strava API (with token refresh), computes TSS from `average_watts` (power meter) or HR estimate, inserts executions with `tss_source='strava'`; feeds PMC chart immediately; smart match: if ride duration ≥70% of today's plan step → offer to advance cycling coach state. Duplicate prevention: track `strava_activity_id` on executions (add column in migration 0039).
 
 ### Workout UX
 - **Level-appropriate cues** — Cues prefixed with `💡💡` in the DB indicate level-specific advice (Beginner / Intermediate / Advanced). In WorkoutView, filter cues by `experience_level` from prefs: show only the matching level's `💡💡` cues plus all single-`💡` cues. Requires a prefix convention in the data.
