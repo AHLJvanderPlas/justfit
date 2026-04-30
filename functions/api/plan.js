@@ -83,7 +83,7 @@ export async function onRequestPost({ request, env }) {
     const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
          FROM exercises WHERE is_active = 1`
@@ -104,7 +104,12 @@ export async function onRequestPost({ request, env }) {
             `SELECT sex, weight_kg, height_cm FROM user_profile WHERE user_id = ? LIMIT 1`
           ).bind(user_id).first()
         : Promise.resolve(null),
+      env.DB.prepare(
+        `SELECT id, slug, name, sub_goal, workout_type, tss_estimate, duration_min, intervals_json
+         FROM cycling_workouts WHERE is_active = 1`
+      ).all(),
     ]);
+    const cyclingWorkouts = cyclingWorkoutsResult?.results ?? [];
 
     const allExercises = exResult.results;
     const allTemplates = templates.results;
@@ -236,7 +241,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -924,9 +929,85 @@ function getDefaultRest(exercise, slotType) {
 }
 
 // ---------------------------------------------------------------------------
+// Cycling Coach helpers (Phase 3a)
+// ---------------------------------------------------------------------------
+
+// 3-session weekly rotation per sub_goal: [session0_type, session1_type, session2_type]
+const CYCLING_PROFILES = {
+  build_fitness: ['endurance', 'sweet_spot', 'endurance'],
+  climbing:      ['endurance', 'threshold',  'vo2max'],
+  sprint:        ['endurance', 'anaerobic',  'endurance'],
+  aerobic_base:  ['endurance', 'endurance',  'endurance'],
+  race_fitness:  ['endurance', 'vo2max',     'endurance'],
+};
+
+// 7-week block cycle (21 sessions): weeks 1-2=base, 3-6=build, 7=recovery
+function getCyclingBlockPhase(totalSessions) {
+  const positionInCycle = totalSessions % 21;
+  const weekInCycle = Math.floor(positionInCycle / 3) + 1;
+  if (weekInCycle <= 2) return 'base';
+  if (weekInCycle <= 6) return 'build';
+  return 'recovery';
+}
+
+// TSS from intervals_json array (formula: (dur/3600) * IF² * 100 * sets)
+function calcCyclingTSS(intervals) {
+  return Math.round(intervals.reduce((sum, iv) => {
+    const IF = (iv.power_pct_low + iv.power_pct_high) / 2 / 100;
+    return sum + (iv.duration_sec / 3600) * IF * IF * 100 * (iv.sets ?? 1);
+  }, 0) * 10) / 10;
+}
+
+// Scale steps that have min_sets/max_sets to fit available time
+function scaleCyclingIntervals(intervals, timeBudgetMin) {
+  if (!timeBudgetMin) return intervals;
+  const scalable = intervals.filter(iv => iv.min_sets != null && iv.max_sets != null);
+  if (!scalable.length) return intervals;
+  const fixedSec = intervals
+    .filter(iv => iv.min_sets == null)
+    .reduce((s, iv) => s + iv.duration_sec * (iv.sets ?? 1), 0);
+  const availSec = Math.max(0, timeBudgetMin * 60 - fixedSec);
+  const oneCycleSec = scalable.reduce((s, iv) => s + iv.duration_sec, 0);
+  if (oneCycleSec <= 0) return intervals;
+  const targetSets = Math.max(
+    scalable[0].min_sets,
+    Math.min(scalable[0].max_sets, Math.round(availSec / oneCycleSec))
+  );
+  return intervals.map(iv => iv.min_sets == null ? iv : { ...iv, sets: targetSets });
+}
+
+// Build a coaching note describing target watts or HR for the main interval
+function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
+  const ftp = cycleCoach.ftp_watts ?? 200;
+  const isWatts = (cycleCoach.unit ?? 'watts') === 'watts';
+  const maxHr = cycleCoach.max_hr ?? 180;
+  const mainIv = scaledIntervals.find(iv =>
+    !iv.label.toLowerCase().includes('warm') &&
+    !iv.label.toLowerCase().includes('cool') &&
+    !iv.label.toLowerCase().includes('recovery') &&
+    !iv.label.toLowerCase().includes('pyramid recovery') &&
+    !iv.label.toLowerCase().includes('block recovery')
+  );
+  if (!mainIv) return workout.name;
+  const sets = mainIv.sets ?? 1;
+  const durMin = Math.round(mainIv.duration_sec / 60);
+  const prefix = sets > 1 && mainIv.duration_sec >= 60
+    ? `${sets}×${durMin}min ` : sets > 1 ? `${sets} efforts ` : '';
+  if (isWatts) {
+    const wLo = Math.round(ftp * mainIv.power_pct_low / 100);
+    const wHi = Math.round(ftp * mainIv.power_pct_high / 100);
+    return `${workout.name}: ${prefix}${wLo}–${wHi}W (${mainIv.power_pct_low}–${mainIv.power_pct_high}% FTP).`;
+  } else {
+    const hLo = Math.round(maxHr * mainIv.power_pct_low / 100);
+    const hHi = Math.round(maxHr * mainIv.power_pct_high / 100);
+    return `${workout.name}: ${prefix}${hLo}–${hHi} bpm (${mainIv.power_pct_low}–${mainIv.power_pct_high}% max HR).`;
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = []) {
   const trace = [];
   const isProEnabled = !!isPro;
   // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
@@ -1600,25 +1681,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   // ------------------------------------------------------------------
   // R557 — Cycling Coach Program: prescribe structured cycling sessions
-  //        (polarised: Zone 2 + interval blocks) when cycling_coach is
-  //        active and the user has a cycling-capable equipment.
-  //        FTP-based (Watts) or HR-based — unit stored in cc.unit.
-  //        8-week program: 3 sessions/week, any days.
-  //        Sessions 1 & 3 = intervals; session 2 = Zone 2.
+  //        from the cycling_workouts DB table. Sub-goal rotation selects
+  //        workout type per session (3-session weekly cycle). 7-week
+  //        block periodization: base → build → recovery. Scalable
+  //        interval workouts adjust repetition count to time budget.
   // ------------------------------------------------------------------
-
-  // 8-week interval progression [{ sets, workMin, recMin, pctFtp }]
-  const CYCLING_INTERVAL_PROG = [
-    { sets: 6, workMin: 1, recMin: 2, pctFtp: 115 }, // week 1
-    { sets: 6, workMin: 1, recMin: 2, pctFtp: 115 }, // week 2
-    { sets: 5, workMin: 3, recMin: 3, pctFtp: 108 }, // week 3
-    { sets: 5, workMin: 3, recMin: 3, pctFtp: 108 }, // week 4
-    { sets: 4, workMin: 5, recMin: 5, pctFtp: 105 }, // week 5
-    { sets: 4, workMin: 5, recMin: 5, pctFtp: 105 }, // week 6
-    { sets: 3, workMin: 8, recMin: 5, pctFtp: 103 }, // week 7
-    { sets: 3, workMin: 8, recMin: 5, pctFtp: 103 }, // week 8
-  ];
-  const CYCLING_Z2_PROG = [30, 30, 40, 40, 50, 50, 60, 60]; // Zone 2 duration by week (min)
 
   let cyclingProgramOverride = null;
   const cycleCoach = prefs?.preferences?.cycling_coach;
@@ -1629,82 +1696,78 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   if (cyclingProgramActive) {
     const ccSessionInWeek = cycleCoach.session_in_week ?? 0;
+    const ccSessionsTotal = cycleCoach.sessions_total ?? 0;
     const lastRideDate = cycleCoach.last_ride_at_ms
       ? new Date(cycleCoach.last_ride_at_ms).toISOString().slice(0, 10)
       : null;
     const enoughRest = !lastRideDate || lastRideDate < date;
     const weekNotFull = ccSessionInWeek < 3;
 
-    if (enoughRest && weekNotFull) {
-      const weekIdx = Math.min((cycleCoach.week ?? 1) - 1, 7);
-      const unit = cycleCoach.unit ?? 'watts';
-      const ftp = cycleCoach.ftp_watts ?? 200;
-      const maxHr = cycleCoach.max_hr ?? 180;
-      const isZ2Session = ccSessionInWeek === 1; // session 2 of 3 is easy Z2
+    if (enoughRest && weekNotFull && cyclingWorkouts.length > 0) {
+      const subGoal = cycleCoach.sub_goal ?? 'build_fitness';
+      const profile = CYCLING_PROFILES[subGoal] ?? CYCLING_PROFILES.build_fitness;
+      const blockPhase = getCyclingBlockPhase(ccSessionsTotal);
+      // Recovery week: always endurance regardless of rotation position
+      const targetType = blockPhase === 'recovery' ? 'endurance' : profile[ccSessionInWeek % 3];
 
-      let sessionName, durationSec, setsCount, restSec, coachNote, sessionTag;
+      // Pick from DB pool: prefer sub_goal + type match, broaden if empty
+      let cwPool = cyclingWorkouts.filter(w => w.sub_goal === subGoal && w.workout_type === targetType);
+      if (!cwPool.length) cwPool = cyclingWorkouts.filter(w => w.workout_type === targetType);
+      if (!cwPool.length) cwPool = cyclingWorkouts.filter(w => w.sub_goal === subGoal);
+      if (!cwPool.length) cwPool = cyclingWorkouts;
 
-      if (isZ2Session) {
-        const z2Min = CYCLING_Z2_PROG[weekIdx];
-        durationSec = z2Min * 60;
-        setsCount = 1;
-        restSec = 0;
-        sessionTag = 'zone2';
-        sessionName = `Cycling — Zone 2 · ${z2Min} min`;
-        if (unit === 'watts') {
-          const lo = Math.round(ftp * 0.55);
-          const hi = Math.round(ftp * 0.75);
-          coachNote = `Keep power at ${lo}–${hi}W (55–75% FTP). Comfortable and conversational — if you can't talk, back off. This builds your aerobic engine.`;
-        } else {
-          const lo = Math.round(maxHr * 0.68);
-          const hi = Math.round(maxHr * 0.83);
-          coachNote = `Keep heart rate at ${lo}–${hi} bpm (68–83% Max HR). Conversational pace. If you can't talk comfortably, slow down.`;
-        }
+      // Endurance: pick duration closest to budget. Intervals: rotate by date for variety.
+      let selectedWorkout;
+      if (targetType === 'endurance') {
+        selectedWorkout = cwPool.reduce((best, w) =>
+          Math.abs(w.duration_min - budget) < Math.abs(best.duration_min - budget) ? w : best
+        , cwPool[0]);
       } else {
-        const prog = CYCLING_INTERVAL_PROG[weekIdx];
-        const totalIntervalSec = prog.sets * (prog.workMin + prog.recMin) * 60;
-        const warmupSec = 10 * 60; // 10 min warmup
-        durationSec = warmupSec + totalIntervalSec + 5 * 60; // + 5 min cooldown
-        setsCount = prog.sets;
-        restSec = prog.recMin * 60;
-        sessionTag = 'hiit';
-        sessionName = `Cycling — Intervals · ${prog.sets}×${prog.workMin}min`;
-        if (unit === 'watts') {
-          const target = Math.round(ftp * prog.pctFtp / 100);
-          const recPow = Math.round(ftp * 0.5);
-          coachNote = `${prog.sets}×${prog.workMin}min @ ~${target}W (${prog.pctFtp}% FTP). ${prog.recMin}min easy recovery at ${recPow}W between each. Hard but controlled — don't go all-out on rep 1. 10min warm-up + 5min cool-down included.`;
-        } else {
-          const hrTarget = Math.round(maxHr * 0.9);
-          const hrRec = Math.round(maxHr * 0.7);
-          coachNote = `${prog.sets}×${prog.workMin}min at Zone 5 (≥${hrTarget} bpm / ≥90% Max HR). ${prog.recMin}min recovery below ${hrRec} bpm between each. 10min warm-up + 5min cool-down included.`;
-        }
+        const dateHash = Math.abs([...date].reduce((h, c) => Math.imul(31, h) + c.charCodeAt(0) | 0, 0));
+        selectedWorkout = cwPool[dateHash % cwPool.length];
       }
 
-      // Synthetic plan step — no DB exercise record needed
+      const rawIntervals = JSON.parse(selectedWorkout.intervals_json);
+      const scaledIntervals = scaleCyclingIntervals(rawIntervals, budget < 999 ? budget : null);
+      const tssPlanned = calcCyclingTSS(scaledIntervals);
+      const totalDurationSec = scaledIntervals.reduce((s, iv) => s + iv.duration_sec * (iv.sets ?? 1), 0);
+      const sessionMin = Math.round(totalDurationSec / 60);
+      const coachNote = buildCyclingCoachNote(selectedWorkout, scaledIntervals, cycleCoach);
+
+      const sessionTagMap = { endurance: 'zone2', sweet_spot: 'sweet_spot', threshold: 'hiit', vo2max: 'hiit', anaerobic: 'hiit' };
+      const sessionTag = sessionTagMap[targetType] ?? 'hiit';
+      const sessionTypeLabel = { endurance: 'Zone 2', sweet_spot: 'Sweet Spot', threshold: 'Threshold', vo2max: 'VO2max', anaerobic: 'Anaerobic' }[targetType] ?? 'Intervals';
+
       const cyclingEquipUsed = effectiveEquip.find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
       const cyclingStep = {
-        exercise_id: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}_w${cycleCoach.week ?? 1}`,
-        exercise_slug: `cycling_coach_${isZ2Session ? 'z2' : 'intervals'}`,
-        name: sessionName,
+        exercise_id: `cycling_coach_${targetType}_${selectedWorkout.slug}`,
+        exercise_slug: selectedWorkout.slug,
+        name: selectedWorkout.name,
         category: 'cardio',
         tags_json: JSON.stringify(['cardio', 'cycling', sessionTag, 'outdoor']),
         equipment_required_json: JSON.stringify([cyclingEquipUsed]),
         target_reps: undefined,
-        target_duration_sec: durationSec,
-        sets: setsCount,
-        rest_sec: restSec,
+        target_duration_sec: totalDurationSec,
+        sets: 1,
+        rest_sec: 0,
         instructions_json: null,
         alternatives_json: null,
         gif_url: null,
         coaching_note: coachNote,
+        tss_planned: tssPlanned,
+        intervals_json: JSON.stringify(scaledIntervals),
       };
 
       cyclingProgramOverride = {
         step: cyclingStep,
         week: cycleCoach.week ?? 1,
-        sessionType: isZ2Session ? 'Zone 2' : 'Intervals',
+        sessionType: sessionTypeLabel,
+        sub_goal: subGoal,
+        block_phase: blockPhase,
+        workout_id: selectedWorkout.id,
+        tss_planned: tssPlanned,
       };
-      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/3, ${isZ2Session ? 'Zone 2' : `Intervals ${setsCount}×${isZ2Session ? '' : CYCLING_INTERVAL_PROG[weekIdx].workMin}min`} (unit: ${unit})`);
+      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/3 · ${subGoal} · ${targetType} · ${selectedWorkout.name} · ${sessionMin}min · TSS≈${tssPlanned} (${blockPhase})`);
     }
   }
 
@@ -2347,7 +2410,15 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
       : null,
     cycling_program: cyclingProgramOverride
-      ? { week: cyclingProgramOverride.week, session_type: cyclingProgramOverride.sessionType, unit: cycleCoach?.unit ?? 'watts' }
+      ? {
+          week:        cyclingProgramOverride.week,
+          session_type: cyclingProgramOverride.sessionType,
+          unit:        cycleCoach?.unit ?? 'watts',
+          sub_goal:    cyclingProgramOverride.sub_goal,
+          block_phase: cyclingProgramOverride.block_phase,
+          tss_planned: cyclingProgramOverride.tss_planned,
+          workout_id:  cyclingProgramOverride.workout_id,
+        }
       : null,
     military_program: militaryActive ? (() => {
       const {

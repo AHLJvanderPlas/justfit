@@ -203,8 +203,8 @@ export async function onRequestPost({ request, env }) {
 
     // ── 1a. Compute TSS for cycling coach sessions ────────────────────────────
     // Detected by synthetic exercise_id prefix 'cycling_coach_'.
-    // tss_planned: estimated from step duration + IF (zone2=0.65, intervals=0.75 avg).
-    // tss_actual:  tss_planned × RPE modifier (rpe_estimated); null when no tss_planned.
+    // Phase 3a: use pre-computed tss_planned embedded in plan step when available.
+    // Legacy fallback: estimate from step duration + IF heuristic (zone2=0.65, intervals=0.75).
     let tss_planned_val = null;
     let tss_actual_val  = null;
     let tss_source_val  = null;
@@ -213,14 +213,22 @@ export async function onRequestPost({ request, env }) {
       s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_')
     );
     if (cyclingStep) {
-      const stepDurationSec = cyclingStep.prescribed?.duration_sec ?? duration_sec ?? 0;
-      // Identify session type from exercise_id: cycling_coach_z2_* or cycling_coach_intervals_*
-      const isZ2 = cyclingStep.exercise_id.includes('_z2_');
-      const avgIF = isZ2 ? 0.65 : 0.75;
-      tss_planned_val = Math.round((stepDurationSec / 3600) * avgIF * avgIF * 100 * 10) / 10;
       const rpeModifier = { 3: 0.85, 5: 1.0, 8: 1.15 }[perceived_exertion] ?? 1.0;
-      tss_actual_val  = Math.round(tss_planned_val * rpeModifier * 10) / 10;
-      tss_source_val  = 'rpe_estimated';
+      // Prefer pre-computed TSS from plan step (Phase 3a plans embed tss_planned on the step)
+      const precomputed = cyclingStep.tss_planned ?? cyclingStep.prescribed?.tss_planned ?? null;
+      if (precomputed != null) {
+        tss_planned_val = precomputed;
+        tss_actual_val  = Math.round(precomputed * rpeModifier * 10) / 10;
+        tss_source_val  = 'rpe_estimated';
+      } else {
+        // Legacy: estimate from step duration + zone-based IF
+        const stepDurationSec = cyclingStep.prescribed?.duration_sec ?? duration_sec ?? 0;
+        const isZ2 = cyclingStep.exercise_id.includes('_z2_');
+        const avgIF = isZ2 ? 0.65 : 0.75;
+        tss_planned_val = Math.round((stepDurationSec / 3600) * avgIF * avgIF * 100 * 10) / 10;
+        tss_actual_val  = Math.round(tss_planned_val * rpeModifier * 10) / 10;
+        tss_source_val  = 'rpe_estimated';
+      }
     }
 
     // ── 1b. Insert execution ──────────────────────────────────────────────────
