@@ -197,17 +197,25 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
-    // Fetch progression state for the planner (ignored for bonus sessions to keep them light)
+    // Fetch progression state + cycling TSB in parallel (ignored for bonus sessions)
     let progressionState = null;
+    let cyclingTsb = null;
+    const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
     if (user_id && !bonus_session) {
-      const [progRow, lastExRow] = await Promise.all([
+      const fetches = [
         env.DB.prepare(
           `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
         ).bind(user_id).first(),
         env.DB.prepare(
           `SELECT date FROM executions WHERE user_id = ? AND status != 'skipped' ORDER BY date DESC LIMIT 1`
         ).bind(user_id).first(),
-      ]);
+        isCyclingCoachActive
+          ? env.DB.prepare(
+              `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL ORDER BY date ASC`
+            ).bind(user_id).all()
+          : Promise.resolve(null),
+      ];
+      const [progRow, lastExRow, tssResult] = await Promise.all(fetches);
       if (progRow) {
         progressionState = {
           scores: JSON.parse(progRow.scores_json),
@@ -217,6 +225,9 @@ export async function onRequestPost({ request, env }) {
             ?? 'balanced',
           last_workout_date: lastExRow?.date ?? null,
         };
+      }
+      if (tssResult?.results?.length) {
+        cyclingTsb = computeCyclingTsb(tssResult.results, date);
       }
     }
 
@@ -241,7 +252,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -976,6 +987,28 @@ function scaleCyclingIntervals(intervals, timeBudgetMin) {
   return intervals.map(iv => iv.min_sets == null ? iv : { ...iv, sets: targetSets });
 }
 
+// Compute current TSB (CTL − ATL) from raw execution rows (same EMA as cycling-pmc.js)
+function computeCyclingTsb(tssRows, planDate) {
+  if (!tssRows?.length) return null;
+  const tssMap = {};
+  for (const row of tssRows) {
+    tssMap[row.date] = (tssMap[row.date] ?? 0) + (row.tss_actual ?? row.tss_planned ?? 0);
+  }
+  const ctlDecay = Math.exp(-1 / 42);
+  const atlDecay = Math.exp(-1 / 7);
+  let ctl = 0, atl = 0;
+  const cur = new Date(tssRows[0].date + 'T00:00:00Z');
+  const end = new Date(planDate + 'T00:00:00Z');
+  while (cur <= end) {
+    const d = cur.toISOString().slice(0, 10);
+    const tss = tssMap[d] ?? 0;
+    ctl = ctl * ctlDecay + tss * (1 - ctlDecay);
+    atl = atl * atlDecay + tss * (1 - atlDecay);
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return Math.round((ctl - atl) * 10) / 10;
+}
+
 // Build a coaching note describing target watts or HR for the main interval
 function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
   const ftp = cycleCoach.ftp_watts ?? 200;
@@ -1007,7 +1040,7 @@ function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = []) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null) {
   const trace = [];
   const isProEnabled = !!isPro;
   // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
@@ -1708,7 +1741,25 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const profile = CYCLING_PROFILES[subGoal] ?? CYCLING_PROFILES.build_fitness;
       const blockPhase = getCyclingBlockPhase(ccSessionsTotal);
       // Recovery week: always endurance regardless of rotation position
-      const targetType = blockPhase === 'recovery' ? 'endurance' : profile[ccSessionInWeek % 3];
+      let targetType = blockPhase === 'recovery' ? 'endurance' : profile[ccSessionInWeek % 3];
+
+      // ------------------------------------------------------------------
+      // R557b — TSB-aware autoregulation (requires cyclingTsb from DB)
+      //   TSB < -25: high fatigue → force easy endurance regardless of rotation
+      //   TSB > +5 in build phase: very fresh → promote quality session type
+      // ------------------------------------------------------------------
+      if (cyclingTsb !== null) {
+        if (cyclingTsb < -25) {
+          targetType = 'endurance';
+          trace.push(`R557b — TSB ${cyclingTsb} < -25: fatigue override → endurance`);
+        } else if (cyclingTsb > 5 && blockPhase === 'build') {
+          const qualityType = profile[1]; // middle slot = quality session per sub-goal
+          if (qualityType && qualityType !== 'endurance') {
+            targetType = qualityType;
+            trace.push(`R557b — TSB ${cyclingTsb} > +5 + build phase: freshness → ${qualityType}`);
+          }
+        }
+      }
 
       // Pick from DB pool: prefer sub_goal + type match, broaden if empty
       let cwPool = cyclingWorkouts.filter(w => w.sub_goal === subGoal && w.workout_type === targetType);
