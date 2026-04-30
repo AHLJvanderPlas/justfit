@@ -5963,7 +5963,7 @@ export default function App() {
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
 
-  // On mount: handle email_verified / email_changed redirect params
+  // On mount: handle email_verified / email_changed / Strava OAuth callback redirect params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("email_verified")) {
@@ -5979,6 +5979,33 @@ export default function App() {
       setActivityToast("Verification link invalid or expired");
       setTimeout(() => setActivityToast(""), 5000);
       window.history.replaceState({}, "", "/");
+    } else if (params.get("code") && params.get("scope")?.includes("activity")) {
+      // Strava OAuth callback: exchange code for tokens
+      const code  = params.get("code");
+      const state = params.get("state");
+      window.history.replaceState({}, "", "/");
+      const t = getToken();
+      if (t) {
+        fetch("/api/strava-auth", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
+          body: JSON.stringify({ code, state }),
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d.ok) {
+              const name = d.athlete_name ? ` · ${d.athlete_name}` : "";
+              setActivityToast(`Strava connected${name} ✓`);
+            } else {
+              setActivityToast("Strava connection failed — try again");
+            }
+            setTimeout(() => setActivityToast(""), 5000);
+          })
+          .catch(() => {
+            setActivityToast("Strava connection failed — try again");
+            setTimeout(() => setActivityToast(""), 5000);
+          });
+      }
     }
   }, []);
 

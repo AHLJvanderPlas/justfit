@@ -493,6 +493,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [ftpTestSaving, setFtpTestSaving] = useState(false);
   const [sportDragItem, setSportDragItem] = useState(null);
   const [sportDropZone, setSportDropZone] = useState(null);
+  // Strava integration state
+  const [stravaConnection, setStravaConnection]       = useState(null); // null=loading, false=not connected, object=connected
+  const [stravaConnecting, setStravaConnecting]       = useState(false);
+  const [stravaDisconnecting, setStravaDisconnecting] = useState(false);
+  const [stravaMsg, setStravaMsg]                     = useState('');
   // Training Focus
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
@@ -683,12 +688,54 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   };
 
 
+  // Load Strava connection status on mount
+  useEffect(() => {
+    fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.json())
+      .then(d => setStravaConnection(d.connection ?? false))
+      .catch(() => setStravaConnection(false));
+  }, [token]);
+
   useEffect(() => {
     if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
       window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
         .then(setPasskeySupported);
     }
   }, []);
+
+  const handleStravaConnect = async () => {
+    setStravaConnecting(true);
+    setStravaMsg('');
+    try {
+      const data = await fetch('/api/strava-auth', {
+        headers: { Authorization: `Bearer ${token}` },
+      }).then(r => r.json());
+      if (data.auth_url) {
+        window.location.href = data.auth_url;
+      } else {
+        setStravaMsg('Strava integration is not configured yet.');
+      }
+    } catch {
+      setStravaMsg('Could not reach Strava. Try again.');
+    }
+    setStravaConnecting(false);
+  };
+
+  const handleStravaDisconnect = async () => {
+    setStravaDisconnecting(true);
+    setStravaMsg('');
+    try {
+      await fetch('/api/strava-auth', {
+        method: 'DELETE',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setStravaConnection(false);
+      setStravaMsg('Disconnected from Strava.');
+    } catch {
+      setStravaMsg('Could not disconnect. Try again.');
+    }
+    setStravaDisconnecting(false);
+  };
 
   const handleAddPasskey = async () => {
     setAddingPasskey(true);
@@ -1194,7 +1241,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                 )}
               <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Cycling Coach · FTP-based training</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3 sessions per week in 8-week blocks.</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3 sessions per week in 7-week cycles (base → build → recovery).</div>
               </div>
               </div>
             );
@@ -2596,6 +2643,62 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Integrations ──────────────────────────────────────────────────── */}
+      <div style={{ marginBottom: 32 }}>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          Integrations
+        </div>
+        <Glass style={{ padding: 20 }}>
+          {/* Strava logo row */}
+          <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              {/* Strava bolt icon */}
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116z" fill="#FC4C02" />
+                <path d="M11.094 13.828l2.525-4.977 2.524 4.977h2.948L15.619 6H13.62l-4.952 10.172h2.426z" fill="#FC4C02" opacity="0.8" />
+              </svg>
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Strava</div>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
+                {stravaConnection === null
+                  ? 'Checking connection…'
+                  : stravaConnection
+                  ? `Connected${stravaConnection.athlete_name ? ` · ${stravaConnection.athlete_name}` : ''}${stravaConnection.athlete_city ? ` · ${stravaConnection.athlete_city}` : ''}`
+                  : 'Import rides to power your PMC chart and cycling coach'}
+              </div>
+            </div>
+            {stravaConnection === null ? null : stravaConnection ? (
+              <button
+                onClick={handleStravaDisconnect}
+                disabled={stravaDisconnecting}
+                style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, whiteSpace: "nowrap" }}
+              >
+                {stravaDisconnecting ? 'Disconnecting…' : 'Disconnect'}
+              </button>
+            ) : (
+              <button
+                onClick={handleStravaConnect}
+                disabled={stravaConnecting}
+                style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", whiteSpace: "nowrap" }}
+              >
+                {stravaConnecting ? 'Redirecting…' : 'Connect Strava'}
+              </button>
+            )}
+          </div>
+          {stravaMsg && (
+            <div style={{ fontSize: 11, color: stravaMsg.startsWith('Disconnected') ? C.emerald : "#f87171", marginTop: 4 }}>
+              {stravaMsg}
+            </div>
+          )}
+          {stravaConnection && (
+            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+              Rides synced from Strava will feed your PMC fitness chart and cycling coach — coming in a future update.
+            </div>
+          )}
+        </Glass>
       </div>
 
       <div style={{ marginBottom: 32 }}>
