@@ -4445,7 +4445,8 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-function HistoryView({ progression, cyclingPmc, isLoading, token, prefs, onProgressionUpdate, history = [] }) {
+function HistoryView({ progression, cyclingPmc, isLoading, token, prefs, onProgressionUpdate, history = [], plan, setView, ftpSnoozedUntil, setFtpSnoozedUntil }) {
+  const [now] = useState(Date.now);
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -5254,11 +5255,26 @@ function HistoryView({ progression, cyclingPmc, isLoading, token, prefs, onProgr
                           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
                             {insightText}
                           </div>
-                          {ftpStale && cc.unit === 'watts' && (
-                            <div style={{ marginTop: 8, fontSize: 11, color: "#f59e0b", lineHeight: 1.5 }}>
-                              FTP refresh recommended
-                              {weeksAgo !== null ? ` — last tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no FTP test on record'}.
-                              Use the FTP test button in Settings.
+                          {ftpStale && cc.unit === 'watts' && ftpSnoozedUntil < now && plan?.slot_type !== 'rest' && (
+                            <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                              <div style={{ fontSize: 11, color: "#f59e0b", lineHeight: 1.5, marginBottom: 7 }}>
+                                FTP refresh recommended
+                                {weeksAgo !== null ? ` — tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no test on record'}.
+                              </div>
+                              <div style={{ display: "flex", gap: 6 }}>
+                                <button
+                                  onClick={() => setView("settings")}
+                                  style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", color: "#f59e0b" }}
+                                >
+                                  Go to FTP test
+                                </button>
+                                <button
+                                  onClick={() => { const until = now + 7 * 86400000; localStorage.setItem('jf_ftp_snooze_until', String(until)); setFtpSnoozedUntil(until); }}
+                                  style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted }}
+                                >
+                                  Remind me next week
+                                </button>
+                              </div>
                             </div>
                           )}
                         </div>
@@ -6082,6 +6098,7 @@ export default function App() {
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
   const [cyclingPmc, setCyclingPmc] = useState(null);
+  const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() => parseInt(localStorage.getItem('jf_ftp_snooze_until') || '0'));
 
   // Post-workout state
   const [todayCompleted, setTodayCompleted] = useState(
@@ -6225,11 +6242,11 @@ export default function App() {
         return;
       }
       // Inactivity >= 90 days → full re-onboarding
-      const lastMs = data.last_activity_at_ms ?? 0;
-      const daysSince = lastMs
-        ? Math.floor((Date.now() - lastMs) / 86_400_000)
-        : Infinity;
-      if (daysSince >= 90) {
+      // Null last_activity_at_ms means the account exists but has no recorded activity yet
+      // (e.g. just signed up, or the timestamp wasn't stamped). Do NOT treat null as inactive.
+      const lastMs = data.last_activity_at_ms;
+      const daysSince = lastMs ? Math.floor((Date.now() - lastMs) / 86_400_000) : 0;
+      if (lastMs && daysSince >= 90) {
         setShowOnboarding(true);
         return;
       }
@@ -6314,6 +6331,23 @@ export default function App() {
       })
       .catch(() => {});
   }, [userId, onboardingReady, today, token]);
+
+  // Auto-sync Strava on app open (30-min cooldown via localStorage)
+  useEffect(() => {
+    if (!onboardingReady) return;
+    const COOLDOWN_MS = 30 * 60 * 1000;
+    const lastSync = parseInt(localStorage.getItem('jf_strava_auto_sync') || '0');
+    if (Date.now() - lastSync < COOLDOWN_MS) return;
+    // Fire-and-forget — check if connected first, then sync
+    fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => r.ok ? r.json() : null)
+      .then(d => {
+        if (!d?.connection) return;
+        localStorage.setItem('jf_strava_auto_sync', String(Date.now()));
+        return fetch('/api/strava-sync', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+      })
+      .catch(() => {});
+  }, [onboardingReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
@@ -6804,6 +6838,10 @@ export default function App() {
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
                 history={history}
+                plan={plan}
+                setView={setView}
+                ftpSnoozedUntil={ftpSnoozedUntil}
+                setFtpSnoozedUntil={setFtpSnoozedUntil}
               />
             )}
             {view === "awards" && (
