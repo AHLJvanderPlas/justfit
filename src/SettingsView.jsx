@@ -486,6 +486,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [cycleSubGoalSelect, setCycleSubGoalSelect] = useState(
     prefs.preferences?.cycling_coach?.sub_goal ?? 'build_fitness'
   );
+  const [cycleDaysPerWeek, setCycleDaysPerWeek] = useState(
+    prefs.preferences?.cycling_coach?.cycling_days_per_week ?? 3
+  );
+  const [cycleCrossTrainEnabled, setCycleCrossTrainEnabled] = useState(
+    !!(prefs.preferences?.cycling_coach?.run_cross_training)
+  );
+  const [cycleCrossTrainDays, setCycleCrossTrainDays] = useState(
+    prefs.preferences?.cycling_coach?.run_days_per_week ?? 1
+  );
   // FTP test modal
   const [showFtpTestModal, setShowFtpTestModal] = useState(false);
   const [ftpTestType, setFtpTestType] = useState('20min');
@@ -533,7 +542,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         const maxHr = parseInt(cycleMaxHrInput) || 180;
         const targetFtp = parseInt(cycleTargetFtpInput) || 250;
         const existingCc = prefs.preferences?.cycling_coach ?? {};
-        const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, sub_goal: cycleSubGoalSelect, ftp_tested_at_ms: existingCc.ftp_tested_at_ms ?? null, ftp_test_interval_weeks: existingCc.ftp_test_interval_weeks ?? 6, ftp_history: existingCc.ftp_history ?? [], week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false };
+        const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, sub_goal: cycleSubGoalSelect, cycling_days_per_week: cycleDaysPerWeek, ftp_tested_at_ms: existingCc.ftp_tested_at_ms ?? null, ftp_test_interval_weeks: existingCc.ftp_test_interval_weeks ?? 6, ftp_history: existingCc.ftp_history ?? [], week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false, run_cross_training: existingCc.run_cross_training ?? false, run_days_per_week: existingCc.run_days_per_week ?? 1, run_level: existingCc.run_level ?? 1, run_sessions_total: existingCc.run_sessions_total ?? 0, last_cross_run_at_ms: existingCc.last_cross_run_at_ms ?? null };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
@@ -1189,8 +1198,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {ccActive
-                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of 3 · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
-                    : "Structured FTP build — polarised, 3 sessions per week, any days."}
+                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of ${ccState.cycling_days_per_week ?? 3} · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
+                    : "Structured FTP build — polarised, 3–5 sessions per week, any days."}
                 </div>
                 {prefs.isPro ? (
                   <>
@@ -1240,31 +1249,81 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                             </div>
                           )}
                         </div>
+                        {/* Cycling sessions per week */}
+                        <div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cycling sessions / week</div>
+                          <div style={{ display: "flex", gap: 6 }}>
+                            {[3,4,5].map(n => (
+                              <button key={n} onClick={() => setCycleDaysPerWeek(n)} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleDaysPerWeek === n ? C.emeraldBorder : C.border}`, background: cycleDaysPerWeek === n ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleDaysPerWeek === n ? C.emerald : C.muted }}>
+                                {n}
+                              </button>
+                            ))}
+                          </div>
+                          <div style={{ fontSize: 10, color: C.subtle, marginTop: 4 }}>Min 2 rest days are always preserved.</div>
+                        </div>
                         <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
-                          8 weeks · polarised (80% Zone 2 + 20% intervals) · 3 sessions/week · any days
+                          8 weeks · polarised (80% Zone 2 + 20% intervals) · {cycleDaysPerWeek} sessions/week · any days
                           {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
                           {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
                         </div>
                       </div>
                     )}
-                    {/* When active: FTP test button */}
-                    {ccActive && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                        <div style={{ fontSize: 11, color: C.muted }}>
-                          Goal: <span style={{ color: C.text, fontWeight: 700 }}>{CYCLE_SUB_GOALS.find(g => g.v === (ccState?.sub_goal ?? 'build_fitness'))?.label ?? 'Build fitness'}</span>
+                    {/* When active: FTP test + cross-training settings */}
+                    {ccActive && (() => {
+                      const maxCrossTrainDays = Math.min(3, 5 - (ccState?.cycling_days_per_week ?? 3));
+                      const saveCrossTrainPrefs = async () => {
+                        const updatedCc = { ...ccState, run_cross_training: cycleCrossTrainEnabled, run_days_per_week: cycleCrossTrainEnabled ? Math.min(cycleCrossTrainDays, maxCrossTrainDays) : (ccState.run_days_per_week ?? 1) };
+                        const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: updatedCc };
+                        onUpdate(p => ({ ...p, preferences: newPrefs }));
+                        await api.saveProfile(token, { preferences: newPrefs });
+                      };
+                      return (
+                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ fontSize: 11, color: C.muted }}>
+                              Goal: <span style={{ color: C.text, fontWeight: 700 }}>{CYCLE_SUB_GOALS.find(g => g.v === (ccState?.sub_goal ?? 'build_fitness'))?.label ?? 'Build fitness'}</span>
+                            </div>
+                            <button onClick={() => setShowFtpTestModal(true)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                              Test FTP
+                            </button>
+                          </div>
+                          {/* Cross-training runs toggle */}
+                          <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: cycleCrossTrainEnabled ? 10 : 0 }}>
+                              <div style={{ flex: 1 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Cross-training runs</div>
+                                <div style={{ fontSize: 11, color: C.muted }}>Add running sessions on short or rest days</div>
+                              </div>
+                              <button onClick={() => setCycleCrossTrainEnabled(v => !v)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainEnabled ? C.emeraldBorder : C.border}`, background: cycleCrossTrainEnabled ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleCrossTrainEnabled ? C.emerald : C.muted }}>
+                                {cycleCrossTrainEnabled ? "On" : "Off"}
+                              </button>
+                            </div>
+                            {cycleCrossTrainEnabled && (
+                              <div>
+                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Run days / week</div>
+                                <div style={{ display: "flex", gap: 6 }}>
+                                  {[1,2,3].filter(n => n <= maxCrossTrainDays).map(n => (
+                                    <button key={n} onClick={() => setCycleCrossTrainDays(n)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainDays === n ? C.emeraldBorder : C.border}`, background: cycleCrossTrainDays === n ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleCrossTrainDays === n ? C.emerald : C.muted }}>
+                                      {n}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                          <button onClick={saveCrossTrainPrefs} style={{ padding: "7px 0", borderRadius: 10, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
+                            Save settings
+                          </button>
                         </div>
-                        <button onClick={() => setShowFtpTestModal(true)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                          Test FTP
-                        </button>
-                      </div>
-                    )}
+                      );
+                    })()}
                   </>
                 ) : (
                   <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Cycle Coach.</div>
                 )}
               <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Cycling Coach · FTP-based training</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3 sessions per week in 7-week cycles (base → build → recovery).</div>
+                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3–5 sessions per week in 7-week cycles (base → build → recovery). Optional cross-training runs on rest or short days.</div>
               </div>
               </div>
             );

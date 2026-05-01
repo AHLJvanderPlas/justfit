@@ -200,7 +200,14 @@ export async function onRequestPost({ request, env }) {
     // Fetch progression state + cycling TSB in parallel (ignored for bonus sessions)
     let progressionState = null;
     let cyclingTsb = null;
+    let cyclingSessionsLast7 = 0;
+    let runSessionsLast7 = 0;
+    let crossRunsLast7 = 0;
     const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
+    const isRunCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+    const isCrossTrainActive = !!(isCyclingCoachActive && prefs?.preferences?.cycling_coach?.run_cross_training);
+    // Rolling 7-day window: count recent sessions by type for scheduling decisions
+    const sevenDaysAgo = new Date(Date.parse(date + 'T00:00:00Z') - 7 * 86400000).toISOString().slice(0, 10);
     if (user_id && !bonus_session) {
       const fetches = [
         env.DB.prepare(
@@ -214,8 +221,18 @@ export async function onRequestPost({ request, env }) {
               `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL AND (execution_type NOT LIKE 'strava_%' OR execution_type = 'strava_ride') ORDER BY date ASC`
             ).bind(user_id).all()
           : Promise.resolve(null),
+        // Rolling window counts
+        user_id
+          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+          : Promise.resolve(null),
+        user_id && isRunCoachActive
+          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'run_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+          : Promise.resolve(null),
+        user_id && isCrossTrainActive
+          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_cross_run' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+          : Promise.resolve(null),
       ];
-      const [progRow, lastExRow, tssResult] = await Promise.all(fetches);
+      const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow] = await Promise.all(fetches);
       if (progRow) {
         progressionState = {
           scores: JSON.parse(progRow.scores_json),
@@ -229,6 +246,9 @@ export async function onRequestPost({ request, env }) {
       if (tssResult?.results?.length) {
         cyclingTsb = computeCyclingTsb(tssResult.results, date);
       }
+      cyclingSessionsLast7 = cyclingCountRow?.cnt ?? 0;
+      runSessionsLast7 = runCountRow?.cnt ?? 0;
+      crossRunsLast7 = crossRunCountRow?.cnt ?? 0;
     }
 
     // Free-tier adapt path: adjust the stored weekly plan for today's check-in
@@ -252,7 +272,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -1040,7 +1060,7 @@ function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0) {
   const trace = [];
   const isProEnabled = !!isPro;
   // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
@@ -1635,7 +1655,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       ? new Date(runCoach.last_run_at_ms).toISOString().slice(0, 10)
       : null;
     const enoughRest = !lastRunDate || lastRunDate < date;
-    const weekNotFull = sessionInWeek < 3;
+    // Rolling 7-day window: up to 3 run sessions per week (fixed for standalone run coach)
+    const weekNotFull = runSessionsLast7 < 3;
 
     if (enoughRest && weekNotFull) {
       const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
@@ -1730,13 +1751,20 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   if (cyclingProgramActive) {
     const ccSessionInWeek = cycleCoach.session_in_week ?? 0;
     const ccSessionsTotal = cycleCoach.sessions_total ?? 0;
+    const cyclingDaysPerWeek = cycleCoach.cycling_days_per_week ?? 3;
     const lastRideDate = cycleCoach.last_ride_at_ms
       ? new Date(cycleCoach.last_ride_at_ms).toISOString().slice(0, 10)
       : null;
     const enoughRest = !lastRideDate || lastRideDate < date;
-    const weekNotFull = ccSessionInWeek < 3;
+    // Rolling 7-day window for cycling slots
+    const weekNotFull = cyclingSessionsLast7 < cyclingDaysPerWeek;
+    // Short time budget: prefer cross-training run over a short cycling session
+    const crossTrainEnabled = !!(cycleCoach.run_cross_training && (cycleCoach.run_days_per_week ?? 0) > 0);
+    const shortTimeBudget = !!(checkIn?.time_budget && checkIn.time_budget < 40);
+    const crossRunsUsed = crossRunsLast7 >= (cycleCoach.run_days_per_week ?? 0);
+    const skipCyclingForRun = shortTimeBudget && crossTrainEnabled && !crossRunsUsed;
 
-    if (enoughRest && weekNotFull && cyclingWorkouts.length > 0) {
+    if (enoughRest && weekNotFull && !skipCyclingForRun && cyclingWorkouts.length > 0) {
       const subGoal = cycleCoach.sub_goal ?? 'build_fitness';
       const profile = CYCLING_PROFILES[subGoal] ?? CYCLING_PROFILES.build_fitness;
       const blockPhase = getCyclingBlockPhase(ccSessionsTotal);
@@ -1818,7 +1846,65 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         workout_id: selectedWorkout.id,
         tss_planned: tssPlanned,
       };
-      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/3 · ${subGoal} · ${targetType} · ${selectedWorkout.name} · ${sessionMin}min · TSS≈${tssPlanned} (${blockPhase})`);
+      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/${cyclingDaysPerWeek} · ${subGoal} · ${targetType} · ${selectedWorkout.name} · ${sessionMin}min · TSS≈${tssPlanned} (${blockPhase})`);
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // R557c — Cycling Cross-Training Run: prescribe a run session on days
+  //   when the cycling slot is full (rest day) or time budget is too
+  //   short for productive cycling (<40 min). Uses shadow ramp-up level
+  //   stored in cycling_coach.run_level. Grows at same pace as running
+  //   coach but progresses more slowly (every 3 sessions).
+  //   Fires only when cross-training is enabled and slots remain.
+  // ------------------------------------------------------------------
+  let crossTrainingOverride = null;
+  const crossTrainCycleCoach = prefs?.preferences?.cycling_coach;
+  const crossTrainActive = cyclingProgramActive
+    && !!(crossTrainCycleCoach?.run_cross_training)
+    && (crossTrainCycleCoach?.run_days_per_week ?? 0) > 0
+    && !cyclingProgramOverride; // no cross-train when cycling already prescribed
+
+  if (crossTrainActive) {
+    const runDaysPerWeek = crossTrainCycleCoach.run_days_per_week ?? 1;
+    const crossRunSlotAvail = crossRunsLast7 < runDaysPerWeek;
+    const cyclingDaysPerWeekCt = crossTrainCycleCoach.cycling_days_per_week ?? 3;
+    const cyclingSlotFull = cyclingSessionsLast7 >= cyclingDaysPerWeekCt;
+    const shortTimeCt = !!(checkIn?.time_budget && checkIn.time_budget < 40);
+    const lastCrossRunDate = crossTrainCycleCoach.last_cross_run_at_ms
+      ? new Date(crossTrainCycleCoach.last_cross_run_at_ms).toISOString().slice(0, 10)
+      : null;
+    const enoughRunRest = !lastCrossRunDate || lastCrossRunDate < date;
+    const shouldCrossRun = crossRunSlotAvail && enoughRunRest && (cyclingSlotFull || shortTimeCt);
+
+    if (shouldCrossRun) {
+      const runLevel = crossTrainCycleCoach.run_level ?? 1;
+      // Step down level if time is very tight (< 25 min → skip; 25-39 min → step down 2)
+      let effectiveLevel = runLevel;
+      if (checkIn?.time_budget && checkIn.time_budget < 25) {
+        effectiveLevel = 0; // skip — too short for any useful run
+      } else if (checkIn?.time_budget && checkIn.time_budget < 40) {
+        effectiveLevel = Math.max(1, runLevel - 2);
+      }
+
+      if (effectiveLevel > 0) {
+        const runSlug = effectiveLevel <= 6
+          ? `run-interval-level-${effectiveLevel}`
+          : `run-level-${effectiveLevel}`;
+        const runEx = exercises.find(ex => ex.slug === runSlug);
+        const warmUpEx = exercises.find(ex => ex.slug === 'easy-jog-warmup');
+        const cooldownEx = exercises.find(ex => ex.slug === 'cooldown-walk');
+        if (runEx) {
+          const reason = cyclingSlotFull ? 'rest day fill' : 'short time — swapped from cycling';
+          trace.push(`R557c — Cross-training run: Level ${effectiveLevel} (${runEx.name}) · ${reason} · ${crossRunsLast7}/${runDaysPerWeek} runs this window`);
+          crossTrainingOverride = {
+            warmUps: warmUpEx ? [warmUpEx] : [],
+            runEx,
+            cooldownWalk: cooldownEx ?? null,
+            level: effectiveLevel,
+          };
+        }
+      }
     }
   }
 
@@ -2149,6 +2235,12 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         runProgramOverride.runEx,
         ...(runProgramOverride.cooldownWalk ? [runProgramOverride.cooldownWalk] : []),
       ]
+    : crossTrainingOverride
+    ? [
+        ...crossTrainingOverride.warmUps,
+        crossTrainingOverride.runEx,
+        ...(crossTrainingOverride.cooldownWalk ? [crossTrainingOverride.cooldownWalk] : []),
+      ]
     : cyclingProgramOverride
     ? [] // cycling uses synthetic step, no DB exercises needed
     : milIsCooperTest
@@ -2414,6 +2506,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
   } else if (cyclingProgramOverride) {
     session_name = `Cycling Day · Week ${cyclingProgramOverride.week} · ${cyclingProgramOverride.sessionType}`;
+  } else if (crossTrainingOverride) {
+    session_name = `Cross-Training Run · Level ${crossTrainingOverride.level}`;
   } else if (slot_type === 'rest') {
     session_name = 'Active Rest';
   } else if (slot_type === 'micro') {
@@ -2470,6 +2564,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
           tss_planned: cyclingProgramOverride.tss_planned,
           workout_id:  cyclingProgramOverride.workout_id,
         }
+      : null,
+    cross_training_run: crossTrainingOverride
+      ? { level: crossTrainingOverride.level }
       : null,
     military_program: militaryActive ? (() => {
       const {

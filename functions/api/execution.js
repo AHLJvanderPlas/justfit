@@ -288,7 +288,7 @@ export async function onRequestPost({ request, env }) {
 
     // ── 4b. Advance cycling coach progression ────────────────────────────────
     try {
-      await advanceCyclingCoach(user_id, steps, env, now);
+      await advanceCyclingCoach(user_id, steps, session_type, env, now);
     } catch (err) {
       console.error('Cycling coach advance failed (non-fatal):', err.message);
     }
@@ -453,14 +453,14 @@ async function advanceRunCoach(userId, steps, env, nowMs) {
 
 // ─── Cycling Coach progression ────────────────────────────────────────────────
 
-async function advanceCyclingCoach(userId, steps, env, nowMs) {
+async function advanceCyclingCoach(userId, steps, sessionType, env, nowMs) {
   if (!userId || !steps?.length) return;
 
-  // Only advance when a cycling coach synthetic step was in this session
-  const hasCyclingStep = steps.some(s =>
-    typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_')
-  );
-  if (!hasCyclingStep) return;
+  const isCyclingSession = sessionType === 'cycling_coach'
+    || steps.some(s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_'));
+  const isCrossTrainRun = sessionType === 'cycling_cross_run';
+
+  if (!isCyclingSession && !isCrossTrainRun) return;
 
   const prefsRow = await env.DB.prepare(
     `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
@@ -471,32 +471,59 @@ async function advanceCyclingCoach(userId, steps, env, nowMs) {
   const cc = prefs.cycling_coach;
   if (!cc?.active) return;
 
-  const TOTAL_WEEKS = 8;
-  let week = cc.week ?? 1;
-  let sessionInWeek = cc.session_in_week ?? 0;
-  let sessionsTotal = cc.sessions_total ?? 0;
-  let completed = cc.completed ?? false;
+  let updatedCc = { ...cc };
 
-  // Regression: >10 day gap → step back one week
-  const daysSinceLastRide = cc.last_ride_at_ms
-    ? Math.floor((nowMs - cc.last_ride_at_ms) / 86_400_000) : 0;
-  if (daysSinceLastRide > 10 && week > 1) {
-    week = Math.max(1, week - 1);
-    sessionInWeek = 0;
+  if (isCyclingSession) {
+    const TOTAL_WEEKS = 8;
+    const cyclingDaysPerWeek = cc.cycling_days_per_week ?? 3;
+    let week = cc.week ?? 1;
+    let sessionInWeek = cc.session_in_week ?? 0;
+    let sessionsTotal = cc.sessions_total ?? 0;
+    let completed = cc.completed ?? false;
+
+    // Regression: >10 day gap → step back one week
+    const daysSinceLastRide = cc.last_ride_at_ms
+      ? Math.floor((nowMs - cc.last_ride_at_ms) / 86_400_000) : 0;
+    if (daysSinceLastRide > 10 && week > 1) {
+      week = Math.max(1, week - 1);
+      sessionInWeek = 0;
+    }
+
+    sessionsTotal += 1;
+    sessionInWeek = sessionInWeek + 1;
+    if (sessionInWeek >= cyclingDaysPerWeek) {
+      sessionInWeek = 0;
+      week += 1;
+    }
+    if (week > TOTAL_WEEKS) {
+      completed = true;
+      week = TOTAL_WEEKS;
+    }
+
+    updatedCc = { ...updatedCc, week, session_in_week: sessionInWeek, sessions_total: sessionsTotal, completed, last_ride_at_ms: nowMs };
   }
 
-  sessionsTotal += 1;
-  sessionInWeek = sessionInWeek + 1;
-  if (sessionInWeek >= 3) {
-    sessionInWeek = 0;
-    week += 1;
-  }
-  if (week > TOTAL_WEEKS) {
-    completed = true;
-    week = TOTAL_WEEKS;
+  if (isCrossTrainRun) {
+    const CROSS_RUN_ADVANCE_EVERY = 3; // sessions per level step
+    const MAX_RUN_LEVEL = 21;
+    let runLevel = cc.run_level ?? 1;
+    let runSessionsTotal = cc.run_sessions_total ?? 0;
+
+    // Regression: >14 day gap → step back one level
+    const daysSinceLastCrossRun = cc.last_cross_run_at_ms
+      ? Math.floor((nowMs - cc.last_cross_run_at_ms) / 86_400_000) : 0;
+    if (daysSinceLastCrossRun > 14 && runLevel > 1) {
+      runLevel = Math.max(1, runLevel - 1);
+    }
+
+    runSessionsTotal += 1;
+    if (runSessionsTotal % CROSS_RUN_ADVANCE_EVERY === 0) {
+      runLevel = Math.min(MAX_RUN_LEVEL, runLevel + 1);
+    }
+
+    updatedCc = { ...updatedCc, run_level: runLevel, run_sessions_total: runSessionsTotal, last_cross_run_at_ms: nowMs };
   }
 
-  const updatedCc = { ...cc, week, session_in_week: sessionInWeek, sessions_total: sessionsTotal, completed, last_ride_at_ms: nowMs };
   await env.DB.prepare(
     `UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?`
   ).bind(JSON.stringify({ ...prefs, cycling_coach: updatedCc }), nowMs, userId).run();

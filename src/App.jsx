@@ -2756,6 +2756,11 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       🚴 {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
                     </span>
                   )}
+                  {prefs?.preferences?.cycling_coach?.active && plan?.cross_training_run && (
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                      🏃 Cross-Training · Level {plan.cross_training_run.level}
+                    </span>
+                  )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       <MilitaryIcon size={10} />
@@ -2987,6 +2992,37 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         }
         if (ccActive) {
           const cc = prefs.preferences.cycling_coach;
+
+          // Cross-training run day
+          if (plan?.cross_training_run) {
+            const level = plan.cross_training_run.level;
+            const crossRunSteps = plan?.steps?.filter(s => s.target_duration_sec) ?? [];
+            const canExportCrossRunTcx = crossRunSteps.length > 0;
+            const dateStr = new Date().toISOString().slice(0, 10);
+            const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
+            return (
+              <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🏃</div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach — Cross-Training</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Run · Level {level}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{cc.run_sessions_total ?? 0} cross-training runs completed</div>
+                </div>
+                {canExportCrossRunTcx && (
+                  <button
+                    onClick={() => {
+                      const tcx = generateRunningTcx(plan?.session_name ?? 'Cross-Training Run', crossRunSteps, cc.max_hr ?? 180);
+                      triggerFileDownload(tcx, `cross_run_level_${level}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml');
+                    }}
+                    style={btnStyle}
+                  >
+                    ↓ TCX
+                  </button>
+                )}
+              </Glass>
+            );
+          }
+
           const todaySessionType = plan?.cycling_program?.session_type ?? null;
           const sessionTypeLabel = todaySessionType
             ? { 'Zone 2': 'Zone 2 — aerobic base', 'Sweet Spot': 'Sweet Spot — sub-threshold', 'Threshold': 'Threshold — FTP work', 'VO2max': 'VO2max — high intensity', 'Anaerobic': 'Anaerobic — sprint power', 'Intervals': 'Intervals — power development' }[todaySessionType] ?? todaySessionType
@@ -2999,7 +3035,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of 3 this week</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3} this week</div>
                 {sessionTypeLabel && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionTypeLabel}</div>
                 )}
@@ -6418,6 +6454,10 @@ export default function App() {
       try {
         const mergedSteps = (stepsActual ?? plan?.steps ?? []);
         const isMilSession = !!(plan?.military_program);
+        const sessionType = plan?.cross_training_run ? "cycling_cross_run"
+          : plan?.cycling_program ? "cycling_coach"
+          : plan?.run_program ? "run_coach"
+          : "workout";
         await api.saveExecution(
           userId,
           plan?.id,
@@ -6425,7 +6465,7 @@ export default function App() {
           mergedSteps,
           durationSec,
           perceivedExertion,
-          "workout",
+          sessionType,
           isMilSession ? "military" : null,
         );
         const [newScore, newHistory] = await Promise.all([
