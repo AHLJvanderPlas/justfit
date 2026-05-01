@@ -1,7 +1,9 @@
 import { getAuthUserId } from './_shared/auth.js';
 
 // GET /api/cycling-pmc
-// Computes PMC (CTL / ATL / TSB) series from cycling executions (tss_source IS NOT NULL).
+// Computes PMC (CTL / ATL / TSB) series from cycling executions only.
+// Filters to execution_type NOT LIKE 'strava_%' OR = 'strava_ride' so that
+// Strava runs/hikes imported in Phase 5b don't pollute the cycling-only chart.
 // Returns last 90 days of series + latest snapshot for the Progress tab chart.
 export async function onRequestGet({ request, env }) {
   const userId = await getAuthUserId(request, env);
@@ -12,6 +14,7 @@ export async function onRequestGet({ request, env }) {
       `SELECT date, tss_actual, tss_planned, tss_source
        FROM executions
        WHERE user_id = ? AND tss_source IS NOT NULL
+         AND (execution_type NOT LIKE 'strava_%' OR execution_type = 'strava_ride')
        ORDER BY date ASC`
     ).bind(userId).all();
 

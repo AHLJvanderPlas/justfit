@@ -211,7 +211,7 @@ export async function onRequestPost({ request, env }) {
         ).bind(user_id).first(),
         isCyclingCoachActive
           ? env.DB.prepare(
-              `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL ORDER BY date ASC`
+              `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL AND (execution_type NOT LIKE 'strava_%' OR execution_type = 'strava_ride') ORDER BY date ASC`
             ).bind(user_id).all()
           : Promise.resolve(null),
       ];

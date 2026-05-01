@@ -266,6 +266,14 @@ const api = {
     return res.json();
   },
 
+  async stravaSync(token) {
+    const res = await fetch('/api/strava-sync', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async acceptTerms(token, termsVersion, privacyVersion) {
     const res = await fetch("/api/accept-terms", {
       method: "POST",

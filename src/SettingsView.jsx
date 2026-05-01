@@ -497,6 +497,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [stravaConnection, setStravaConnection]       = useState(null); // null=loading, false=not connected, object=connected
   const [stravaConnecting, setStravaConnecting]       = useState(false);
   const [stravaDisconnecting, setStravaDisconnecting] = useState(false);
+  const [stravaSyncing, setStravaSyncing]             = useState(false);
+  const [stravaSyncResult, setStravaSyncResult]       = useState(null); // { imported, by_type }
   const [stravaMsg, setStravaMsg]                     = useState('');
   // Training Focus
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
@@ -730,11 +732,32 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         headers: { Authorization: `Bearer ${token}` },
       });
       setStravaConnection(false);
+      setStravaSyncResult(null);
       setStravaMsg('Disconnected from Strava.');
     } catch {
       setStravaMsg('Could not disconnect. Try again.');
     }
     setStravaDisconnecting(false);
+  };
+
+  const handleStravaSync = async () => {
+    setStravaSyncing(true);
+    setStravaMsg('');
+    setStravaSyncResult(null);
+    try {
+      const data = await api.stravaSync(token);
+      if (data.ok) {
+        setStravaSyncResult({ imported: data.imported, by_type: data.by_type });
+        // Update last_sync_at_ms in local connection state
+        setStravaConnection(c => c ? { ...c, last_sync_at_ms: Date.now() } : c);
+        setStravaMsg(data.imported === 0 ? 'Already up to date.' : '');
+      } else {
+        setStravaMsg(data.error ?? 'Sync failed. Try again.');
+      }
+    } catch {
+      setStravaMsg('Could not reach sync service. Try again.');
+    }
+    setStravaSyncing(false);
   };
 
   const handleAddPasskey = async () => {
@@ -2671,13 +2694,22 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
               </div>
             </div>
             {stravaConnection === null ? null : stravaConnection ? (
-              <button
-                onClick={handleStravaDisconnect}
-                disabled={stravaDisconnecting}
-                style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, whiteSpace: "nowrap" }}
-              >
-                {stravaDisconnecting ? 'Disconnecting…' : 'Disconnect'}
-              </button>
+              <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+                <button
+                  onClick={handleStravaSync}
+                  disabled={stravaSyncing}
+                  style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", whiteSpace: "nowrap" }}
+                >
+                  {stravaSyncing ? 'Syncing…' : 'Sync'}
+                </button>
+                <button
+                  onClick={handleStravaDisconnect}
+                  disabled={stravaDisconnecting}
+                  style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, whiteSpace: "nowrap" }}
+                >
+                  {stravaDisconnecting ? '…' : 'Disconnect'}
+                </button>
+              </div>
             ) : (
               <button
                 onClick={handleStravaConnect}
@@ -2688,14 +2720,35 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
               </button>
             )}
           </div>
-          {stravaMsg && (
-            <div style={{ fontSize: 11, color: stravaMsg.startsWith('Disconnected') ? C.emerald : "#f87171", marginTop: 4 }}>
-              {stravaMsg}
+
+          {/* Last sync + result summary */}
+          {stravaConnection && stravaConnection.last_sync_at_ms && (
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
+              Last synced: {(() => {
+                const mins = Math.floor((Date.now() - stravaConnection.last_sync_at_ms) / 60000);
+                if (mins < 2)  return 'just now';
+                if (mins < 60) return `${mins}m ago`;
+                const hrs = Math.floor(mins / 60);
+                if (hrs < 24)  return `${hrs}h ago`;
+                return `${Math.floor(hrs / 24)}d ago`;
+              })()}
             </div>
           )}
-          {stravaConnection && (
-            <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-              Rides synced from Strava will feed your PMC fitness chart and cycling coach — coming in a future update.
+
+          {stravaSyncResult && stravaSyncResult.imported > 0 && (
+            <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, fontSize: 11, color: C.emerald }}>
+              {stravaSyncResult.imported} activit{stravaSyncResult.imported === 1 ? 'y' : 'ies'} imported
+              {Object.entries(stravaSyncResult.by_type ?? {}).length > 0 && ` · ${
+                Object.entries(stravaSyncResult.by_type)
+                  .map(([cat, n]) => `${n} ${cat}`)
+                  .join(', ')
+              }`}
+            </div>
+          )}
+
+          {stravaMsg && (
+            <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' ? C.muted : "#f87171", marginTop: 4 }}>
+              {stravaMsg}
             </div>
           )}
         </Glass>

@@ -5618,20 +5618,60 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
         </Glass>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[...history].map((h) => (
+          {[...history].map((h) => {
+            const isStrava = typeof h.execution_type === 'string' && h.execution_type.startsWith('strava_');
+            const stravaMeta = isStrava && h.strava_metadata_json
+              ? (() => { try { return JSON.parse(h.strava_metadata_json); } catch { return null; } })()
+              : null;
+            const STRAVA_SPORT_ICON = {
+              strava_ride: '🚴', strava_run: '🏃', strava_walk: '🚶',
+              strava_hike: '🥾', strava_swim: '🏊', strava_row: '🚣', strava_workout: '💪',
+            };
+            const STRAVA_SPORT_LABEL = {
+              strava_ride: 'Ride', strava_run: 'Run', strava_walk: 'Walk',
+              strava_hike: 'Hike', strava_swim: 'Swim', strava_row: 'Row', strava_workout: 'Workout',
+            };
+            const sportIcon  = STRAVA_SPORT_ICON[h.execution_type]  ?? '⚡';
+            const sportLabel = STRAVA_SPORT_LABEL[h.execution_type] ?? h.execution_type;
+            const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
+            const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
+            return (
             <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 40, height: 40, borderRadius: 12, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                    <polyline points="20 6 9 17 4 12" />
-                  </svg>
+                <div style={{
+                  width: 40, height: 40, borderRadius: 12, flexShrink: 0,
+                  background: isStrava ? "rgba(252,76,2,0.12)" : C.emeraldDim,
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  fontSize: isStrava ? 20 : undefined,
+                }}>
+                  {isStrava ? sportIcon : (
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                      <polyline points="20 6 9 17 4 12" />
+                    </svg>
+                  )}
                 </div>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-                    {new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                      {stravaMeta?.name || new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                    </div>
+                    {isStrava && (
+                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "2px 6px", borderRadius: 6 }}>
+                        STRAVA
+                      </span>
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                    {h.execution_type || "workout"} · {h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}
+                    {isStrava
+                      ? [
+                          new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }),
+                          sportLabel,
+                          h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null,
+                          distKm ? `${distKm} km` : null,
+                          elevM ? `↑${elevM}m` : null,
+                        ].filter(Boolean).join(' · ')
+                      : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`
+                    }
                   </div>
                 </div>
               </div>
@@ -5653,7 +5693,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
                 </button>
               </div>
             </Glass>
-          ))}
+          ); })}
         </div>
       )}
 
