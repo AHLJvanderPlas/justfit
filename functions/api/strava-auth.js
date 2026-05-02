@@ -20,28 +20,12 @@
  *   JWT_SECRET            — shared app secret for token verification
  */
 
+import { getAuthUserId } from './_shared/auth.js';
+
 const STRAVA_AUTH_URL   = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
 const STRAVA_ATHLETE_URL = 'https://www.strava.com/api/v3/athlete';
 const SCOPE             = 'activity:read_all';
-
-// ── JWT verification (inlined — no npm) ──────────────────────────────────────
-
-async function verifyJwt(token, secret) {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, payload, sig] = parts;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const data = new TextEncoder().encode(`${header}.${payload}`);
-  const sigBuf = Uint8Array.from(atob(sig.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
-  const valid = await crypto.subtle.verify('HMAC', key, sigBuf, data);
-  if (!valid) return null;
-  const decoded = JSON.parse(atob(payload.replace(/-/g,'+').replace(/_/g,'/')));
-  if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) return null;
-  return decoded;
-}
 
 function authError(msg, status = 401) {
   return Response.json({ error: msg }, { status });
@@ -55,14 +39,6 @@ function corsHeaders() {
     'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization',
   };
-}
-
-async function getUserId(request, env) {
-  const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!token) return null;
-  const payload = await verifyJwt(token, env.JWT_SECRET);
-  return payload?.userId ?? null;
 }
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -83,7 +59,7 @@ async function getByoCreds(userId, env) {
 }
 
 async function handleGet(request, env) {
-  const userId = await getUserId(request, env);
+  const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
   const { clientId, isByo } = await getByoCreds(userId, env);
@@ -129,7 +105,7 @@ async function handleGet(request, env) {
 }
 
 async function handlePost(request, env) {
-  const userId = await getUserId(request, env);
+  const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
   let body;
@@ -267,7 +243,7 @@ async function handlePost(request, env) {
 }
 
 async function handleDelete(request, env) {
-  const userId = await getUserId(request, env);
+  const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
   try {
