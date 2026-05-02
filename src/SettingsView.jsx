@@ -729,7 +729,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
       if (data.auth_url) {
         window.location.href = data.auth_url;
       } else {
-        setStravaMsg('Strava integration is not configured yet.');
+        setStravaMsg('Enter your Client ID and Client Secret below, then click Save credentials.');
+        setShowStravaSetup(true);
       }
     } catch {
       setStravaMsg('Could not reach Strava. Try again.');
@@ -756,10 +757,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
 
   const handleByoSave = async () => {
     if (!byoClientId.trim()) { setStravaMsg('Client ID is required.'); return; }
+    if (!byoClientSecret.trim()) { setStravaMsg('Client Secret is required.'); return; }
     setByoSaving(true);
     setStravaMsg('');
     try {
-      const byoPrefs = { strava_byo: { client_id: byoClientId.trim(), ...(byoClientSecret.trim() ? { client_secret: byoClientSecret.trim() } : {}) } };
+      const byoPrefs = { strava_byo: { client_id: byoClientId.trim(), client_secret: byoClientSecret.trim() } };
       const newPrefs = { ...(prefs.preferences ?? {}), ...byoPrefs };
       onUpdate(p => ({ ...p, preferences: newPrefs }));
       await api.saveProfile(token, { preferences: newPrefs });
@@ -2881,8 +2883,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
                 />
                 <button
                   onClick={handleByoSave}
-                  disabled={byoSaving || !byoClientId.trim()}
-                  style={{ padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: byoSaving || !byoClientId.trim() ? "not-allowed" : "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", opacity: byoSaving || !byoClientId.trim() ? 0.5 : 1 }}
+                  disabled={byoSaving || !byoClientId.trim() || !byoClientSecret.trim()}
+                  style={{ padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: byoSaving || !byoClientId.trim() || !byoClientSecret.trim() ? "not-allowed" : "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", opacity: byoSaving || !byoClientId.trim() || !byoClientSecret.trim() ? 0.5 : 1 }}
                 >
                   {byoSaving ? 'Saving…' : 'Save credentials'}
                 </button>
