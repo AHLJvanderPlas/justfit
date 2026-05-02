@@ -67,11 +67,26 @@ async function getUserId(request, env) {
 
 // ── Handlers ─────────────────────────────────────────────────────────────────
 
+async function getByoCreds(userId, env) {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+    ).bind(userId).first();
+    const prefs = JSON.parse(row?.preferences_json ?? '{}');
+    const byo = prefs.strava_byo ?? {};
+    return {
+      clientId:     byo.client_id     || env.STRAVA_CLIENT_ID     || null,
+      clientSecret: byo.client_secret || env.STRAVA_CLIENT_SECRET || null,
+      isByo:        !!(byo.client_id && byo.client_secret),
+    };
+  } catch { return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false }; }
+}
+
 async function handleGet(request, env) {
   const userId = await getUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
-  const clientId = env.STRAVA_CLIENT_ID;
+  const { clientId, isByo } = await getByoCreds(userId, env);
   if (!clientId) return Response.json({ error: 'Strava not configured' }, { status: 503 });
 
   // Fetch existing connection status
@@ -109,6 +124,7 @@ async function handleGet(request, env) {
   return Response.json({
     auth_url: `${STRAVA_AUTH_URL}?${params}`,
     connection,
+    is_byo: isByo,
   }, { headers: corsHeaders() });
 }
 
@@ -118,6 +134,41 @@ async function handlePost(request, env) {
 
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: 'Bad request' }, { status: 400 }); }
+
+  // ── Save BYO app credentials (targeted json_patch, no profile.js pipeline) ──
+  if (body.action === 'save_byo') {
+    const clientId     = (body.client_id     ?? '').trim();
+    const clientSecret = (body.client_secret ?? '').trim();
+    if (!clientId || !clientSecret) {
+      return Response.json({ error: 'client_id and client_secret are required' }, { status: 400 });
+    }
+    try {
+      const byoJson = JSON.stringify({ client_id: clientId, client_secret: clientSecret });
+      const existingRow = await env.DB.prepare(
+        `SELECT user_id FROM user_preferences WHERE user_id = ? LIMIT 1`
+      ).bind(userId).first();
+      if (existingRow) {
+        await env.DB.prepare(
+          `UPDATE user_preferences
+           SET preferences_json = json_patch(preferences_json, json_object('strava_byo', json(?))),
+               updated_at_ms = ?
+           WHERE user_id = ?`
+        ).bind(byoJson, Date.now(), userId).run();
+      } else {
+        await env.DB.prepare(
+          `INSERT INTO user_preferences
+             (user_id, units, training_goal, experience_level, intensity_pref,
+              session_duration_min, days_per_week_target, preferences_json,
+              created_at_ms, updated_at_ms)
+           VALUES (?, 'metric', 'health', 'beginner', 5, 30, 3, ?, ?, ?)`
+        ).bind(userId, JSON.stringify({ strava_byo: { client_id: clientId, client_secret: clientSecret } }), Date.now(), Date.now()).run();
+      }
+      return Response.json({ ok: true }, { headers: corsHeaders() });
+    } catch (e) {
+      console.error('strava-auth save_byo:', e);
+      return Response.json({ error: 'Internal error' }, { status: 500 });
+    }
+  }
 
   const { code, state } = body;
   if (!code) return Response.json({ error: 'Missing code' }, { status: 400 });
@@ -133,8 +184,7 @@ async function handlePost(request, env) {
     }
   }
 
-  const clientId     = env.STRAVA_CLIENT_ID;
-  const clientSecret = env.STRAVA_CLIENT_SECRET;
+  const { clientId, clientSecret } = await getByoCreds(userId, env);
   if (!clientId || !clientSecret) return Response.json({ error: 'Strava not configured' }, { status: 503 });
 
   // Exchange code for tokens

@@ -761,10 +761,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
     setByoSaving(true);
     setStravaMsg('');
     try {
-      const byoPrefs = { strava_byo: { client_id: byoClientId.trim(), client_secret: byoClientSecret.trim() } };
-      const newPrefs = { ...(prefs.preferences ?? {}), ...byoPrefs };
-      onUpdate(p => ({ ...p, preferences: newPrefs }));
-      await api.saveProfile(token, { preferences: newPrefs });
+      const data = await api.saveStravaByo(token, byoClientId.trim(), byoClientSecret.trim());
+      if (!data.ok) {
+        setStravaMsg(data.error || 'Could not save credentials. Try again.');
+        setByoSaving(false);
+        return;
+      }
       setByoClientSecret(''); // clear after save — never keep secret in local state
       setStravaMsg('App credentials saved. Click Connect Strava to link your account.');
       setShowStravaSetup(false);

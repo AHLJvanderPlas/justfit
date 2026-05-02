@@ -266,6 +266,15 @@ const api = {
     return res.json();
   },
 
+  async saveStravaByo(token, clientId, clientSecret) {
+    const res = await fetch('/api/strava-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'save_byo', client_id: clientId, client_secret: clientSecret }),
+    });
+    return res.json();
+  },
+
   async stravaSync(token) {
     const res = await fetch('/api/strava-sync', {
       method: 'POST',
