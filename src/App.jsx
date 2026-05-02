@@ -320,6 +320,14 @@ function getToken() {
   return localStorage.getItem("jf_token");
 }
 
+function getJwtPayload(token) {
+  try {
+    const b64 = token?.split('.')[1];
+    if (!b64) return null;
+    return JSON.parse(atob(b64.replace(/-/g, '+').replace(/_/g, '/')));
+  } catch { return null; }
+}
+
 function logout() {
   // Clear all user-specific keys so the next user starts clean
   ["jf_token", "jf_user_id", "jf_prefs", "jf_accent", "jf_checkin_date"].forEach(k => localStorage.removeItem(k));
@@ -670,6 +678,7 @@ function defaultPeriodDate() {
 function OnboardingModal({ token, onComplete, onBack }) {
   const [step, setStep] = useState(0);
   // Step 0 — About you
+  const [displayName, setDisplayName] = useState("");
   const [sex, setSex] = useState(null);
   const [weightInput, setWeightInput] = useState("");
   const [weightUnit, setWeightUnit] = useState("kg");
@@ -721,18 +730,20 @@ function OnboardingModal({ token, onComplete, onBack }) {
         ? { tracking_mode: "smart", cycle_length_days: cycleLength, last_period_start: lastPeriodStart }
         : { tracking_mode: "off" };
 
+      const prefPayload = { available_equipment: equipment };
+      if (displayName.trim()) prefPayload.display_name = displayName.trim();
       await api.saveProfile(token, {
         training_goal: goal,
         experience_level: experience,
         session_duration_min: duration,
         days_per_week_target: 3,
-        preferences: { available_equipment: equipment },
+        preferences: prefPayload,
         sex,
         weight_kg,
         height_cm,
         cycle,
       });
-      onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration, sex, weight_kg, height_cm });
+      onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration, sex, weight_kg, height_cm, preferences: prefPayload });
     } catch (e) {
       console.error("Failed to save profile:", e);
       onComplete({});
@@ -826,6 +837,23 @@ function OnboardingModal({ token, onComplete, onBack }) {
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>About you</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>This helps us personalise your training baseline.</div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                Your name <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+              </div>
+              <input
+                type="text"
+                placeholder="What should we call you?"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                maxLength={50}
+                style={{
+                  width: "100%", padding: "10px 14px", borderRadius: 12,
+                  background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                  color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
+                  boxSizing: "border-box", marginBottom: 24,
+                }}
+              />
 
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
                 How do you identify?
@@ -6100,6 +6128,13 @@ export default function App() {
   const [cyclingPmc, setCyclingPmc] = useState(null);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() => parseInt(localStorage.getItem('jf_ftp_snooze_until') || '0'));
 
+  // No-email banner: shown when user has no email set (guest or registered without email)
+  const hasEmail = !!(getJwtPayload(token)?.email);
+  const [emailBannerDismissed, setEmailBannerDismissed] = useState(() => {
+    const ts = parseInt(localStorage.getItem('jf_email_banner_dismissed') || '0');
+    return ts > Date.now() - 24 * 60 * 60 * 1000;
+  });
+
   // Post-workout state
   const [todayCompleted, setTodayCompleted] = useState(
     () => localStorage.getItem(`jf_completed_${today}`) === "1"
@@ -6806,6 +6841,21 @@ export default function App() {
             {view === "today" && (
               <>
                 <PregnancyProgressBanner cycle={prefs.cycle} />
+                {!hasEmail && !emailBannerDismissed && (
+                  <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>⚠</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>Add your email to keep your data</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Without email, you can't log back in when your session expires.</div>
+                    </div>
+                    <button onClick={() => setView("settings")} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
+                      Add →
+                    </button>
+                    <button onClick={() => { setEmailBannerDismissed(true); localStorage.setItem('jf_email_banner_dismissed', String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
+                      ×
+                    </button>
+                  </div>
+                )}
                 <Dashboard
                   plan={plan}
                   score={score}

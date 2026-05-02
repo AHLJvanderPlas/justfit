@@ -239,6 +239,35 @@ async function handlePasskeyLogin() {
   }
 }
 
+// ─── GUEST SIGNUP ────────────────────────────────────────────────────────
+async function handleGuestSignup() {
+  const btn = document.getElementById('guest-btn');
+  btn.disabled = true;
+  btn.textContent = 'Setting up…';
+  hideAlert('main-alert');
+  try {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'guest_signup' }),
+    });
+    const data = await res.json();
+    if (!data.ok) {
+      showAlert('main-alert', data.error || 'Could not create guest session.');
+      btn.disabled = false;
+      btn.textContent = 'Continue without account →';
+      return;
+    }
+    localStorage.setItem('jf_token',   data.token);
+    localStorage.setItem('jf_user_id', data.userId);
+    window.location.href = '/';
+  } catch {
+    showAlert('main-alert', 'Network error. Please try again.');
+    btn.disabled = false;
+    btn.textContent = 'Continue without account →';
+  }
+}
+
 // ─── MAGIC LINK AUTO-VERIFY ──────────────────────────────────────────────
 async function verifyMagicLink(token) {
   document.getElementById('main-view').style.display  = 'none';
@@ -294,6 +323,7 @@ async function verifyMagicLink(token) {
   document.getElementById('magic-btn').addEventListener('click', handleMagicLink);
   document.getElementById('forgot-btn').addEventListener('click', handleForgot);
   document.getElementById('passkey-btn').addEventListener('click', handlePasskeyLogin);
+  document.getElementById('guest-btn').addEventListener('click', handleGuestSignup);
 
   // Enter key support
   document.addEventListener('keydown', e => {

@@ -180,8 +180,8 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO users (id, status, primary_email, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)`)
       .bind(userId, emailLower, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
-    env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'sha256+salt', ?, ?)`)
-      .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now),
+    env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'sha256+salt', ?, ?, ?)`)
+      .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now, now),
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, now, now, now),
     env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
@@ -893,6 +893,37 @@ async function getSessionUser(request, secret) {
   return verifyJWT(token, secret);
 }
 
+// ─── GUEST SIGNUP ─────────────────────────────────────────────────────────────
+async function handleGuestSignup(request, env, secret) {
+  // Rate-limit guest creation to prevent DB abuse: 5 per IP per hour
+  const ipBucket = `guest:ip:${clientIp(request)}`;
+  if (await isRateLimited(ipBucket, 5, 60 * 60 * 1000, env)) {
+    return Response.json({ error: 'Too many requests — try again later' }, { status: 429 });
+  }
+
+  const userId = crypto.randomUUID();
+  const now    = Date.now();
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT INTO users (id, status, primary_email, created_at_ms, updated_at_ms)
+       VALUES (?, 'active', NULL, ?, ?)`
+    ).bind(userId, now, now),
+    env.DB.prepare(
+      `INSERT INTO auth_users (id, user_id, provider, email, email_verified,
+         password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms)
+       VALUES (?, ?, 'guest', NULL, 0, NULL, NULL, ?, ?, ?)`
+    ).bind(crypto.randomUUID(), userId, now, now, now),
+    env.DB.prepare(
+      `INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms)
+       VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`
+    ).bind(crypto.randomUUID(), userId, now, now, now),
+  ]);
+
+  const token = await createJWT({ userId, email: null, guest: true }, secret);
+  return Response.json({ ok: true, token, userId, guest: true });
+}
+
 // ─── EXPORTED HANDLERS ────────────────────────────────────────────────────────
 export async function onRequestPost({ request, env }) {
   try {
@@ -910,6 +941,7 @@ export async function onRequestPost({ request, env }) {
       case 'passkey_complete_register': return handlePasskeyCompleteRegister(request, body, env, secret);
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
       case 'passkey_complete_auth':     return handlePasskeyCompleteAuth(body, env, secret);
+      case 'guest_signup':              return handleGuestSignup(request, env, secret);
       case 'delete_account':            return handleDeleteAccount(request, env, secret);
       case 'resend_verification':       return handleResendVerification(request, env, secret);
       case 'verify_email_code':         return handleVerifyEmailCode(body, request, env, secret);
