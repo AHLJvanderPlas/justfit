@@ -10,15 +10,20 @@
 -- Canonical current state of:
 --   exercise_aliases       : 87 rows (migration 0046)
 --   program_templates      : 13 rows (migration 0047)
---   program_template_items : 1867 rows (migration 0047, after 52 deferred items excluded)
+--   program_template_items : 1869 rows (migration 0047 + 2 backfilled by migration 0048)
 --
--- Deferred — excluded from this snapshot (pending migration 0048):
---   optillen-vanaf-de-grond                    — load completely unspecified
---   til-draagtest-full-exercise                — load/object unspecified
+-- Deferred — still excluded (trainer sign-off required):
+--   optillen-vanaf-de-grond                    — load/object completely unspecified
+--   til-draagtest-full-exercise                — test load/object unspecified
 --   til-draagtest-gewicht-plaatsen-naar-heupen — load weight unspecified
---   hardlopen-zone-3-5-minuten                 — data conflict (source 2 min vs name 5 min)
---   52 program_template_items referencing those 4 exercises — also excluded
---   Resolution: trainer must supply missing parameters → migration 0048
+--   46 program_template_items referencing those 3 exercises — also excluded
+--   Note: 0047 header counted 52 deferred items; actual is 46 (the 0047 header
+--   overcounted hardlopen-zone-3-5-minuten at 6 occurrences; matrix has 2).
+--
+-- Resolved by migration 0048 (appended below):
+--   hardlopen-zone-3-5-minuten — confirmed 5-min Zone 3 run (second matrix occurrence)
+--   2 program_template_items backfilled (keuring-cluster-2 and keuring-cluster-3,
+--   block_week=4, day_index=2, session_order=7)
 --
 -- All INSERT statements are idempotent:
 --   exercise_aliases: INSERT OR IGNORE + SELECT-based exercise_id resolution
@@ -5944,3 +5949,19 @@ WHERE (SELECT id FROM exercises WHERE slug='marsen-6-km-u-20-minuten-rugzak-35kg
 INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
 SELECT '97e41a59-03dc-572e-8e9d-4aa2b68dcb2b','a12c6016-fe2e-576f-97c4-388bf0abf2bd',6,4,9,'exercise',(SELECT id FROM exercises WHERE slug='marsen-6-km-u-8-minuten-rugzak-45kg' LIMIT 1),NULL,NULL,1746230400000,1746230400000
 WHERE (SELECT id FROM exercises WHERE slug='marsen-6-km-u-8-minuten-rugzak-45kg' LIMIT 1) IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- program_template_items supplement — migration 0048 (2 backfilled items)
+-- hardlopen-zone-3-5-minuten resolved: name confirms 5-minute Zone 3 interval.
+-- Both items: Interval Training sessions, week 4, day 3 (day_index=2), order=7.
+-- ---------------------------------------------------------------------------
+
+-- Keuring Cluster 2
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '722de528-41ba-5da5-a1ee-badcaeee0a5f','05027310-42c1-51d4-83c3-e3677988194c',4,2,7,'exercise',(SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1) IS NOT NULL;
+
+-- Keuring Cluster 3
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '2fa5b262-46c6-5a00-a6d7-19a99f7932d7','33cb93e8-a882-56c4-b116-a494ec9f7ea3',4,2,7,'exercise',(SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1) IS NOT NULL;

@@ -106,5 +106,16 @@ There is no `migrations_dir` in `wrangler.toml` — D1 migrations are applied ma
 
 | Migration | Contents | Blocker |
 |-----------|----------|---------|
-| 0048 | 4 deferred Defensie exercises + 52 missing template items | Trainer sign-off on load/duration specs |
 | 0049+ | Map `cycling_workouts` → `workout_protocols` | Phase 3b (deferred) |
+
+## Still-deferred military data (post-0048)
+
+3 exercises remain unresolvable without trainer input. 46 `program_template_items` that reference them are also excluded from the baseline.
+
+| Exercise slug | Reason still deferred |
+|---|---|
+| `optillen-vanaf-de-grond` | Object/load completely unspecified — cannot be safely prescribed |
+| `til-draagtest-full-exercise` | Defensie Til/draagtest test load and object not in any local source |
+| `til-draagtest-gewicht-plaatsen-naar-heupen` | Load weight unspecified in all source data |
+
+When trainer supplies the missing specifications, create migration `0049` (or next available number) to import those exercises and backfill the 46 items.

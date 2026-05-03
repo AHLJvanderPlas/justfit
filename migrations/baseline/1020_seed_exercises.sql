@@ -7,9 +7,10 @@
 -- Bootstrap order: run AFTER 1010_schema_training.sql and 1000_schema_core.sql
 --
 -- Canonical current state of:
---   exercises         : 411 rows
+--   exercises         : 412 rows
 --                         308 general library rows (production snapshot via generator)
 --                         103 military Defensie exercises (migration 0045)
+--                         1 resolved exercise (migration 0048: hardlopen-zone-3-5-minuten)
 --   session_templates : 16 rows (migrations 0005, 0011)
 --   awards            : 17 rows
 --                         12 general awards (production snapshot via generator)
@@ -19,6 +20,7 @@
 -- Section 2 (0045 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
 -- Section 3 (0033 supplement): INSERT OR IGNORE — idempotent (non-deterministic IDs
 --   from randomblob are fine on a fresh DB; slug UNIQUE prevents duplicates).
+-- Section 4 (0048 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
 -- Military exercise_aliases, program_templates, and program_template_items
 -- are in 1040_seed_military.sql.
 -- =============================================================================
@@ -1042,3 +1044,13 @@ INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, crite
   (lower(hex(randomblob(16))), 'run-hm',  'Half the Way',   'Twenty kilometres. Half-marathon territory — you can call yourself a distance runner.', 'running', '🏃', '{"type":"run_distance","threshold":20}', 1, unixepoch()*1000, unixepoch()*1000),
   (lower(hex(randomblob(16))), 'run-30k', 'Distance Runner','Thirty kilometres. You''ve entered the long-distance category. Respect.',               'running', '🏃', '{"type":"run_distance","threshold":30}', 1, unixepoch()*1000, unixepoch()*1000);
 
+
+-- ---------------------------------------------------------------------------
+-- exercises supplement — migration 0048 (1 resolved exercise)
+-- hardlopen-zone-3-5-minuten: confirmed 5 min from second matrix occurrence.
+-- Uses INSERT WHERE NOT EXISTS slug — idempotent.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
+SELECT '6d095bd9-607a-5288-9231-646fae5b5441','hardlopen-zone-3-5-minuten','Hardlopen zone 3 - 5 minuten','cardio','[]','[]','["running","zone-3","threshold","military"]','["none"]','{"steps":["Run at zone 3 intensity for 5 minutes","2 minutes zone 1 recovery"],"cues":["Zone 3 = threshold, comfortably hard"]}','{"supports":["time","sets"]}',1,1746230400000,1746230400000
+WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='hardlopen-zone-3-5-minuten');
