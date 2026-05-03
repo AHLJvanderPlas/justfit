@@ -5830,7 +5830,8 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {[...history].map((h) => {
             const isStrava = typeof h.execution_type === 'string' && h.execution_type.startsWith('strava_');
-            const stravaMeta = isStrava && h.strava_metadata_json
+            // Parse stravaMeta for ALL executions — a non-strava workout may be linked via reconciliation
+            const stravaMeta = h.strava_metadata_json
               ? (() => { try { return JSON.parse(h.strava_metadata_json); } catch { return null; } })()
               : null;
             const STRAVA_SPORT_ICON = {
@@ -5846,7 +5847,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
             const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
             const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
             return (
-            <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{
                   width: 40, height: 40, borderRadius: 12, flexShrink: 0,
@@ -5865,7 +5866,7 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
                       {stravaMeta?.name || new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
                     </div>
-                    {isStrava && (
+                    {stravaMeta && (
                       <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "2px 6px", borderRadius: 6 }}>
                         STRAVA
                       </span>
@@ -5883,6 +5884,52 @@ function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
                       : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`
                     }
                   </div>
+                  {/* Strava metrics: speed, watts, HR, calories */}
+                  {stravaMeta && (() => {
+                    const isRun  = ['strava_run','strava_walk','strava_hike'].includes(h.execution_type);
+                    const isCycl = h.execution_type === 'strava_ride';
+                    const spd = stravaMeta.average_speed_ms;
+                    const paceStr  = (isRun && spd > 0) ? (() => { const secPerKm = 1000 / spd; const m = Math.floor(secPerKm/60); const s = Math.round(secPerKm%60); return `${m}:${String(s).padStart(2,'0')} /km`; })() : null;
+                    const kmhStr   = (isCycl && spd > 0) ? `${(spd * 3.6).toFixed(1)} km/h` : null;
+                    const hrStr    = stravaMeta.average_heartrate ? `${Math.round(stravaMeta.average_heartrate)} bpm` : null;
+                    const wattsStr = stravaMeta.average_watts ? `${Math.round(stravaMeta.average_watts)}W` : null;
+                    const kcal     = stravaMeta.calories ?? (stravaMeta.kilojoules ? Math.round(stravaMeta.kilojoules) : null);
+                    const kcalStr  = kcal ? `${kcal} kcal` : null;
+                    const pills = [paceStr || kmhStr, wattsStr, hrStr, kcalStr].filter(Boolean);
+                    if (!pills.length) return null;
+                    return (
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+                        {pills.map((p, i) => (
+                          <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "#FC4C02", background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)", padding: "2px 7px", borderRadius: 6 }}>{p}</span>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  {/* Sets completed for app workouts */}
+                  {!isStrava && h.steps?.length > 0 && (() => {
+                    const completedSteps = h.steps.map(s => {
+                      const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
+                      const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
+                      if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
+                      const sets = actual.sets_completed;
+                      const isTime = pres?.duration_sec && !pres?.reps;
+                      const reps = actual.reps_per_set ?? [];
+                      const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
+                      const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
+                      return { name: s.name, sets, detail };
+                    }).filter(Boolean);
+                    if (!completedSteps.length) return null;
+                    return (
+                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                        {completedSteps.slice(0, 6).map((s, i) => (
+                          <div key={i} style={{ fontSize: 11, color: C.muted }}>
+                            {s.name} · {s.sets} set{s.sets !== 1 ? 's' : ''}{s.detail ? ` × ${s.detail}` : ''}
+                          </div>
+                        ))}
+                        {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

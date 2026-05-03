@@ -194,10 +194,11 @@ export async function onRequestPost(context) {
     return Response.json({ error: 'Token refresh failed — reconnect Strava' }, { status: 502 });
   }
 
-  // Determine lookback window
+  // Determine lookback window — always cover at least 7 days so activities
+  // that sync late from wearables are never missed.
   const nowSec  = Math.floor(Date.now() / 1000);
   const afterSec = conn.last_sync_at_ms
-    ? Math.floor(conn.last_sync_at_ms / 1000) - 86400 // 1-day overlap to catch late-arriving activities
+    ? Math.min(Math.floor(conn.last_sync_at_ms / 1000) - 86400, nowSec - 7 * 86400)
     : nowSec - MAX_LOOKBACK_DAYS * 86400;
 
   // Fetch activities from Strava (up to 2 pages = 200 activities)
@@ -244,10 +245,13 @@ export async function onRequestPost(context) {
       type:               sportType,
       distance_m:         act.distance ?? null,
       elevation_m:        act.total_elevation_gain ?? null,
+      average_speed_ms:   act.average_speed ?? null,   // m/s — derive pace or km/h client-side
       average_watts:      act.average_watts ?? null,
       device_watts:       act.device_watts ?? false,
       average_heartrate:  act.average_heartrate ?? null,
       suffer_score:       act.suffer_score ?? null,
+      calories:           act.calories ?? null,        // running/walking (kcal)
+      kilojoules:         act.kilojoules ?? null,      // cycling (kJ ≈ kcal for exercise)
     });
 
     // For cycling rides: try to reconcile with an existing manually-completed cycling_coach session

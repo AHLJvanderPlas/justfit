@@ -696,17 +696,45 @@ export async function onRequestGet({ request, env }) {
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-    const result = await env.DB.prepare(
-      `SELECT id, date, execution_type, status, total_duration_sec,
-              perceived_exertion, tss_planned, tss_actual, tss_source,
-              created_at_ms
-       FROM executions
-       WHERE user_id = ?
-       ORDER BY created_at_ms DESC
-       LIMIT ?`
-    ).bind(user_id, limit).all();
+    const [result, stepsResult] = await Promise.all([
+      env.DB.prepare(
+        `SELECT id, date, execution_type, status, total_duration_sec,
+                perceived_exertion, tss_planned, tss_actual, tss_source,
+                strava_activity_id, strava_metadata_json,
+                created_at_ms
+         FROM executions
+         WHERE user_id = ?
+         ORDER BY created_at_ms DESC
+         LIMIT ?`
+      ).bind(user_id, limit).all(),
+      env.DB.prepare(
+        `SELECT es.execution_id, ex.name AS exercise_name, es.step_index,
+                es.prescribed_json, es.actual_json
+         FROM execution_steps es
+         LEFT JOIN exercises ex ON es.exercise_id = ex.id
+         WHERE es.execution_id IN (
+           SELECT id FROM executions WHERE user_id = ? ORDER BY created_at_ms DESC LIMIT ?
+         )
+         ORDER BY es.execution_id, es.step_index`
+      ).bind(user_id, limit).all(),
+    ]);
 
-    return Response.json({ executions: result.results });
+    const stepsByExec = {};
+    for (const s of stepsResult.results) {
+      if (!stepsByExec[s.execution_id]) stepsByExec[s.execution_id] = [];
+      stepsByExec[s.execution_id].push({
+        name: s.exercise_name,
+        prescribed_json: s.prescribed_json,
+        actual_json: s.actual_json,
+      });
+    }
+
+    const executions = result.results.map(e => ({
+      ...e,
+      steps: stepsByExec[e.id] ?? [],
+    }));
+
+    return Response.json({ executions });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
