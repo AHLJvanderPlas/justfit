@@ -161,6 +161,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [showSexWarning, setShowSexWarning] = useState(false);
   const [pendingSex, setPendingSex] = useState(null);
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
+  // Sub-view routing
+  const [subView, setSubView] = useState(null); // null | 'you' | 'coach' | 'privacy' | 'account'
+  const [primaryIntent, setPrimaryIntent] = useState(prefs.preferences?.primary_intent ?? null);
+  const [showConflictModal, setShowConflictModal] = useState(false);
   // Doc overlay
   const [activeDoc, setActiveDoc] = useState(null); // null | one of the DOCS entries
   // Voucher (subscription upgrade)
@@ -254,6 +258,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
   const [focusSel, setFocusSel] = useState(() =>
     runCoachActive ? "running" : cycleCoachActive ? "cycling" : milCoachActive ? "military" : (prefs.training_goal ?? "health")
   );
+
+  // Show conflict modal when 2+ coaches are active and no primary_intent is set
+  useEffect(() => {
+    const activeCount = [milCoachActive, runCoachActive, cycleCoachActive].filter(Boolean).length;
+    if (activeCount >= 2 && !primaryIntent && subView === "coach") {
+      setShowConflictModal(true);
+    }
+  }, [subView, milCoachActive, runCoachActive, cycleCoachActive, primaryIntent]);
   // Military Coach wizard state
   const [milTrack,        setMilTrack]        = useState(() => prefs.preferences?.military_coach?.track ?? 'keuring');
   const [milCluster,      setMilCluster]      = useState(() => prefs.preferences?.military_coach?.cluster_target ?? 3);
@@ -749,10 +761,95 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         </div>
       )}
 
-      <div style={{ marginBottom: 36 }}>
-        <h1 style={{ ...display(36), color: C.text, margin: 0 }}>SETTINGS</h1>
-      </div>
+      {subView === null ? (
+        <div style={{ marginBottom: 32 }}>
+          <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>SETTINGS</h1>
+          <div style={{ display: "flex", flexDirection: "column" }}>
+            {[
+              { key: "coach",   label: "Your coach",  sub: "Training intent · active programme · Strava" },
+              { key: "you",     label: "You",          sub: "Body · equipment · schedule · appearance" },
+              { key: "privacy", label: "Privacy",      sub: "Data export · legal docs · feedback" },
+              { key: "account", label: "Account",      sub: "Email · passkeys · security" },
+            ].map((row, i, arr) => (
+              <button
+                key={row.key}
+                onClick={() => setSubView(row.key)}
+                style={{
+                  display: "flex", alignItems: "center", justifyContent: "space-between",
+                  width: "100%", padding: "18px 0", background: "none", border: "none",
+                  borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none",
+                  cursor: "pointer", textAlign: "left",
+                }}
+              >
+                <div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 2 }}>{row.label}</div>
+                  <div style={{ fontSize: 13, color: C.muted }}>{row.sub}</div>
+                </div>
+                <span style={{ color: C.muted, fontSize: 22, marginLeft: 16, flexShrink: 0 }}>›</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
+          <button
+            onClick={() => setSubView(null)}
+            style={{ padding: "8px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontWeight: 900, fontSize: 18, cursor: "pointer", lineHeight: 1, flexShrink: 0 }}
+          >
+            ‹
+          </button>
+          <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
+            {subView === "coach" ? "YOUR COACH" : subView === "you" ? "YOU" : subView === "privacy" ? "PRIVACY" : "ACCOUNT"}
+          </h1>
+        </div>
+      )}
 
+      {subView === "coach" && (<>
+        {/* ── Active intent header ─────────────────────────── */}
+        <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: `1px solid ${C.border}` }}>
+          <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>ACTIVE COACH</div>
+          {milCoachActive ? (
+            <>
+              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
+                {"MILITARY · " + (prefs.preferences?.military_coach?.track === "keuring"
+                  ? (prefs.preferences.military_coach.cluster_current === 0 ? "KB" : `K${prefs.preferences.military_coach.cluster_current}`)
+                  : `O${prefs.preferences?.military_coach?.cluster_current ?? 1}`)}
+              </div>
+              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
+                {prefs.preferences?.military_coach?.track === "keuring" ? "Keuring" : "Opleiding"} track
+                {" · "}{prefs.preferences?.military_coach?.mode ?? "target"} mode
+                {prefs.preferences?.military_coach?.target_date && (
+                  " · " + Math.max(0, Math.ceil((new Date(prefs.preferences.military_coach.target_date) - new Date()) / 86400000)) + " days to assessment"
+                )}
+              </div>
+            </>
+          ) : runCoachActive ? (
+            <>
+              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
+                {"RUNNING · " + (prefs.preferences?.run_coach?.target_km ?? 5) + "KM"}
+              </div>
+              <div style={{ fontSize: 14, color: C.muted }}>
+                {"Week " + (prefs.preferences?.run_coach?.week ?? 1) + " · " + (prefs.preferences?.run_coach?.target_km ?? 5) + "km programme"}
+              </div>
+            </>
+          ) : cycleCoachActive ? (
+            <>
+              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
+                {"CYCLING · " + (prefs.preferences?.cycling_coach?.sub_goal ?? "build_fitness").replace(/_/g, " ").toUpperCase()}
+              </div>
+              <div style={{ fontSize: 14, color: C.muted }}>
+                {"Week " + (prefs.preferences?.cycling_coach?.week ?? 1) + " · " + (prefs.preferences?.cycling_coach?.unit === "watts" ? `FTP ${prefs.preferences.cycling_coach.ftp_watts}W` : `Max HR ${prefs.preferences?.cycling_coach?.max_hr}bpm`)}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
+                {(GOALS.find(g => g.value === (prefs.training_goal ?? "health"))?.label ?? "General Health").toUpperCase()}
+              </div>
+              <div style={{ fontSize: 14, color: C.muted }}>Adaptive daily training · no structured programme</div>
+            </>
+          )}
+        </div>
       {/* ── Training Focus ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16 }}>
@@ -1356,7 +1453,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           </div>
         </Glass>
       </div>
+      </>)}
 
+      {subView === "you" && (<>
       {/* ── Daily Planning ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
@@ -1969,104 +2068,15 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         </Glass>
       </div>
 
-      {/* ── Your Profile ────────────────────────────────────── */}
+      </>)}
+
+      {/* ── Body profile — you sub-view ──────────────────────── */}
+      {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Your Profile
+          Your profile
         </div>
         <Glass style={{ padding: 24 }}>
-          {/* Subscription row */}
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Subscription</div>
-          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
-              </div>
-              <button
-                onClick={() => {
-                  if (!prefs.isPro) {
-                    if (!voucherCode.includes("JF26")) {
-                      setVoucherError("Invalid voucher code.");
-                      return;
-                    }
-                    setVoucherError("");
-                  }
-                  const newVal = !prefs.isPro;
-                  onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
-                  api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
-                  setVoucherCode("");
-                }}
-                style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer", flexShrink: 0 }}
-              >
-                {prefs.isPro ? "Downgrade" : "Upgrade"}
-              </button>
-            </div>
-            {!prefs.isPro && (
-              <div style={{ marginTop: 12 }}>
-                <input
-                  type="text"
-                  value={voucherCode}
-                  onChange={(e) => { setVoucherCode(e.target.value); setVoucherError(""); }}
-                  placeholder="Voucher code (4–16 characters)"
-                  maxLength={16}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 14, border: `1px solid ${voucherError ? "rgba(239,68,68,0.5)" : C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, outline: "none" }}
-                />
-                {voucherError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6, fontWeight: 700 }}>{voucherError}</div>}
-              </div>
-            )}
-          </div>
-
-          {/* Email address */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Email address</div>
-            {prefs.email_verified ? (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
-                  <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ Verified</div>
-                </div>
-                <button
-                  onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }}
-                  style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}
-                >
-                  Change email →
-                </button>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: emailSuccess ? 8 : 0 }}>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
-                  </div>
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button
-                      disabled={emailLoading}
-                      onClick={async () => {
-                        setEmailLoading(true);
-                        await api.resendVerification().catch(() => {});
-                        setEmailLoading(false);
-                        setEmailSuccess("Verification email sent");
-                        setTimeout(() => setEmailSuccess(""), 4000);
-                      }}
-                      style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}
-                    >
-                      {emailLoading ? "Sending…" : "Resend"}
-                    </button>
-                    <button
-                      onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }}
-                      style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}
-                    >
-                      Enter code
-                    </button>
-                  </div>
-                </div>
-                {emailSuccess && <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700 }}>{emailSuccess}</div>}
-              </div>
-            )}
-          </div>
-
           {/* Display name */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Display name</div>
@@ -2077,62 +2087,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
               placeholder="Your name"
               style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
             />
-          </div>
-
-          {/* Guest ID */}
-          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}`, borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
-            <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>
-              {userId}
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-              Your unique identifier — links your workouts, plan, and score to your account privately and securely.
-            </div>
-          </div>
-
-          {/* Data export */}
-          <div style={{ marginBottom: 20, paddingBottom: 20, borderBottom: `1px solid ${C.border}` }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Data export</div>
-            <button
-              disabled={exporting}
-              onClick={async () => {
-                setExporting(true);
-                try {
-                  const [progressionRes, historyRes] = await Promise.all([
-                    api.getProgression(token),
-                    api.getHistory(),
-                  ]);
-                  const bundle = {
-                    exported_at: new Date().toISOString(),
-                    profile: prefs,
-                    progression: progressionRes,
-                    history: historyRes,
-                  };
-                  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-                  const url = URL.createObjectURL(blob);
-                  const a = document.createElement('a');
-                  a.href = url;
-                  a.download = `justfit-data-${new Date().toISOString().slice(0, 10)}.json`;
-                  document.body.appendChild(a);
-                  a.click();
-                  document.body.removeChild(a);
-                  URL.revokeObjectURL(url);
-                  setExportMsg("Downloaded.");
-                } catch { setExportMsg("Export failed — please try again."); }
-                setExporting(false);
-              }}
-              style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1, marginBottom: 8 }}
-            >
-              {exporting ? "Preparing…" : "Download my data (JSON)"}
-            </button>
-            {exportMsg && (
-              <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginBottom: 4 }}>
-                {exportMsg}
-              </div>
-            )}
-            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-              Your profile, settings, and workout history as a portable machine-readable file.
-            </div>
           </div>
 
           {/* Sex */}
@@ -2504,8 +2458,122 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           </div>
         )}
       </div>
+      )}
+
+      {/* ── Account sub-view ─────────────────────────────────── */}
+      {subView === "account" && (<>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Subscription</div>
+          <Glass style={{ padding: 24 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
+              </div>
+              <button
+                onClick={() => {
+                  if (!prefs.isPro) { if (!voucherCode.includes("JF26")) { setVoucherError("Invalid voucher code."); return; } setVoucherError(""); }
+                  const newVal = !prefs.isPro;
+                  onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
+                  api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
+                  setVoucherCode("");
+                }}
+                style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer", flexShrink: 0 }}
+              >
+                {prefs.isPro ? "Downgrade" : "Upgrade"}
+              </button>
+            </div>
+            {!prefs.isPro && (
+              <div style={{ marginTop: 12 }}>
+                <input type="text" value={voucherCode} onChange={(e) => { setVoucherCode(e.target.value); setVoucherError(""); }} placeholder="Voucher code (4–16 characters)" maxLength={16}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 14, border: `1px solid ${voucherError ? "rgba(239,68,68,0.5)" : C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, outline: "none" }}
+                />
+                {voucherError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6, fontWeight: 700 }}>{voucherError}</div>}
+              </div>
+            )}
+          </Glass>
+        </div>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Email & identity</div>
+          <Glass style={{ padding: 24 }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Email address</div>
+              {prefs.email_verified ? (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                  <div>
+                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
+                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ Verified</div>
+                  </div>
+                  <button onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
+                    Change email →
+                  </button>
+                </div>
+              ) : (
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: emailSuccess ? 8 : 0 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
+                      <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess("Verification email sent"); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
+                        {emailLoading ? "Sending…" : "Resend"}
+                      </button>
+                      <button onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
+                        Enter code
+                      </button>
+                    </div>
+                  </div>
+                  {emailSuccess && <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700 }}>{emailSuccess}</div>}
+                </div>
+              )}
+            </div>
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
+              <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Your unique identifier — links your workouts, plan, and score to your account privately and securely.</div>
+            </div>
+          </Glass>
+        </div>
+        <div style={{ marginBottom: 32 }}>
+          <Glass style={{ padding: 20 }}>
+            <button onClick={() => { logout(); }} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}>
+              Sign out
+            </button>
+          </Glass>
+        </div>
+      </>)}
+
+      {/* ── Data export — privacy sub-view ───────────────────── */}
+      {subView === "privacy" && (
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Data</div>
+          <Glass style={{ padding: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Data export</div>
+            <button disabled={exporting} onClick={async () => {
+              setExporting(true);
+              try {
+                const [progressionRes, historyRes] = await Promise.all([api.getProgression(token), api.getHistory()]);
+                const bundle = { exported_at: new Date().toISOString(), profile: prefs, progression: progressionRes, history: historyRes };
+                const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url; a.download = `justfit-data-${new Date().toISOString().slice(0, 10)}.json`;
+                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                setExportMsg("Downloaded.");
+              } catch { setExportMsg("Export failed — please try again."); }
+              setExporting(false);
+            }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1, marginBottom: 8 }}>
+              {exporting ? "Preparing…" : "Download my data (JSON)"}
+            </button>
+            {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginBottom: 4 }}>{exportMsg}</div>}
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Your profile, settings, and workout history as a portable machine-readable file.</div>
+          </Glass>
+        </div>
+      )}
 
       {/* ── Integrations ──────────────────────────────────────────────────── */}
+      {subView === "coach" && (
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           Integrations
@@ -2654,7 +2722,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           )}
         </Glass>
       </div>
+      )}  {/* closes subView === "coach" for Integrations */}
 
+      {subView === "account" && (
       <div style={{ marginBottom: 32 }}>
         {/* Security — Passkey */}
         {passkeySupported && (
@@ -2695,9 +2765,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           </div>
         )}
       </div>
+      )}  {/* closes subView === "account" for Security */}
 
-      {/* ── Appearance ─────────────────────────────────────── */}
+      {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
+        {/* ── Appearance ── */}
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           Appearance
         </div>
@@ -2739,8 +2811,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           </div>
         </Glass>
       </div>
+      )}  {/* closes subView === "you" for Appearance */}
 
-      {/* ── Feedback ─────────────────────────────────────────── */}
+      {subView === "privacy" && (<>
+      {/* ── Feedback ── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           Feedback
@@ -2815,9 +2889,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           ))}
         </Glass>
       </div>
+      </>)}  {/* closes subView === "privacy" for Feedback + Information */}
 
-      {/* ── Your body — only shown to female users ── */}
-      {prefs.sex === "female" && (
+      {/* ── Your body — only shown to female users, you sub-view ── */}
+      {subView === "you" && prefs.sex === "female" && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
             Your body
@@ -3080,6 +3155,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
         </div>
       )}
 
+      {subView === "account" && (
       <div style={{marginTop:24, display:"flex", flexDirection:"column", gap:10}}>
         {/* Delete account card */}
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
@@ -3097,6 +3173,33 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
           </button>
         </div>
       </div>
+      )}  {/* closes subView === "account" for Delete account */}
+
+      {/* ── Coach conflict modal ── */}
+      {showConflictModal && (
+        <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.9)" }}>
+          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}>
+            <div style={{ ...display(22), color:C.text }}>WHICH COACH DRIVES TODAY?</div>
+            <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
+              You have more than one active coach. Pick the one that shapes today's session.
+            </div>
+            {[
+              milCoachActive  && { key:"military",  label:"MILITARY", sub: prefs.preferences?.military_coach?.track === "keuring" ? "Keuring track" : "Opleiding track" },
+              runCoachActive  && { key:"running",   label:"RUNNING",  sub: `${prefs.preferences?.run_coach?.target_km ?? 5}km programme` },
+              cycleCoachActive && { key:"cycling",  label:"CYCLING",  sub: (prefs.preferences?.cycling_coach?.sub_goal ?? "build_fitness").replace(/_/g, " ") },
+            ].filter(Boolean).map(opt => (
+              <button key={opt.key} onClick={async () => {
+                setPrimaryIntent(opt.key);
+                setShowConflictModal(false);
+                try { await api.saveProfile(token, { preferences: { primary_intent: opt.key } }); } catch { /* ignore */ }
+              }} style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.emeraldBorder}`, background:C.emeraldDim, color:C.emerald, fontWeight:900, fontSize:16, cursor:"pointer", textAlign:"left" }}>
+                <div style={{ fontSize:18, fontWeight:900 }}>{opt.label}</div>
+                <div style={{ fontSize:12, fontWeight:500, color:"rgba(16,185,129,0.7)", marginTop:2 }}>{opt.sub}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Email verify / change modal */}
       {emailStep && (
