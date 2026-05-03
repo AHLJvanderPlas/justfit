@@ -259,7 +259,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0039+`; never reuse a number.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0048+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1185,6 +1185,49 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT id, primary_email,
 # Check exercises with instructions
 npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instructions_json FROM exercises WHERE instructions_json IS NOT NULL LIMIT 5;"
 ```
+
+---
+
+## Database Migration Policy
+
+### Adding a migration
+
+1. Choose the next monotonic number (`0048`, `0049`, …). Never reuse a number, never skip one.
+2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
+3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
+4. **Update the baseline** — this is mandatory:
+   - Schema change → merge new columns/tables into `migrations/baseline/1000_schema_core.sql` or `migrations/baseline/1010_schema_training.sql`
+   - Exercise/awards data → add migration to the apply list in `migrations/baseline/1020_seed_exercises.sql`
+   - Cycling data → add to `migrations/baseline/1030_seed_cycling.sql`
+   - Military data → add to `migrations/baseline/1040_seed_military.sql`
+5. Update `docs/training-model-architecture.md` migration order table if it is a training-model change.
+6. Update the "Current Build Status" table in this file.
+7. Commit: `chore: migration 000N description + baseline update`
+
+### Baseline files (source of truth for new environments)
+
+```
+migrations/baseline/
+  1010_schema_training.sql  — training tables (run FIRST)
+  1000_schema_core.sql      — all other tables (run SECOND)
+  1020_seed_exercises.sql   — exercise/template/awards seed reference
+  1030_seed_cycling.sql     — cycling workouts seed reference
+  1040_seed_military.sql    — military programme data seed reference
+migrations/legacy/
+  README.md                 — explains that migrations/*.sql are the audit trail
+docs/
+  database-bootstrap.md     — full bootstrap procedure for new environments
+```
+
+The baseline files contain **merged** CREATE TABLE definitions — no ALTER TABLE chains.
+The legacy migrations (`migrations/000X_*.sql`) remain in place as the audit trail.
+
+### Rules
+
+- **Never edit a migration that has been applied to production.** Migrations are append-only history.
+- **Baseline must stay current.** Every schema migration must be reflected in the baseline before the PR is merged.
+- **No auto-discovery.** There is no `migrations_dir` in `wrangler.toml`. Every migration is applied with an explicit `--file` flag.
+- **D1 only.** Never apply SQLite-only pragmas (e.g. VACUUM, ATTACH) that D1 does not support.
 
 ---
 
