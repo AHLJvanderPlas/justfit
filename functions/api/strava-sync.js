@@ -16,29 +16,12 @@
  *  - First sync: last 90 days; incremental: since last_sync_at_ms
  */
 
+import { getAuthUserId } from './_shared/auth.js';
+
 const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/api/v3/athlete/activities';
 const STRAVA_TOKEN_URL      = 'https://www.strava.com/oauth/token';
 const MAX_LOOKBACK_DAYS     = 90;
 const PER_PAGE              = 100;
-
-// ── JWT (inlined, no npm) ─────────────────────────────────────────────────────
-
-async function verifyJwt(token, secret) {
-  const parts = token.split('.');
-  if (parts.length !== 3) return null;
-  const [header, payload, sig] = parts;
-  const key = await crypto.subtle.importKey(
-    'raw', new TextEncoder().encode(secret),
-    { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-  );
-  const data = new TextEncoder().encode(`${header}.${payload}`);
-  const sigBuf = Uint8Array.from(atob(sig.replace(/-/g,'+').replace(/_/g,'/')), c => c.charCodeAt(0));
-  const valid  = await crypto.subtle.verify('HMAC', key, sigBuf, data);
-  if (!valid) return null;
-  const decoded = JSON.parse(atob(payload.replace(/-/g,'+').replace(/_/g,'/')));
-  if (decoded.exp && decoded.exp < Math.floor(Date.now() / 1000)) return null;
-  return decoded;
-}
 
 // ── Activity classification ───────────────────────────────────────────────────
 
@@ -138,16 +121,19 @@ function estimateCyclingTss(act, ftpWatts, maxHr) {
 
 // ── Token refresh ─────────────────────────────────────────────────────────────
 
-async function getValidAccessToken(conn, env) {
+async function getValidAccessToken(conn, env, byoCreds) {
   // 60-second buffer before expiry
   if (Date.now() < conn.expires_at_ms - 60_000) return conn.access_token;
+
+  const clientId     = byoCreds?.clientId     || env.STRAVA_CLIENT_ID;
+  const clientSecret = byoCreds?.clientSecret || env.STRAVA_CLIENT_SECRET;
 
   const resp = await fetch(STRAVA_TOKEN_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      client_id:     env.STRAVA_CLIENT_ID,
-      client_secret: env.STRAVA_CLIENT_SECRET,
+      client_id:     clientId,
+      client_secret: clientSecret,
       refresh_token: conn.refresh_token,
       grant_type:    'refresh_token',
     }),
@@ -171,12 +157,8 @@ export async function onRequestPost(context) {
   const { request, env } = context;
 
   // Auth
-  const auth = request.headers.get('Authorization') ?? '';
-  const rawToken = auth.startsWith('Bearer ') ? auth.slice(7) : null;
-  if (!rawToken) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  const payload = await verifyJwt(rawToken, env.JWT_SECRET);
-  if (!payload) return Response.json({ error: 'Unauthorized' }, { status: 401 });
-  const userId = payload.userId;
+  const userId = await getAuthUserId(request, env);
+  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
   // Load connection + user preferences in parallel
   const [conn, prefsRow] = await Promise.all([
@@ -190,18 +172,23 @@ export async function onRequestPost(context) {
 
   if (!conn) return Response.json({ error: 'Strava not connected' }, { status: 404 });
 
-  // Parse user prefs for FTP / max HR (used in TSS calculation)
+  // Parse user prefs for FTP / max HR (TSS) and BYO Strava credentials
   let ftpWatts = 0, maxHr = 0;
+  let byoCreds = null;
   try {
     const prefs = JSON.parse(prefsRow?.preferences_json ?? '{}');
     ftpWatts = prefs.cycling_coach?.ftp_watts ?? 0;
     maxHr    = prefs.cycling_coach?.max_hr ?? 0;
+    const byo = prefs.strava_byo ?? {};
+    if (byo.client_id && byo.client_secret) {
+      byoCreds = { clientId: byo.client_id, clientSecret: byo.client_secret };
+    }
   } catch { /* ignore */ }
 
   // Get valid access token (refreshes if needed)
   let accessToken;
   try {
-    accessToken = await getValidAccessToken(conn, env);
+    accessToken = await getValidAccessToken(conn, env, byoCreds);
   } catch (e) {
     console.error('strava-sync token refresh:', e);
     return Response.json({ error: 'Token refresh failed — reconnect Strava' }, { status: 502 });
@@ -262,6 +249,67 @@ export async function onRequestPost(context) {
       suffer_score:       act.suffer_score ?? null,
     });
 
+    // For cycling rides: try to reconcile with an existing manually-completed cycling_coach session
+    // on the same date to avoid duplicates and to link Strava data to planned rides.
+    if (category === 'cycling') {
+      try {
+        const existingManual = await env.DB.prepare(
+          `SELECT id, strava_activity_id FROM executions
+           WHERE user_id = ? AND date = ? AND execution_type = 'cycling_coach' LIMIT 1`
+        ).bind(userId, date).first();
+
+        if (existingManual) {
+          if (!existingManual.strava_activity_id) {
+            // Link Strava data to the already-completed planned ride
+            await env.DB.prepare(`
+              UPDATE executions SET
+                strava_activity_id = ?, strava_metadata_json = ?,
+                tss_actual = COALESCE(tss_actual, ?), tss_source = COALESCE(tss_source, ?),
+                updated_at_ms = ?
+              WHERE id = ?
+            `).bind(String(act.id), metadata, tssActual, tssSource, nowMs, existingManual.id).run();
+            byType[category] = (byType[category] ?? 0) + 1;
+            imported++;
+          } else {
+            skipped++; // already linked or independent session exists
+          }
+          continue;
+        }
+
+        // No manual session — look for a day_plan to link
+        const dayPlan = await env.DB.prepare(
+          `SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`
+        ).bind(userId, date).first();
+
+        await env.DB.prepare(`
+          INSERT INTO executions
+            (id, user_id, date, day_plan_id, execution_type, status,
+             total_duration_sec, perceived_exertion,
+             tss_planned, tss_actual, tss_source,
+             strava_activity_id, strava_metadata_json,
+             created_at_ms, updated_at_ms)
+          VALUES (?, ?, ?, ?, ?, 'completed', ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(user_id, strava_activity_id)
+            WHERE strava_activity_id IS NOT NULL
+          DO NOTHING
+        `).bind(
+          crypto.randomUUID(), userId, date,
+          dayPlan?.id ?? null,
+          execType,
+          act.moving_time ?? act.elapsed_time ?? 0,
+          tssActual, tssSource,
+          act.id, metadata,
+          nowMs, nowMs,
+        ).run();
+        byType[category] = (byType[category] ?? 0) + 1;
+        imported++;
+      } catch (e) {
+        if (e.message?.includes('UNIQUE')) { skipped++; }
+        else { console.error('strava-sync cycling insert:', act.id, e.message); skipped++; }
+      }
+      continue;
+    }
+
     try {
       await env.DB.prepare(`
         INSERT INTO executions
@@ -283,7 +331,6 @@ export async function onRequestPost(context) {
         nowMs, nowMs,
       ).run();
 
-      // Count as imported (ON CONFLICT DO NOTHING → changes = 0 means skipped)
       byType[category] = (byType[category] ?? 0) + 1;
       imported++;
     } catch (e) {
