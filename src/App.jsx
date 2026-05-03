@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } fro
 
 // ─── SHARED MODULES ───────────────────────────────────────────────────────────
 import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.js";
-import { Glass, Pill, Toggle, ScaleInput } from "./uiComponents.jsx";
+import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload } from "./planUtils.js";
@@ -847,7 +847,6 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
 }
 
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
-const TIME_OPTIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
 function SadFace({ size = 44 }) {
   return (
@@ -880,422 +879,136 @@ function HappyFace({ size = 44 }) {
   );
 }
 
-function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
+function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
   const bodyMode = cycle?.mode ?? "standard";
-  const showPeriodToggle = sex === "female" && bodyMode === "standard";
-  const [d, setD] = useState(() => {
-    // First-check-in defaults (from design spec)
-    const defaults = {
-      energy: 4, sleep_hours: 8, feeling: 2,
-      time_budget: defaultTimeBudget ?? 30,
-      no_clothing: false, no_gear: false, no_time: false,
-      gym_today: false, traveling: false, recovery_mode: false, pain_level: 0,
-      pain_scope: null, pain_areas: [],
-      period_today: false, free_text: "",
-      pregnancy_signals: { nausea: false, breathless: false, pelvic_discomfort: false },
-      postnatal_signals: { running_today: false, heaviness: false },
-    };
-    if (!lastCheckin) return defaults;
-    // Pre-fill vitals from last check-in; reset situational toggles
+  const showPeriodChip = sex === "female" && bodyMode === "standard";
+
+  const [step, setStep] = useState(1);
+  const [feeling, setFeeling] = useState(() => {
+    if (!lastCheckin) return 2;
     const cj = typeof lastCheckin.checkin_json === "string"
       ? JSON.parse(lastCheckin.checkin_json)
       : (lastCheckin.checkin_json ?? {});
-    return {
-      ...defaults,
-      energy:      lastCheckin.energy      ? Math.round(lastCheckin.energy / 2)   : defaults.energy,
-      sleep_hours: lastCheckin.sleep_hours ?? defaults.sleep_hours,
-      feeling:     (() => {
-        const s = lastCheckin.stress    ? Math.round(lastCheckin.stress / 2)    : 2;
-        const m = cj.motivation         ? Math.round(cj.motivation / 2)         : 3;
-        return s >= 4 ? 1 : (m >= 4 && s <= 2) ? 3 : 2;
-      })(),
-      pain_level:  cj.pain_level ?? 0,
-      pain_scope:  cj.pain_scope  ?? null,
-      pain_areas:  cj.pain_areas  ?? [],
-      // time_budget comes from schedule (defaultTimeBudget), not last check-in
-    };
+    const s = lastCheckin.stress ? Math.round(lastCheckin.stress / 2) : 2;
+    const m = cj.motivation ? Math.round(cj.motivation / 2) : 3;
+    return s >= 4 ? 1 : (m >= 4 && s <= 2) ? 3 : 2;
   });
-  const upd = (patch) => setD((prev) => ({ ...prev, ...patch }));
-  const updPregnancySignal = (key, val) => setD((prev) => ({ ...prev, pregnancy_signals: { ...prev.pregnancy_signals, [key]: val } }));
-  const updPostnatalSignal = (key, val) => setD((prev) => ({ ...prev, postnatal_signals: { ...prev.postnatal_signals, [key]: val } }));
-  const [showFullCheckin, setShowFullCheckin] = useState(false);
+  const [chips, setChips] = useState([]);
+  const [freeText, setFreeText] = useState("");
+  const [painScope, setPainScope] = useState(null);
+  const [painAreas, setPainAreas] = useState([]);
+  const [pregnancySignals, setPregnancySignals] = useState({ nausea: false, breathless: false, pelvic_discomfort: false });
+  const [postnatalSignals, setPostnatalSignals] = useState({ running_today: false, heaviness: false });
 
-  const handleSubmit = () => {
-    // Map feeling (1=sad,2=neutral,3=good) → stress + motivation for DB (1-5 UI → ×2 for DB)
-    const feelingMap = { 1: { stress: 10, motivation: 2 }, 2: { stress: 4, motivation: 6 }, 3: { stress: 2, motivation: 10 } };
-    const fs = feelingMap[d.feeling] ?? feelingMap[2];
+  const toggleChip = (val) => setChips(cs => cs.includes(val) ? cs.filter(c => c !== val) : [...cs, val]);
+  const toggleArea = (k) => setPainAreas(as => as.includes(k) ? as.filter(a => a !== k) : [...as, k]);
+
+  const hasPain = chips.includes("pain");
+  const needsStep3 = hasPain || bodyMode === "pregnant" || bodyMode === "postnatal";
+
+  const buildAndSave = () => {
+    const moodMap = {
+      1: { mood: 2, stress: 8, motivation: 2 },
+      2: { mood: 6, stress: 5, motivation: 5 },
+      3: { mood: 9, stress: 2, motivation: 9 },
+    };
+    const m = moodMap[feeling] ?? moodMap[2];
     onSave({
-      ...d,
-      stress: fs.stress,
-      energy: d.energy * 2,
-      motivation: fs.motivation,
+      mood: m.mood,
+      stress: m.stress,
+      energy: 5,
+      sleep_hours: null,
       checkin_json: {
-        no_clothing: d.no_clothing,
-        no_gear: d.no_gear,
-        no_time: d.no_time,
-        gym_today: d.gym_today,
-        traveling: d.traveling,
-        recovery_mode: d.recovery_mode,
-        pain_level: d.pain_level,
-        pain_scope: d.pain_scope,
-        pain_areas: d.pain_areas,
-        period_today: d.period_today,
-        free_text: d.free_text,
-        motivation: fs.motivation,
-        time_budget: d.time_budget,
-        pregnancy_signals: d.pregnancy_signals,
-        postnatal_signals: d.postnatal_signals,
+        no_clothing: false,
+        no_gear: false,
+        no_time: chips.includes("zero_time"),
+        gym_today: chips.includes("gym"),
+        traveling: false,
+        recovery_mode: chips.includes("taking_easy"),
+        pain_level: hasPain ? 3 : 0,
+        pain_scope: hasPain ? painScope : null,
+        pain_areas: hasPain ? painAreas : [],
+        period_today: chips.includes("period"),
+        free_text: freeText,
+        motivation: m.motivation,
+        time_budget: defaultTimeBudget,
+        pregnancy_signals: pregnancySignals,
+        postnatal_signals: postnatalSignals,
       },
     });
   };
 
+  const handleStep2Apply = () => {
+    if (needsStep3) setStep(3);
+    else buildAndSave();
+  };
+
+  const CHIP_DEFS = [
+    { val: "pain",        label: "😣 Pain or soreness" },
+    { val: "zero_time",   label: "⏱ Zero time today"  },
+    { val: "gym",         label: "🏋️ Gym access today"  },
+    { val: "taking_easy", label: "🌿 Taking it easy"   },
+    ...(showPeriodChip ? [{ val: "period", label: "🌙 Period today" }] : []),
+  ];
+
+  const PAIN_AREAS = [
+    { k: "knee",       l: "Knee"       },
+    { k: "shoulder",   l: "Shoulder"   },
+    { k: "lower_back", l: "Lower back" },
+    { k: "ankle",      l: "Ankle"      },
+  ];
+
+  const smileys = [
+    { val: 1, label: "Not great", color: "#f87171", Face: SadFace     },
+    { val: 2, label: "Okay",      color: C.muted,   Face: NeutralFace },
+    { val: 3, label: "Good",      color: C.emerald, Face: HappyFace   },
+  ];
+
+  const dotCount = needsStep3 ? 3 : 2;
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 100,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 16,
-        background: "rgba(2,6,23,0.85)",
-        backdropFilter: "blur(12px)",
-      }}
-    >
-      <div
-        style={{
-          width: "100%",
-          maxWidth: 480,
-          background: "#0a1628",
-          border: `1px solid ${C.border}`,
-          borderRadius: 28,
-          overflow: "hidden",
-          maxHeight: "90vh",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 40px 100px rgba(0,0,0,0.6)",
-        }}
-      >
-        <div
-          style={{
-            padding: "20px 24px",
-            borderBottom: `1px solid ${C.border}`,
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            background: "rgba(255,255,255,0.02)",
-          }}
-        >
-          <div>
-            <div
-              style={{
-                fontSize: 18,
-                fontWeight: 900,
-                color: C.text,
-                letterSpacing: "-0.02em",
-              }}
-            >
-              Daily Check-in
-            </div>
-            <div
-              style={{
-                fontSize: 11,
-                color: C.muted,
-                marginTop: 2,
-                fontWeight: 600,
-                letterSpacing: "0.05em",
-                textTransform: "uppercase",
-              }}
-            >
-              {new Date().toLocaleDateString("en", {
-                weekday: "long",
-                month: "short",
-                day: "numeric",
-              })}
-            </div>
-          </div>
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(2,6,23,0.7)", backdropFilter: "blur(8px)" }}>
+      <div style={{ background: "#0a1628", borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)" }}>
+
+        {/* Drag handle + close */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px 4px" }}>
+          <div style={{ width: 32 }} />
+          <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle }} />
           <button
             onClick={onClose}
-            style={{
-              width: 36,
-              height: 36,
-              borderRadius: 12,
-              background: "rgba(255,255,255,0.05)",
-              border: `1px solid ${C.border}`,
-              color: C.muted,
-              fontSize: 18,
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            ×
-          </button>
+            style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+          >×</button>
         </div>
 
-        <div style={{ flex: 1, overflowY: "auto", padding: "24px 24px 0" }}>
-          <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.15em",
-                color: C.emerald,
-                textTransform: "uppercase",
-                marginBottom: 16,
-              }}
-            >
-              Vitals
-            </div>
-            <ScaleInput
-              label="Energy"
-              value={d.energy}
-              onChange={(v) => upd({ energy: v })}
-            />
-            <ScaleInput
-              label="Sleep Quality"
-              value={Math.round(d.sleep_hours / 2)}
-              onChange={(v) => upd({ sleep_hours: v * 2 })}
-            />
-            <div style={{ marginTop: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, marginBottom: 10 }}>How are you feeling?</div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {[
-                  { val: 1, label: "Not great", color: "#f87171" },
-                  { val: 2, label: "Okay",      color: C.muted   },
-                  { val: 3, label: "Good",      color: C.emerald },
-                ].map(({ val, label, color }) => {
-                  const sel = d.feeling === val;
-                  const FaceComp = val === 1 ? SadFace : val === 3 ? HappyFace : NeutralFace;
-                  return (
-                    <button key={val} onClick={() => upd({ feeling: val })}
-                      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 6, padding: "12px 8px", minHeight: 88, borderRadius: 16, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(255,255,255,0.03)", cursor: "pointer", color: sel ? color : C.muted, transition: "all 0.15s", fontFamily: "inherit" }}>
-                      <FaceComp size={40} />
-                      <span style={{ fontSize: 11, fontWeight: 800 }}>{label}</span>
-                    </button>
-                  );
-                })}
+        {/* Step dots */}
+        <div style={{ display: "flex", justifyContent: "center", gap: 6, padding: "8px 0 0" }}>
+          {Array.from({ length: dotCount }, (_, i) => i + 1).map(n => (
+            <div key={n} style={{ width: n === step ? 20 : 6, height: 6, borderRadius: 3, background: n === step ? "var(--accent)" : C.subtle, transition: "all 0.2s" }} />
+          ))}
+        </div>
+
+        {/* Scrollable content */}
+        <div style={{ flex: 1, overflowY: "auto", padding: "16px 24px 0" }}>
+
+          {/* ── Step 1 — How are you? ── */}
+          {step === 1 && (
+            <div>
+              <div style={{ textAlign: "center", paddingTop: 8, paddingBottom: 4 }}>
+                <div style={{ ...display(26, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>How are you today?</div>
+                <div style={{ fontSize: 14, color: C.muted }}>Tap to tell your coach</div>
               </div>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.15em",
-                color: C.emerald,
-                textTransform: "uppercase",
-                marginBottom: 16,
-              }}
-            >
-              Time Available
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 0, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
-              <button
-                onClick={() => {
-                  const idx = TIME_OPTIONS.indexOf(d.time_budget);
-                  if (idx > 0) upd({ time_budget: TIME_OPTIONS[idx - 1] });
-                }}
-                disabled={TIME_OPTIONS.indexOf(d.time_budget) === 0}
-                style={{ flex: "0 0 52px", height: 52, fontSize: 22, fontWeight: 700, background: "none", border: "none", borderRight: `1px solid ${C.border}`, color: TIME_OPTIONS.indexOf(d.time_budget) === 0 ? C.subtle : C.muted, cursor: TIME_OPTIONS.indexOf(d.time_budget) === 0 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >−</button>
-              <div style={{ flex: 1, textAlign: "center" }}>
-                <span style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{d.time_budget}</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: C.muted, marginLeft: 4 }}>min</span>
-              </div>
-              <button
-                onClick={() => {
-                  const idx = TIME_OPTIONS.indexOf(d.time_budget);
-                  if (idx < TIME_OPTIONS.length - 1) upd({ time_budget: TIME_OPTIONS[idx + 1] });
-                }}
-                disabled={TIME_OPTIONS.indexOf(d.time_budget) === TIME_OPTIONS.length - 1}
-                style={{ flex: "0 0 52px", height: 52, fontSize: 22, fontWeight: 700, background: "none", border: "none", borderLeft: `1px solid ${C.border}`, color: TIME_OPTIONS.indexOf(d.time_budget) === TIME_OPTIONS.length - 1 ? C.subtle : C.muted, cursor: TIME_OPTIONS.indexOf(d.time_budget) === TIME_OPTIONS.length - 1 ? "default" : "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >+</button>
-            </div>
-          </div>
-
-          <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-              Pain or Discomfort
-            </div>
-            <Toggle
-              label="Pain or soreness today"
-              sub={d.pain_level > 0 ? "Tell us more below" : "No issues today"}
-              active={d.pain_level > 0}
-              onToggle={() => {
-                if (d.pain_level > 0) upd({ pain_level: 0, pain_scope: null, pain_areas: [] });
-                else upd({ pain_level: 1, pain_scope: null });
-              }}
-            />
-            {d.pain_level > 0 && (
-              <div style={{ marginTop: 16 }}>
-                {/* Scope picker */}
-                <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                  {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
-                    <Pill
-                      key={v}
-                      active={d.pain_scope === v}
-                      onClick={() => upd({ pain_scope: v, pain_areas: v === "general" ? [] : d.pain_areas })}
-                    >
-                      {l}
-                    </Pill>
-                  ))}
-                </div>
-                {/* Area chips — only when specific */}
-                {d.pain_scope === "specific" && (
-                  <>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
-                      {[
-                        { k: "knee", l: "Knee" },
-                        { k: "shoulder", l: "Shoulder" },
-                        { k: "lower_back", l: "Lower back" },
-                        { k: "ankle", l: "Ankle" },
-                      ].map(({ k, l }) => {
-                        const active = d.pain_areas.includes(k);
-                        return (
-                          <button key={k} onClick={() => upd({ pain_areas: active ? d.pain_areas.filter(a => a !== k) : [...d.pain_areas, k] })} style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : "1px solid rgba(255,255,255,0.08)", fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}>
-                            {l}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Ongoing issue toggle */}
-                    {d.pain_areas.length > 0 && (
-                      <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
-                        <button
-                          onClick={() => onMarkChronic && onMarkChronic(d.pain_areas)}
-                          style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#f87171", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
-                        >
-                          Save as ongoing issue →
-                        </button>
-                        Adds to your profile so we always avoid these areas.
-                      </div>
-                    )}
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Full check-in expand toggle */}
-          <button
-            onClick={() => setShowFullCheckin(v => !v)}
-            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", width: "100%", padding: "12px 16px", borderRadius: 14, background: showFullCheckin ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${showFullCheckin ? C.emeraldBorder : C.border}`, color: showFullCheckin ? C.emerald : C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer", marginBottom: 20, fontFamily: "inherit" }}
-          >
-            <span>Full check-in — context &amp; more</span>
-            <span style={{ fontSize: 16, transition: "transform 0.2s", transform: showFullCheckin ? "rotate(180deg)" : "none" }}>▾</span>
-          </button>
-
-          {showFullCheckin && <>
-          <div style={{ marginBottom: 28 }}>
-            <div
-              style={{
-                fontSize: 10,
-                fontWeight: 900,
-                letterSpacing: "0.15em",
-                color: C.emerald,
-                textTransform: "uppercase",
-                marginBottom: 16,
-              }}
-            >
-              Context
-            </div>
-            <Toggle
-              label="No sports clothing"
-              sub="Low-sweat session only"
-              active={d.no_clothing}
-              onToggle={() => upd({ no_clothing: !d.no_clothing })}
-            />
-            <Toggle
-              label="No gear available"
-              sub="Bodyweight exercises only"
-              active={d.no_gear}
-              onToggle={() => upd({ no_gear: !d.no_gear })}
-            />
-            <Toggle
-              label="Zero time today"
-              sub="Micro session or rest"
-              active={d.no_time}
-              onToggle={() => upd({ no_time: !d.no_time })}
-            />
-            <Toggle
-              label="Gym access today"
-              sub="Equipment unlocked"
-              active={d.gym_today}
-              onToggle={() => upd({ gym_today: !d.gym_today })}
-            />
-            <Toggle
-              label="Traveling"
-              sub="Away from home setup"
-              active={d.traveling}
-              onToggle={() => upd({ traveling: !d.traveling })}
-            />
-            <Toggle
-              label="Taking it easy today"
-              sub="Gentle mobility or recovery session"
-              active={d.recovery_mode}
-              onToggle={() => upd({ recovery_mode: !d.recovery_mode })}
-            />
-            {showPeriodToggle && (
-              <button
-                onClick={() => upd({ period_today: !d.period_today })}
-                style={{
-                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                  padding: "14px 16px", borderRadius: 16, width: "100%", textAlign: "left",
-                  background: d.period_today ? "rgba(167,139,250,0.1)" : "rgba(255,255,255,0.03)",
-                  border: `1px solid ${d.period_today ? "rgba(167,139,250,0.4)" : C.border}`,
-                  cursor: "pointer", transition: "all 0.15s", marginBottom: 8,
-                }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>🌙 Period today</div>
-                  <div style={{ fontSize: 11, color: d.period_today ? "rgba(167,139,250,0.8)" : C.muted, marginTop: 2 }}>
-                    {d.period_today ? "Taking care of you today 🌙" : "We'll plan something that feels good"}
-                  </div>
-                </div>
-                <div style={{ width: 40, height: 22, borderRadius: 999, background: d.period_today ? "#a78bfa" : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                  <div style={{ position: "absolute", top: 3, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: d.period_today ? 21 : 3, transition: "left 0.2s" }} />
-                </div>
-              </button>
-            )}
-          </div>
-
-          {/* ── Pregnancy signals section ── */}
-          {bodyMode === "pregnant" && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#fbbf24", textTransform: "uppercase", marginBottom: 16 }}>
-                How is your body today?
-              </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { key: "nausea", label: "Feeling nauseous", sub: "We'll keep it very gentle" },
-                  { key: "breathless", label: "Feeling breathless", sub: "We'll shorten intervals" },
-                  { key: "pelvic_discomfort", label: "Pelvic discomfort", sub: "Low-load focus today" },
-                ].map(({ key, label, sub }) => {
-                  const active = d.pregnancy_signals[key];
+              <div style={{ display: "flex", gap: 12, paddingTop: 24, paddingBottom: 32 }}>
+                {smileys.map((sm) => {
+                  const { val, label, color, Face } = sm;
+                  const sel = feeling === val;
                   return (
                     <button
-                      key={key}
-                      onClick={() => updPregnancySignal(key, !active)}
-                      style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left",
-                        background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`,
-                        cursor: "pointer",
-                      }}
+                      key={val}
+                      onClick={() => { setFeeling(val); setStep(2); }}
+                      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 8px", borderRadius: 20, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(255,255,255,0.03)", cursor: "pointer", color: sel ? color : C.muted, fontFamily: "inherit", transition: "all 0.15s" }}
                     >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
-                        {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
-                      </div>
-                      <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
-                        <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
-                      </div>
+                      <Face size={56} />
+                      <span style={{ fontSize: 12, fontWeight: 800 }}>{label}</span>
                     </button>
                   );
                 })}
@@ -1303,124 +1016,186 @@ function CheckInModal({ onSave, onClose, isPro, sex, cycle, defaultTimeBudget, l
             </div>
           )}
 
-          {/* ── Postnatal signals section ── */}
-          {bodyMode === "postnatal" && (
-            <div style={{ marginBottom: 28 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "rgba(251,191,36,0.8)", textTransform: "uppercase", marginBottom: 16 }}>
-                How is your recovery today?
+          {/* ── Step 2 — Anything else? ── */}
+          {step === 2 && (
+            <div>
+              <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>Anything else?</div>
+                <div style={{ fontSize: 14, color: C.muted }}>Select all that apply — or just tap Apply</div>
               </div>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { key: "heaviness", label: "Feeling pelvic heaviness", sub: "We'll reduce load and impact" },
-                  { key: "running_today", label: "Returned to running", sub: "Clearance note will be added" },
-                ].map(({ key, label, sub }) => {
-                  const active = d.postnatal_signals[key];
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 16, paddingBottom: 14 }}>
+                {CHIP_DEFS.map(({ val, label }) => {
+                  const sel = chips.includes(val);
                   return (
                     <button
-                      key={key}
-                      onClick={() => updPostnatalSignal(key, !active)}
-                      style={{
-                        display: "flex", justifyContent: "space-between", alignItems: "center",
-                        padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left",
-                        background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)",
-                        border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`,
-                        cursor: "pointer",
-                      }}
+                      key={val}
+                      onClick={() => toggleChip(val)}
+                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(255,255,255,0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
                     >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
-                        {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
-                      </div>
-                      <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
-                        <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
-                      </div>
+                      {label}
                     </button>
                   );
                 })}
-              </div>
-            </div>
-          )}
-
-          {isPro && (
-            <div style={{ marginBottom: 28 }}>
-              <div
-                style={{
-                  fontSize: 10,
-                  fontWeight: 900,
-                  letterSpacing: "0.15em",
-                  color: C.emerald,
-                  textTransform: "uppercase",
-                  marginBottom: 16,
-                }}
-              >
-                Pro Advisory
               </div>
               <textarea
                 placeholder="Anything I should consider today?"
-                value={d.free_text}
-                onChange={(e) => upd({ free_text: e.target.value })}
-                style={{
-                  width: "100%",
-                  minHeight: 90,
-                  background: "rgba(255,255,255,0.03)",
-                  border: `1px solid ${C.border}`,
-                  borderRadius: 14,
-                  padding: 14,
-                  fontSize: 14,
-                  color: C.text,
-                  resize: "none",
-                  outline: "none",
-                  fontFamily: "inherit",
-                  boxSizing: "border-box",
-                }}
+                value={freeText}
+                onChange={e => setFreeText(e.target.value)}
+                style={{ width: "100%", minHeight: 72, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
               />
             </div>
           )}
-          </>}
+
+          {/* ── Step 3 — Conditional detail ── */}
+          {step === 3 && (
+            <div>
+              <div style={{ paddingTop: 8, paddingBottom: 4 }}>
+                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>A bit more...</div>
+                <div style={{ fontSize: 14, color: C.muted }}>Helps us tune today's session</div>
+              </div>
+
+              {hasPain && (
+                <div style={{ marginTop: 16, marginBottom: 20 }}>
+                  <div style={{ ...mono(10), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>Pain detail</div>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                    {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
+                      <button
+                        key={v}
+                        onClick={() => { setPainScope(v); if (v === "general") setPainAreas([]); }}
+                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? "#f87171" : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
+                      >
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+                  {painScope === "specific" && (
+                    <>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
+                        {PAIN_AREAS.map(({ k, l }) => {
+                          const active = painAreas.includes(k);
+                          return (
+                            <button
+                              key={k}
+                              onClick={() => toggleArea(k)}
+                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                            >
+                              {l}
+                            </button>
+                          );
+                        })}
+                      </div>
+                      {painAreas.length > 0 && (
+                        <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                          <button
+                            onClick={() => onMarkChronic && onMarkChronic(painAreas)}
+                            style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#f87171", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
+                          >
+                            Save as ongoing issue →
+                          </button>
+                          Adds to your profile so we always avoid these areas.
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+
+              {bodyMode === "pregnant" && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ ...mono(10), color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your body today?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[
+                      { key: "nausea",            label: "Feeling nauseous",  sub: "We'll keep it very gentle" },
+                      { key: "breathless",        label: "Feeling breathless", sub: "We'll shorten intervals"  },
+                      { key: "pelvic_discomfort", label: "Pelvic discomfort",  sub: "Low-load focus today"     },
+                    ].map(({ key, label, sub }) => {
+                      const active = pregnancySignals[key];
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setPregnancySignals(s => ({ ...s, [key]: !active }))}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                            {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
+                          </div>
+                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
+                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {bodyMode === "postnatal" && (
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ ...mono(10), color: "rgba(251,191,36,0.8)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your recovery today?</div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {[
+                      { key: "heaviness",     label: "Feeling pelvic heaviness", sub: "We'll reduce load and impact"  },
+                      { key: "running_today", label: "Returned to running",       sub: "Clearance note will be added" },
+                    ].map(({ key, label, sub }) => {
+                      const active = postnatalSignals[key];
+                      return (
+                        <button
+                          key={key}
+                          onClick={() => setPostnatalSignals(s => ({ ...s, [key]: !active }))}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
+                        >
+                          <div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                            {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
+                          </div>
+                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
+                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                          </div>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
-        <div
-          style={{
-            padding: 20,
-            borderTop: `1px solid ${C.border}`,
-            display: "flex",
-            gap: 10,
-            background: "rgba(255,255,255,0.01)",
-          }}
-        >
-          <button
-            onClick={onClose}
-            style={{
-              flex: 1,
-              padding: 14,
-              borderRadius: 14,
-              fontWeight: 700,
-              fontSize: 14,
-              background: "transparent",
-              border: `1px solid ${C.border}`,
-              color: C.muted,
-              cursor: "pointer",
-            }}
-          >
-            Skip
-          </button>
-          <button
-            onClick={handleSubmit}
-            style={{
-              flex: 2,
-              padding: 14,
-              borderRadius: 14,
-              fontWeight: 900,
-              fontSize: 15,
-              background: C.emerald,
-              border: "none",
-              color: "#fff",
-              cursor: "pointer",
-              boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.3)",
-            }}
-          >
-            Apply Today's Plan
-          </button>
+        {/* Footer */}
+        <div style={{ padding: "12px 24px 32px", borderTop: step > 1 ? `1px solid ${C.border}` : "none", background: "rgba(255,255,255,0.01)" }}>
+          {step === 2 && (
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={onClose}
+                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 700, fontSize: 13, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Skip
+              </button>
+              <button
+                onClick={handleStep2Apply}
+                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
+              >
+                Apply →
+              </button>
+            </div>
+          )}
+          {step === 3 && (
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={onClose}
+                style={{ flex: "0 0 auto", padding: "14px 20px", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Skip
+              </button>
+              <button
+                onClick={buildAndSave}
+                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
+              >
+                Apply →
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
