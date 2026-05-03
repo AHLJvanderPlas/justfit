@@ -220,6 +220,7 @@ export async function onRequestPost(context) {
   // Process activities
   let imported = 0, skipped = 0;
   const byType = {};
+  const recent = []; // up to 10 newly imported activities for UI feedback
   const nowMs  = Date.now();
 
   for (const act of activities) {
@@ -270,6 +271,7 @@ export async function onRequestPost(context) {
             `).bind(String(act.id), metadata, tssActual, tssSource, nowMs, existingManual.id).run();
             byType[category] = (byType[category] ?? 0) + 1;
             imported++;
+            if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
           } else {
             skipped++; // already linked or independent session exists
           }
@@ -303,6 +305,7 @@ export async function onRequestPost(context) {
         ).run();
         byType[category] = (byType[category] ?? 0) + 1;
         imported++;
+        if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
       } catch (e) {
         if (e.message?.includes('UNIQUE')) { skipped++; }
         else { console.error('strava-sync cycling insert:', act.id, e.message); skipped++; }
@@ -333,6 +336,7 @@ export async function onRequestPost(context) {
 
       byType[category] = (byType[category] ?? 0) + 1;
       imported++;
+      if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
     } catch (e) {
       if (e.message?.includes('UNIQUE')) {
         skipped++;
@@ -348,5 +352,5 @@ export async function onRequestPost(context) {
     UPDATE strava_connections SET last_sync_at_ms = ?, updated_at_ms = ? WHERE user_id = ?
   `).bind(nowMs, nowMs, userId).run();
 
-  return Response.json({ ok: true, imported, skipped, by_type: byType });
+  return Response.json({ ok: true, imported, skipped, by_type: byType, recent });
 }

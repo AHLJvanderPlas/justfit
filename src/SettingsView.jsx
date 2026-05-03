@@ -788,7 +788,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
     try {
       const data = await api.stravaSync(token);
       if (data.ok) {
-        setStravaSyncResult({ imported: data.imported, by_type: data.by_type });
+        setStravaSyncResult({ imported: data.imported, by_type: data.by_type, recent: data.recent ?? [] });
         // Update last_sync_at_ms in local connection state
         setStravaConnection(c => c ? { ...c, last_sync_at_ms: Date.now() } : c);
         setStravaMsg(data.imported === 0 ? 'Already up to date.' : '');
@@ -2830,16 +2830,29 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
             </div>
           )}
 
-          {stravaSyncResult && stravaSyncResult.imported > 0 && (
-            <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 10, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, fontSize: 11, color: C.emerald }}>
-              {stravaSyncResult.imported} activit{stravaSyncResult.imported === 1 ? 'y' : 'ies'} imported
-              {Object.entries(stravaSyncResult.by_type ?? {}).length > 0 && ` · ${
-                Object.entries(stravaSyncResult.by_type)
-                  .map(([cat, n]) => `${n} ${cat}`)
-                  .join(', ')
-              }`}
-            </div>
-          )}
+          {stravaSyncResult && stravaSyncResult.imported > 0 && (() => {
+            const SPORT_LABEL = { cycling: 'Ride', running: 'Run', walking: 'Walk', hiking: 'Hike', swimming: 'Swim', rowing: 'Row', fitness: 'Workout' };
+            const fmtDur = (s) => s >= 3600 ? `${Math.floor(s/3600)}h ${Math.round((s%3600)/60)}m` : `${Math.round(s/60)}m`;
+            const fmtDate = (d) => { const [y,m,day] = d.split('-'); return new Date(+y,+m-1,+day).toLocaleDateString(undefined,{month:'short',day:'numeric'}); };
+            return (
+              <div style={{ marginTop: 8, borderRadius: 12, border: "1px solid rgba(252,76,2,0.2)", overflow: "hidden" }}>
+                <div style={{ padding: "7px 12px", background: "rgba(252,76,2,0.08)", fontSize: 11, fontWeight: 800, color: "#FC4C02", letterSpacing: "0.04em" }}>
+                  {stravaSyncResult.imported} activit{stravaSyncResult.imported === 1 ? 'y' : 'ies'} imported
+                </div>
+                {(stravaSyncResult.recent ?? []).map((a, i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.04)`, background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(252,76,2,0.12)", color: "#FC4C02", flexShrink: 0 }}>{SPORT_LABEL[a.category] ?? a.category}</span>
+                    <span style={{ fontSize: 12, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
+                    <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{fmtDate(a.date)}</span>
+                    {a.duration_sec > 0 && <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{fmtDur(a.duration_sec)}</span>}
+                  </div>
+                ))}
+                {stravaSyncResult.imported > 10 && (
+                  <div style={{ padding: "6px 12px", borderTop: `1px solid rgba(255,255,255,0.04)`, fontSize: 11, color: C.muted }}>+ {stravaSyncResult.imported - 10} more — see History tab</div>
+                )}
+              </div>
+            );
+          })()}
 
           {stravaMsg && (
             <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' || stravaMsg.includes('saved') ? C.muted : "#f87171", marginTop: 4 }}>
