@@ -148,6 +148,62 @@ export function hasBlockingSafety(ruleTrace) {
   return ruleTrace.some((t) => t.includes('R539'));
 }
 
+// ── Coach sentence ────────────────────────────────────────────────────────────
+// Warm plain-language sentences for the highest-severity rule in rule_trace.
+const SENTENCE_VARIANTS = {
+  R558: "We're easing you back in — volume capped to 75% after your break.",
+  R559: "Taking it easy today — mobility and recovery only.",
+  R511: "Lighter intensity today — short sleep is worth respecting.",
+  R512: "Volume reduced — your energy was low at check-in.",
+  R513: "Mobility session today — a high-stress day calls for something calmer.",
+  R514: "Rest day — you reported pain. Recovery is part of the work.",
+  R510: "Micro session — adapted to the time you have.",
+  R516: "Bodyweight only today — no kit needed.",
+  R515: "Quiet, low-impact session — no gym clothes required.",
+  R535: "Gentle session today — nausea signal detected.",
+  R536: "Volume eased — breathlessness reported.",
+  R540: "Gentle postnatal movement — rebuilding from the ground up.",
+  R541: "Pelvic floor work prioritised in today's session.",
+  R530: "Intensity capped for this trimester — adapted for pregnancy.",
+  R532: "High-impact exercises removed — adapted for pregnancy.",
+  R563: "Joint-load exercises filtered around your reported pain areas.",
+  R545: "Low-impact cardio today — protecting your joints while building capacity.",
+  R546: "Walk-run intervals — the safe way to build running capacity.",
+  R553: "Mobility added — it's been a while since your last flexibility session.",
+  R551: "Weakest fitness area targeted — balanced development over time.",
+  R568: "Polarised training day — alternating Zone 2 and high-intensity work.",
+  R560: "Session biased toward your primary sport.",
+  R556: "Running Coach programme — structured progression, week by week.",
+  R555: "Safe run/walk intervals matched to your current conditioning level.",
+};
+
+const SENTENCE_SEVERITY_ORDER = [
+  'R514', 'R539', 'R533', 'R532', 'R542', 'R531',
+  'R535', 'R536', 'R537', 'R540', 'R541', 'R543', 'R544',
+  'R558', 'R559', 'R511', 'R512', 'R513', 'R545', 'R546',
+  'R516', 'R515', 'R510', 'R563', 'R565',
+  'R520', 'R521', 'R522', 'R523', 'R524', 'R525',
+  'R553', 'R551', 'R556', 'R555', 'R568', 'R560',
+];
+
+/**
+ * Derive a single plain-language coach sentence from rule_trace.
+ * Returns a string or null if no notable adaptation is active.
+ */
+export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standard') {
+  const traceStr = (ruleTrace ?? []).join(' ');
+  const top = SENTENCE_SEVERITY_ORDER.find(code => traceStr.includes(code));
+  if (!top || !SENTENCE_VARIANTS[top]) return null;
+
+  let sentence = SENTENCE_VARIANTS[top];
+  const skipBodyPrefix = ['R535', 'R536', 'R537', 'R540', 'R541', 'R542', 'R543', 'R544'];
+  if (!skipBodyPrefix.includes(top)) {
+    if (bodyMode === 'pregnant')  sentence = 'Adapted for pregnancy — ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
+    if (bodyMode === 'postnatal') sentence = 'Postnatal-safe — ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
+  }
+  return sentence;
+}
+
 /**
  * Derive the most prominent compact chip label for a plan.
  * Returns a short string or null if no notable adaptation is active.
