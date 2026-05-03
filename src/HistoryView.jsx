@@ -192,6 +192,14 @@ function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
   );
 }
 
+// ─── AWARDS NEXT-UNLOCK HINT ───────────────────────────────────────────────────
+function nextSessionUnlock(n) {
+  const milestones = [1, 3, 7, 10, 25, 50, 100];
+  const next = milestones.find(m => n < m);
+  if (!next) return null;
+  return { remaining: next - n, label: `${next} sessions` };
+}
+
 // ─── PROGRESSION VIEW ──────────────────────────────────────────────────────────
 const GOAL_LABELS_MAP = {
   health: "General Health", strength: "Build Strength", fat_loss: "Lose Weight",
@@ -1218,13 +1226,25 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
           )}
 
           {/* ── Awards entry point ── */}
-          <button
-            onClick={() => setView("awards")}
-            style={{ width: "100%", marginBottom: 20, padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-          >
-            <span>Awards & milestones</span>
-            <span style={{ color: C.muted, fontSize: 18 }}>›</span>
-          </button>
+          {(() => {
+            const nextAward = nextSessionUnlock(completedCount);
+            return (
+              <button
+                onClick={() => setView("awards")}
+                style={{ width: "100%", marginBottom: 20, padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
+              >
+                <div>
+                  <div>Awards & milestones</div>
+                  {nextAward && (
+                    <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, marginTop: 2 }}>
+                      {nextAward.remaining === 1 ? "1 session to next award" : `${nextAward.remaining} sessions to next award`}
+                    </div>
+                  )}
+                </div>
+                <span style={{ color: C.muted, fontSize: 18 }}>›</span>
+              </button>
+            );
+          })()}
 
           {/* ── Advanced (hidden by default) ── */}
           <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
