@@ -1097,6 +1097,7 @@ Calculated server-side from executions table:
 | Path-choice onboarding — Sprint 2C (May 2026) | ✅ Live — PathChoiceModal (2×2 grid: General / Running / Cycling / Military) shown on first load when primary_intent unset; follow-up step per path (running: km selector, cycling: sub-goal picker, military: track + mode + optional date); saves primary_intent + coach prefs via api.saveProfile; shown after onboarding completion AND for existing users without intent on profile load; "Change path →" button in Settings → Your coach sub-view re-opens modal |
 | Workout polish — Sprint 3A (May 2026) | ✅ Live — Rest phase: flat progress bar replaced with 200px SVG ring (r=88, stroke-dashoffset animation, restColor fill, track stroke rgba 0.07); countdown centered inside ring at 64px; "Breathe · let your heart rate settle" italic pulse text shown during rest for non-pregnancy users; wake-lock denied copy tightened to actionable tip |
 | Awards next-unlock — Sprint 3B (May 2026) | ✅ Live — Awards & milestones entry row on Progress shows "N sessions to next award" sub-label in accent colour; driven by nextSessionUnlock() comparing completedCount against milestones [1,3,7,10,25,50,100]; disappears at 100 sessions (all session-count awards earned) |
+| Plan tab Glass import fix (May 2026) | ✅ Live — PlanWeekView.jsx was missing `Glass` in its uiComponents import, causing `ReferenceError: Glass is not defined` crash on Plan tab open; fixed by adding Glass to the import |
 
 ## Known Bugs to Fix
 
