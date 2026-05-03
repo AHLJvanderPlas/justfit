@@ -106,16 +106,12 @@ There is no `migrations_dir` in `wrangler.toml` — D1 migrations are applied ma
 
 | Migration | Contents | Blocker |
 |-----------|----------|---------|
-| 0049+ | Map `cycling_workouts` → `workout_protocols` | Phase 3b (deferred) |
+| 0050+ | Map `cycling_workouts` → `workout_protocols` | Phase 3b (deferred) |
 
-## Still-deferred military data (post-0048)
+## Military data status (post-0049)
 
-3 exercises remain unresolvable without trainer input. 46 `program_template_items` that reference them are also excluded from the baseline.
+All 52 originally-deferred military `program_template_items` are now resolved:
+- Migration 0048: 2 items (`hardlopen-zone-3-5-minuten` in KC2 + KC3)
+- Migration 0049: 50 items (`optillen-vanaf-de-grond` ×48, `til-draagtest-gewicht-plaatsen-naar-heupen` ×1, `til-draagtest-full-exercise` ×1)
 
-| Exercise slug | Reason still deferred |
-|---|---|
-| `optillen-vanaf-de-grond` | Object/load completely unspecified — cannot be safely prescribed |
-| `til-draagtest-full-exercise` | Defensie Til/draagtest test load and object not in any local source |
-| `til-draagtest-gewicht-plaatsen-naar-heupen` | Load weight unspecified in all source data |
-
-When trainer supplies the missing specifications, create migration `0049` (or next available number) to import those exercises and backfill the 46 items.
+The baseline (`1040_seed_military.sql`) reflects all 1919 template items.

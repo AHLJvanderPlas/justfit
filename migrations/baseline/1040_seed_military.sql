@@ -10,20 +10,22 @@
 -- Canonical current state of:
 --   exercise_aliases       : 87 rows (migration 0046)
 --   program_templates      : 13 rows (migration 0047)
---   program_template_items : 1869 rows (migration 0047 + 2 backfilled by migration 0048)
+--   program_template_items : 1919 rows (migration 0047 + 52 backfilled by migrations 0048+0049)
 --
--- Deferred — still excluded (trainer sign-off required):
---   optillen-vanaf-de-grond                    — load/object completely unspecified
---   til-draagtest-full-exercise                — test load/object unspecified
---   til-draagtest-gewicht-plaatsen-naar-heupen — load weight unspecified
---   46 program_template_items referencing those 3 exercises — also excluded
---   Note: 0047 header counted 52 deferred items; actual is 46 (the 0047 header
---   overcounted hardlopen-zone-3-5-minuten at 6 occurrences; matrix has 2).
+-- All 52 originally-deferred template items are now resolved:
+--   migration 0048: 2 items (hardlopen-zone-3-5-minuten in KC2 + KC3)
+--   migration 0049: 50 items (48 optillen-vanaf-de-grond + 1 til-draagtest-gewicht + 1 til-full)
 --
 -- Resolved by migration 0048 (appended below):
 --   hardlopen-zone-3-5-minuten — confirmed 5-min Zone 3 run (second matrix occurrence)
 --   2 program_template_items backfilled (keuring-cluster-2 and keuring-cluster-3,
 --   block_week=4, day_index=2, session_order=7)
+--
+-- Resolved by migration 0049 (appended below):
+--   optillen-vanaf-de-grond — object confirmed from matrix raw data (gevulde rugzak/krat/doos)
+--   til-draagtest-gewicht-plaatsen-naar-heupen — specs from werkenbijdefensie.nl
+--   til-draagtest-full-exercise — full Progressieve Til/Draagtest sequence from defensie site
+--   50 program_template_items backfilled
 --
 -- All INSERT statements are idempotent:
 --   exercise_aliases: INSERT OR IGNORE + SELECT-based exercise_id resolution
@@ -5965,3 +5967,166 @@ WHERE (SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1)
 INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
 SELECT '2fa5b262-46c6-5a00-a6d7-19a99f7932d7','33cb93e8-a882-56c4-b116-a494ec9f7ea3',4,2,7,'exercise',(SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1),NULL,NULL,1746230400000,1746230400000
 WHERE (SELECT id FROM exercises WHERE slug='hardlopen-zone-3-5-minuten' LIMIT 1) IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- program_template_items supplement — migration 0049 (50 backfilled items)
+-- All 3 remaining deferred exercises resolved. 50 template items backfilled.
+--   optillen-vanaf-de-grond (48 items across all 13 templates)
+--   til-draagtest-gewicht-plaatsen-naar-heupen (1 item: KC2 week 3)
+--   til-draagtest-full-exercise (1 item: KC5 week 5)
+-- ---------------------------------------------------------------------------
+
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '9fa94698-8c76-5992-9e53-bac5c2557604','b7661135-0f5a-55eb-b67d-96e970972b76',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'f3cc4a9b-634b-50a4-b755-9c2f37f871ac','b7661135-0f5a-55eb-b67d-96e970972b76',2,4,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '1487a80b-7aa7-5218-a950-be0465e8710e','b7661135-0f5a-55eb-b67d-96e970972b76',4,1,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '63aa54c0-7b23-590b-982f-d89da526b606','b7661135-0f5a-55eb-b67d-96e970972b76',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '59f74d0d-0699-56ee-9781-8f2375efd1b5','fe74ed29-280e-50c7-8945-2fcbac00c37a',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '89038934-85a9-5208-aaa1-c24f5690993a','fe74ed29-280e-50c7-8945-2fcbac00c37a',2,4,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '0b5ea44e-0196-5897-8f97-c99678e6774e','fe74ed29-280e-50c7-8945-2fcbac00c37a',4,1,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '5622efdd-0f10-5ae1-a6ae-dde22ec49eac','fe74ed29-280e-50c7-8945-2fcbac00c37a',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '4a2e89c7-9404-562d-a209-33b8de4896d8','2b8536a7-6f0e-5b5e-9f01-073f024cb42f',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'c9343c5c-1ff1-50d8-9dfc-405964d9d876','2b8536a7-6f0e-5b5e-9f01-073f024cb42f',2,4,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'a063a375-49aa-5ea8-a64a-ff91f04fc6ba','2b8536a7-6f0e-5b5e-9f01-073f024cb42f',4,1,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'fc4c328e-6fde-50ce-906e-5e38b5aef47f','2b8536a7-6f0e-5b5e-9f01-073f024cb42f',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '6f64a30e-d973-53a7-896f-a1cfd39e347a','356efd26-4770-5998-8993-022a911f778d',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '48d77a19-6466-5096-8322-6d54f7db8195','356efd26-4770-5998-8993-022a911f778d',2,4,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '991aabe8-38b9-52c6-b361-fab38f8e0c15','356efd26-4770-5998-8993-022a911f778d',4,1,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '6ab4d98a-8a60-55af-9cf3-497552df5700','356efd26-4770-5998-8993-022a911f778d',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '96084c42-21c0-56b2-964c-1cea11357d34','4a2b7a8b-2169-5a53-a82a-1c9c94a3d489',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'd77bdbd4-8f35-5af3-8b41-e008b661776d','4a2b7a8b-2169-5a53-a82a-1c9c94a3d489',2,4,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '4093bda4-c384-511d-a8e0-8a2c7665e138','4a2b7a8b-2169-5a53-a82a-1c9c94a3d489',4,1,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'bd2bbe39-0abd-5ad5-85e1-4d3c4e7a8c45','4a2b7a8b-2169-5a53-a82a-1c9c94a3d489',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'a288f268-d9d8-58d7-8c04-0359b5bce3c9','a12c6016-fe2e-576f-97c4-388bf0abf2bd',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'b992c86c-f5b6-5aa7-8117-859843b7b12d','a12c6016-fe2e-576f-97c4-388bf0abf2bd',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'e5f10ae3-ec4a-568c-95ac-af2b497b3088','a12c6016-fe2e-576f-97c4-388bf0abf2bd',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'b7431f70-0286-5b12-b272-48571fd181d4','a12c6016-fe2e-576f-97c4-388bf0abf2bd',5,3,5,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '25ac5f08-7df1-51fa-b91a-483a1ed4f723','3c03987a-e87b-5571-a17b-387160971d74',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'af8e7f86-11c6-5f8b-b77e-f7eb5ae9ca04','3c03987a-e87b-5571-a17b-387160971d74',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'ea69faa9-29d5-5af2-88b3-380d7efdbf27','3c03987a-e87b-5571-a17b-387160971d74',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'bcaf2752-326e-50f1-8dbd-170f896d7928','3c03987a-e87b-5571-a17b-387160971d74',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'c4b2ec60-10bc-5e79-a073-5a50ef5559c6','464c2feb-34ca-56b6-ac3b-4c8696dd022e',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '0bc79f5f-6a74-5a56-b2dd-84f816c1992f','464c2feb-34ca-56b6-ac3b-4c8696dd022e',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '46ef5fc3-e0cc-5551-b5f0-d315972894d2','05027310-42c1-51d4-83c3-e3677988194c',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '19838cb1-45e5-5808-8796-1517e96a6cf5','05027310-42c1-51d4-83c3-e3677988194c',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'baa1819e-d353-5899-94cc-01f652b85505','05027310-42c1-51d4-83c3-e3677988194c',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'bdd937f1-0242-5b9f-8a77-ab8e73546818','05027310-42c1-51d4-83c3-e3677988194c',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'a6a1d955-740e-5f5c-b861-3de1eadee6ef','33cb93e8-a882-56c4-b116-a494ec9f7ea3',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '9ba4ecb5-f818-588b-97a2-434ed21789ef','33cb93e8-a882-56c4-b116-a494ec9f7ea3',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '6fe5a60a-8689-50ac-b587-c2311f7ab992','33cb93e8-a882-56c4-b116-a494ec9f7ea3',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '4f62364f-e50f-5254-aa46-0f88e77a80ee','33cb93e8-a882-56c4-b116-a494ec9f7ea3',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '97170fe6-7790-54b7-822c-b54a16f4c9e5','cd52c6d4-cbfb-5da3-a2fd-37d1df5cf5f2',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '1af4dd39-09c9-5d1b-96b9-05b94f86715d','cd52c6d4-cbfb-5da3-a2fd-37d1df5cf5f2',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'db8800d4-75cf-521b-9295-1cde9de18ee3','cd52c6d4-cbfb-5da3-a2fd-37d1df5cf5f2',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'e5e8f695-c95d-52e7-b664-a944e86477a5','48f897de-7f10-56c1-9b92-5097ed7df48b',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '62aafa90-b8d3-53f2-8660-994d9a051cbc','48f897de-7f10-56c1-9b92-5097ed7df48b',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'c5374f39-ca1f-55f7-8482-f9dda2c5e6bb','48f897de-7f10-56c1-9b92-5097ed7df48b',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '54e37613-5e48-5293-a239-c1cea8846b70','2b083a43-7acb-5d24-96bb-c349c837465e',1,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '2198b4ed-1d5f-538b-b625-81f1c4c6ef55','2b083a43-7acb-5d24-96bb-c349c837465e',2,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'adfcff50-d834-5cf2-840a-63d3e69f99f7','2b083a43-7acb-5d24-96bb-c349c837465e',4,1,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'd3634b64-91c2-5c29-bb4c-e00ea72dc2d8','2b083a43-7acb-5d24-96bb-c349c837465e',5,4,4,'exercise',(SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='optillen-vanaf-de-grond' LIMIT 1) IS NOT NULL;
+
+-- til-draagtest-gewicht-plaatsen-naar-heupen (1 item: Keuring Cluster 2, week 3)
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT '21d6afa1-b383-575c-b308-aaa2dd439356','05027310-42c1-51d4-83c3-e3677988194c',3,1,5,'exercise',(SELECT id FROM exercises WHERE slug='til-draagtest-gewicht-plaatsen-naar-heupen' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='til-draagtest-gewicht-plaatsen-naar-heupen' LIMIT 1) IS NOT NULL;
+
+-- til-draagtest-full-exercise (1 item: Keuring Cluster 5, week 5)
+INSERT OR IGNORE INTO program_template_items (id,program_template_id,block_week,day_index,session_order,item_type,exercise_id,protocol_id,notes_json,created_at_ms,updated_at_ms)
+SELECT 'e1acc730-fe93-525c-8eed-ab239066ac74','48f897de-7f10-56c1-9b92-5097ed7df48b',5,1,7,'exercise',(SELECT id FROM exercises WHERE slug='til-draagtest-full-exercise' LIMIT 1),NULL,NULL,1746230400000,1746230400000
+WHERE (SELECT id FROM exercises WHERE slug='til-draagtest-full-exercise' LIMIT 1) IS NOT NULL;

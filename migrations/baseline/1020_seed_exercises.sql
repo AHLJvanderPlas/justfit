@@ -7,10 +7,12 @@
 -- Bootstrap order: run AFTER 1010_schema_training.sql and 1000_schema_core.sql
 --
 -- Canonical current state of:
---   exercises         : 412 rows
+--   exercises         : 415 rows
 --                         308 general library rows (production snapshot via generator)
 --                         103 military Defensie exercises (migration 0045)
 --                         1 resolved exercise (migration 0048: hardlopen-zone-3-5-minuten)
+--                         3 resolved exercises (migration 0049: optillen-vanaf-de-grond,
+--                           til-draagtest-gewicht-plaatsen-naar-heupen, til-draagtest-full-exercise)
 --   session_templates : 16 rows (migrations 0005, 0011)
 --   awards            : 17 rows
 --                         12 general awards (production snapshot via generator)
@@ -21,6 +23,7 @@
 -- Section 3 (0033 supplement): INSERT OR IGNORE — idempotent (non-deterministic IDs
 --   from randomblob are fine on a fresh DB; slug UNIQUE prevents duplicates).
 -- Section 4 (0048 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
+-- Section 5 (0049 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
 -- Military exercise_aliases, program_templates, and program_template_items
 -- are in 1040_seed_military.sql.
 -- =============================================================================
@@ -1054,3 +1057,22 @@ INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, crite
 INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
 SELECT '6d095bd9-607a-5288-9231-646fae5b5441','hardlopen-zone-3-5-minuten','Hardlopen zone 3 - 5 minuten','cardio','[]','[]','["running","zone-3","threshold","military"]','["none"]','{"steps":["Run at zone 3 intensity for 5 minutes","2 minutes zone 1 recovery"],"cues":["Zone 3 = threshold, comfortably hard"]}','{"supports":["time","sets"]}',1,1746230400000,1746230400000
 WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='hardlopen-zone-3-5-minuten');
+
+-- ---------------------------------------------------------------------------
+-- exercises supplement — migration 0049 (3 resolved exercises)
+-- All 3 previously deferred exercises now resolved from matrix data +
+-- werkenbijdefensie.nl (Progressieve Til/Draagtest specification).
+-- Uses INSERT WHERE NOT EXISTS slug — idempotent.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
+SELECT '2ea4afcf-e936-57b3-8e69-0eba3365195a','optillen-vanaf-de-grond','Optillen vanaf de grond','strength','["glutes","quads"]','["lats","abs"]','["power","lower-body","military"]','["none"]','{"steps":["Stand with feet shoulder-width apart over the object (rucksack, crate, or box)","Hinge at hips and knees with flat back and grip the object firmly","Lift the object explosively from floor to hip height","Lower with control back to the floor"],"cues":["3 sets x 30 s","30 s rest","Keep back straight throughout","Object: filled rucksack, crate, or box — test standard uses a munitiekist (20 kg Basis/K1, 30 kg K2-K6, 40 kg K3/K5/K6)"]}','{"supports":["time","sets"]}',1,1746230400000,1746230400000
+WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='optillen-vanaf-de-grond');
+
+INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
+SELECT 'f29f1e9c-c415-508e-adc3-375999c3b844','til-draagtest-gewicht-plaatsen-naar-heupen','Til/draagtest: Gewicht plaatsen naar heupen','skill','["glutes","quads"]','["lats","abs"]','["power","military"]','["none"]','{"steps":["Starting position: munitiekist (ammunition crate) on the floor","Grip the handles firmly — arms horizontal at shoulder height when extended","Explosively lift crate from floor to shoulder height in one fast movement","Place crate on lift table at shoulder height (115-135 cm, adjusted to body height)","Lower with control"],"cues":["5 sets x 10 s","2 min rest","Fast explosive execution","Test weights: 20 kg (Basis/K1), 30 kg (K2/K4), 40 kg (K3/K5/K6)","New repetition every 25 seconds in the actual test"]}','{"supports":["time","sets"]}',1,1746230400000,1746230400000
+WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='til-draagtest-gewicht-plaatsen-naar-heupen');
+
+INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
+SELECT '485f47ea-5303-5bfa-bd2a-66f043d49add','til-draagtest-full-exercise','Til/draagtest: Full exercise','skill','["glutes","lats"]','["abs","quads"]','["full-body","military"]','["none"]','{"steps":["Lift munitiekist from floor","Carry 25 metres to the lift table","Place crate on table at shoulder height (115-135 cm, adjusted to body height)","Lift crate from table","Carry 25 metres back","Lower crate to floor — this completes one repetition","New repetition starts every 25 seconds"],"cues":["2 sets x 10 reps","30 s rest between sets","Test weights: 20 kg (Basis/K1), 20+30 kg (K2/K4), 20+30+40 kg (K3/K5/K6)","Arms horizontal at shoulder height when gripping handles","Train with the weight appropriate for your cluster target"]}','{"supports":["reps","sets"]}',1,1746230400000,1746230400000
+WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='til-draagtest-full-exercise');
