@@ -112,7 +112,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpenCooperModal, onProgressionRefresh }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChangePath, onOpenCooperModal, onProgressionRefresh }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -848,6 +848,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onOpen
               </div>
               <div style={{ fontSize: 14, color: C.muted }}>Adaptive daily training · no structured programme</div>
             </>
+          )}
+          {onChangePath && (
+            <button
+              onClick={onChangePath}
+              style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em" }}
+            >
+              Change path →
+            </button>
           )}
         </div>
       {/* ── Training Focus ──────────────────────────────────── */}
