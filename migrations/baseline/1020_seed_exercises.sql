@@ -7,12 +7,13 @@
 -- Bootstrap order: run AFTER 1010_schema_training.sql and 1000_schema_core.sql
 --
 -- Canonical current state of:
---   exercises         : 415 rows
+--   exercises         : 416 rows
 --                         308 general library rows (production snapshot via generator)
 --                         103 military Defensie exercises (migration 0045)
 --                         1 resolved exercise (migration 0048: hardlopen-zone-3-5-minuten)
 --                         3 resolved exercises (migration 0049: optillen-vanaf-de-grond,
 --                           til-draagtest-gewicht-plaatsen-naar-heupen, til-draagtest-full-exercise)
+--                         1 assessment exercise (migration 0050: graaftest)
 --   session_templates : 16 rows (migrations 0005, 0011)
 --   awards            : 17 rows
 --                         12 general awards (production snapshot via generator)
@@ -24,6 +25,7 @@
 --   from randomblob are fine on a fresh DB; slug UNIQUE prevents duplicates).
 -- Section 4 (0048 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
 -- Section 5 (0049 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
+-- Section 6 (0050 supplement): INSERT WHERE NOT EXISTS slug — idempotent.
 -- Military exercise_aliases, program_templates, and program_template_items
 -- are in 1040_seed_military.sql.
 -- =============================================================================
@@ -1076,3 +1078,13 @@ WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='til-draagtest-gewicht-plaa
 INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
 SELECT '485f47ea-5303-5bfa-bd2a-66f043d49add','til-draagtest-full-exercise','Til/draagtest: Full exercise','skill','["glutes","lats"]','["abs","quads"]','["full-body","military"]','["none"]','{"steps":["Lift munitiekist from floor","Carry 25 metres to the lift table","Place crate on table at shoulder height (115-135 cm, adjusted to body height)","Lift crate from table","Carry 25 metres back","Lower crate to floor — this completes one repetition","New repetition starts every 25 seconds"],"cues":["2 sets x 10 reps","30 s rest between sets","Test weights: 20 kg (Basis/K1), 20+30 kg (K2/K4), 20+30+40 kg (K3/K5/K6)","Arms horizontal at shoulder height when gripping handles","Train with the weight appropriate for your cluster target"]}','{"supports":["reps","sets"]}',1,1746230400000,1746230400000
 WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='til-draagtest-full-exercise');
+
+-- ---------------------------------------------------------------------------
+-- exercises supplement — migration 0050 (1 assessment exercise)
+-- Graaftest: Defensie rotational digging test (medicine ball / dumbbell / kettlebell).
+-- Uses INSERT WHERE NOT EXISTS slug — idempotent.
+-- ---------------------------------------------------------------------------
+
+INSERT INTO exercises (id,slug,name,category,primary_muscles_json,secondary_muscles_json,tags_json,equipment_required_json,instructions_json,metrics_json,is_active,created_at_ms,updated_at_ms)
+SELECT 'a347874a-e92f-500c-ab38-fc3660355a31','graaftest','Graaftest','skill','["obliques","shoulders"]','["glutes","quads"]','["rotation","core","military","functional"]','["dumbbell"]','{"steps":["Stand with feet shoulder-width apart, weight held in both hands","Lower the weight diagonally to hip height on one side — start position","In one explosive movement, rotate and lift the weight diagonally to shoulder height on the opposite side","Reverse under control back to start position — this is one repetition","Alternate sides each set or complete all reps on one side first"],"cues":["Use a medicine ball, dumbbell, or kettlebell — any weighted implement is valid","Drive the movement from your hips and core, not your arms","Keep a neutral spine throughout","Test is scored on power and control of the rotation"]}','{"supports":["reps","sets","time"]}',1,1746230400000,1746230400000
+WHERE NOT EXISTS (SELECT 1 FROM exercises WHERE slug='graaftest');
