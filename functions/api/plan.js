@@ -251,6 +251,51 @@ export async function onRequestPost({ request, env }) {
       crossRunsLast7 = crossRunCountRow?.cnt ?? 0;
     }
 
+    // ------------------------------------------------------------------
+    // Phase 3b — Military template items DB lookup
+    // Pre-compute military phase to know which session type is scheduled.
+    // For strength sessions (kracht / kracht_marsen / circuit) only:
+    //   fetch the ordered exercise list from program_template_items.
+    // Run/cooper sessions keep existing progressive-level logic.
+    // Falls back to null → runPlanner uses existing military pool path.
+    // ------------------------------------------------------------------
+    let militaryTemplateItems = null;
+    const isMilCoachActiveForFetch = !!(prefs?.preferences?.military_coach?.active);
+    if (user_id && !bonus_session && isMilCoachActiveForFetch) {
+      try {
+        const milCoachPrefs = prefs.preferences.military_coach;
+        const prePhase = computeMilitaryPhase(milCoachPrefs, effectiveCheckin, date);
+        const { cyclePosn, clusterLive, sessionType: preSessionType } = prePhase;
+
+        // Only strength sessions are DB-backed; run/cooper use progressive level logic
+        const STRENGTH_DAY_INDEX = { kracht: 1, kracht_marsen: 4, circuit: 1 };
+        const dayIndex = STRENGTH_DAY_INDEX[preSessionType];
+
+        if (dayIndex !== undefined) {
+          const track = milCoachPrefs.track ?? 'keuring';
+          const templateSlug = track === 'opleiding'
+            ? `opleiding-cluster-${clusterLive}`
+            : (clusterLive === 0 ? 'keuring-basis' : `keuring-cluster-${clusterLive}`);
+
+          const tmResult = await env.DB.prepare(`
+            SELECT e.id, e.slug, e.name, e.category, e.tags_json, e.equipment_required_json,
+                   e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json
+            FROM program_templates pt
+            JOIN program_template_items pti ON pt.id = pti.program_template_id
+            JOIN exercises e ON pti.exercise_id = e.id
+            WHERE pt.slug = ? AND pti.block_week = ? AND pti.day_index = ?
+            ORDER BY pti.session_order
+          `).bind(templateSlug, cyclePosn, dayIndex).all();
+
+          if (tmResult.results?.length >= 3) {
+            militaryTemplateItems = tmResult.results;
+          }
+        }
+      } catch {
+        // DB lookup failed — militaryTemplateItems stays null → fallback to pool path
+      }
+    }
+
     // Free-tier adapt path: adjust the stored weekly plan for today's check-in
     // without regenerating the exercise selection.
     if (adapt_mode && base_plan) {
@@ -272,7 +317,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -1060,7 +1105,10 @@ function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0, militaryTemplateItems = null) {
+  // militaryTemplateItems: ordered exercise rows from program_template_items for the current
+  // strength session (kracht / kracht_marsen / circuit). null → uses legacy pool path.
+  // Phase 3b — DB-backed military schedule content. Adaptation logic is unchanged.
   const trace = [];
   const isProEnabled = !!isPro;
   // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
@@ -1949,6 +1997,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let militaryMarchKg  = 0;
   let militaryMarchSec = 0;
   let milWeekComputed  = 1;
+  // Phase 3b: ordered exercise list from program_template_items for strength sessions.
+  // Non-null → used as direct session content; null → pool path (legacy fallback).
+  let militaryDbSelection = null;
 
   const milCoach = prefs?.preferences?.military_coach;
   const militaryActive = !!(milCoach?.active) && !inSpecialMode
@@ -2030,23 +2081,44 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       }
 
     } else {
-      // R573–R575 — Strength / march / circuit: filter to military exercise pool
-      const milPool = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
-      if (milPool.length >= 3) {
-        pool = milPool;
-        trace.push(`R573 — Military pool: ${milPool.length} military-tagged exercises`);
+      // R573–R575 — Strength / march / circuit
+      // Phase 3b: prefer DB-backed ordered exercise list from program_template_items.
+      // Fallback to military-tag pool when DB items unavailable (table missing, empty result, etc.)
+      if (militaryTemplateItems && militaryTemplateItems.length >= 3) {
+        // R573a — DB-backed: ordered content from program_template_items.
+        // For kracht_marsen: strip march exercises — R574 appends the march step with weight.
+        let dbItems = sessionType === 'kracht_marsen'
+          ? militaryTemplateItems.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('march'))
+          : militaryTemplateItems;
+        // Injury safety: filter loads_* exercises. Keep full list if fewer than 3 survive.
+        if (injuryAreas.length > 0) {
+          const safe = dbItems.filter(ex => {
+            const tags = JSON.parse(ex.tags_json || '[]');
+            return !injuryAreas.some(a => tags.includes(`loads_${a}`));
+          });
+          if (safe.length >= 3) dbItems = safe;
+        }
+        militaryDbSelection = dbItems;
+        trace.push(`R573a — Military DB session: ${dbItems.length} exercises from program_templates`);
       } else {
-        trace.push(`R573 — Military pool too small (${milPool.length}), using full pool`);
-      }
+        // Fallback: filter pool by military tag (legacy behavior; always safe if tables absent)
+        const milPool = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
+        if (milPool.length >= 3) {
+          pool = milPool;
+          trace.push(`R573 — Military pool${militaryTemplateItems !== null ? ' (DB items insufficient — fallback)' : ''}: ${milPool.length} military-tagged exercises`);
+        } else {
+          trace.push(`R573 — Military pool too small (${milPool.length}), using full pool`);
+        }
 
-      if (sessionType === 'circuit') {
-        // R575 — Circuit: prefer time-capable exercises for continuous effort
-        const circuitPool = pool.filter(ex => {
-          const m = JSON.parse(ex.metrics_json || '{}');
-          return m.supports?.includes('time') || m.supports?.includes('reps');
-        });
-        if (circuitPool.length >= 3) pool = circuitPool;
-        trace.push(`R575 — Military circuit: ${pool.length} exercises in time/reps pool`);
+        if (sessionType === 'circuit') {
+          // R575 — Circuit: prefer time-capable exercises for continuous effort
+          const circuitPool = pool.filter(ex => {
+            const m = JSON.parse(ex.metrics_json || '{}');
+            return m.supports?.includes('time') || m.supports?.includes('reps');
+          });
+          if (circuitPool.length >= 3) pool = circuitPool;
+          trace.push(`R575 — Military circuit: ${pool.length} exercises in time/reps pool`);
+        }
       }
 
       if (sessionType === 'kracht_marsen') {
@@ -2256,6 +2328,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         militaryProgramOverride.runEx,
         ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
       ]
+    // Phase 3b: DB-backed military strength session — use template items in prescribed order
+    : militaryDbSelection
+    ? militaryDbSelection
     : shuffled.slice(0, count);
 
   // ------------------------------------------------------------------
