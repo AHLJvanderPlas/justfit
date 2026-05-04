@@ -193,9 +193,22 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 justfit/
 ├── src/
 │   ├── App.jsx          ← app shell, view orchestration, primary workout/dashboard logic
-│   ├── SettingsView.jsx ← Settings tab (lazy-loaded)
+│   ├── WorkoutView.jsx  ← full-screen workout execution overlay (phase state machine, rep counting, rest timer)
+│   ├── PlanWeekView.jsx ← 7-day plan view with session strips and completed sessions (lazy-loaded)
+│   ├── HistoryView.jsx  ← Progress tab: trajectory chart, radar, awards entry, cycling PMC (lazy-loaded)
+│   ├── SettingsView.jsx ← Settings tab with 4 sub-views: You / Your Coach / Privacy / Account (lazy-loaded)
 │   ├── AwardsView.jsx   ← Hall of Fame component (lazy-loaded via React.lazy to reduce initial bundle)
+│   ├── MuscleMap.jsx    ← anatomical front+back SVG muscle map (male/female variants, lazy-loaded)
+│   ├── uiComponents.jsx ← shared Glass card, Badge, and other reusable UI primitives
+│   ├── icons.jsx        ← Icons (UI SVGs) + ExerciseIcon (movement line-art, 27 types)
+│   ├── ErrorBoundary.jsx ← React error boundary wrapper
 │   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
+│   ├── tokens.js        ← design token object C, display(), eyebrow, mono(), ACCENT_COLORS, applyAccent()
+│   ├── appConstants.js  ← RUN_TARGETS, EQUIPMENT_OPTIONS, ALL_SPORTS, GOALS, EXPERIENCE, SEX_OPTIONS
+│   ├── planUtils.js     ← client-side plan helpers (upcoming session preview, conflict detection)
+│   ├── exportUtils.js   ← file export generators: generateCyclingTcx(), generateZwoFile(), generateErgFile(), generateRunningTcx()
+│   ├── authHelpers.js   ← JWT decode helpers, guest detection, token storage
+│   ├── offlineCache.js  ← IndexedDB offline cache: cachePlan() write-through + getCachedPlan() fallback
 │   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
 │   ├── errorReporter.js ← fire-and-forget client error reporting (plan_generation, auth_failure); dedupes per session
 │   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), hasBlockingSafety(), deriveChipLabel()
@@ -259,7 +272,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0053+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0055+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -987,7 +1000,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0036) |
+| D1 schema + migrations | ✅ Live (0002–0054) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
@@ -1026,8 +1039,9 @@ Calculated server-side from executions table:
 | Goal SVG icons | ✅ Live — 6 outlined polygon icons (health=cross, strength=arrow, fat_loss=flame, muscle=dumbbell, endurance=chevrons, mobility=figure); positioned at 2/3 from left / 1/3 from top; used in goal picker + Dashboard + Settings |
 | Injury-aware filtering | ✅ Live — R562–R565: check-in pain scope (general→rest, specific+areas→filter); chronic_injury_areas in preferences_json; loads_knee/shoulder/lower_back/ankle tags on ~182 exercises (migration 0021) |
 | Progression tab | ✅ Live — full feature: scoring engine (diminishing-return gains + exponential decay per mode), 6-axis body profile (Push/Pull/Legs/Core/Cardio/Mobility), custom SVG hexagonal radar chart, goal fit ring, key insights (strongest/weakest/biggest gap), axis breakdown bars, planner explanation, chart mode tabs (Power/Endurance/Balanced/Mobility), goal target compare overlay, rebuild-from-history debug button; DB: migration 0014 (user_progression + user_progression_events); API: /api/progression (GET + POST + POST?action=recompute); progression updated on every workout completion in execution.js; planner R550-R560 rules for weak-axis bias + mobility maintenance |
-| Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST |
-| Planner R550–R560 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace, R560 sport-aware bias layer (SPORT_DEMAND × weighted vector → ±12pt target nudge; guardrail halves legs/cardio bias within 24h of a run/ride; bypassed when sport coach prescribes the session) |
+| Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST; sport-aware bias on/off toggle (sport_prefs.bias_enabled) |
+| Planner R550–R561 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool; prefers sport_support:{primary} tagged exercises within gap axis), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace, R560 sport-aware bias layer (complement vectors × weighted average → ±12pt target nudge; volume-scaled guardrail on legs/conditioning: 0 sessions=100%, 1-2=80%, 3-4=60%, 5+=40%; bypassed when sport coach prescribes the session or bias_enabled=false), R561 sport mobility injection (appends one sport_mobility:{primary} tagged exercise per standard session) |
+| Sport-aware bias pipeline (May 2026) | ✅ Live — SPORT_DEMAND reframed as complement vectors (37 sports); ONBOARDING_SPORTS chip multi-select in onboarding Step 4; PathChoiceModal saves sport_prefs on running/cycling path selection; migration 0053 adds sport_support tags for 6 sports (59 exercises); migration 0054 adds sport_mobility tags for 7 sports (59 exercises); SettingsView: "Sport-aware training bias" on/off toggle |
 | Safe running build-up (Option A) | ✅ Live — R555 rule replaces generic long-run exercises with level-appropriate run/walk intervals when running_shoes in equipment; 6 levels driven by conditioning.endurance score (migration 0015); walk recovery encoded as custom_rest_sec so rest timer = walk; fixed_sets prescribes interval count; automatic decay from skipped sessions reduces level safely |
 | Running Coach Program (Option B) | ✅ Live — R556 rule; structured 5/10/15/20/30km targets (unlocked sequentially); 3 sessions/week Mon/Wed/Fri; warm-up exercises prepended on run days; session named "Running Day · Week N"; run_coach state in preferences_json; advanceRunCoach in execution.js advances week/session counters; 15 continuous run levels 7–21 (20min–180min) + 4 warm-up exercises in migration 0016; enrollment UI in Settings |
 | API security hardening | ✅ Done — JWT HMAC-SHA256 verification inlined in all endpoints (profile.js, progression.js, plan.js, checkin.js, execution.js, score.js, cycle.js); IDOR fallbacks removed (all user-bound endpoints return 401 without valid JWT); execution DELETE verifies ownership before deleting steps; daily_checkins UNIQUE(user_id, date) index + atomic ON CONFLICT upsert (migration 0018); dead gesture handler state/code removed from WorkoutView |
@@ -1041,7 +1055,7 @@ Calculated server-side from executions table:
 | AdaptationChip on PlanWeekView (F5) | ✅ Live — Today's Plan card in weekly view shows chip label (via deriveChipLabel) when a rule adaptation is active |
 | Active coach badge on Dashboard (F6) | ✅ Live — persistent inline badge below greeting shows active coach label (Military · K3 / Running · 10km / Cycling · Week 4); renders only when a coach is active |
 | Check-in simplification — SVG smiley row (F8) | ✅ Live — Motivation + Stress sliders replaced with 3-button SVG smiley row ("Not great" / "Okay" / "Good"); feeling maps to stress + motivation at submit time (sad→stress=10/motivation=2, neutral→stress=4/motivation=6, good→stress=2/motivation=10); DB schema and all planner rules (R511–R513) unchanged; pre-fill from last check-in derives feeling from stored stress/motivation |
-| Offline / IndexedDB sync | ⬜ Not started |
+| Offline / IndexedDB sync | ✅ Live — `src/offlineCache.js`; cachePlan() writes on every plan state change; getCachedPlan() fallback in getTodayPlan + generatePlan catch blocks; IDB store: `jf-offline/plans`, keyPath=date |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
 
@@ -1118,7 +1132,7 @@ Improvements identified but not yet built. Ordered roughly by impact.
 
 ### High Priority (next up)
 - **Images/GIFs in instruction cards** — `gif_url` already exists on every plan step; just needs a collapsible image area in the WorkoutView instruction card. Makes coaching feel premium and reduces form errors. High impact for beta users.
-- **Offline resilience** — PWA users on spotty gym wifi see a blank screen. Minimum: cache today's plan + exercise data in IndexedDB so the workout loads without network. Service worker or manual cache strategy in `src/`.
+- ~~**Offline resilience**~~ ✅ Done — `src/offlineCache.js`; IDB store `jf-offline/plans` keyed by date; write-through on every plan load; fallback served when getTodayPlan or generatePlan fails. Exercise data (alternatives) not yet cached — still network-dependent.
 
 ### Workout UX
 - **Level-appropriate cues** — Cues prefixed with `💡💡` in the DB indicate level-specific advice (Beginner / Intermediate / Advanced). In WorkoutView, filter cues by `experience_level` from prefs: show only the matching level's `💡💡` cues plus all single-`💡` cues. Requires a prefix convention in the data.
