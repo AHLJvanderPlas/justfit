@@ -1266,8 +1266,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                     ? `${mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness'} · ${mc.mode === 'open' ? 'Open progression' : `Target ${mc.track === 'keuring' ? (mc.cluster_target === 0 ? 'KB' : `K${mc.cluster_target}`) : `O${mc.cluster_target}`}`}`
                     : "Dutch Defensie prep — train toward your target level at your own pace or with a fixed assessment date."}
                 </div>
-                {!isActive && (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                     {/* ── Mode — first ── */}
                     <div>
                       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Mode</div>
@@ -1427,37 +1426,6 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                       </button>
                     </div>
                   </div>
-                )}
-                {isActive && (() => {
-                  const trackLabel  = mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
-                  const clusterCode = mc.track === 'keuring' ? (mc.cluster_target === 0 ? 'KB' : `K${mc.cluster_target}`) : `O${mc.cluster_target}`;
-                  let statusLine, subLine;
-                  if (mc.mode === 'open') {
-                    statusLine = "Open progression";
-                    subLine    = "Cycling through training phases continuously";
-                  } else if (mc.mode === 'fit') {
-                    statusLine = `Fit target · ${clusterCode} · Progressive base building`;
-                    subLine    = "Training toward your goal level — no assessment date set";
-                  } else if (mc.mode === 'target' && mc.target_date) {
-                    const daysLeft  = Math.ceil((new Date(mc.target_date + 'T00:00:00Z').getTime() - Date.now()) / 86400000);
-                    const weeksLeft = Math.max(0, Math.ceil(daysLeft / 7));
-                    const phase     = daysLeft > 42 ? "Base building" : daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
-                    statusLine = `${weeksLeft} weeks to assessment · ${phase}`;
-                    subLine    = `Assessment: ${mc.target_date}`;
-                  } else {
-                    statusLine = "No assessment date set";
-                    subLine    = "Add a date to activate the 6-week specific prep phase";
-                  }
-                  const showCluster = mc.mode !== 'open';
-                  return (
-                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: "1px solid rgba(16,185,129,0.2)" }}>
-                      <div style={{ fontSize: 12, color: C.emerald, fontWeight: 700 }}>
-                        {trackLabel}{showCluster ? ` · ${clusterCode}` : ""} · {statusLine}
-                      </div>
-                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{subLine}</div>
-                    </div>
-                  );
-                })()}
               </div>
             );
           })()}
@@ -1481,6 +1449,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                focusSel === "running" && runCoachActive ? `Switch to ${runTargetSelect}km →` :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
+               focusSel === "military" && milCoachActive ? `Save changes · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
                focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
                `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
             </button>
