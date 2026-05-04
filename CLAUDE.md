@@ -1103,6 +1103,7 @@ Calculated server-side from executions table:
 
 | Design system overhaul — files 15-19 (May 2026) | ✅ Live — (PR3/file16) Today context blocks: 3px accent hairline + "WEEK N OF M" in coach cards, "Check in →" link below weekly summary; (PR4/file18) Trophy Room: Earned/Next up/Far horizon sections with deltaText, Progress entry → plain text "Next: [award] · Trophy room →" link; (PR5/file19) Coach tab replaces Plan+Awards in nav, CoachView with primary intent radio + conflict resolution + weekly plan link; plan+awards views still renderable from nav links |
 | Onboarding re-do fix (May 2026) | ✅ Live — OnboardingModal now pre-fills all fields from existing prefs (name, sex, weight, height, goal, experience, equipment, duration); weight_kg/height_cm omitted from API payload when left blank (prevents null overwrite); Settings → You: "Set values to default" button with red inline confirmation resets profile to standard defaults (User/Male/75kg/180cm/bodyweight/emerald) |
+| Military coach settings always visible (May 2026) | ✅ Live — removed `!isActive` guard so Mode/Track/Target level/Date/Pack weight settings are always shown when Military Coach card is selected (whether or not already enrolled); static read-only status card removed; save button label changes to "Save changes · KN" when coach is already active |
 
 ## Known Bugs to Fix
 
