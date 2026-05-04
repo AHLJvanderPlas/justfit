@@ -2287,8 +2287,21 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
     <div>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>COACH</div>
-        <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</div>
+        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
+          <div>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>COACH</div>
+            <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</div>
+          </div>
+          <button
+            onClick={() => onNavigateSettings()}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 99, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", flexShrink: 0, marginTop: 2 }}
+          >
+            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+            Settings
+          </button>
+        </div>
         {milA && mp && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
             Block {((mp.block_number ?? 1) - 1) % 6 + 1} of 6 · Session {mp.block_session_index ?? 0} of 4
@@ -2790,14 +2803,6 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         );
       })()}
 
-      {/* ── Coach settings link ── */}
-      <button
-        onClick={() => onNavigateSettings()}
-        style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "inherit", marginBottom: 10 }}
-      >
-        <span>Full coach settings</span>
-        <span style={{ color: C.muted, fontSize: 18 }}>›</span>
-      </button>
       <button
         onClick={() => onWeeklyPlan()}
         style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "inherit" }}

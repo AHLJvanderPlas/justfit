@@ -666,6 +666,51 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
             );
           })()}
 
+          {/* ── Recent sessions ── */}
+          {(() => {
+            const recent = history.filter(h => h.status === "completed").slice(0, 5);
+            if (!recent.length) return null;
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>RECENT SESSIONS</div>
+                {recent.map((session) => {
+                  const steps = session.steps ?? [];
+                  const mins = session.total_duration_sec ? Math.round(session.total_duration_sec / 60) : null;
+                  const d = new Date(session.date + "T12:00:00");
+                  const dateLabel = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+                  return (
+                    <Glass key={session.id} style={{ padding: "14px 16px", marginBottom: 10 }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: steps.length ? 10 : 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{dateLabel}</div>
+                        {mins && <div style={{ ...mono(11), color: C.muted }}>{mins} min</div>}
+                      </div>
+                      {steps.map((step, i) => {
+                        const prescribed = step.prescribed_json ? JSON.parse(step.prescribed_json) : {};
+                        const actual = step.actual_json ? JSON.parse(step.actual_json) : {};
+                        const sets = actual.sets_completed ?? prescribed.sets ?? null;
+                        const repArr = actual.reps_per_set;
+                        const reps = repArr?.length ? Math.round(repArr.reduce((a, b) => a + b, 0) / repArr.length) : prescribed.reps ?? null;
+                        const durSec = prescribed.duration_sec ?? null;
+                        const stat = durSec
+                          ? `${sets ?? 1} × ${Math.round(durSec / 60)}min`
+                          : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} sets` : null;
+                        return (
+                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < steps.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                            <div style={{ fontSize: 12, color: C.text, fontWeight: 500 }}>{step.name}</div>
+                            {stat && <div style={{ ...mono(11), color: C.muted }}>{stat}</div>}
+                          </div>
+                        );
+                      })}
+                      {!steps.length && (
+                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>No exercises recorded</div>
+                      )}
+                    </Glass>
+                  );
+                })}
+              </div>
+            );
+          })()}
+
           {/* ── Advanced (hidden by default) ── */}
           <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
             <button
