@@ -223,25 +223,27 @@ function PathChoiceModal({ token, onComplete }) {
   return null;
 }
 
-function OnboardingModal({ token, onComplete, onBack }) {
+function OnboardingModal({ token, prefs, onComplete, onBack }) {
+  const p = prefs ?? {};
+  const pp = p.preferences ?? {};
   const [step, setStep] = useState(0);
-  // Step 0 — About you
-  const [displayName, setDisplayName] = useState("");
-  const [sex, setSex] = useState(null);
-  const [weightInput, setWeightInput] = useState("");
+  // Step 0 — About you (pre-filled from existing prefs)
+  const [displayName, setDisplayName] = useState(pp.display_name ?? "");
+  const [sex, setSex] = useState(p.sex ?? null);
+  const [weightInput, setWeightInput] = useState(p.weight_kg ? String(p.weight_kg) : "");
   const [weightUnit, setWeightUnit] = useState("kg");
-  const [heightInput, setHeightInput] = useState("");
+  const [heightInput, setHeightInput] = useState(p.height_cm ? String(p.height_cm) : "");
   const [heightUnit, setHeightUnit] = useState("cm");
   const [showCycleSetup, setShowCycleSetup] = useState(false);
   const [lastPeriodStart, setLastPeriodStart] = useState(defaultPeriodDate());
   const [cycleLength, setCycleLength] = useState(28);
   const [cycleTrackingMode, setCycleTrackingMode] = useState(null);
   const [cycleSetupDone, setCycleSetupDone] = useState(false);
-  // Steps 1-3 (existing)
-  const [goal, setGoal] = useState("health");
-  const [experience, setExperience] = useState("beginner");
-  const [equipment, setEquipment] = useState(["none"]);
-  const [duration, setDuration] = useState(45);
+  // Steps 1-3 (pre-filled from existing prefs)
+  const [goal, setGoal] = useState(p.training_goal ?? "health");
+  const [experience, setExperience] = useState(p.experience_level ?? "beginner");
+  const [equipment, setEquipment] = useState(pp.available_equipment ?? ["none"]);
+  const [duration, setDuration] = useState(p.session_duration_min ?? 45);
   const [saving, setSaving] = useState(false);
 
   const TOTAL_STEPS = 5;
@@ -264,12 +266,12 @@ function OnboardingModal({ token, onComplete, onBack }) {
   const handleFinish = async () => {
     setSaving(true);
     try {
-      let weight_kg = null;
+      let weight_kg;
       if (weightInput) {
         const w = parseFloat(weightInput);
         if (!isNaN(w)) weight_kg = weightUnit === "lbs" ? Math.round(w * 0.453592 * 10) / 10 : w;
       }
-      let height_cm = null;
+      let height_cm;
       if (heightInput) {
         const h = parseFloat(heightInput);
         if (!isNaN(h)) height_cm = heightUnit === "in" ? Math.round(h * 2.54 * 10) / 10 : h;
@@ -280,17 +282,19 @@ function OnboardingModal({ token, onComplete, onBack }) {
 
       const prefPayload = { available_equipment: equipment };
       if (displayName.trim()) prefPayload.display_name = displayName.trim();
-      await api.saveProfile(token, {
+      const profilePayload = {
         training_goal: goal,
         experience_level: experience,
         session_duration_min: duration,
         days_per_week_target: 3,
         preferences: prefPayload,
         sex,
-        weight_kg,
-        height_cm,
         cycle,
-      });
+      };
+      // Only include body metrics if the user provided values (avoids overwriting with null)
+      if (weight_kg !== undefined) profilePayload.weight_kg = weight_kg;
+      if (height_cm !== undefined) profilePayload.height_cm = height_cm;
+      await api.saveProfile(token, profilePayload);
       onComplete({ training_goal: goal, experience_level: experience, session_duration_min: duration, sex, weight_kg, height_cm, preferences: prefPayload });
     } catch (e) {
       console.error("Failed to save profile:", e);
@@ -3585,6 +3589,32 @@ export default function App() {
                   userId={userId}
                   token={token}
                   onRedoOnboarding={() => setShowOnboarding(true)}
+                  onResetDefaults={async () => {
+                    const defaultPrefs = {
+                      display_name: "User",
+                      checkin_mode: "once_a_day",
+                      available_equipment: ["none"],
+                      accent: "#10b981",
+                      time_overhead: { enabled: false },
+                      sport_prefs: {},
+                      chronic_injury_areas: [],
+                    };
+                    const result = await api.saveProfile(token, {
+                      sex: "male",
+                      weight_kg: 75,
+                      height_cm: 180,
+                      session_duration_min: 60,
+                      preferences: defaultPrefs,
+                    });
+                    if (result?.ok && result.preferences) {
+                      setPrefs(p => ({ ...p, sex: "male", weight_kg: 75, height_cm: 180, session_duration_min: 60, preferences: result.preferences }));
+                      localStorage.setItem("jf_accent", "#10b981");
+                      document.documentElement.style.setProperty("--accent", "#10b981");
+                      document.documentElement.style.setProperty("--accent-rgb", "16,185,129");
+                      document.documentElement.style.setProperty("--accent-dim", "rgba(16,185,129,0.15)");
+                      document.documentElement.style.setProperty("--accent-border", "rgba(16,185,129,0.3)");
+                    }
+                  }}
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onProgressionRefresh={() =>
@@ -3654,7 +3684,7 @@ export default function App() {
       )}
 
       {showOnboarding && (
-        <OnboardingModal token={token} onComplete={handleOnboardingComplete} onBack={logout} />
+        <OnboardingModal token={token} prefs={prefs} onComplete={handleOnboardingComplete} onBack={logout} />
       )}
 
       {showPathChoice && (

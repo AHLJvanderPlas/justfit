@@ -112,7 +112,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChangePath, onOpenCooperModal, onProgressionRefresh }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -161,6 +161,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
   const [showSexWarning, setShowSexWarning] = useState(false);
   const [pendingSex, setPendingSex] = useState(null);
   const [bodyModeDeactivating, setBodyModeDeactivating] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [resetting, setResetting] = useState(false);
   // Sub-view routing
   const [subView, setSubView] = useState(null); // null | 'you' | 'coach' | 'privacy' | 'account'
   const [primaryIntent, setPrimaryIntent] = useState(prefs.preferences?.primary_intent ?? null);
@@ -2235,6 +2237,47 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                 >
                   Re-do onboarding
                 </button>
+              </div>
+            )}
+
+            {/* Reset to defaults */}
+            {onResetDefaults && (
+              <div style={{ marginTop: 12 }}>
+                {!showResetConfirm ? (
+                  <button
+                    onClick={() => setShowResetConfirm(true)}
+                    style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: "#ef4444", fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                  >
+                    Set values to default
+                  </button>
+                ) : (
+                  <div style={{ padding: "16px", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)" }}>
+                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>Reset all settings to default?</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>
+                      This will clear your personal settings and preferences — name, body data, equipment, sports, injuries and accent colour — and reset them to the default values. Your workout history and progress are not affected.
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      <button
+                        onClick={() => setShowResetConfirm(false)}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        disabled={resetting}
+                        onClick={async () => {
+                          setResetting(true);
+                          await onResetDefaults();
+                          setResetting(false);
+                          setShowResetConfirm(false);
+                        }}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: "#ef4444", color: "#fff", fontWeight: 900, fontSize: 13, cursor: resetting ? "not-allowed" : "pointer", opacity: resetting ? 0.6 : 1 }}
+                      >
+                        {resetting ? "Resetting…" : "Yes, reset"}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
