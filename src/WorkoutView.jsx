@@ -661,7 +661,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             if (tags.includes("strength")) return "Full Body Strength";
             return null;
           };
-          const muscleTarget = deriveTarget();
+          // Prefer DB-seeded values (migration 0055); fall back to derived
+          const muscleTarget = instr?.muscle_target ?? deriveTarget();
           const muscles = musclesFor(cur);
           const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
           const gender = prefs?.sex === "female" ? "female" : "male";
@@ -703,9 +704,10 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               return { text: stripEmoji(c), level: emojiCount >= 2 ? 2 : 1 };
             });
 
-          // Fallback "why" derived from category when no general cues exist in DB
+          // Prefer DB-seeded why (migration 0055); derive from category when absent or when cues exist
           const derivedWhy = (() => {
             if (cleanCues.length > 0) return null;
+            if (instr?.why) return instr.why;
             if (cur.category === 'recovery') return "Supports muscle recovery and keeps you ready for your next session.";
             if (cur.category === 'mobility') return "Maintains joint range of motion and helps prevent injury over time.";
             if (cur.category === 'cardio') return "Trains your heart and lungs — the base that makes every other exercise feel easier.";
