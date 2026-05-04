@@ -1196,35 +1196,6 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
             </div>
           )}
 
-          {/* ── Recent sessions ── */}
-          {history.filter(e => e.status === "completed").slice(0, 3).length > 0 && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>RECENT SESSIONS</div>
-              <Glass style={{ padding: "4px 0" }}>
-                {history.filter(e => e.status === "completed").slice(0, 3).map((ex, i, arr) => {
-                  const mins = ex.total_duration_sec ? Math.round(ex.total_duration_sec / 60) : null;
-                  const pe = ex.perceived_exertion;
-                  const peIcon = pe === 3 ? "💪" : pe === 8 ? "😰" : "😌";
-                  const dateStr = new Date(ex.date + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
-                  return (
-                    <div key={ex.id} style={{ padding: "12px 0", margin: "0 16px", display: "flex", alignItems: "center", gap: 12, borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                      <div style={{ width: 36, height: 36, borderRadius: 10, background: C.bgCard2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 16 }}>
-                        {pe ? peIcon : "🏋️"}
-                      </div>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ ...eyebrow, color: C.mutedStrong, fontSize: 10 }}>{dateStr}</div>
-                        {mins && <div style={{ ...mono(12), color: C.text, marginTop: 2 }}>{mins} min</div>}
-                      </div>
-                      <div style={{ ...eyebrow, fontSize: 9, color: ex.execution_type === "bonus" ? C.emerald : C.faint }}>
-                        {ex.execution_type === "bonus" ? "BONUS" : "MAIN"}
-                      </div>
-                    </div>
-                  );
-                })}
-              </Glass>
-            </div>
-          )}
-
           {/* ── Awards entry point ── */}
           {(() => {
             const nextAward = nextSessionUnlock(completedCount);

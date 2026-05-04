@@ -2079,7 +2079,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 </div>
                 {/* Coach sentence — rationale below the hero title */}
                 {(() => {
-                  const sentence = deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard');
+                  const sentence = deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard', plan.slot_type ?? '');
                   const fallback = plan.slot_type !== 'rest' && plan.session_name
                     ? `Today's session: ${plan.session_name.toLowerCase()}.`
                     : null;

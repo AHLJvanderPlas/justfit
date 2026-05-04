@@ -1031,32 +1031,35 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                 </div>
                 {prefs.isPro ? (
                   <>
-                    {!isActive && (
-                      <>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Target distance</div>
-                        <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: showRampWarn ? 10 : 12 }}>
-                          {RUN_TARGETS.map(({ km, label }) => {
-                            const done = unlockedTargets.includes(String(km));
-                            const isSel = km === runTargetSelect;
-                            return (
-                              <button key={km} onClick={() => setRunTargetSelect(km)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : C.muted }}>
-                                {done ? "✓ " : ""}{label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                        {showRampWarn && (
-                          <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
-                            <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>Progression caution</div>
-                            <span style={{ fontSize: 11, color: "#fcd34d", fontWeight: 600, lineHeight: 1.5 }}>
-                              Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
-                            </span>
-                          </div>
-                        )}
-                        <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
-                          {weeksMap[runTargetSelect]} · up to 3 sessions/week · any days
-                        </div>
-                      </>
+                    {/* Target distance — shown for both enrollment and active state */}
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Target distance</div>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: showRampWarn ? 10 : 12 }}>
+                      {RUN_TARGETS.map(({ km, label }) => {
+                        const done = unlockedTargets.includes(String(km));
+                        const isSel = km === runTargetSelect;
+                        return (
+                          <button key={km} onClick={() => setRunTargetSelect(km)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : C.muted }}>
+                            {done ? "✓ " : ""}{label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {showRampWarn && (
+                      <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
+                        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>Progression caution</div>
+                        <span style={{ fontSize: 11, color: "#fcd34d", fontWeight: 600, lineHeight: 1.5 }}>
+                          Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
+                        </span>
+                      </div>
+                    )}
+                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
+                      {weeksMap[runTargetSelect]} · up to 3 sessions/week · any days
+                    </div>
+                    {/* When active and target changed: show change button (restarts programme) */}
+                    {isActive && runTargetSelect !== (rcState?.target_km ?? 5) && (
+                      <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Switching target will restart your programme at week 1.</div>
+                      </div>
                     )}
                   </>
                 ) : (
@@ -1151,7 +1154,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                         </div>
                       </div>
                     )}
-                    {/* When active: FTP test + cross-training settings */}
+                    {/* When active: sub-goal switcher + FTP test + cross-training settings */}
                     {ccActive && (() => {
                       const maxCrossTrainDays = Math.min(3, 5 - (ccState?.cycling_days_per_week ?? 3));
                       const saveCrossTrainPrefs = async () => {
@@ -1160,13 +1163,32 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                         onUpdate(p => ({ ...p, preferences: newPrefs }));
                         await api.saveProfile(token, { preferences: newPrefs });
                       };
+                      const saveSubGoal = async () => {
+                        const updatedCc = { ...ccState, sub_goal: cycleSubGoalSelect };
+                        const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: updatedCc };
+                        onUpdate(p => ({ ...p, preferences: newPrefs }));
+                        await api.saveProfile(token, { preferences: newPrefs });
+                      };
                       return (
                         <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ fontSize: 11, color: C.muted }}>
-                              Goal: <span style={{ color: C.text, fontWeight: 700 }}>{CYCLE_SUB_GOALS.find(g => g.v === (ccState?.sub_goal ?? 'build_fitness'))?.label ?? 'Build fitness'}</span>
+                          {/* Sub-goal switcher (always editable even when active) */}
+                          <div>
+                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
+                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                              {CYCLE_SUB_GOALS.map(g => (
+                                <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
+                                  {g.label}
+                                </button>
+                              ))}
                             </div>
-                            <button onClick={() => setShowFtpTestModal(true)} style={{ marginLeft: "auto", padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            {cycleSubGoalSelect !== (ccState?.sub_goal ?? 'build_fitness') && (
+                              <button onClick={saveSubGoal} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
+                                Save goal →
+                              </button>
+                            )}
+                          </div>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                               Test FTP
                             </button>
                           </div>
@@ -1453,6 +1475,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
             >
               {focusSaveStatus === "saved" ? "Saved ✓" :
                focusSaveStatus === "saving" ? "Saving…" :
+               focusSel === "running" && runCoachActive && runTargetSelect === (prefs.preferences?.run_coach?.target_km ?? 5) ? `Re-enrol · ${runTargetSelect}km (resets progress)` :
+               focusSel === "running" && runCoachActive ? `Switch to ${runTargetSelect}km →` :
                focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
                focusSel === "cycling" ? "Activate · Cycling Coach" :
                focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :

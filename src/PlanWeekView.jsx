@@ -293,133 +293,156 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         <Glass style={{ padding: 28, textAlign: "center" }}>
           <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Your workout history will appear here.</div>
         </Glass>
-      ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[...history].map((h) => {
-            const isStrava = typeof h.execution_type === 'string' && h.execution_type.startsWith('strava_');
-            // Parse stravaMeta for ALL executions — a non-strava workout may be linked via reconciliation
-            const stravaMeta = h.strava_metadata_json
-              ? (() => { try { return JSON.parse(h.strava_metadata_json); } catch { return null; } })()
-              : null;
-            const STRAVA_SPORT_ICON = {
-              strava_ride: '🚴', strava_run: '🏃', strava_walk: '🚶',
-              strava_hike: '🥾', strava_swim: '🏊', strava_row: '🚣', strava_workout: '💪',
-            };
-            const STRAVA_SPORT_LABEL = {
-              strava_ride: 'Ride', strava_run: 'Run', strava_walk: 'Walk',
-              strava_hike: 'Hike', strava_swim: 'Swim', strava_row: 'Row', strava_workout: 'Workout',
-            };
-            const sportIcon  = STRAVA_SPORT_ICON[h.execution_type]  ?? '⚡';
-            const sportLabel = STRAVA_SPORT_LABEL[h.execution_type] ?? h.execution_type;
-            const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
-            const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
-            return (
-            <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{
-                  width: 40, height: 40, borderRadius: 12, flexShrink: 0,
-                  background: isStrava ? "rgba(252,76,2,0.12)" : C.emeraldDim,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                  fontSize: isStrava ? 20 : undefined,
-                }}>
-                  {isStrava ? sportIcon : (
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                      <polyline points="20 6 9 17 4 12" />
-                    </svg>
-                  )}
-                </div>
-                <div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
-                      {stravaMeta?.name || new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+      ) : (() => {
+        const STRAVA_ICON  = { strava_ride: '🚴', strava_run: '🏃', strava_walk: '🚶', strava_hike: '🥾', strava_swim: '🏊', strava_row: '🚣', strava_workout: '💪' };
+        const STRAVA_LABEL = { strava_ride: 'Ride', strava_run: 'Run', strava_walk: 'Walk', strava_hike: 'Hike', strava_swim: 'Swim', strava_row: 'Row', strava_workout: 'Workout' };
+        const isStravaFn = e => typeof e.execution_type === 'string' && e.execution_type.startsWith('strava_');
+        const parseMeta = e => { if (!e.strava_metadata_json) return null; try { return JSON.parse(e.strava_metadata_json); } catch { return null; } };
+
+        // Sort new→old, group by date
+        const sorted = [...history].sort((a, b) => b.date.localeCompare(a.date));
+        const byDate = {};
+        sorted.forEach(h => {
+          if (!byDate[h.date]) byDate[h.date] = { app: [], strava: [] };
+          if (isStravaFn(h)) byDate[h.date].strava.push(h);
+          else byDate[h.date].app.push(h);
+        });
+
+        // Build render list: one card per app entry (with optional merged strava); standalone strava only when no app entry that day
+        const renderItems = [];
+        const seenDates = new Set();
+        sorted.forEach(h => {
+          const d = h.date;
+          if (seenDates.has(d)) return;
+          seenDates.add(d);
+          const { app, strava } = byDate[d];
+          if (app.length > 0) {
+            app.forEach((entry, i) => {
+              const reconciledMeta = parseMeta(entry);
+              // Attach a separate strava entry to the first app card only, if not already reconciled
+              const mergedStravaEntry = (!reconciledMeta && i === 0 && strava.length > 0) ? strava[0] : null;
+              renderItems.push({ entry, isStravaCard: false, reconciledMeta, mergedStravaEntry });
+            });
+          } else {
+            strava.forEach(entry => renderItems.push({ entry, isStravaCard: true, reconciledMeta: parseMeta(entry), mergedStravaEntry: null }));
+          }
+        });
+
+        return (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {renderItems.map(({ entry: h, isStravaCard, reconciledMeta, mergedStravaEntry }) => {
+              const stravaMeta = reconciledMeta ?? (mergedStravaEntry ? parseMeta(mergedStravaEntry) : null);
+              const stravaSource = reconciledMeta ? h : mergedStravaEntry; // which entry holds the strava type
+              const hasStrava = !!stravaMeta;
+
+              const sportType  = stravaSource?.execution_type ?? '';
+              const sportIcon  = STRAVA_ICON[sportType]  ?? '⚡';
+              const sportLabel = STRAVA_LABEL[sportType] ?? sportType;
+              const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
+              const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
+
+              return (
+                <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: isStravaCard ? "rgba(252,76,2,0.12)" : C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isStravaCard ? 20 : undefined }}>
+                      {isStravaCard ? sportIcon : (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                          <polyline points="20 6 9 17 4 12" />
+                        </svg>
+                      )}
                     </div>
-                    {stravaMeta && (
-                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "2px 6px", borderRadius: 6 }}>
+                    <div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
+                        {isStravaCard && stravaMeta?.name
+                          ? stravaMeta.name
+                          : new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                        {isStravaCard
+                          ? [new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
+                          : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
+                      </div>
+                      {/* Strava activity name when merged from a separate entry */}
+                      {mergedStravaEntry && stravaMeta?.name && (
+                        <div style={{ fontSize: 11, color: "#FC4C02", fontWeight: 600, marginTop: 3 }}>
+                          {sportIcon} {stravaMeta.name}{distKm ? ` · ${distKm} km` : ""}{elevM ? ` · ↑${elevM}m` : ""}
+                        </div>
+                      )}
+                      {/* Strava metrics: speed, watts, HR, calories */}
+                      {stravaMeta && (() => {
+                        const isRun  = ['strava_run','strava_walk','strava_hike'].includes(sportType);
+                        const isCycl = sportType === 'strava_ride';
+                        const spd = stravaMeta.average_speed_ms;
+                        const paceStr  = (isRun && spd > 0) ? (() => { const sk = 1000/spd; const m = Math.floor(sk/60); const s = Math.round(sk%60); return `${m}:${String(s).padStart(2,'0')} /km`; })() : null;
+                        const kmhStr   = (isCycl && spd > 0) ? `${(spd * 3.6).toFixed(1)} km/h` : null;
+                        const hrStr    = stravaMeta.average_heartrate ? `${Math.round(stravaMeta.average_heartrate)} bpm` : null;
+                        const wattsStr = stravaMeta.average_watts ? `${Math.round(stravaMeta.average_watts)}W` : null;
+                        const kcal     = stravaMeta.calories ?? (stravaMeta.kilojoules ? Math.round(stravaMeta.kilojoules) : null);
+                        const kcalStr  = kcal ? `${kcal} kcal` : null;
+                        const pills = [paceStr || kmhStr, wattsStr, hrStr, kcalStr].filter(Boolean);
+                        if (!pills.length) return null;
+                        return (
+                          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
+                            {pills.map((p, pi) => (
+                              <span key={pi} style={{ fontSize: 10, fontWeight: 700, color: "#FC4C02", background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)", padding: "2px 7px", borderRadius: 6 }}>{p}</span>
+                            ))}
+                          </div>
+                        );
+                      })()}
+                      {/* Exercise steps for app workouts */}
+                      {!isStravaCard && h.steps?.length > 0 && (() => {
+                        const completedSteps = h.steps.map(s => {
+                          const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
+                          const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
+                          if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
+                          const sets = actual.sets_completed;
+                          const isTime = pres?.duration_sec && !pres?.reps;
+                          const reps = actual.reps_per_set ?? [];
+                          const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
+                          const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
+                          return { name: s.name, sets, detail };
+                        }).filter(Boolean);
+                        if (!completedSteps.length) return null;
+                        return (
+                          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
+                            {completedSteps.slice(0, 6).map((s, i) => (
+                              <div key={i} style={{ fontSize: 11, color: C.muted }}>
+                                {s.name} · {s.sets} set{s.sets !== 1 ? 's' : ''}{s.detail ? ` × ${s.detail}` : ''}
+                              </div>
+                            ))}
+                            {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {hasStrava && (
+                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "4px 10px", borderRadius: 8 }}>
                         STRAVA
                       </span>
                     )}
+                    {!isStravaCard && (
+                      <button
+                        onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
+                        style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                        aria-label="Delete session"
+                      >
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                          <polyline points="3 6 5 6 21 6" />
+                          <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                          <path d="M10 11v6M14 11v6" />
+                          <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                    {isStrava
-                      ? [
-                          new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }),
-                          sportLabel,
-                          h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null,
-                          distKm ? `${distKm} km` : null,
-                          elevM ? `↑${elevM}m` : null,
-                        ].filter(Boolean).join(' · ')
-                      : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`
-                    }
-                  </div>
-                  {/* Strava metrics: speed, watts, HR, calories */}
-                  {stravaMeta && (() => {
-                    const isRun  = ['strava_run','strava_walk','strava_hike'].includes(h.execution_type);
-                    const isCycl = h.execution_type === 'strava_ride';
-                    const spd = stravaMeta.average_speed_ms;
-                    const paceStr  = (isRun && spd > 0) ? (() => { const secPerKm = 1000 / spd; const m = Math.floor(secPerKm/60); const s = Math.round(secPerKm%60); return `${m}:${String(s).padStart(2,'0')} /km`; })() : null;
-                    const kmhStr   = (isCycl && spd > 0) ? `${(spd * 3.6).toFixed(1)} km/h` : null;
-                    const hrStr    = stravaMeta.average_heartrate ? `${Math.round(stravaMeta.average_heartrate)} bpm` : null;
-                    const wattsStr = stravaMeta.average_watts ? `${Math.round(stravaMeta.average_watts)}W` : null;
-                    const kcal     = stravaMeta.calories ?? (stravaMeta.kilojoules ? Math.round(stravaMeta.kilojoules) : null);
-                    const kcalStr  = kcal ? `${kcal} kcal` : null;
-                    const pills = [paceStr || kmhStr, wattsStr, hrStr, kcalStr].filter(Boolean);
-                    if (!pills.length) return null;
-                    return (
-                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
-                        {pills.map((p, i) => (
-                          <span key={i} style={{ fontSize: 10, fontWeight: 700, color: "#FC4C02", background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)", padding: "2px 7px", borderRadius: 6 }}>{p}</span>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  {/* Sets completed for app workouts */}
-                  {!isStrava && h.steps?.length > 0 && (() => {
-                    const completedSteps = h.steps.map(s => {
-                      const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
-                      const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
-                      if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
-                      const sets = actual.sets_completed;
-                      const isTime = pres?.duration_sec && !pres?.reps;
-                      const reps = actual.reps_per_set ?? [];
-                      const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
-                      const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
-                      return { name: s.name, sets, detail };
-                    }).filter(Boolean);
-                    if (!completedSteps.length) return null;
-                    return (
-                      <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-                        {completedSteps.slice(0, 6).map((s, i) => (
-                          <div key={i} style={{ fontSize: 11, color: C.muted }}>
-                            {s.name} · {s.sets} set{s.sets !== 1 ? 's' : ''}{s.detail ? ` × ${s.detail}` : ''}
-                          </div>
-                        ))}
-                        {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}
-                      </div>
-                    );
-                  })()}
-                </div>
-              </div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.emerald, background: C.emeraldDim, padding: "4px 10px", borderRadius: 8 }}>
-                  Done
-                </span>
-                <button
-                  onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
-                  style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                  aria-label="Delete session"
-                >
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                    <polyline points="3 6 5 6 21 6" />
-                    <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
-                    <path d="M10 11v6M14 11v6" />
-                    <path d="M9 6V4a1 1 0 011-1h4a1 1 0 011 1v2" />
-                  </svg>
-                </button>
-              </div>
-            </Glass>
-          ); })}
-        </div>
-      )}
+                </Glass>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* Delete confirmation modal */}
       {deleteTarget && (

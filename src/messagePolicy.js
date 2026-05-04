@@ -190,9 +190,14 @@ const SENTENCE_SEVERITY_ORDER = [
  * Derive a single plain-language coach sentence from rule_trace.
  * Returns a string or null if no notable adaptation is active.
  */
-export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standard') {
+export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standard', slotType = '') {
   const traceStr = (ruleTrace ?? []).join(' ');
-  const top = SENTENCE_SEVERITY_ORDER.find(code => traceStr.includes(code));
+  // On rest days, skip training-specific rules that don't apply (e.g. "Bodyweight only today")
+  const restSkip = slotType === 'rest'
+    ? new Set(['R516','R515','R510','R511','R512','R513','R524','R525','R553','R551','R560','R563','R565','R558','R520','R521','R522','R523','R555','R556','R568'])
+    : null;
+  const order = restSkip ? SENTENCE_SEVERITY_ORDER.filter(c => !restSkip.has(c)) : SENTENCE_SEVERITY_ORDER;
+  const top = order.find(code => traceStr.includes(code));
   if (!top || !SENTENCE_VARIANTS[top]) return null;
 
   let sentence = SENTENCE_VARIANTS[top];
