@@ -2788,6 +2788,29 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady]);
 
+  // Strava sync on app return from background (5-min cooldown — shorter than the 30-min
+  // app-open cooldown so users who record a ride then return to JustFit get it imported quickly).
+  useEffect(() => {
+    if (!onboardingReady) return;
+    const VISIBILITY_COOLDOWN_MS = 5 * 60 * 1000;
+    const trySync = () => {
+      if (document.visibilityState !== 'visible') return;
+      const lastSync = parseInt(localStorage.getItem(uKey('jf_strava_auto_sync')) || '0');
+      if (Date.now() - lastSync < VISIBILITY_COOLDOWN_MS) return;
+      fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
+        .then(r => r.ok ? r.json() : null)
+        .then(d => {
+          if (!d?.connection) return;
+          localStorage.setItem(uKey('jf_strava_auto_sync'), String(Date.now()));
+          return fetch('/api/strava-sync', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        })
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', trySync);
+    return () => document.removeEventListener('visibilitychange', trySync);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingReady]);
+
   // Persist plan to IndexedDB after every successful load/generate for offline fallback.
   useEffect(() => { if (plan) cachePlan(plan); }, [plan]);
 
