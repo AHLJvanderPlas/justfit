@@ -684,6 +684,18 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               return { text: c.replace(/^💡+\s*/, "").trim(), level: m ? m[1].length : 1 };
             });
 
+          // Fallback "why" derived from category when no general cues exist in DB
+          const derivedWhy = (() => {
+            if (cleanCues.length > 0) return null;
+            if (cur.category === 'recovery') return "Supports muscle recovery and keeps you ready for your next session.";
+            if (cur.category === 'mobility') return "Maintains joint range of motion and helps prevent injury over time.";
+            if (cur.category === 'cardio') return "Trains your heart and lungs — the base that makes every other exercise feel easier.";
+            if (tags.includes('core') || tags.includes('pelvic_floor')) return "A strong core and stable pelvis protect your spine and improve every other movement.";
+            if (tags.includes('bodyweight')) return "Bodyweight strength builds movement quality and control before adding load.";
+            if (cur.category === 'strength') return "Progressive strength training increases muscle, improves bone density, and raises your resting metabolism.";
+            return "Consistent movement in this pattern builds the physical capacity your goal requires.";
+          })();
+
           return (
             <>
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
@@ -784,18 +796,22 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 </div>
               )}
 
-              {/* ── Card 4: Why (general cues only) ── */}
-              {cleanCues.length > 0 && (
+              {/* ── Card 4: Why (general cues, or derived fallback) ── */}
+              {(cleanCues.length > 0 || derivedWhy) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Why this helps</div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {cleanCues.map((cue, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                        <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginTop: 7, background: cue.level >= 2 ? "var(--accent)" : "rgba(var(--accent-rgb),0.35)" }} />
-                        <p style={{ fontSize: 13, color: cue.level >= 2 ? C.text : C.muted, lineHeight: 1.6, margin: 0 }}>{cue.text}</p>
-                      </div>
-                    ))}
-                  </div>
+                  {cleanCues.length > 0 ? (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                      {cleanCues.map((cue, i) => (
+                        <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                          <div style={{ width: 6, height: 6, borderRadius: "50%", flexShrink: 0, marginTop: 7, background: cue.level >= 2 ? "var(--accent)" : "rgba(var(--accent-rgb),0.35)" }} />
+                          <p style={{ fontSize: 13, color: cue.level >= 2 ? C.text : C.muted, lineHeight: 1.6, margin: 0 }}>{cue.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0 }}>{derivedWhy}</p>
+                  )}
                 </div>
               )}
 
