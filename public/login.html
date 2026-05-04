@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Inter+Tight:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <style>
-    :root { --accent: #10b981; --accent-dim: rgba(16,185,129,0.12); --accent-border: rgba(16,185,129,0.3); }
+    :root { --accent: #f43f5e; --accent-dim: rgba(244,63,94,0.12); --accent-border: rgba(244,63,94,0.3); }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     html { scroll-behavior: smooth; }
     body {
@@ -54,7 +54,7 @@
       box-shadow: 0 4px 20px rgba(16,185,129,0.3);
     }
     .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
-    .logo-text span { color: #10b981; }
+    .logo-text span { color: #f43f5e; }
 
     /* Outer tabs: Login | Sign Up */
     .mode-tabs {
@@ -72,7 +72,7 @@
       cursor: pointer; transition: all 0.15s;
       background: transparent; color: #64748b;
     }
-    .mode-tab.active { background: #10b981; color: #fff; box-shadow: 0 4px 16px rgba(16,185,129,0.3); }
+    .mode-tab.active { background: #f43f5e; color: #fff; box-shadow: 0 4px 16px rgba(244,63,94,0.3); }
 
     /* Inner method switcher: Password | Magic Link */
     .method-tabs {
@@ -90,9 +90,9 @@
       color: #64748b;
     }
     .method-tab.active {
-      background: rgba(16,185,129,0.12);
-      border-color: rgba(16,185,129,0.3);
-      color: #10b981;
+      background: rgba(244,63,94,0.12);
+      border-color: rgba(244,63,94,0.3);
+      color: #f43f5e;
     }
 
     .field { margin-bottom: 16px; }
@@ -110,34 +110,34 @@
       font-size: 15px; font-family: inherit;
       outline: none; transition: border-color 0.15s;
     }
-    input:focus { border-color: rgba(16,185,129,0.5); }
+    input:focus { border-color: rgba(244,63,94,0.5); }
 
     .accept-row {
       display: flex; align-items: flex-start; gap: 10px;
       margin-bottom: 16px; padding: 14px 16px;
-      background: rgba(16,185,129,0.04);
-      border: 1px solid rgba(16,185,129,0.15);
+      background: rgba(244,63,94,0.04);
+      border: 1px solid rgba(244,63,94,0.15);
       border-radius: 14px;
     }
     .accept-row input[type="checkbox"] {
       width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;
-      accent-color: #10b981; cursor: pointer; border-radius: 4px;
+      accent-color: #f43f5e; cursor: pointer; border-radius: 4px;
     }
     .accept-row label {
       font-size: 12px; font-weight: 600; color: #94a3b8;
       text-transform: none; letter-spacing: 0; cursor: pointer;
       line-height: 1.55; margin: 0;
     }
-    .accept-row label a { color: #10b981; text-decoration: none; }
+    .accept-row label a { color: #f43f5e; text-decoration: none; }
     .accept-row label a:hover { text-decoration: underline; }
 
     .btn-primary {
       width: 100%; padding: 16px;
-      background: #10b981; border: none;
+      background: #f43f5e; border: none;
       border-radius: 16px; color: #fff;
       font-size: 15px; font-weight: 900;
       cursor: pointer; margin-top: 4px;
-      box-shadow: 0 8px 30px rgba(16,185,129,0.3);
+      box-shadow: 0 8px 30px rgba(244,63,94,0.3);
       transition: opacity 0.15s;
     }
     .btn-primary:hover   { opacity: 0.9; }
@@ -152,7 +152,7 @@
       cursor: pointer; transition: all 0.15s;
       display: flex; align-items: center; justify-content: center; gap: 10px;
     }
-    .btn-passkey:hover { border-color: rgba(16,185,129,0.4); background: rgba(16,185,129,0.06); }
+    .btn-passkey:hover { border-color: rgba(244,63,94,0.4); background: rgba(244,63,94,0.06); }
     .btn-passkey:disabled { opacity: 0.5; cursor: not-allowed; }
 
     .alert {
@@ -164,7 +164,7 @@
       display: none;
     }
     .alert-error   { background: rgba(226,76,74,0.1);   border: 1px solid rgba(226,76,74,0.3);   color: #f87171; }
-    .alert-success { background: rgba(16,185,129,0.1);  border: 1px solid rgba(16,185,129,0.3);  color: #6ee7b7; }
+    .alert-success { background: rgba(244,63,94,0.1);  border: 1px solid rgba(244,63,94,0.3);  color: #fda4af; }
 
     .divider {
       display: flex; align-items: center; gap: 12px;
@@ -180,7 +180,7 @@
       text-decoration: none; margin-top: -8px; margin-bottom: 18px;
       cursor: pointer;
     }
-    .forgot-link:hover { color: #10b981; }
+    .forgot-link:hover { color: #f43f5e; }
 
     .back-link {
       display: block; text-align: center;
@@ -188,7 +188,7 @@
       text-decoration: none; margin-top: 14px;
       cursor: pointer;
     }
-    .back-link:hover { color: #10b981; }
+    .back-link:hover { color: #f43f5e; }
 
     .tagline {
       text-align: center;
@@ -272,9 +272,9 @@
     .proof-coach-pill {
       display: inline-flex; align-items: center; gap: 6px;
       padding: 4px 10px; border-radius: 20px;
-      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+      background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 10px; letter-spacing: 0.1em; color: #10b981;
+      font-size: 10px; letter-spacing: 0.1em; color: #f43f5e;
       margin-bottom: 10px;
     }
     .proof-session-name {
@@ -299,15 +299,15 @@
     }
     .proof-step-dot {
       width: 5px; height: 5px; border-radius: 50%;
-      background: rgba(16,185,129,0.5); flex-shrink: 0;
+      background: rgba(244,63,94,0.5); flex-shrink: 0;
     }
     .proof-btn {
       display: block; width: 100%;
       padding: 14px; border-radius: 14px;
-      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+      background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25);
       font-family: 'Barlow Condensed', sans-serif;
       font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
-      text-transform: uppercase; color: #10b981; text-align: center;
+      text-transform: uppercase; color: #f43f5e; text-align: center;
     }
     .proof figcaption {
       font-family: 'JetBrains Mono', monospace;
@@ -349,7 +349,13 @@
 
       <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
       <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
-        <div style="font-size:36px;margin-bottom:16px;">✉️</div>
+        <div style="display:flex;justify-content:center;margin-bottom:16px;color:var(--accent);">
+          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="6" width="18" height="13" rx="2"/>
+            <path d="M3 8 L12 14 L21 8"/>
+          </svg>
+        </div>
         <div id="magic-title" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
         <div id="magic-sub" style="font-size:14px;color:#64748b;">Verifying your link.</div>
       </div>
@@ -421,7 +427,7 @@
         <div id="passkey-section" style="display:none;">
           <div class="divider">or</div>
           <button class="btn-passkey" id="passkey-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2">
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
               <circle cx="12" cy="9" r="2.5"/>
             </svg>
@@ -462,7 +468,7 @@
     <ul class="pillars" role="list">
       <li class="pillar">
         <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
           </svg>
         </span>
@@ -473,9 +479,9 @@
       </li>
       <li class="pillar">
         <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M15 9 L11 11 L9 15 L13 13 Z"/>
           </svg>
         </span>
         <div>
@@ -485,7 +491,7 @@
       </li>
       <li class="pillar">
         <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
           </svg>
         </span>
