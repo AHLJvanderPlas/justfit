@@ -666,6 +666,18 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
           const gender = prefs?.sex === "female" ? "female" : "male";
 
+          // BMI-aware pace note for cardio exercises when BMI ≥ 30
+          const bmiNote = (() => {
+            const w = prefs?.weight_kg, h = prefs?.height_cm;
+            if (!w || !h) return null;
+            const bmi = w / ((h / 100) ** 2);
+            if (bmi < 30) return null;
+            const isCardio = cur.category === 'cardio' || tags.includes('cardio');
+            if (!isCardio) return null;
+            if (bmi >= 35) return "Start at a pace where you can hold a full conversation. If breathing becomes laboured, slow down or pause — that's not a setback, it's the right call.";
+            return "Keep your pace conversational — you should be able to speak short sentences throughout. Progress comes from consistency, not from pushing to breathless today.";
+          })();
+
           // Interval structure: detected by slug for run/walk intervals
           // Shows "Run Xmin · Walk Ymin · × N rounds" as a concrete beginner-friendly target
           const isRunInterval = (cur.exercise_slug ?? '').startsWith('run-interval-level-');
@@ -819,6 +831,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   ) : (
                     <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, margin: 0 }}>{derivedWhy}</p>
                   )}
+                </div>
+              )}
+
+              {/* ── Card: BMI pace guidance (cardio, BMI ≥ 30 only) ── */}
+              {bmiNote && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#f59e0b", textTransform: "uppercase", marginBottom: 8 }}>Pace guidance</div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b", margin: 0, lineHeight: 1.6 }}>{bmiNote}</p>
                 </div>
               )}
 
