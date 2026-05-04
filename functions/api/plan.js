@@ -1,3 +1,7 @@
+import { computeMilitaryPhase, SESSIONS_PER_BLOCK, MIL_MARCH_KG, MIL_MARCH_SEC, MIL_CLUSTER_RUN_PEAK, MIL_RUN_WEEK_OFFSET } from './_shared/military.js';
+import { buildCyclingWorkoutsFromProtocols, CYCLING_PROFILES, getCyclingBlockPhase, calcCyclingTSS, scaleCyclingIntervals, computeCyclingTsb, buildCyclingCoachNote } from './_shared/cycling.js';
+import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates } from './_shared/running.js';
+
 import { getAuthUserId } from './_shared/auth.js';
 
 // ---------------------------------------------------------------------------
@@ -72,7 +76,7 @@ function adaptExistingPlan(basePlan, checkin) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, is_pro, adapt_mode, base_plan } = body;
+    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, adapt_mode, base_plan } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -83,7 +87,7 @@ export async function onRequestPost({ request, env }) {
     const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
          FROM exercises WHERE is_active = 1`
@@ -108,8 +112,36 @@ export async function onRequestPost({ request, env }) {
         `SELECT id, slug, name, sub_goal, workout_type, tss_estimate, duration_min, intervals_json
          FROM cycling_workouts WHERE is_active = 1`
       ).all(),
+      // Cycling protocol source (sport='cycling'); fallback to cycling_workouts table when pool is empty
+      env.DB.prepare(
+        `SELECT wp.id AS wp_id, wp.slug, wp.name, wp.tags_json,
+                wps.step_order, wps.step_type, wps.duration_sec, wps.sets,
+                wps.intensity_json, wps.notes_json
+         FROM workout_protocols wp
+         JOIN workout_protocol_steps wps ON wps.protocol_id = wp.id
+         WHERE wp.sport = 'cycling'
+         ORDER BY wp.id, wps.step_order`
+      ).all(),
+      // DB-backed run programme schedule items; fallback to RUN_PROGRAMS constant when query returns nothing
+      env.DB.prepare(
+        `SELECT pti.program_template_id, pti.block_week, pti.session_order, e.slug
+         FROM program_template_items pti
+         JOIN exercises e ON e.id = pti.exercise_id
+         WHERE pti.program_template_id IN ('run-5km','run-10km','run-15km','run-20km','run-30km')
+         ORDER BY pti.program_template_id, pti.block_week, pti.session_order`
+      ).all(),
     ]);
-    const cyclingWorkouts = cyclingWorkoutsResult?.results ?? [];
+    // Use unified protocols when available; fall back to legacy cycling_workouts
+    const protocolRows = cyclingProtocolsResult?.results ?? [];
+    const cyclingWorkouts = protocolRows.length > 0
+      ? buildCyclingWorkoutsFromProtocols(protocolRows)
+      : (cyclingWorkoutsResult?.results ?? []);
+
+    // Use DB-backed run programme schedule when available; fall back to RUN_PROGRAMS constant in planner
+    const runProgramItemRows = runProgramItemsResult?.results ?? [];
+    const runPrograms = runProgramItemRows.length > 0
+      ? buildRunProgramsFromTemplates(runProgramItemRows)
+      : null;
 
     const allExercises = exResult.results;
     const allTemplates = templates.results;
@@ -128,8 +160,8 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Pro flag — gates structured coaching programs (R556, R557, polarised)
-    // Accept explicit request override; otherwise fall back to stored preference.
-    const isPro = !!(is_pro ?? prefs?.preferences?.isPro);
+    // Read from DB-stored preferences only — never trust request body to prevent self-upgrade.
+    const isPro = !!(prefs?.preferences?.isPro);
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
@@ -252,7 +284,7 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ------------------------------------------------------------------
-    // Phase 3b — Military template items DB lookup
+    // Military strength session DB lookup
     // Pre-compute military phase to know which session type is scheduled.
     // For strength sessions (kracht / kracht_marsen / circuit) only:
     //   fetch the ordered exercise list from program_template_items.
@@ -317,7 +349,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -445,33 +477,59 @@ const PROG_GOAL_TARGETS = {
 };
 
 // ---------------------------------------------------------------------------
-// Sport demand vectors — per-axis load (0–1) each sport places on the body.
-// Used by R560 sport bias layer to nudge goal targets toward sport-support work.
-// 0.5 = neutral (no nudge), 1.0 = very high demand, 0.0 = very low demand.
+// Sport complement vectors — what the gym should provide to support each sport.
+// Used by R560 sport bias layer to nudge goal targets toward the work the sport
+// does NOT cover. High value = gym should prioritise this axis. Low value = sport
+// already trains it enough, gym can deprioritise.
+// 0.5 = neutral (no nudge), 1.0 = high gym priority, 0.0 = sport covers it well.
 // ---------------------------------------------------------------------------
 const SPORT_DEMAND = {
-  running:     { push: 0.1, pull: 0.1, legs: 1.0, core: 0.6, conditioning: 1.0, mobility: 0.5 },
-  cycling:     { push: 0.1, pull: 0.2, legs: 0.9, core: 0.5, conditioning: 0.9, mobility: 0.4 },
-  swimming:    { push: 0.6, pull: 0.9, legs: 0.4, core: 0.7, conditioning: 0.9, mobility: 0.6 },
-  walking:     { push: 0.1, pull: 0.1, legs: 0.5, core: 0.3, conditioning: 0.5, mobility: 0.4 },
-  rowing:      { push: 0.4, pull: 0.9, legs: 0.7, core: 0.8, conditioning: 0.8, mobility: 0.5 },
-  triathlon:   { push: 0.3, pull: 0.5, legs: 0.9, core: 0.6, conditioning: 1.0, mobility: 0.5 },
-  skating:     { push: 0.1, pull: 0.2, legs: 0.9, core: 0.6, conditioning: 0.8, mobility: 0.5 },
-  mtb:         { push: 0.2, pull: 0.4, legs: 0.9, core: 0.7, conditioning: 0.8, mobility: 0.5 },
-  ice_skating: { push: 0.1, pull: 0.2, legs: 0.9, core: 0.6, conditioning: 0.7, mobility: 0.5 },
-  trail_run:   { push: 0.1, pull: 0.1, legs: 1.0, core: 0.7, conditioning: 0.9, mobility: 0.6 },
-  kayaking:    { push: 0.5, pull: 0.9, legs: 0.2, core: 0.8, conditioning: 0.7, mobility: 0.5 },
-  spinning:    { push: 0.1, pull: 0.1, legs: 0.9, core: 0.5, conditioning: 0.9, mobility: 0.3 },
-  nordic_walk: { push: 0.3, pull: 0.3, legs: 0.6, core: 0.5, conditioning: 0.6, mobility: 0.4 },
-  sup:         { push: 0.4, pull: 0.6, legs: 0.3, core: 0.9, conditioning: 0.6, mobility: 0.5 },
-  open_water:  { push: 0.6, pull: 0.9, legs: 0.4, core: 0.7, conditioning: 0.9, mobility: 0.6 },
-  climbing:    { push: 0.9, pull: 1.0, legs: 0.5, core: 0.9, conditioning: 0.6, mobility: 0.7 },
-  kitesurfing: { push: 0.4, pull: 0.7, legs: 0.6, core: 0.8, conditioning: 0.7, mobility: 0.6 },
-  duathlon:    { push: 0.1, pull: 0.2, legs: 1.0, core: 0.6, conditioning: 1.0, mobility: 0.5 },
-  obstacle:    { push: 0.6, pull: 0.7, legs: 0.8, core: 0.8, conditioning: 0.8, mobility: 0.6 },
-  cardio:      { push: 0.3, pull: 0.3, legs: 0.6, core: 0.5, conditioning: 0.8, mobility: 0.4 },
-  golf:        { push: 0.3, pull: 0.3, legs: 0.3, core: 0.8, conditioning: 0.3, mobility: 0.9 },
-  tennis:      { push: 0.6, pull: 0.5, legs: 0.7, core: 0.8, conditioning: 0.7, mobility: 0.7 },
+  // ── Endurance / outdoor ────────────────────────────────────────────────
+  running:      { push: 0.7,  pull: 0.7,  legs: 0.75, core: 0.85, conditioning: 0.2,  mobility: 0.9  },
+  cycling:      { push: 0.75, pull: 0.85, legs: 0.7,  core: 0.8,  conditioning: 0.2,  mobility: 0.9  },
+  swimming:     { push: 0.5,  pull: 0.35, legs: 0.75, core: 0.65, conditioning: 0.2,  mobility: 0.75 },
+  walking:      { push: 0.65, pull: 0.65, legs: 0.65, core: 0.65, conditioning: 0.55, mobility: 0.7  },
+  rowing:       { push: 0.5,  pull: 0.35, legs: 0.65, core: 0.45, conditioning: 0.2,  mobility: 0.8  },
+  triathlon:    { push: 0.6,  pull: 0.6,  legs: 0.7,  core: 0.75, conditioning: 0.15, mobility: 0.85 },
+  duathlon:     { push: 0.65, pull: 0.65, legs: 0.7,  core: 0.75, conditioning: 0.15, mobility: 0.9  },
+  trail_run:    { push: 0.65, pull: 0.65, legs: 0.8,  core: 0.85, conditioning: 0.2,  mobility: 0.9  },
+  nordic_walk:  { push: 0.6,  pull: 0.6,  legs: 0.65, core: 0.65, conditioning: 0.4,  mobility: 0.7  },
+  open_water:   { push: 0.5,  pull: 0.35, legs: 0.75, core: 0.65, conditioning: 0.2,  mobility: 0.75 },
+  // ── Cycling variants ──────────────────────────────────────────────────
+  mtb:          { push: 0.7,  pull: 0.75, legs: 0.65, core: 0.8,  conditioning: 0.25, mobility: 0.85 },
+  spinning:     { push: 0.75, pull: 0.85, legs: 0.7,  core: 0.75, conditioning: 0.2,  mobility: 0.85 },
+  // ── Water / wind ──────────────────────────────────────────────────────
+  kayaking:     { push: 0.5,  pull: 0.45, legs: 0.7,  core: 0.5,  conditioning: 0.25, mobility: 0.75 },
+  sup:          { push: 0.6,  pull: 0.5,  legs: 0.7,  core: 0.4,  conditioning: 0.4,  mobility: 0.7  },
+  kitesurfing:  { push: 0.6,  pull: 0.5,  legs: 0.65, core: 0.5,  conditioning: 0.35, mobility: 0.75 },
+  surfing:      { push: 0.55, pull: 0.5,  legs: 0.75, core: 0.55, conditioning: 0.5,  mobility: 0.8  },
+  // ── Ice / skating ─────────────────────────────────────────────────────
+  skating:      { push: 0.65, pull: 0.7,  legs: 0.65, core: 0.75, conditioning: 0.3,  mobility: 0.8  },
+  ice_skating:  { push: 0.65, pull: 0.65, legs: 0.65, core: 0.75, conditioning: 0.35, mobility: 0.8  },
+  skiing:       { push: 0.7,  pull: 0.8,  legs: 0.7,  core: 0.8,  conditioning: 0.5,  mobility: 0.8  },
+  // ── Team sports ───────────────────────────────────────────────────────
+  football:     { push: 0.65, pull: 0.65, legs: 0.75, core: 0.8,  conditioning: 0.3,  mobility: 0.8  },
+  basketball:   { push: 0.7,  pull: 0.75, legs: 0.75, core: 0.75, conditioning: 0.3,  mobility: 0.75 },
+  volleyball:   { push: 0.6,  pull: 0.6,  legs: 0.8,  core: 0.75, conditioning: 0.45, mobility: 0.75 },
+  handball:     { push: 0.65, pull: 0.7,  legs: 0.75, core: 0.75, conditioning: 0.3,  mobility: 0.75 },
+  rugby:        { push: 0.5,  pull: 0.5,  legs: 0.7,  core: 0.7,  conditioning: 0.35, mobility: 0.8  },
+  // ── Racket sports ─────────────────────────────────────────────────────
+  tennis:       { push: 0.55, pull: 0.65, legs: 0.7,  core: 0.55, conditioning: 0.45, mobility: 0.7  },
+  padel:        { push: 0.6,  pull: 0.65, legs: 0.7,  core: 0.75, conditioning: 0.45, mobility: 0.75 },
+  badminton:    { push: 0.6,  pull: 0.65, legs: 0.75, core: 0.7,  conditioning: 0.4,  mobility: 0.75 },
+  // ── Fitness disciplines ────────────────────────────────────────────────
+  yoga:         { push: 0.8,  pull: 0.8,  legs: 0.75, core: 0.5,  conditioning: 0.85, mobility: 0.25 },
+  pilates:      { push: 0.8,  pull: 0.75, legs: 0.75, core: 0.4,  conditioning: 0.85, mobility: 0.45 },
+  crossfit:     { push: 0.5,  pull: 0.5,  legs: 0.5,  core: 0.5,  conditioning: 0.4,  mobility: 0.9  },
+  cardio:       { push: 0.65, pull: 0.65, legs: 0.65, core: 0.65, conditioning: 0.4,  mobility: 0.65 },
+  // ── Combat sports ─────────────────────────────────────────────────────
+  boxing:       { push: 0.4,  pull: 0.8,  legs: 0.75, core: 0.5,  conditioning: 0.3,  mobility: 0.75 },
+  martial_arts: { push: 0.55, pull: 0.55, legs: 0.7,  core: 0.5,  conditioning: 0.35, mobility: 0.75 },
+  // ── Technical / skill ─────────────────────────────────────────────────
+  climbing:     { push: 0.35, pull: 0.3,  legs: 0.7,  core: 0.4,  conditioning: 0.65, mobility: 0.85 },
+  gymnastics:   { push: 0.4,  pull: 0.4,  legs: 0.65, core: 0.4,  conditioning: 0.75, mobility: 0.4  },
+  golf:         { push: 0.65, pull: 0.65, legs: 0.7,  core: 0.5,  conditioning: 0.7,  mobility: 0.5  },
+  obstacle:     { push: 0.5,  pull: 0.5,  legs: 0.6,  core: 0.55, conditioning: 0.3,  mobility: 0.75 },
 };
 
 const SPORT_AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
@@ -480,7 +538,7 @@ const SPORT_AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 // Primary sport weighted 0.6, secondary sports share 0.4.
 // Nudge = (sportAxis - 0.5) × 24, capped at ±12 points per axis.
 // Guardrail: halve legs/conditioning nudge if user ran or rode in the last 24 h.
-function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRideAtMs, planDateMs) {
+function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, weeklyRideCount) {
   const sports = sportPrefs?.sports ?? [];
   const knownSports = sports.filter(s => SPORT_DEMAND[s]);
   if (!knownSports.length) return { targets: baseTargets, biasTrace: null };
@@ -496,18 +554,22 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRid
     for (const s of others) vec[ax] += (SPORT_DEMAND[s][ax] ?? 0.5) * otherW;
   });
 
-  // External-load guardrail: recent run or ride → halve legs/conditioning nudge
-  const ms24h = 24 * 3600 * 1000;
-  const refMs  = planDateMs ?? Date.now();
-  const recentRun  = !!(lastRunAtMs  && (refMs - lastRunAtMs)  < ms24h);
-  const recentRide = !!(lastRideAtMs && (refMs - lastRideAtMs) < ms24h);
-  const guardrailApplied = recentRun || recentRide;
+  // Volume-aware guardrail: scale down legs/conditioning nudge by weekly sport session volume.
+  // Higher volume → gym fills fewer gaps in those axes (athlete already trains them in sport).
+  const weeklyCount = (weeklyRunCount ?? 0) + (weeklyRideCount ?? 0);
+  const guardrailFactor = weeklyCount === 0 ? 1.0
+    : weeklyCount <= 2 ? 0.8
+    : weeklyCount <= 4 ? 0.6
+    : 0.4;
+  const guardrailApplied = weeklyCount > 0;
 
   const adjustedTargets = {};
   const adjustments = {};
   SPORT_AXES.forEach(ax => {
     let sportVal = vec[ax];
-    if (guardrailApplied && (ax === 'legs' || ax === 'conditioning')) sportVal = 0.5 + (sportVal - 0.5) * 0.5;
+    if (guardrailApplied && (ax === 'legs' || ax === 'conditioning')) {
+      sportVal = 0.5 + (sportVal - 0.5) * guardrailFactor;
+    }
     const nudge = Math.round((sportVal - 0.5) * 24);
     const base  = baseTargets[ax] ?? 50;
     adjustedTargets[ax] = Math.min(90, Math.max(30, base + nudge));
@@ -516,7 +578,7 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, lastRunAtMs, lastRid
 
   return {
     targets: adjustedTargets,
-    biasTrace: { primary, sports: knownSports, adjustments, guardrailApplied },
+    biasTrace: { primary, sports: knownSports, adjustments, guardrailApplied, guardrailFactor, weeklyCount },
   };
 }
 
@@ -704,207 +766,6 @@ const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_ba
 const CYCLING_EQUIPMENT = ['road_bike','mountain_bike','indoor_bike','exercise_bike'];
 
 // Polarised running programs: each week entry = { hiit: level, zone2: level }
-// Mon & Fri sessions use hiit level (run/walk intervals), Wed uses zone2 level (continuous easy run).
-// hiit levels 1–6 = run-interval-level-N, zone2 levels 7–21 = run-continuous-level-N
-const RUN_PROGRAMS = {
-  5: [
-    {hiit:2,zone2:7},{hiit:3,zone2:7},{hiit:3,zone2:8},{hiit:4,zone2:8},
-    {hiit:4,zone2:9},{hiit:5,zone2:9},{hiit:5,zone2:9},{hiit:6,zone2:10},
-  ],
-  10: [
-    {hiit:3,zone2:8},{hiit:4,zone2:8},{hiit:4,zone2:9},{hiit:5,zone2:9},
-    {hiit:5,zone2:10},{hiit:6,zone2:10},{hiit:6,zone2:11},{hiit:6,zone2:11},
-    {hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},{hiit:6,zone2:13},
-  ],
-  15: [
-    {hiit:4,zone2:9},{hiit:5,zone2:10},{hiit:5,zone2:10},{hiit:6,zone2:11},
-    {hiit:6,zone2:11},{hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},
-    {hiit:6,zone2:13},{hiit:6,zone2:13},{hiit:6,zone2:14},{hiit:6,zone2:14},
-    {hiit:6,zone2:14},{hiit:6,zone2:14},
-  ],
-  20: [
-    {hiit:5,zone2:10},{hiit:5,zone2:11},{hiit:6,zone2:11},{hiit:6,zone2:12},
-    {hiit:6,zone2:12},{hiit:6,zone2:13},{hiit:6,zone2:13},{hiit:6,zone2:13},
-    {hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},
-    {hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},
-  ],
-  30: [
-    {hiit:5,zone2:11},{hiit:6,zone2:12},{hiit:6,zone2:12},{hiit:6,zone2:13},
-    {hiit:6,zone2:13},{hiit:6,zone2:14},{hiit:6,zone2:14},{hiit:6,zone2:14},
-    {hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},{hiit:6,zone2:15},
-    {hiit:6,zone2:15},{hiit:6,zone2:16},{hiit:6,zone2:16},{hiit:6,zone2:16},
-    {hiit:6,zone2:16},{hiit:6,zone2:17},{hiit:6,zone2:17},{hiit:6,zone2:17},
-  ],
-};
-const RUN_WARMUP_TAG = 'run_warmup';
-
-// ---------------------------------------------------------------------------
-// Military Coach constants (R570–R582)
-// ---------------------------------------------------------------------------
-
-// Map (track, cluster) → program group key
-function getMilitaryGroup(track, cluster) {
-  if (track === 'opleiding') {
-    // O1–O6 (6 levels): thirds = 1-2 / 3-4 / 5-6
-    if (cluster <= 2) return 'opleiding_low';
-    if (cluster <= 4) return 'opleiding_mid';
-    return 'opleiding_high';
-  }
-  // Keuring KB–K6 (7 levels: 0–6): thirds = 0-2 / 3-4 / 5-6
-  if (cluster <= 2) return 'keuring_low';
-  if (cluster <= 4) return 'keuring_mid';
-  return 'keuring_high';
-}
-
-// Rolling block sequences per group — 4 training sessions per block, then rest is earned.
-// No calendar-day dependency: any day can be a training day. Rest is a reward for work done.
-//
-// Sequence design (evidence-based periodization):
-//   Session 1 — Zone 2 run (duurloop): aerobic base, lowest CNS demand, safe day-1 opener
-//   Session 2 — Strength (kracht): neuromuscular work on aerobically-primed muscles
-//   Session 3 — Intervals: highest VO2max stimulus, separated from Zone2 by a strength day
-//   Session 4 — Strength/March: consolidates gains, lower intensity before earned rest
-//   REST: earned recovery — adaptation happens here, not in the training sessions
-const BLOCK_SEQUENCES = {
-  keuring_low:    ['duurloop', 'kracht',        'interval', 'kracht'],
-  keuring_mid:    ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
-  keuring_high:   ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
-  opleiding_low:  ['duurloop', 'kracht',        'interval', 'kracht'],
-  opleiding_mid:  ['duurloop', 'kracht',        'interval', 'kracht_marsen'],
-  opleiding_high: ['duurloop', 'kracht_marsen', 'interval', 'kracht_marsen'],
-};
-const SESSIONS_PER_BLOCK = 4;
-
-// Volume progression across 6-block periodization cycle (index = cyclePosn - 1)
-// Blocks 1-2: base (on-ramp → build), Blocks 3-4: peak volume, Block 5: deload, Block 6: peak/taper
-const BLOCK_VOLUMES = [0.75, 0.85, 1.00, 1.10, 0.60, 0.90];
-
-// ---------------------------------------------------------------------------
-// computeMilitaryPhase — rolling block-counter scheduler
-// ---------------------------------------------------------------------------
-// Returns { blockNum, blockIdx, cyclePosn, inBaseBuild, milWeek (=blockNum),
-//           milDay (=blockIdx), milGroup, clusterLive, sessionType, milVol,
-//           isPostAssessment, checkInOverride }
-//
-// No calendar-day dependency. Scheduling is driven entirely by block_session_index
-// (how many sessions completed in the current block) and block_number (total blocks
-// completed since enrollment). Rest is earned after SESSIONS_PER_BLOCK training
-// sessions, not assigned to a fixed weekday.
-//
-// Check-in signals partially bypass R581 for safety (body always wins over schedule):
-//   recovery_mode or general pain → rest override
-//   low energy → intensity downgrade (interval → duurloop, duurloop → kracht)
-//   poor sleep → volume ×0.85
-function computeMilitaryPhase(milCoach, checkIn, date) {
-  const todayMs    = new Date(date + 'T12:00:00Z').getTime();
-  const blockIdx   = milCoach.block_session_index ?? 0;  // 0–3 = training; ≥4 = rest earned
-  const blockNum   = milCoach.block_number ?? 1;          // total blocks since enrollment
-
-  const assessmentDate = milCoach.target_date;
-  const assessMs = assessmentDate ? new Date(assessmentDate + 'T12:00:00Z').getTime() : null;
-  const isPostAssessment = assessMs !== null && todayMs > assessMs && milCoach.mode !== 'open';
-
-  const clusterLive = milCoach.cluster_current ?? milCoach.cluster_target ?? 1;
-  const milGroup    = getMilitaryGroup(milCoach.track ?? 'keuring', clusterLive);
-
-  // Position within 6-block periodization cycle (1–6)
-  const cyclePosn   = ((blockNum - 1) % 6) + 1;
-  const inBaseBuild = cyclePosn <= 2;
-
-  // Determine session type from rolling block sequence
-  const isRestBlock = blockIdx >= SESSIONS_PER_BLOCK;
-  const blockSeq    = BLOCK_SEQUENCES[milGroup] ?? BLOCK_SEQUENCES.keuring_low;
-  let sessionType   = isRestBlock ? 'rust' : (blockSeq[blockIdx] ?? 'kracht');
-
-  // Cooper test: on first-ever session (no baseline yet), or at cycle start (block 1 of each 6-block cycle)
-  if (!isRestBlock && blockIdx === 0 && (!milCoach.last_cooper_distance_m || cyclePosn === 1)) {
-    sessionType = 'cooper_test';
-  }
-
-  // Volume from 6-block periodization cycle
-  let milVol = BLOCK_VOLUMES[cyclePosn - 1] ?? 1.0;
-
-  // Target mode: taper intensity near assessment date
-  if (milCoach.mode === 'target' && assessMs && !isPostAssessment) {
-    const daysOut = Math.ceil((assessMs - todayMs) / 86_400_000);
-    if (daysOut <= 7)       milVol = Math.min(milVol, 0.60); // taper week
-    else if (daysOut <= 14) milVol = Math.min(milVol, 0.75); // pre-taper
-  }
-
-  // Check-in safety integration (partial R581 bypass — body state always wins over schedule)
-  const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
-  const energy    = checkIn?.energy    ?? 10;
-  const sleep     = checkIn?.sleep_hours ?? 8;
-  const painLevel = checkIn?.pain_level  ?? 0;
-  const painScope = checkIn?.pain_scope  ?? null;
-  const painGeneral = painLevel >= 2 && painScope !== 'specific';
-
-  let checkInOverride = null;
-  if (!isRestBlock) {
-    if (recoveryMode || painGeneral) {
-      sessionType = 'rust';
-      checkInOverride = recoveryMode ? 'recovery_mode' : 'pain';
-    } else if (energy <= 3 && sessionType === 'interval') {
-      sessionType = 'duurloop';   // downgrade HIIT to zone2 on low energy
-      checkInOverride = 'low_energy';
-    } else if (energy <= 3 && (sessionType === 'duurloop' || sessionType === 'kracht_marsen')) {
-      sessionType = 'kracht';     // downgrade to strength (safest low-energy option)
-      checkInOverride = 'low_energy';
-    }
-  }
-  if (sleep <= 5) milVol *= 0.85; // poor sleep → volume reduction regardless of session type
-
-  return {
-    blockNum,
-    blockIdx,
-    cyclePosn,
-    inBaseBuild,
-    milWeek: blockNum,   // alias kept for label compatibility
-    milDay:  blockIdx,   // alias kept for return-object compatibility
-    milGroup,
-    clusterLive,
-    sessionType,
-    milVol,
-    isPostAssessment,
-    checkInOverride,
-  };
-}
-
-// Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
-// R577 caps actual increase at +5 kg from last week's weight
-const MIL_MARCH_KG = {
-  keuring_low:    [ 0,  0,  5, 10,  0,  0],
-  keuring_mid:    [ 0,  5, 10, 15,  0,  0],
-  keuring_high:   [ 5, 10, 15, 20,  0, 10],
-  opleiding_low:  [ 0,  0,  5, 10,  0,  0],
-  opleiding_mid:  [ 0,  5, 10, 20,  0,  0],
-  opleiding_high: [ 0, 10, 15, 25,  0, 10],
-};
-
-// Prescribed march duration (seconds) per group per week
-const MIL_MARCH_SEC = {
-  keuring_low:    [   0,    0,  900, 1200,    0,    0],
-  keuring_mid:    [   0,  900, 1200, 1500,    0,    0],
-  keuring_high:   [ 900, 1200, 1500, 1800,    0,  900],
-  opleiding_low:  [   0,    0,  900, 1200,    0,    0],
-  opleiding_mid:  [   0,  900, 1200, 1800,    0,    0],
-  opleiding_high: [   0, 1200, 1800, 2400,    0, 1200],
-};
-
-// Peak run levels per group: { zone2: continuous level, hiit: interval level }
-// zone2 maps to run-continuous-level-N (7+), hiit maps to run-interval-level-N (1-6)
-const MIL_CLUSTER_RUN_PEAK = {
-  keuring_low:    { zone2:  9, hiit: 3 },
-  keuring_mid:    { zone2: 12, hiit: 5 },
-  keuring_high:   { zone2: 15, hiit: 6 },
-  opleiding_low:  { zone2:  9, hiit: 3 },
-  opleiding_mid:  { zone2: 12, hiit: 5 },
-  opleiding_high: { zone2: 16, hiit: 6 },
-};
-
-// Week offset applied to peak run level (index = week - 1)
-// Negative = easier level than peak; 0 = at peak
-const MIL_RUN_WEEK_OFFSET = [-3, -2, -1, 0, -3, -1];
 
 // ---------------------------------------------------------------------------
 // Template selector
@@ -1005,110 +866,11 @@ function getDefaultRest(exercise, slotType) {
 }
 
 // ---------------------------------------------------------------------------
-// Cycling Coach helpers (Phase 3a)
-// ---------------------------------------------------------------------------
 
-// 3-session weekly rotation per sub_goal: [session0_type, session1_type, session2_type]
-const CYCLING_PROFILES = {
-  build_fitness: ['endurance', 'sweet_spot', 'endurance'],
-  climbing:      ['endurance', 'threshold',  'vo2max'],
-  sprint:        ['endurance', 'anaerobic',  'endurance'],
-  aerobic_base:  ['endurance', 'endurance',  'endurance'],
-  race_fitness:  ['endurance', 'vo2max',     'endurance'],
-};
-
-// 7-week block cycle (21 sessions): weeks 1-2=base, 3-6=build, 7=recovery
-function getCyclingBlockPhase(totalSessions) {
-  const positionInCycle = totalSessions % 21;
-  const weekInCycle = Math.floor(positionInCycle / 3) + 1;
-  if (weekInCycle <= 2) return 'base';
-  if (weekInCycle <= 6) return 'build';
-  return 'recovery';
-}
-
-// TSS from intervals_json array (formula: (dur/3600) * IF² * 100 * sets)
-function calcCyclingTSS(intervals) {
-  return Math.round(intervals.reduce((sum, iv) => {
-    const IF = (iv.power_pct_low + iv.power_pct_high) / 2 / 100;
-    return sum + (iv.duration_sec / 3600) * IF * IF * 100 * (iv.sets ?? 1);
-  }, 0) * 10) / 10;
-}
-
-// Scale steps that have min_sets/max_sets to fit available time
-function scaleCyclingIntervals(intervals, timeBudgetMin) {
-  if (!timeBudgetMin) return intervals;
-  const scalable = intervals.filter(iv => iv.min_sets != null && iv.max_sets != null);
-  if (!scalable.length) return intervals;
-  const fixedSec = intervals
-    .filter(iv => iv.min_sets == null)
-    .reduce((s, iv) => s + iv.duration_sec * (iv.sets ?? 1), 0);
-  const availSec = Math.max(0, timeBudgetMin * 60 - fixedSec);
-  const oneCycleSec = scalable.reduce((s, iv) => s + iv.duration_sec, 0);
-  if (oneCycleSec <= 0) return intervals;
-  const targetSets = Math.max(
-    scalable[0].min_sets,
-    Math.min(scalable[0].max_sets, Math.round(availSec / oneCycleSec))
-  );
-  return intervals.map(iv => iv.min_sets == null ? iv : { ...iv, sets: targetSets });
-}
-
-// Compute current TSB (CTL − ATL) from raw execution rows (same EMA as cycling-pmc.js)
-function computeCyclingTsb(tssRows, planDate) {
-  if (!tssRows?.length) return null;
-  const tssMap = {};
-  for (const row of tssRows) {
-    tssMap[row.date] = (tssMap[row.date] ?? 0) + (row.tss_actual ?? row.tss_planned ?? 0);
-  }
-  const ctlDecay = Math.exp(-1 / 42);
-  const atlDecay = Math.exp(-1 / 7);
-  let ctl = 0, atl = 0;
-  const cur = new Date(tssRows[0].date + 'T00:00:00Z');
-  const end = new Date(planDate + 'T00:00:00Z');
-  while (cur <= end) {
-    const d = cur.toISOString().slice(0, 10);
-    const tss = tssMap[d] ?? 0;
-    ctl = ctl * ctlDecay + tss * (1 - ctlDecay);
-    atl = atl * atlDecay + tss * (1 - atlDecay);
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return Math.round((ctl - atl) * 10) / 10;
-}
-
-// Build a coaching note describing target watts or HR for the main interval
-function buildCyclingCoachNote(workout, scaledIntervals, cycleCoach) {
-  const ftp = cycleCoach.ftp_watts ?? 200;
-  const isWatts = (cycleCoach.unit ?? 'watts') === 'watts';
-  const maxHr = cycleCoach.max_hr ?? 180;
-  const mainIv = scaledIntervals.find(iv =>
-    !iv.label.toLowerCase().includes('warm') &&
-    !iv.label.toLowerCase().includes('cool') &&
-    !iv.label.toLowerCase().includes('recovery') &&
-    !iv.label.toLowerCase().includes('pyramid recovery') &&
-    !iv.label.toLowerCase().includes('block recovery')
-  );
-  if (!mainIv) return workout.name;
-  const sets = mainIv.sets ?? 1;
-  const durMin = Math.round(mainIv.duration_sec / 60);
-  const prefix = sets > 1 && mainIv.duration_sec >= 60
-    ? `${sets}×${durMin}min ` : sets > 1 ? `${sets} efforts ` : '';
-  if (isWatts) {
-    const wLo = Math.round(ftp * mainIv.power_pct_low / 100);
-    const wHi = Math.round(ftp * mainIv.power_pct_high / 100);
-    return `${workout.name}: ${prefix}${wLo}–${wHi}W (${mainIv.power_pct_low}–${mainIv.power_pct_high}% FTP).`;
-  } else {
-    const hLo = Math.round(maxHr * mainIv.power_pct_low / 100);
-    const hHi = Math.round(maxHr * mainIv.power_pct_high / 100);
-    return `${workout.name}: ${prefix}${hLo}–${hHi} bpm (${mainIv.power_pct_low}–${mainIv.power_pct_high}% max HR).`;
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Core planner — pure function, no DB calls
-// ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0, militaryTemplateItems = null) {
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null) {
   // militaryTemplateItems: ordered exercise rows from program_template_items for the current
-  // strength session (kracht / kracht_marsen / circuit). null → uses legacy pool path.
-  // Phase 3b — DB-backed military schedule content. Adaptation logic is unchanged.
+  // strength session (kracht / kracht_marsen / circuit). null → falls back to pool path.
+  // Adaptation logic (check-in, injury, RPE drift) is unchanged regardless of source.
   const trace = [];
   const isProEnabled = !!isPro;
   // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
@@ -1707,7 +1469,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const weekNotFull = runSessionsLast7 < 3;
 
     if (enoughRest && weekNotFull) {
-      const programWeeks = RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
+      // Prefer DB-backed programme schedule; fall back to embedded RUN_PROGRAMS constant
+      const programWeeks = (runPrograms?.[runCoach.target_km ?? 5]) ?? RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
       // Mirror execution.js regression: if >7 days since last run, step back one week
       const daysSinceLastRun = runCoach.last_run_at_ms
         ? Math.floor((planDateMs - runCoach.last_run_at_ms) / 86_400_000)
@@ -1783,10 +1546,11 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
   // ------------------------------------------------------------------
   // R557 — Cycling Coach Program: prescribe structured cycling sessions
-  //        from the cycling_workouts DB table. Sub-goal rotation selects
-  //        workout type per session (3-session weekly cycle). 7-week
-  //        block periodization: base → build → recovery. Scalable
-  //        interval workouts adjust repetition count to time budget.
+  //        from unified workout_protocols + workout_protocol_steps;
+  //        falls back to cycling_workouts if protocol pool is empty.
+  //        Sub-goal rotation selects workout type per session (3-session
+  //        weekly cycle). 7-week block periodization: base → build → recovery.
+  //        Scalable interval workouts adjust repetition count to time budget.
   // ------------------------------------------------------------------
 
   let cyclingProgramOverride = null;
@@ -1997,8 +1761,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   let militaryMarchKg  = 0;
   let militaryMarchSec = 0;
   let milWeekComputed  = 1;
-  // Phase 3b: ordered exercise list from program_template_items for strength sessions.
-  // Non-null → used as direct session content; null → pool path (legacy fallback).
+  // Ordered exercise list from program_template_items for strength sessions.
+  // Non-null → used as direct session content; null → pool path (fallback).
   let militaryDbSelection = null;
 
   const milCoach = prefs?.preferences?.military_coach;
@@ -2082,8 +1846,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     } else {
       // R573–R575 — Strength / march / circuit
-      // Phase 3b: prefer DB-backed ordered exercise list from program_template_items.
-      // Fallback to military-tag pool when DB items unavailable (table missing, empty result, etc.)
+      // Prefer DB-backed ordered exercise list from program_template_items.
+      // Fallback to military-tag pool when DB items unavailable (< 3 results).
       if (militaryTemplateItems && militaryTemplateItems.length >= 3) {
         // R573a — DB-backed: ordered content from program_template_items.
         // For kracht_marsen: strip march exercises — R574 appends the march step with weight.
@@ -2208,14 +1972,17 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const progScores  = progressionState.scores;
     const chartMode   = progressionState.chartMode ?? 'balanced';
     const baseTargets = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
-    const lastRunAtMs  = prefs?.preferences?.run_coach?.last_run_at_ms ?? null;
-    const lastRideAtMs = prefs?.preferences?.cycling_coach?.last_ride_at_ms ?? null;
-    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride)
-      ? computeSportBiasedTargets(baseTargets, prefs?.preferences?.sport_prefs, lastRunAtMs, lastRideAtMs, planDateMs)
+    const _sportPrefs = prefs?.preferences?.sport_prefs;
+    const _biasEnabled = _sportPrefs?.bias_enabled !== false;
+    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride && _biasEnabled)
+      ? computeSportBiasedTargets(baseTargets, _sportPrefs, runSessionsLast7, cyclingSessionsLast7)
       : { targets: baseTargets, biasTrace: null };
     if (biasTrace) {
       const adj = Object.entries(biasTrace.adjustments).filter(([, v]) => v !== 0).map(([ax, v]) => `${ax}${v > 0 ? '+' : ''}${v}`).join(', ');
-      trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${biasTrace.guardrailApplied ? ' [guardrail: recent sport reduced legs/cardio bias]' : ''}`);
+      const guardrailNote = biasTrace.guardrailApplied
+        ? ` [guardrail ×${biasTrace.guardrailFactor} — ${biasTrace.weeklyCount} sport sessions/wk]`
+        : '';
+      trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${guardrailNote}`);
     }
     const axes        = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 
@@ -2231,16 +1998,24 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     const topGap = gaps[0];
 
-    // R551 — Weak-axis compensation: reorder pool to surface exercises for the biggest gap axis
+    // R551 — Weak-axis compensation: reorder pool to surface exercises for the biggest gap axis.
+    // Within the gap axis pool, sport_support:{primary} tagged exercises are preferred (Phase 3).
     if (topGap && !inSpecialMode) {
       const gapAxis = topGap.axis;
       const gapCategory = PROG_AXIS_CATEGORY[gapAxis] ?? targetCategory;
+      const primarySport  = prefs?.preferences?.sport_prefs?.primary;
+      const sportSupportTag = primarySport ? `sport_support:${primarySport}` : null;
 
       // If the gap axis maps to a different category than currently planned, augment filtered pool
       if (gapCategory !== targetCategory && targetCategory !== 'mobility') {
         const gapPool = pool.filter(ex => ex.category === gapCategory);
         if (gapPool.length >= 2) {
-          const gapShuffled = seededShuffle(gapPool, date + gapAxis);
+          let gapShuffled = seededShuffle(gapPool, date + gapAxis);
+          if (sportSupportTag) {
+            const sportTagged = gapShuffled.filter(ex => hasTags(ex, sportSupportTag));
+            const nonTagged   = gapShuffled.filter(ex => !hasTags(ex, sportSupportTag));
+            gapShuffled = [...sportTagged, ...nonTagged];
+          }
           // Blend: take up to 2 gap-axis exercises, then fill with normal pool
           shuffled = [...gapShuffled.slice(0, 2), ...shuffled];
           trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — added ${Math.min(2, gapShuffled.length)} ${gapCategory} exercise(s) to front of pool`);
@@ -2249,10 +2024,18 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
       // Reorder within the filtered pool: exercises targeting the gap axis come first
       if (gapCategory === targetCategory) {
-        const forGap  = shuffled.filter(ex => progGetExerciseAxis(ex) === gapAxis);
+        const forGap   = shuffled.filter(ex => progGetExerciseAxis(ex) === gapAxis);
         const forOther = shuffled.filter(ex => progGetExerciseAxis(ex) !== gapAxis);
-        shuffled = [...forGap, ...forOther];
-        trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — prioritised ${forGap.length} exercise(s) in pool`);
+        let orderedGap = forGap;
+        if (sportSupportTag) {
+          const sportTagged = forGap.filter(ex => hasTags(ex, sportSupportTag));
+          const nonTagged   = forGap.filter(ex => !hasTags(ex, sportSupportTag));
+          orderedGap = [...sportTagged, ...nonTagged];
+        }
+        shuffled = [...orderedGap, ...forOther];
+        const sportNote = (sportSupportTag && forGap.some(ex => hasTags(ex, sportSupportTag)))
+          ? ` (${primarySport}-specific preferred)` : '';
+        trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — prioritised ${forGap.length} exercise(s) in pool${sportNote}`);
       }
     }
 
@@ -2301,7 +2084,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   const milIsRunSession = militaryProgramOverride?.type === 'duurloop' || militaryProgramOverride?.type === 'interval';
   const milIsCooperTest = militaryProgramOverride?.type === 'cooper_test';
 
-  const selection = runProgramOverride
+  const baseSelection = runProgramOverride
     ? [
         ...runProgramOverride.warmUps,
         runProgramOverride.runEx,
@@ -2328,10 +2111,37 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         militaryProgramOverride.runEx,
         ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
       ]
-    // Phase 3b: DB-backed military strength session — use template items in prescribed order
+    // DB-backed military strength session — use template items in prescribed order
     : militaryDbSelection
     ? militaryDbSelection
     : shuffled.slice(0, count);
+
+  // R561 — Sport-specific mobility injection
+  // Injects one sport_mobility:{primary} tagged exercise at the end of standard sessions
+  // when the selection doesn't already contain one. Bypassed for coach-specific sessions.
+  let selection = baseSelection;
+  const sportBiasEnabled = prefs?.preferences?.sport_prefs?.bias_enabled !== false;
+  if (
+    sportBiasEnabled && !inSpecialMode && !runProgramOverride && !crossTrainingOverride
+    && !cyclingProgramOverride && !militaryProgramOverride && !militaryDbSelection
+    && slot_type !== 'rest'
+  ) {
+    const primarySport = prefs?.preferences?.sport_prefs?.primary;
+    if (primarySport) {
+      const mobilityTag = `sport_mobility:${primarySport}`;
+      const alreadyHasMobility = baseSelection.some(ex => hasTags(ex, mobilityTag));
+      if (!alreadyHasMobility) {
+        const injPool = exercises.filter(ex =>
+          hasTags(ex, mobilityTag) && !baseSelection.some(s => s.id === ex.id)
+        );
+        if (injPool.length > 0) {
+          const inj = seededShuffle(injPool, date + 'r561')[0];
+          selection = [...baseSelection, inj];
+          trace.push(`R561 — Sport mobility injection: ${inj.name} added for ${primarySport}`);
+        }
+      }
+    }
+  }
 
   // ------------------------------------------------------------------
   // Build steps

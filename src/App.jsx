@@ -3,13 +3,14 @@ import { useState, useEffect, useCallback, useRef, useMemo, lazy, Suspense } fro
 // ─── SHARED MODULES ───────────────────────────────────────────────────────────
 import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
-import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
+import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload } from "./planUtils.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messagePolicy.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
+import { cachePlan, getCachedPlan } from "./offlineCache.js";
 import {
   generateCyclingTcx,
   triggerFileDownload,
@@ -121,7 +122,7 @@ function PathChoiceModal({ token, onComplete }) {
             ))}
           </div>
           <button disabled={saving} style={saveBtn(saving)}
-            onClick={() => saveAndComplete("running", { run_coach: { enrolled: true, target_km: runKm, week: 1, session_in_week: 0 } })}
+            onClick={() => saveAndComplete("running", { run_coach: { enrolled: true, target_km: runKm, week: 1, session_in_week: 0 }, sport_prefs: { sports: ["running"], primary: "running" } })}
           >{saving ? "Saving…" : "Start Running Coach →"}</button>
         </div>
       </div>
@@ -159,7 +160,7 @@ function PathChoiceModal({ token, onComplete }) {
             ))}
           </div>
           <button disabled={saving} style={saveBtn(saving)}
-            onClick={() => saveAndComplete("cycling", { cycling_coach: { active: true, sub_goal: cycleSubgoal, week: 1 } })}
+            onClick={() => saveAndComplete("cycling", { cycling_coach: { active: true, sub_goal: cycleSubgoal, week: 1 }, sport_prefs: { sports: ["cycling"], primary: "cycling" } })}
           >{saving ? "Saving…" : "Start Cycling Coach →"}</button>
         </div>
       </div>
@@ -244,6 +245,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
   const [experience, setExperience] = useState(p.experience_level ?? "beginner");
   const [equipment, setEquipment] = useState(pp.available_equipment ?? ["none"]);
   const [duration, setDuration] = useState(p.session_duration_min ?? 45);
+  const [sports, setSports] = useState((pp.sport_prefs?.sports) ?? []);
   const [saving, setSaving] = useState(false);
 
   const TOTAL_STEPS = 5;
@@ -282,6 +284,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
 
       const prefPayload = { available_equipment: equipment };
       if (displayName.trim()) prefPayload.display_name = displayName.trim();
+      if (sports.length > 0) prefPayload.sport_prefs = { sports, primary: sports[0] };
       const profilePayload = {
         training_goal: goal,
         experience_level: experience,
@@ -639,7 +642,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
                 Default session length
               </div>
-              <div style={{ display: "flex", gap: 8 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
                 {DURATION_OPTIONS.map((d) => (
                   <button
                     key={d}
@@ -655,6 +658,34 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                     {d === 999 ? '∞' : d === 60 ? '1h' : d === 90 ? '1.5h' : d === 120 ? '2h' : `${d}m`}
                   </button>
                 ))}
+              </div>
+
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                Sports you play <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 12 }}>
+                We'll complement your training — filling the gaps your sport doesn't cover.
+              </div>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                {ONBOARDING_SPORTS.map((s) => {
+                  const active = sports.includes(s.id);
+                  return (
+                    <button
+                      key={s.id}
+                      onClick={() => setSports(prev =>
+                        prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
+                      )}
+                      style={{
+                        padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 13,
+                        border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                        background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        color: active ? C.emerald : C.muted, cursor: "pointer",
+                      }}
+                    >
+                      {s.label}
+                    </button>
+                  );
+                })}
               </div>
             </>
           )}
@@ -3078,6 +3109,9 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady]);
 
+  // Persist plan to IndexedDB after every successful load/generate for offline fallback.
+  useEffect(() => { if (plan) cachePlan(plan); }, [plan]);
+
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
     if (!onboardingReady) return;
@@ -3107,13 +3141,19 @@ export default function App() {
           } else {
             return api.generatePlan(userId, today, null, undefined, isProRef.current)
               .then((p) => { setPlan(p); setPlanError(null); })
-              .catch((e) => {
+              .catch(async (e) => {
+                const cached = await getCachedPlan(today);
+                if (cached) { setPlan(cached); setPlanError(null); return; }
                 setPlanError({ code: e.planErrorCode ?? "PLAN-ERR", detail: e.message });
               })
               .finally(() => setIsGenerating(false));
           }
         })
-        .catch(() => setIsGenerating(false));
+        .catch(async () => {
+          const cached = await getCachedPlan(today);
+          if (cached) { setPlan(cached); setPlanError(null); }
+          setIsGenerating(false);
+        });
     }
     // today and userId are session-stable (not React state — derived from localStorage/Date at render time)
     // eslint-disable-next-line react-hooks/exhaustive-deps

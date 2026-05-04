@@ -1985,6 +1985,32 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             )}
           </div>
 
+          {/* ── Sport bias toggle ── */}
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>Sport-aware training bias</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                  {sportPrefs.bias_enabled !== false
+                    ? "Planner fills the gaps your sport doesn't cover."
+                    : "Planner ignores your sport — trains all axes equally."}
+                </div>
+              </div>
+              <button
+                onClick={() => setSportPrefs(prev => ({ ...prev, bias_enabled: prev.bias_enabled === false ? true : false }))}
+                style={{
+                  flexShrink: 0, padding: "8px 18px", borderRadius: 999, fontSize: 12, fontWeight: 900,
+                  cursor: "pointer",
+                  border: `1px solid ${sportPrefs.bias_enabled !== false ? C.emeraldBorder : C.border}`,
+                  background: sportPrefs.bias_enabled !== false ? C.emeraldDim : "rgba(255,255,255,0.05)",
+                  color: sportPrefs.bias_enabled !== false ? C.emerald : C.muted,
+                }}
+              >
+                {sportPrefs.bias_enabled !== false ? "On" : "Off"}
+              </button>
+            </div>
+          </div>
+
           {/* ── Polarised Training ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Polarised Training</div>
