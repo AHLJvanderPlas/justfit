@@ -2487,6 +2487,135 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
   );
 }
 
+// ─── COACH VIEW ───────────────────────────────────────────────────────────────
+
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan }) {
+  const [intentSaved, setIntentSaved] = useState(false);
+  const pref = prefs.preferences ?? {};
+  const milA = !!(pref.military_coach?.active);
+  const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
+  const ccA  = !!(pref.cycling_coach?.active && !pref.cycling_coach?.completed);
+  const primary = pref.primary_intent ?? (milA ? "military" : rcA ? "running" : ccA ? "cycling" : "general");
+
+  const coachLabel = milA
+    ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
+    : rcA ? `RUNNING · ${pref.run_coach.target_km}km`
+    : ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
+    : "GENERAL HEALTH";
+
+  const activeCoaches = [milA && "military", rcA && "running", ccA && "cycling"].filter(Boolean);
+  const multiCoach = activeCoaches.length > 1;
+
+  const handleIntent = async (intent) => {
+    try {
+      const result = await api.saveProfile(token, { preferences: { ...pref, primary_intent: intent } });
+      if (result?.ok && result.preferences) onUpdate(p => ({ ...p, preferences: result.preferences }));
+      setIntentSaved(true);
+      setTimeout(() => setIntentSaved(false), 3000);
+    } catch { /* ignore */ }
+  };
+
+  const intents = [
+    { id: "military", label: "Military", headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : "Not enrolled", available: milA },
+    { id: "running",  label: "Running",  headline: rcA ? `${pref.run_coach.target_km}km goal` : "Not enrolled", available: rcA },
+    { id: "cycling",  label: "Cycling",  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? "Active"}` : "Not enrolled", available: ccA },
+    { id: "general",  label: "General health", headline: "Consistent daily training", available: true },
+  ];
+
+  const mp = plan?.military_program;
+  const rc  = pref.run_coach ?? {};
+  const cc  = pref.cycling_coach ?? {};
+
+  return (
+    <div>
+      {/* ── Header ── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>COACH</div>
+        <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</div>
+        {milA && mp && (
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
+            Block {((mp.block_number ?? 1) - 1) % 6 + 1} of 6 · Session {mp.block_session_index ?? 0} of 4
+          </div>
+        )}
+        {rcA && (
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
+            Week {rc.week ?? 1} of {({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8} · Session {rc.session_in_week ?? 0} of 3
+          </div>
+        )}
+        {ccA && (
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
+            Week {cc.week ?? 1} · Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3}
+          </div>
+        )}
+      </div>
+
+      {/* ── Primary intent ── */}
+      <div style={{ marginBottom: 28 }}>
+        <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>PRIMARY INTENT</div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {intents.map(({ id, label, headline, available }) => {
+            const active = primary === id;
+            return (
+              <button
+                key={id}
+                onClick={() => available && handleIntent(id)}
+                style={{
+                  display: "grid", gridTemplateColumns: "18px 1fr auto",
+                  gap: 12, alignItems: "center", width: "100%",
+                  padding: "13px 16px", cursor: available ? "pointer" : "default",
+                  background: active ? "rgba(var(--accent-rgb),0.08)" : "rgba(255,255,255,0.03)",
+                  border: `1px solid ${active ? "var(--accent-border)" : C.border}`,
+                  borderRadius: 14, fontFamily: "inherit",
+                  opacity: available ? 1 : 0.4,
+                }}
+              >
+                <div style={{ width: 16, height: 16, borderRadius: 99, border: `2px solid ${active ? "var(--accent)" : C.subtle}`, background: active ? "var(--accent)" : "transparent", flexShrink: 0 }} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: active ? C.text : C.muted, textAlign: "left" }}>{label}</span>
+                <span style={{ fontSize: 11, color: C.muted }}>{headline}</span>
+              </button>
+            );
+          })}
+        </div>
+        {intentSaved && (
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 10, textAlign: "center" }}>Active from your next check-in.</div>
+        )}
+      </div>
+
+      {/* ── Conflict resolution ── */}
+      {multiCoach && (
+        <Glass style={{ padding: "16px 20px", marginBottom: 28 }}>
+          <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>CONFLICT RESOLUTION</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+            {primary === "military" ? "Military drives Today. Other coaches adapt."
+             : primary === "running" ? "Running drives Today. Other coaches fill rest days."
+             : primary === "cycling" ? "Cycling drives Today. Other coaches fill gaps."
+             : "General training runs when no coach claims today."}
+          </div>
+          <button onClick={() => onNavigateSettings()} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit", padding: 0, marginTop: 8 }}>
+            Change primary →
+          </button>
+        </Glass>
+      )}
+
+      {/* ── Coach settings link ── */}
+      <button
+        onClick={() => onNavigateSettings()}
+        style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "inherit", marginBottom: 10 }}
+      >
+        <span>Full coach settings</span>
+        <span style={{ color: C.muted, fontSize: 18 }}>›</span>
+      </button>
+      <button
+        onClick={() => onWeeklyPlan()}
+        style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "inherit" }}
+      >
+        <span>Weekly plan</span>
+        <span style={{ color: C.muted, fontSize: 18 }}>›</span>
+      </button>
+    </div>
+  );
+}
+
 // ─── WORKOUT VIEW ─────────────────────────────────────────────────────────────
 
 const NAV_ITEMS = [
@@ -2511,43 +2640,14 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: "plan",
-    label: "Plan",
-    icon: (a) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2">
-        <rect width="18" height="18" x="3" y="4" rx="2" />
-        <line x1="16" y1="2" x2="16" y2="6" />
-        <line x1="8" y1="2" x2="8" y2="6" />
-        <line x1="3" y1="10" x2="21" y2="10" />
-        <line x1="7" y1="15" x2="17" y2="15" />
-      </svg>
-    ),
+    id: "coach",
+    label: "Coach",
+    icon: (a) => <Icons.compass size={22} c={a ? "var(--accent)" : "#64748b"} />,
   },
   {
     id: "history",
     label: "Progress",
     icon: (a) => <Icons.chart size={22} c={a ? "var(--accent)" : "#64748b"} />,
-  },
-  {
-    id: "awards",
-    label: "Awards",
-    icon: (a) => (
-      <svg
-        width="22"
-        height="22"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke={a ? "var(--accent)" : "#64748b"}
-        strokeWidth="2"
-      >
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-        <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-        <path d="M4 22h16" />
-        <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-        <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-        <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-      </svg>
-    ),
   },
   {
     id: "settings",
@@ -3444,6 +3544,16 @@ export default function App() {
                 />
               </>
             )}
+            {view === "coach" && (
+              <CoachView
+                prefs={prefs}
+                plan={plan}
+                token={token}
+                onUpdate={setPrefs}
+                onNavigateSettings={() => setView("settings")}
+                onWeeklyPlan={() => setView("plan")}
+              />
+            )}
             {view === "plan" && (
               <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} />
             )}
@@ -3464,13 +3574,7 @@ export default function App() {
             )}
             {view === "awards" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <AwardsView
-                  history={history}
-                  score={score}
-                  isPro={!!prefs.isPro}
-                  progression={progression}
-                  runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []}
-                />
+                <AwardsView history={history} score={score} isPro={!!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} />
               </Suspense>
             )}
             {view === "settings" && (
