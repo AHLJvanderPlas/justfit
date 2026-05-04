@@ -2805,10 +2805,9 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
 
       <button
         onClick={() => onWeeklyPlan()}
-        style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between", fontFamily: "inherit" }}
+        style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}
       >
-        <span>Weekly plan</span>
-        <span style={{ color: C.muted, fontSize: 18 }}>›</span>
+        Weekly plan →
       </button>
     </div>
   );
@@ -3843,6 +3842,7 @@ export default function App() {
                   }}
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
+                  onNavigateAwards={() => setView("awards")}
                   onProgressionRefresh={() =>
                     api.getProgression(token)
                       .then((data) => { if (data?.ok) setProgression(data); })

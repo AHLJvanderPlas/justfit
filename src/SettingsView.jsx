@@ -112,7 +112,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -770,12 +770,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             {[
               { key: "coach",   label: "Your coach",  sub: "Training intent · active programme · Strava" },
               { key: "you",     label: "You",          sub: "Body · equipment · schedule · appearance" },
+              { key: "awards",  label: "Trophy room",  sub: "Awards & milestones" },
               { key: "privacy", label: "Privacy",      sub: "Data export · legal docs · feedback" },
               { key: "account", label: "Account",      sub: "Email · passkeys · security" },
             ].map((row, i, arr) => (
               <button
                 key={row.key}
-                onClick={() => setSubView(row.key)}
+                onClick={() => row.key === "awards" ? onNavigateAwards?.() : setSubView(row.key)}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   width: "100%", padding: "18px 0", background: "none", border: "none",
