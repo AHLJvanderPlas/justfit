@@ -478,7 +478,7 @@ function OnboardingModal({ token, onComplete, onBack }) {
                 <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--accent-rgb),0.04)", padding: 20, marginBottom: 8 }}>
                   {!showCycleSetup ? (
                     <>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Train with your natural rhythm</div>
                       <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
                         Your body has incredible wisdom. JustFit can adapt your sessions across your cycle — lighter when you need rest, and ready to push when you're at your strongest.
                       </div>
@@ -499,7 +499,7 @@ function OnboardingModal({ token, onComplete, onBack }) {
                     </>
                   ) : (
                     <>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16 }}>🌙 Set up cycle tracking</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Set up cycle tracking</div>
                       <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your last period start?</div>
                       <input
                         type="date"
@@ -922,7 +922,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                   <div style={{ borderRadius: 20, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--accent-rgb),0.04)", padding: 20 }}>
                     {!showCycleSetup ? (
                       <>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8 }}>🌙 Train with your natural rhythm</div>
+                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text, marginBottom: 8, display: "flex", alignItems: "center", gap: 8 }}><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Train with your natural rhythm</div>
                         <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
                           JustFit can adapt your sessions across your cycle — lighter when you need rest, ready to push when you're at your strongest.
                         </div>
@@ -939,7 +939,7 @@ function GoalRecheckModal({ token, profileData, onComplete }) {
                       </>
                     ) : (
                       <>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16 }}>🌙 Set up cycle tracking</div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>Set up cycle tracking</div>
                         <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your last period start?</div>
                         <input type="date" value={lastPeriodStart} max={new Date().toISOString().split("T")[0]} onChange={(e) => setLastPeriodStart(e.target.value)}
                           style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }} />
@@ -1099,8 +1099,8 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     onSave({
       mood: m.mood,
       stress: m.stress,
-      energy: 5,
-      sleep_hours: null,
+      energy: chips.includes("low_energy") ? 3 : 5,
+      sleep_hours: chips.includes("poor_sleep") ? 4 : null,
       checkin_json: {
         no_clothing: false,
         no_gear: false,
@@ -1126,12 +1126,18 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     else buildAndSave();
   };
 
+  // Compact SVG icon factory for chips
+  const ci = (inner) => (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">{inner}</svg>
+  );
   const CHIP_DEFS = [
-    { val: "pain",        label: "😣 Pain or soreness" },
-    { val: "zero_time",   label: "⏱ Zero time today"  },
-    { val: "gym",         label: "🏋️ Gym access today"  },
-    { val: "taking_easy", label: "🌿 Taking it easy"   },
-    ...(showPeriodChip ? [{ val: "period", label: "🌙 Period today" }] : []),
+    { val: "pain",       label: "Pain or soreness", icon: ci(<><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>) },
+    { val: "poor_sleep", label: "Rough night",      icon: ci(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>) },
+    { val: "low_energy", label: "Low energy",       icon: ci(<><rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/></>) },
+    { val: "zero_time",  label: "Zero time today",  icon: ci(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></>) },
+    { val: "gym",        label: "Gym access today", icon: ci(<><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="7" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="9" x2="20" y2="15"/></>) },
+    { val: "taking_easy",label: "Taking it easy",  icon: ci(<path d="M17 8C8 10 5.9 16.17 3.82 19.25c3.82 1.24 7.47-.93 8.74-2.97C13.42 14.77 14 11 14 11c1.72 2.4 2 7 2 7 2-2.4 2-5 2-5 2.4 1 3 3 3 3C22 10 17 8 17 8z"/>) },
+    ...(showPeriodChip ? [{ val: "period", label: "Period today", icon: ci(<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>) }] : []),
   ];
 
   const PAIN_AREAS = [
@@ -1151,7 +1157,9 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(2,6,23,0.7)", backdropFilter: "blur(8px)" }}>
-      <div style={{ background: "#0a1628", borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)" }}>
+      {/* Width-constrained row so the sheet matches app card width on desktop */}
+      <div style={{ display: "flex", justifyContent: "center" }}>
+      <div style={{ background: "#0a1628", borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
 
         {/* Drag handle + close */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px 4px" }}>
@@ -1203,25 +1211,26 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
           {step === 2 && (
             <div>
               <div style={{ paddingTop: 8, paddingBottom: 4 }}>
-                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>Anything else?</div>
-                <div style={{ fontSize: 14, color: C.muted }}>Select all that apply — or just tap Apply</div>
+                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>What's going on?</div>
+                <div style={{ fontSize: 14, color: C.muted }}>Tap anything that fits — or just hit Apply</div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 16, paddingBottom: 14 }}>
-                {CHIP_DEFS.map(({ val, label }) => {
+                {CHIP_DEFS.map(({ val, label, icon }) => {
                   const sel = chips.includes(val);
                   return (
                     <button
                       key={val}
                       onClick={() => toggleChip(val)}
-                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(255,255,255,0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s" }}
+                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(255,255,255,0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 7 }}
                     >
+                      {icon}
                       {label}
                     </button>
                   );
                 })}
               </div>
               <textarea
-                placeholder="Anything I should consider today?"
+                placeholder="Rough night? Big day? Tell me anything…"
                 value={freeText}
                 onChange={e => setFreeText(e.target.value)}
                 style={{ width: "100%", minHeight: 72, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
@@ -1380,6 +1389,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
             </div>
           )}
         </div>
+      </div>
       </div>
     </div>
   );
