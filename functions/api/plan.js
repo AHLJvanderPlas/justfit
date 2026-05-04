@@ -868,6 +868,25 @@ function getDefaultRest(exercise, slotType) {
 // ---------------------------------------------------------------------------
 
 // ---------------------------------------------------------------------------
+// COACH_PRIORITY — machine-readable intent hierarchy (index 0 = highest priority).
+//
+// When multiple coaches or body modes are active simultaneously, the planner
+// resolves conflicts by applying the highest-priority intent and ignoring lower
+// ones. Client-side conflict UI (Settings → Your Coach) uses this same order.
+//
+// Principle 5: "One active training intent at a time."
+// ---------------------------------------------------------------------------
+const COACH_PRIORITY = [
+  'pregnant',        // Body mode: all planner rules subordinate to pregnancy safety
+  'postnatal',       // Body mode: postnatal phase gates override all coach rules
+  'military',        // Military Coach R570–R582: full session control, bypasses R510–R565
+  'running',         // Running Coach R556: structured programme session
+  'cycling',         // Cycling Coach R557: structured cycling session
+  'cycling_cross',   // R557c: shadow cross-training run (sub-mode of cycling coach)
+  'general',         // Standard check-in + progression rules R510–R565
+];
+
+// ---------------------------------------------------------------------------
 // Intent hierarchy (highest → lowest priority — later items can be overridden by earlier)
 //
 //  1. Body mode — pregnancy / postnatal (R530–R544): overrides everything; special exercise
@@ -2453,6 +2472,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
     steps: orderedSteps,
     experience_level: expLevel ?? 'intermediate',
+    coach_priority: COACH_PRIORITY,
     rule_trace: trace,
     run_program: runProgramOverride
       ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
