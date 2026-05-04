@@ -193,11 +193,12 @@ function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
 }
 
 // ─── AWARDS NEXT-UNLOCK HINT ───────────────────────────────────────────────────
+const SESSION_AWARD_NAMES = { 1: "Genesis", 3: "The Habit", 7: "Full Rotation", 10: "Steady", 25: "Committed", 50: "Half Century", 100: "Centurion" };
 function nextSessionUnlock(n) {
   const milestones = [1, 3, 7, 10, 25, 50, 100];
   const next = milestones.find(m => n < m);
   if (!next) return null;
-  return { remaining: next - n, label: `${next} sessions` };
+  return { remaining: next - n, name: SESSION_AWARD_NAMES[next] ?? `${next} sessions` };
 }
 
 // ─── PROGRESSION VIEW ──────────────────────────────────────────────────────────
@@ -1200,20 +1201,16 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
           {(() => {
             const nextAward = nextSessionUnlock(completedCount);
             return (
-              <button
-                onClick={() => setView("awards")}
-                style={{ width: "100%", marginBottom: 20, padding: "14px 20px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", justifyContent: "space-between" }}
-              >
-                <div>
-                  <div>Awards & milestones</div>
-                  {nextAward && (
-                    <div style={{ fontSize: 11, color: "var(--accent)", fontWeight: 700, marginTop: 2 }}>
-                      {nextAward.remaining === 1 ? "1 session to next award" : `${nextAward.remaining} sessions to next award`}
-                    </div>
-                  )}
-                </div>
-                <span style={{ color: C.muted, fontSize: 18 }}>›</span>
-              </button>
+              <div style={{ marginBottom: 20, paddingTop: 4 }}>
+                {nextAward && (
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
+                    Next: {nextAward.name} — {nextAward.remaining} {nextAward.remaining === 1 ? "session" : "sessions"} to go
+                  </div>
+                )}
+                <button onClick={() => setView("awards")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
+                  Trophy room →
+                </button>
+              </div>
             );
           })()}
 
