@@ -126,6 +126,11 @@ export async function onRequestGet({ request, env }) {
       (usersRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
       (usersRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
 
+    // Parse preferences — strava_byo credentials live in strava_byo_credentials table, not here
+    const parsedPrefs = prefs.preferences_json ? JSON.parse(prefs.preferences_json) : {};
+    // Belt-and-suspenders: strip any legacy strava_byo.client_secret that may still be in JSON
+    if (parsedPrefs.strava_byo) delete parsedPrefs.strava_byo;
+
     return Response.json({
       exists: true,
       needsTermsAcceptance,
@@ -138,7 +143,7 @@ export async function onRequestGet({ request, env }) {
       intensity_pref: prefs.intensity_pref,
       session_duration_min: prefs.session_duration_min,
       days_per_week_target: prefs.days_per_week_target,
-      preferences: prefs.preferences_json ? JSON.parse(prefs.preferences_json) : {},
+      preferences: parsedPrefs,
       // Body-aware fields
       sex: profile?.sex ?? null,
       weight_kg: profile?.weight_kg ?? null,
@@ -213,6 +218,13 @@ export async function onRequestPost({ request, env }) {
     let preferences = bodyPreferences !== undefined
       ? { ...existingParsed, ...bodyPreferences }
       : existingParsed;
+    // Deep-merge sport_prefs sub-keys (e.g. bias_enabled) so a partial update (sports array only)
+    // does not silently wipe settings the user set elsewhere (Settings toggle etc).
+    if (bodyPreferences?.sport_prefs && existingParsed?.sport_prefs) {
+      preferences.sport_prefs = { ...existingParsed.sport_prefs, ...bodyPreferences.sport_prefs };
+    }
+    // Migration-on-write: strip legacy strava_byo block (credentials now live in strava_byo_credentials table)
+    if (preferences.strava_byo !== undefined) delete preferences.strava_byo;
 
     // ── Normalize preferences: validate military fields + enforce one-active-coach ─
     if (preferences && typeof preferences === 'object') {
@@ -242,6 +254,33 @@ export async function onRequestPost({ request, env }) {
       // Enforce one active coach between run and cycling (run takes precedence)
       if (preferences.run_coach?.enrolled && preferences.cycling_coach?.active) {
         preferences.cycling_coach = { ...preferences.cycling_coach, active: false };
+      }
+
+      // ── Validate + normalize cycling_coach fields ─────────────────────────
+      const cc = preferences.cycling_coach;
+      if (cc && typeof cc === 'object') {
+        cc.active = !!cc.active;
+        const VALID_SUB_GOALS = ['build_fitness', 'climbing', 'sprint', 'aerobic_base', 'race_fitness'];
+        if (cc.sub_goal !== undefined && cc.sub_goal !== null && !VALID_SUB_GOALS.includes(cc.sub_goal)) {
+          return Response.json({ error: 'Invalid cycling_coach.sub_goal' }, { status: 400 });
+        }
+        if (cc.unit !== undefined && cc.unit !== null && !['watts', 'hr'].includes(cc.unit)) {
+          return Response.json({ error: 'Invalid cycling_coach.unit' }, { status: 400 });
+        }
+        if (cc.ftp_watts != null)               cc.ftp_watts               = Math.max(50,  Math.min(600, Math.round(Number(cc.ftp_watts)               || 200)));
+        if (cc.max_hr != null)                  cc.max_hr                  = Math.max(100, Math.min(220, Math.round(Number(cc.max_hr)                  || 180)));
+        if (cc.target_ftp != null)              cc.target_ftp              = Math.max(50,  Math.min(600, Math.round(Number(cc.target_ftp)              || 200)));
+        if (cc.ftp_test_interval_weeks != null) cc.ftp_test_interval_weeks = Math.max(4,   Math.min(12,  Math.round(Number(cc.ftp_test_interval_weeks) || 6)));
+        if (cc.cycling_days_per_week != null)   cc.cycling_days_per_week   = Math.max(3,   Math.min(5,   Math.round(Number(cc.cycling_days_per_week)   || 3)));
+        if (cc.run_days_per_week != null)       cc.run_days_per_week       = Math.max(1,   Math.min(3,   Math.round(Number(cc.run_days_per_week)       || 1)));
+        // Enforce max 5 active days (min 2 rest days)
+        const cycDays = cc.cycling_days_per_week ?? 3;
+        const runDays = cc.run_cross_training ? (cc.run_days_per_week ?? 1) : 0;
+        if (cycDays + runDays > 5) cc.run_days_per_week = Math.max(1, 5 - cycDays);
+        // One active coach: cycling active → deactivate military
+        if (cc.active && preferences.military_coach) {
+          preferences.military_coach = { ...preferences.military_coach, active: false };
+        }
       }
     }
 
