@@ -683,10 +683,20 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       }}
                     >
                       {s.label}
+                      {active && sports[0] === s.id && (
+                        <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", marginLeft: 6, opacity: 0.7 }}>
+                          Primary
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+              {sports.length > 0 && (
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
+                  First tap = primary sport. Tap again to remove.
+                </div>
+              )}
             </>
           )}
         </div>
