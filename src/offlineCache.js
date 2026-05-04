@@ -7,8 +7,9 @@
  */
 
 const DB_NAME = 'jf-offline';
-const DB_VERSION = 1;
-const PLAN_STORE = 'plans';
+const DB_VERSION = 2;          // bumped: added exercises store
+const PLAN_STORE      = 'plans';
+const EXERCISE_STORE  = 'exercises';
 
 function openDb() {
   return new Promise((resolve, reject) => {
@@ -17,6 +18,9 @@ function openDb() {
       const db = e.target.result;
       if (!db.objectStoreNames.contains(PLAN_STORE)) {
         db.createObjectStore(PLAN_STORE, { keyPath: 'date' });
+      }
+      if (!db.objectStoreNames.contains(EXERCISE_STORE)) {
+        db.createObjectStore(EXERCISE_STORE, { keyPath: 'slug' });
       }
     };
     req.onsuccess = (e) => resolve(e.target.result);
@@ -37,6 +41,44 @@ export async function cachePlan(plan) {
     });
     db.close();
   } catch { /* ignore */ }
+}
+
+/** Persist an array of exercise objects by slug. Silently no-ops on failure. */
+export async function cacheExercises(exercises) {
+  if (!exercises?.length) return;
+  try {
+    const db = await openDb();
+    const tx = db.transaction(EXERCISE_STORE, 'readwrite');
+    const store = tx.objectStore(EXERCISE_STORE);
+    for (const ex of exercises) {
+      if (ex?.slug) store.put(ex);
+    }
+    await new Promise((resolve) => { tx.oncomplete = resolve; tx.onerror = resolve; });
+    db.close();
+  } catch { /* ignore */ }
+}
+
+/** Return cached exercises for the given slugs. Missing slugs are silently omitted. */
+export async function getCachedExercises(slugs) {
+  if (!slugs?.length) return [];
+  try {
+    const db = await openDb();
+    const results = await new Promise((resolve) => {
+      const tx = db.transaction(EXERCISE_STORE, 'readonly');
+      const store = tx.objectStore(EXERCISE_STORE);
+      const found = [];
+      let pending = slugs.length;
+      slugs.forEach(slug => {
+        const req = store.get(slug);
+        req.onsuccess = () => { if (req.result) found.push(req.result); if (--pending === 0) resolve(found); };
+        req.onerror  = () => { if (--pending === 0) resolve(found); };
+      });
+    });
+    db.close();
+    return results;
+  } catch {
+    return [];
+  }
 }
 
 /** Return the cached plan for the given date, or null if none. */

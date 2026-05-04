@@ -4,6 +4,7 @@ import { Icons, ExerciseIcon } from "./icons.jsx";
 import { musclesFor, formatExDuration, estimateMins } from "./planUtils.js";
 import { ALL_EQUIPMENT } from "./appConstants.js";
 import api from "./apiClient.js";
+import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -329,8 +330,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     try {
       const found = await api.getExercisesBySlugs(slugs);
       setAltExercises(found);
-    } catch { setAltExercises([]); }
-    finally { setAltLoading(false); }
+      cacheExercises(found);   // write-through: available offline next time
+    } catch {
+      const cached = await getCachedExercises(slugs);
+      setAltExercises(cached); // serve from IDB when network unavailable
+    } finally {
+      setAltLoading(false);
+    }
   }
 
   function handleChooseAlternative(altEx) {
