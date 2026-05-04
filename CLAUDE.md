@@ -266,7 +266,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0055+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0057+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -994,7 +994,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0054) |
+| D1 schema + migrations | ✅ Live (0002–0056) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
@@ -1054,6 +1054,7 @@ Calculated server-side from executions table:
 | COACH_PRIORITY intent hierarchy | ✅ Live — `COACH_PRIORITY` constant in plan.js formalises intent order as machine-readable array (pregnant→postnatal→military→running→cycling→cycling_cross→general); returned on every plan response as `coach_priority[]`; adjacent to intent-hierarchy comment block |
 | Adaptation memory (execution rule_trace) | ✅ Live — execution.js GET adds parallel D1 query with JSON_EXTRACT to attach rule_trace per date; PlanWeekView shows AdaptationChip on past sessions |
 | messagePolicy R557+R561 test coverage | ✅ Live — 9 new Vitest test cases covering RULE_POLICY, RULE_LABELS, deriveCoachSentence, rest-day suppression for R557 (TSB autoregulation) and R561 (sport mobility injection) |
+| R526 Perimenopause mode | ✅ Live — migration 0056 adds `'perimenopause'` to `cycle_profile.mode` CHECK; R526 in plan.js caps intensity at moderate, lowers stress threshold to ≥5 (vs ≥7 standard), disables cycle phase rules R520–R525; SettingsView violet toggle in Body mode section; App.jsx banner; messagePolicy entry |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
 
@@ -1163,7 +1164,7 @@ Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 
 
 | # | Item | Risk | Effort | Notes |
 |---|---|---|---|---|
-| K | **R526 — Perimenopause mode** | 🟡 | 🏗 | New `cycle_profile.mode='perimenopause'`; irregular cycle rules, lower stress threshold, mobility bias |
+| K | ~~**R526 — Perimenopause mode**~~ | ✅ | Done | migration 0056 + R526 rule (cap moderate, stress≥5→low, disable R520-R525) + SettingsView toggle + App banner |
 
 ---
 
