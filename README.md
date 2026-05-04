@@ -20,7 +20,7 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 
 - Daily adaptive workout plans — deterministic rule-based planner v1.8.0 (rules R510–R582); sport-aware bias layer nudges strength targets to support your primary sport; **injury-aware filtering** (knee/shoulder/lower back/ankle) removes contraindicated exercises and supplements with safe mobility alternatives
 - **Severity-based messaging** — `src/messagePolicy.js` maps all planner rule codes to severity buckets; BMI/adaptation notes replaced with compact `AdaptationChip` pill + collapsible "Why this plan?" panel (non-shaming, safety-first copy); postnatal clearance gate shows persistent `BlockingSafetyBanner` (ARIA role="alert"); run coach ramp-up warning scoped to Settings enrollment only
-- **Production hardening** — auth rate limiting (DB-backed sliding window, migration 0022); generic API 500s (no internal leakage); `src/errorReporter.js` client error reporting; AwardsView lazy-loaded (535→528KB main chunk + 8.76KB async chunk); `npm run smoke` pre-deploy script; `/api/ping` DB check + `OPERATIONS.md` runbook
+- **Production hardening** — auth rate limiting (DB-backed sliding window, migration 0022); generic API 500s (no internal leakage); `src/errorReporter.js` client error reporting; AwardsView lazy-loaded (535→528KB main chunk + 8.76KB async chunk); `npm run smoke` pre-deploy script; `/api/ping` DB check + `docs/operations-runbook.md` runbook
 - **In-app legal docs** — Mission / How it works / Privacy / Terms / Disclaimer available in Settings with full-page links; all five full pages support Share + Email actions; `/api/legal-email` supports all five document IDs
 - **Check-in optional** — plan generates from settings alone when check-in is skipped or mode is manual; existing plan loaded from D1 on page reload (no re-generation); check-in includes injury scope/area picker with "save as ongoing issue" to profile
 - Full coaching UX: instruction cards (swipeable, no auto-advance), rep-by-rep tap counting, **"All reps done"** shortcut, rest countdown, difficulty controls (±2 reps / ±10s), exercise substitution, perceived exertion rating
@@ -69,7 +69,7 @@ git add . && git commit -m "feat: ..." && git push
 npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
 ```
 
-See `RELEASE_SMOKE.md` for the full manual pre-deploy checklist and `OPERATIONS.md` for the incident runbook.
+See `docs/release-checklist.md` for the full manual pre-deploy checklist and `docs/operations-runbook.md` for the incident runbook.
 
 ## Environment variables (set in Cloudflare Pages → Settings → Variables)
 
@@ -86,7 +86,7 @@ See `RELEASE_SMOKE.md` for the full manual pre-deploy checklist and `OPERATIONS.
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0002_seed.sql` → `0030_military_tags.sql` (next: `0031+`)
+- Migrations: `migrations/0002_seed.sql` → `0056_perimenopause_mode.sql` (next: `0057+`)
 - Migration prefixes are unique and monotonic — never reuse a number.
 
 ```bash
@@ -105,15 +105,24 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 | File | Routes | Description |
 |---|---|---|
 | `auth.js` | POST (signup/login/forgot/reset/magic/passkey), GET | Auth, passkeys, magic links, password reset |
-| `plan.js` | POST, GET | Generate / fetch day plan; planner engine v1.8.0 |
+| `plan.js` | POST, GET | Generate / fetch day plan; planner engine v1.9.0 |
 | `execution.js` | POST, GET, DELETE | Save / fetch / delete workout executions + steps |
 | `checkin.js` | POST, GET | Daily check-in (mood, energy, sleep, stress, pain scope/areas, toggles) |
 | `exercises.js` | GET | Exercise library with tag filtering |
 | `profile.js` | GET, POST | User preferences, cycle, pregnancy/postnatal context |
+| `progression.js` | GET, POST | Progression model + sport preferences |
+| `cycle.js` | POST | Cycle period logging helper |
+| `cycling-pmc.js` | GET | Cycling Performance Management Chart (CTL/ATL/TSB, last 90 days) |
+| `strava-auth.js` | GET, POST, DELETE | Strava OAuth connection management (BYO credentials supported) |
+| `strava-sync.js` | POST | Sync Strava activities + compute cycling TSS |
 | `score.js` | GET | Consistency score (0–100) |
-| `ping.js` | GET | Health check |
+| `ping.js` | GET | Health check (includes D1 check) |
 | `accept-terms.js` | POST | Records explicit versioned terms/privacy acceptance |
 | `legal-email.js` | POST | Sends full legal document by email (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`) |
+| `feedback.js` | POST | Client error/feedback intake (persists to `app_events`) |
+| `feedback-items.js` | GET | Admin: fetch structured feedback/error events |
+| `dashboard.js` | GET | Admin: registered user count + event timeline (secret-gated) |
+| `enrich-exercises.js` | POST | Admin: exercise GIF/instruction enrichment via EXERCISEDB_API_KEY |
 
 ## Critical rules
 

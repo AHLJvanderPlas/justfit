@@ -22,7 +22,7 @@ npx wrangler d1 create <new-db-name>
 
 ## Bootstrap order
 
-Apply the five baseline files **in this exact order**:
+Apply the six baseline files **in this exact order**:
 
 ```bash
 # Step 1 — Training schema (must come before core: execution_steps references exercises)
@@ -37,9 +37,13 @@ npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1020_seed_
 # Step 4 — Cycling workouts seed (29 structured cycling workouts, cw01–cw29)
 npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1030_seed_cycling.sql
 
-# Step 5 — Military programme data (87 aliases, 13 templates, 1867 template items)
+# Step 5 — Military programme data (87 aliases, 13 templates, 1919 template items)
 #           Requires exercises from Step 3 to be present first
 npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1040_seed_military.sql
+
+# Step 6 — Running Coach programme templates (5 templates, 140 schedule items)
+#           Requires exercises from Step 3 to be present first
+npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1050_seed_running.sql
 ```
 
 All seed files are **self-contained executable SQL** — no additional migration replay required. Run them as-is against a fresh database.
@@ -53,8 +57,9 @@ All seed files are **self-contained executable SQL** — no additional migration
 | [1010_schema_training.sql](../migrations/baseline/1010_schema_training.sql) | `exercises`, `cycling_workouts`, `exercise_aliases`, `workout_protocols`, `workout_protocol_steps`, `program_templates`, `program_template_items` + indexes | 0001, 0035, 0043, 0044 |
 | [1000_schema_core.sql](../migrations/baseline/1000_schema_core.sql) | All identity, auth, planning, execution, commercial, audit, body/cycle, and integration tables (including `support_tokens`) + indexes | 0001, 0006–0009, 0013–0014, 0017–0019, 0022–0026, 0028, 0036, 0038–0042 |
 | [1020_seed_exercises.sql](../migrations/baseline/1020_seed_exercises.sql) | 411 exercises (308 general library + 103 military from 0045), 16 session templates, 17 awards (12 general + 5 running milestones from 0033) | 0002, 0004–0005, 0010–0012, 0015–0016, 0020–0021, 0027, 0029–0034, 0040, 0045 |
-| [1030_seed_cycling.sql](../migrations/baseline/1030_seed_cycling.sql) | 29 structured cycling workouts (cw01–cw29) | 0035, 0037 |
-| [1040_seed_military.sql](../migrations/baseline/1040_seed_military.sql) | 87 exercise aliases, 13 programme templates, 1867 template items | 0046, 0047 |
+| [1030_seed_cycling.sql](../migrations/baseline/1030_seed_cycling.sql) | 29 structured cycling workouts (cw01–cw29) + 29 workout_protocols + 101 workout_protocol_steps | 0035, 0037, 0051 |
+| [1040_seed_military.sql](../migrations/baseline/1040_seed_military.sql) | 87 exercise aliases, 13 programme templates, 1919 template items | 0046, 0047, 0048, 0049 |
+| [1050_seed_running.sql](../migrations/baseline/1050_seed_running.sql) | 5 Running Coach programme templates (5km/10km/15km/20km/30km) + 140 schedule items | 0052 |
 
 ---
 
@@ -69,10 +74,11 @@ All seed files are **self-contained executable SQL** — no additional migration
 The seed files were originally reference documents pointing to legacy migrations for replay. This required manual multi-step execution and was error-prone. As of 2026-05-03, they are **executable snapshots**:
 
 - 1020: generated from production DB snapshot + 0045 supplement (WHERE NOT EXISTS) + 0033 supplement (INSERT OR IGNORE)
-- 1030: generated from production DB snapshot (all 29 workouts including 0037 updates)
+- 1030: generated from production DB snapshot (all 29 workouts including 0037 updates) + 0051 protocol rows
 - 1040: verbatim content of 0046 + 0047 (already portable INSERT OR IGNORE + SELECT-based resolution)
+- 1050: verbatim content of 0052 (Running Coach programme templates)
 
-All five files use idempotent patterns — safe to run against a fresh or partially-seeded DB.
+All seed files use idempotent patterns (`INSERT OR IGNORE`) — safe to run against a fresh or partially-seeded DB.
 
 ### Why keep the legacy migrations in place?
 
@@ -106,7 +112,11 @@ There is no `migrations_dir` in `wrangler.toml` — D1 migrations are applied ma
 
 | Migration | Contents | Blocker |
 |-----------|----------|---------|
-| 0050+ | Map `cycling_workouts` → `workout_protocols` | Phase 3b (deferred) |
+| 0053 | Sport support tags (59 exercises) | ✅ applied |
+| 0054 | Sport mobility tags (59 exercises) | ✅ applied |
+| 0055 | `why` + `muscle_target` fields on exercises | ✅ applied |
+| 0056 | Perimenopause mode — `cycle_profile.mode` CHECK extension + R526 rule | ✅ applied |
+| 0057+ | Next available migration slot | — |
 
 ## Military data status (post-0049)
 

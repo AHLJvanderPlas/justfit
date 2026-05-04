@@ -9,7 +9,7 @@ One shared exercise library. Separate layers for protocols and programmes.
 - **`workout_protocols`** + **`workout_protocol_steps`** — structured interval sessions
 - **`program_templates`** + **`program_template_items`** — multi-week schedule templates
 
-Current app code continues to read `exercises`, `cycling_workouts`, and `session_templates` without change. The new tables are purely additive.
+All three structured coaches (Military, Cycling, Running) now have content represented in the unified model. See **Current runtime boundary by coach** below for what is DB-backed, what remains code-driven, and what fallbacks are still intentionally in place.
 
 ---
 
@@ -57,39 +57,58 @@ Fields: `block_week` (1-based week within the block), `day_index` (0=Mon … 6=S
 
 ## Current Sources — Migration Mapping
 
+### Military data (migrations 0044–0049)
+
+All 107 `defensie-exercise-catalogue` entries are imported into `exercises`. All 1919 Defensie matrix items are imported into `program_templates` (13 templates: Keuring Basis + K1–K6, Opleiding O1–O6) + `program_template_items`. See [docs/archive/2026-05-military-import.md](archive/2026-05-military-import.md) for full import detail.
+
 ### `cycling_workouts`
 
-**Keep current table.** It is actively used by the cycling coach in `plan.js` and has cycling-specific fields (`tss_estimate`, `intervals_json` with power percentages) that don't map cleanly to generic `workout_protocols` steps yet.
+All 29 rows are mirrored in `workout_protocols` / `workout_protocol_steps` (migration 0051). `plan.js` (R557) reads from the protocol tables with `cycling_workouts` retained as a fallback.
 
-Future path: when the cycling coach is refactored (Phase 3b+), map each `cycling_workouts` row to a `workout_protocols` entry with `sport = 'cycling'` and `protocol_type = 'interval'`. Maintain `cycling_workouts` as a compatibility view or keep both in sync until cutover.
+Cross-reference convention:
+- `workout_protocols.id` = `'wp-{cw_id}'` (e.g. `'wp-cw01'`)
+- `tags_json` includes `'cw_ref:{cw_id}'` for stable lookup
+- Cycling-specific fields not in the generic protocol schema (`tss_estimate`, raw `intervals_json`, `sub_goal`) are reconstructed at runtime by `buildCyclingWorkoutsFromProtocols()` from `intensity_json` + `notes_json` per step.
 
-### `defensie-exercise-catalogue-import-ready.json`
+### Running Coach programme schedules (migration 0052)
 
-Source for future import into **`exercises`**.
+Five `program_templates` (run-5km/10km/15km/20km/30km) + 140 `program_template_items` mirror the `RUN_PROGRAMS` JS constant. R556 reads from the DB with fallback to the embedded constant.
 
-107 entries, normalized to JustFit canonical schema. 4 entries flagged `needs_review: true` (load unspecified — require human sign-off before import).
+---
 
-Import script: write a one-off migration (`0044_defensie_exercises.sql`) that INSERTs all 107 entries using `INSERT OR IGNORE` to avoid conflicts with any already-present slugs.
+## Current runtime boundary by coach
 
-### `defensie-matrix-clean.json`
+### Military Coach (R570–R582)
 
-Source for future import into **`program_templates`** + **`program_template_items`**.
+| Component | Runtime source | Fallback |
+|-----------|---------------|---------|
+| Strength sessions (kracht / kracht_marsen / circuit) | `program_templates` + `program_template_items` (migration 0047–0049) | military-tagged exercise pool |
+| Zone 2 run + interval sessions | Code-driven progressive level (R571–R572) | — |
+| Cooper test session | Code-driven (block 1 of each 6-block cycle) | — |
+| Block/phase/periodization scheduling | Code-driven (rolling block counter, R571) | — |
+| Adaptation (check-in, injury, RPE drift) | Code-driven (R574, R576) | — |
 
-Structure: `schema`, `cluster`, `week`, `day`, `sessionType`, `exercises[]` (ordered).
+### Cycling Coach (R557)
 
-Mapping:
-- One `program_templates` row per cluster (e.g., "Opleiding Cluster 1")
-- One `program_template_items` row per entry in `exercises[]`
-- Where the item is a single exercise → `item_type = 'exercise'`, `exercise_id` = matching canonical slug
-- Where the item is a multi-step run session → `item_type = 'protocol'`, `protocol_id` = matching `workout_protocols` entry
+| Component | Runtime source | Fallback |
+|-----------|---------------|---------|
+| Workout pool (29 sessions) | `workout_protocols` + `workout_protocol_steps` via `buildCyclingWorkoutsFromProtocols()` | `cycling_workouts` table |
+| Sub-goal / workout-type selection | Code-driven (CYCLING_PROFILES rotation, R557) | — |
+| Interval scaling, TSS, coach note | Code-driven (scaleCyclingIntervals, calcCyclingTSS, buildCyclingCoachNote) | — |
+| PMC / TSB autoregulation | Code-driven (computeCyclingTsb, R557b) | — |
+| TCX / ZWO / ERG export | Client-side, reads `intervals_json` on plan step | — |
+| `cycling_workouts` table retirement | Intentionally deferred — retained as fallback | — |
 
-Import script: write `0045_defensie_program.sql` after exercises are imported.
+### Running Coach (R555–R556)
 
-### Current code-driven military scheduler (`plan.js`)
-
-**Keep as-is.** The scheduler in `plan.js` builds military plans dynamically from the `exercises` table using tag filtering. It is not yet backed by `program_templates`.
-
-Future path (Phase 2): replace the code-driven tag filter with a `program_templates` lookup. The engine reads the relevant template for the user's cluster/week, expands it to a session, then applies the existing check-in adaptation logic. The adaptation rules (`adaptExistingPlan`) remain unchanged.
+| Component | Runtime source | Fallback |
+|-----------|---------------|---------|
+| Programme schedules (5 targets × N weeks) | `program_templates` + `program_template_items` via `buildRunProgramsFromTemplates()` | `RUN_PROGRAMS` JS constant |
+| Level exercises (21 levels: intervals + continuous runs) | `exercises` table (atomic, by slug) | — |
+| Warm-up exercises + cooldown | `exercises` table (by tag / slug) | — |
+| Week progression, experience offset, time-budget selection | Code-driven (R556) | — |
+| Safe running build-up (R555) | Code-driven (conditioning score → level) | — |
+| `RUN_PROGRAMS` constant retirement | Intentionally deferred — retained as fallback | — |
 
 ---
 
@@ -102,14 +121,27 @@ Future path (Phase 2): replace the code-driven tag filter with a `program_templa
 | 0045 | Import 103 resolved military exercises → `exercises` | ✅ applied |
 | 0046 | 87 exercise aliases for name variants | ✅ applied |
 | 0047 | 13 program templates + 1867 template items from military matrix | ✅ applied |
-| 0048 | Import 4 deferred exercises + 52 missing template items | ⬜ pending (trainer sign-off required) |
-| 0049+ | Cycling coach refactor — map `cycling_workouts` → `workout_protocols` | ⬜ deferred (Phase 3b) |
+| 0048 | Resolve `hardlopen-zone-3-5-minuten` + 2 `program_template_items` (KC2/KC3) | ✅ applied |
+| 0049 | Resolve 3 remaining deferred exercises + 50 missing `program_template_items` | ✅ applied |
+| 0050 | Add Graaftest exercise (standalone assessment, not in matrix) | ✅ applied |
+| 0051 | Bridge cycling_workouts → workout_protocols + workout_protocol_steps (29 protocols, 101 steps) | ✅ applied |
+| 0052 | 5 Running Coach `program_templates` (5km/10km/15km/20km/30km) + 140 `program_template_items`; R556 reads from DB with fallback to `RUN_PROGRAMS` constant | ✅ applied |
+| 0053 | Sport support tags on 59 exercises (`sport_support:running/cycling/rowing/swimming/walking/mixed`) | ✅ applied |
+| 0054 | Sport mobility tags on 59 exercises (`sport_mobility:running/cycling/rowing/swimming/walking/mixed/general`) | ✅ applied |
+| 0055 | `why` + `muscle_target` JSON fields on exercises (content-blocked, not yet used by planner) | ✅ applied |
+| 0056 | Perimenopause mode — adds `'perimenopause'` to `cycle_profile.mode` CHECK constraint | ✅ applied |
+| 0057+ | (next available) | ⬜ pending |
 
 ---
 
-## Deferred
+## Intentionally retained hybrid boundaries
 
-- Importing JSON catalogues into DB (0044, 0045)
-- Replacing `cycling_workouts` with `workout_protocols`
-- Rewriting military scheduler to use `program_templates`
-- Any planner changes (plan.js reads `exercises`, `session_templates`, `cycling_workouts` — unchanged)
+Three fallbacks remain in place by design. "Done" for each coach means the migrated runtime boundary is established — full legacy retirement is intentionally deferred:
+
+| Coach | Primary source (live) | Retained fallback | Retirement status |
+|-------|-----------------------|-------------------|-------------------|
+| Military (strength) | `program_template_items` via DB query | Military-tagged exercise pool | Deferred — fallback fires only when DB returns < 3 items |
+| Cycling | `workout_protocols` + `workout_protocol_steps` | `cycling_workouts` table | Deferred — table not dropped; fallback fires when protocol pool is empty |
+| Running | `program_template_items` (run-Nkm templates) | `RUN_PROGRAMS` JS constant | Deferred — constant retained; fallback fires when DB query returns nothing |
+
+Progression, adaptation, and safety logic for all three coaches remains code-driven and is unaffected by the content source switch.
