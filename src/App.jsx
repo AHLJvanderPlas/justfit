@@ -1234,16 +1234,21 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
 
       <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
 
-      <div style={{ display: "flex", gap: 10 }}>
-        <button onClick={onLogActivity} style={{ flex: 1, padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}>
-          + Log activity
-        </button>
-        {!bonusDone && beforeNight && (
-          <button onClick={onBonusSession} style={{ flex: 1, padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
-            <Icons.bolt size={14} c={C.emerald} /> Bonus session
-          </button>
-        )}
-      </div>
+      <button onClick={onLogActivity} style={{ width: "100%", padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, marginBottom: !bonusDone && beforeNight ? 12 : 0 }}>
+        + Log activity
+      </button>
+      {!bonusDone && beforeNight && (
+        <div>
+          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Bonus session — how many minutes?</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            {[10, 15, 20, 30].map(m => (
+              <button key={m} onClick={() => onBonusSession(m)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
+                {m}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -2532,7 +2537,6 @@ export default function App() {
   const [bonusDone, setBonusDone] = useState(
     () => localStorage.getItem(`jf_bonus_${today}`) === "1"
   );
-  const [showBonusPicker, setShowBonusPicker] = useState(false);
   const [showLogActivity, setShowLogActivity] = useState(false);
   const [activityToast, setActivityToast] = useState("");
   const [showWhyNot, setShowWhyNot] = useState(false);
@@ -3084,7 +3088,6 @@ export default function App() {
 
   const handleBonusSelect = useCallback(
     async (minutes) => {
-      setShowBonusPicker(false);
       setIsGenerating(true);
       try {
         const completedIds = (plan?.steps ?? []).map((s) => s.exercise_id).filter(Boolean);
@@ -3302,7 +3305,7 @@ export default function App() {
                   completedSession={completedSession}
                   bonusDone={bonusDone}
                   onLogActivity={() => setShowLogActivity(true)}
-                  onBonusSession={() => setShowBonusPicker(true)}
+                  onBonusSession={handleBonusSelect}
                   onWhyNot={() => setShowWhyNot(true)}
                   onCheckIn={() => setShowCheckIn(true)}
                   prefs={prefs}
@@ -3553,12 +3556,7 @@ export default function App() {
         />
       )}
 
-      {showBonusPicker && (
-        <BonusMinutePicker
-          onSelect={handleBonusSelect}
-          onClose={() => setShowBonusPicker(false)}
-        />
-      )}
+
 
       {showWhyNot && (
         <WhyNotModal
