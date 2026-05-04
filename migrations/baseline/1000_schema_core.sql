@@ -546,7 +546,7 @@ CREATE TABLE IF NOT EXISTS user_progression_events (
   CHECK (stimulus_json      IS NULL OR json_valid(stimulus_json))
 ) STRICT;
 
--- Merged: 0008 created table; 0009 added mode, pregnancy, postnatal columns.
+-- Merged: 0008 created table; 0009 added mode, pregnancy, postnatal columns; 0056 added perimenopause.
 CREATE TABLE IF NOT EXISTS cycle_profile (
   user_id                       TEXT    PRIMARY KEY
                                   REFERENCES users(id) ON DELETE CASCADE,
@@ -558,9 +558,9 @@ CREATE TABLE IF NOT EXISTS cycle_profile (
   last_period_start             TEXT,   -- 'YYYY-MM-DD'
   created_at_ms                 INTEGER NOT NULL,
   updated_at_ms                 INTEGER NOT NULL,
-  -- Body mode (migration 0009)
+  -- Body mode (migration 0009 + 0056)
   mode                          TEXT    NOT NULL DEFAULT 'standard'
-                                  CHECK (mode IN ('standard','pregnant','postnatal')),
+                                  CHECK (mode IN ('standard','pregnant','postnatal','perimenopause')),
   -- Pregnancy
   pregnancy_due_date            TEXT,
   pregnancy_confirmed_at_ms     INTEGER,

@@ -1352,6 +1352,17 @@ function PregnancyProgressBanner({ cycle }) {
     );
   }
 
+  if (mode === "perimenopause") {
+    return (
+      <div style={{ marginBottom: 20 }}>
+        <div style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 16, padding: "14px 16px" }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa", marginBottom: 3 }}>Perimenopause mode</div>
+          <div style={{ fontSize: 11, color: "rgba(167,139,250,0.65)", lineHeight: 1.5 }}>Intensity capped at moderate · stress threshold lowered · cycle phase rules paused</div>
+        </div>
+      </div>
+    );
+  }
+
   if (mode === "postnatal") {
     const birthDate = cycle.postnatal_birth_date;
     if (!birthDate) return null;

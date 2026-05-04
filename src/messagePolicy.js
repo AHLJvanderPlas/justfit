@@ -60,6 +60,7 @@ export const RULE_POLICY = {
   R564: 'adaptive_safety',
   R565: 'adaptive_safety',
   R568: 'adaptive_safety',
+  R526: 'adaptive_safety',
 };
 
 // ── Rule code → human-readable label ─────────────────────────────────────────
@@ -110,6 +111,7 @@ export const RULE_LABELS = {
   R564: { category: 'Safety adaptation',   text: 'Safe mobility exercises added to supplement filtered pool.' },
   R565: { category: 'Safety adaptation',   text: 'Session adjusted for your current injury context. Stop any exercise that causes sharp or worsening pain.' },
   R568: { category: 'Training adaptation', text: 'Polarised training — alternating Zone 2 endurance and HIIT sessions.' },
+  R526: { category: 'Training adaptation', text: 'Perimenopause mode: intensity capped at moderate, standard cycle rules paused.' },
 };
 
 /**
@@ -176,6 +178,7 @@ const SENTENCE_VARIANTS = {
   R546: "Walk-run intervals — the safe way to build running capacity.",
   R553: "Mobility added — it's been a while since your last flexibility session.",
   R551: "Weakest fitness area targeted — balanced development over time.",
+  R526: "Perimenopause mode — intensity capped at moderate, session adapted for hormonal fluctuation.",
   R568: "Polarised training day — alternating Zone 2 and high-intensity work.",
   R560: "Session biased toward your primary sport.",
   R561: "Sport mobility added — one targeted exercise to support your sport.",
@@ -188,6 +191,7 @@ const SENTENCE_SEVERITY_ORDER = [
   'R535', 'R536', 'R537', 'R540', 'R541', 'R543', 'R544',
   'R558', 'R559', 'R511', 'R512', 'R513', 'R545', 'R546',
   'R516', 'R515', 'R510', 'R563', 'R565',
+  'R526',
   'R520', 'R521', 'R522', 'R523', 'R524', 'R525',
   'R553', 'R551', 'R556', 'R555', 'R568', 'R560', 'R561', 'R557',
 ];

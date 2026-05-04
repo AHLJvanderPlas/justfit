@@ -201,6 +201,8 @@ export async function onRequestPost({ request, env }) {
             postnatal_birth_type: cycleRow.postnatal_birth_type ?? null,
             postnatal_cleared_for_exercise: cycleRow.postnatal_cleared_for_exercise ?? 0,
           };
+        } else if (bodyMode === 'perimenopause') {
+          pregnancyContext = { mode: 'perimenopause' };
         } else if (bodyMode === 'standard' && cycleRow.tracking_mode === 'smart' && !resolvedCycleContext && bodyProfile.sex === 'female') {
           resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
         }
@@ -1293,6 +1295,24 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= T.STRESS_LUTEAL) intensity = 'low';
         trace.push('R523 — Winding down this week, staying consistent');
       }
+    }
+  }
+
+  // ------------------------------------------------------------------
+  // R526 — Perimenopause mode
+  // Standard cycle rules (R520–R525) are bypassed (isStandardMode = false).
+  // Perimenopause: hormonal volatility → cap at moderate, lower stress
+  // threshold from 7 to 5, inject mobility on high-stress days.
+  // Does NOT disable coaches (running/cycling/military still active).
+  // ------------------------------------------------------------------
+  if (pregnancyContext?.mode === 'perimenopause') {
+    if (intensity === 'high') { intensity = 'moderate'; }
+    const periStress = checkIn?.stress ?? 0;
+    if (periStress >= 5) {
+      intensity = 'low';
+      trace.push('R526 — Perimenopause + elevated stress ≥5 → low intensity, mobility focus');
+    } else {
+      trace.push('R526 — Perimenopause mode: intensity capped at moderate, cycle rules paused');
     }
   }
 

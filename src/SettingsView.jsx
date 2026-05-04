@@ -2127,7 +2127,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                   key={opt.value}
                   onClick={() => {
                     const leavingFemale = profileSex === "female" && opt.value !== "female";
-                    const hasFemaleSettings = bodyMode !== "standard" || cycleTrackingMode === "smart";
+                    const hasFemaleSettings = bodyMode !== "standard" || cycleTrackingMode === "smart"; // includes perimenopause
                     if (leavingFemale && hasFemaleSettings) {
                       setPendingSex(opt.value);
                       setShowSexWarning(true);
@@ -2327,19 +2327,35 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Body mode</div>
 
-              {/* Standard — show activate button, or inline setup steps */}
+              {/* Standard — show activate buttons, or inline setup steps */}
               {bodyMode === "standard" && pregnancySetupStep === 0 && (
-                <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
                     onClick={() => setPregnancySetupStep(1)}
                     style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer", textAlign: "left" }}
                   >
                     Standard · Enable pregnancy mode →
                   </button>
-                  <div style={{ fontSize: 11, color: C.subtle, marginTop: 6, lineHeight: 1.5 }}>
-                    Pregnancy mode covers the full journey — from conception through to 3 months after birth.
+                  <button
+                    onClick={async () => {
+                      setPregnancySaving(true);
+                      try {
+                        await api.saveProfile(token, { cycle: { mode: "perimenopause", tracking_mode: "off" } });
+                        setBodyMode("perimenopause");
+                        setCycleTrackingMode("off");
+                        onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), mode: "perimenopause" } }));
+                      } catch { /* ignore */ }
+                      setPregnancySaving(false);
+                    }}
+                    disabled={pregnancySaving}
+                    style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: "1px solid rgba(167,139,250,0.25)", background: "rgba(167,139,250,0.05)", color: pregnancySaving ? C.muted : "#a78bfa", cursor: pregnancySaving ? "not-allowed" : "pointer", textAlign: "left" }}
+                  >
+                    {pregnancySaving ? "Saving…" : "Enable perimenopause mode →"}
+                  </button>
+                  <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
+                    Pregnancy mode: full journey from conception to 3 months postnatal. Perimenopause mode: lowers stress threshold, caps intensity at moderate, pauses cycle phase rules.
                   </div>
-                </>
+                </div>
               )}
 
               {/* Step 1 — Medical advisory (inline, shown right after clicking) */}
@@ -2470,6 +2486,23 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                   </div>
                 </div>
               )}
+              {bodyMode === "perimenopause" && (
+                <div style={{ borderRadius: 14, background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.3)", overflow: "hidden" }}>
+                  <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                    <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 14 }}>Perimenopause mode active</span>
+                    <button
+                      onClick={handleDeactivateBodyMode}
+                      disabled={bodyModeDeactivating}
+                      style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(167,139,250,0.3)", background: "rgba(167,139,250,0.1)", color: "#a78bfa", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
+                    >
+                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                    </button>
+                  </div>
+                  <div style={{ padding: "0 14px 10px", fontSize: 11, color: "rgba(167,139,250,0.7)", lineHeight: 1.5 }}>
+                    Intensity capped at moderate · stress threshold lowered · standard cycle rules paused
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -2499,7 +2532,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: "1px solid rgba(245,158,11,0.2)" }}>
                     <Icons.moon size={16} c={C.amber} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>
-                      {bodyMode === "pregnant" ? "Pregnancy mode" : "Postnatal mode"}
+                      {bodyMode === "pregnant" ? "Pregnancy mode" : bodyMode === "postnatal" ? "Postnatal mode" : "Perimenopause mode"}
                     </span>
                   </div>
                 )}
