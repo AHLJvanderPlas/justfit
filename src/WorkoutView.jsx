@@ -623,16 +623,26 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           const isFloorEx = tags.some(t => ["floor","supine","prone","mobility","pelvic_floor"].includes(t)) || cur.category === "mobility";
           const showMatHint = isFloorEx && exEquip.length === 0; // suggest mat only when no other equipment
 
-          // Split cues into level-specific (prefixed "Beginner:" etc.) and general
+          // Split cues into level-specific (prefixed "Beginner:" etc.) and general.
+          // Handles two DB patterns:
+          //   Pattern B: separate "💡 Beginner: ..." / "💡 Intermediate: ..." / "💡 Advanced: ..." cues
+          //   Pattern A: combined "💡 💡 Beginner: ... Advanced: ..." (space between emojis — treated as general)
           const expLevel = plan?.experience_level ?? 'intermediate';
           const LEVEL_PREFIXES = ['Beginner', 'Intermediate', 'Advanced'];
+          const stripEmoji = s => s.replace(/^(💡\s*)+/, "").trim();
+          // A cue is single-level-specific when it starts with exactly one level keyword
+          const isSingleLevel = c => {
+            const clean = stripEmoji(c);
+            const starts = LEVEL_PREFIXES.filter(p => clean.toLowerCase().startsWith(p.toLowerCase() + ':'));
+            return starts.length === 1;
+          };
           const levelTarget = cues.find(c => {
-            const clean = c.replace(/^💡+\s*/, "").trim();
-            const matchPrefix = LEVEL_PREFIXES.find(p => clean.toLowerCase().startsWith(p.toLowerCase()));
-            return matchPrefix && matchPrefix.toLowerCase() === expLevel.toLowerCase();
+            if (!isSingleLevel(c)) return false;
+            const clean = stripEmoji(c);
+            return clean.toLowerCase().startsWith(expLevel.toLowerCase() + ':');
           });
           const levelTargetText = levelTarget
-            ? levelTarget.replace(/^💡+\s*/, "").replace(/^(Beginner|Intermediate|Advanced):\s*/i, "").trim()
+            ? stripEmoji(levelTarget).replace(/^(Beginner|Intermediate|Advanced):\s*/i, "").trim()
             : null;
 
           // Derive muscle/body target from category + tags + name (no DB change needed)
@@ -672,16 +682,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // Final "Your target" content — prefer level-specific cue, fall back to interval structure
           const targetCardText = levelTargetText ?? intervalStructureText;
 
-          // General cues = those without a level prefix (skip all level-specific ones)
-          // { text, level } — level = number of 💡 symbols; 1 = standard, 2 = intermediate key point
+          // General cues = non-level-specific cues shown in "Why this helps".
+          // Single-level cues (Pattern B) are filtered out; multi-level combined cues (Pattern A) kept for all.
           const cleanCues = cues
-            .filter(c => {
-              const clean = c.replace(/^💡+\s*/, "").trim();
-              return !LEVEL_PREFIXES.some(p => clean.toLowerCase().startsWith(p.toLowerCase() + ':'));
-            })
+            .filter(c => !isSingleLevel(c))
             .map(c => {
-              const m = c.match(/^(💡+)/);
-              return { text: c.replace(/^💡+\s*/, "").trim(), level: m ? m[1].length : 1 };
+              const emojiCount = (c.match(/^(💡\s*)+/)?.[0]?.match(/💡/g) ?? []).length;
+              return { text: stripEmoji(c), level: emojiCount >= 2 ? 2 : 1 };
             });
 
           // Fallback "why" derived from category when no general cues exist in DB
