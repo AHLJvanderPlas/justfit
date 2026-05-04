@@ -4,19 +4,32 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JustFit.cc — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Inter+Tight:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <style>
+    :root { --accent: #10b981; --accent-dim: rgba(16,185,129,0.12); --accent-border: rgba(16,185,129,0.3); }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
     body {
-      min-height: 100vh;
       background: #020617;
       color: #f8fafc;
-      font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+      font-family: 'Inter Tight', -apple-system, 'Helvetica Neue', Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── Zone 1 — auth above the fold ── */
+    .zone1 {
+      min-height: 100vh;
+      min-height: 100dvh;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      padding: 20px;
+      padding: 20px 20px 32px;
     }
+
+    /* ── Auth card (unchanged) ── */
     .card {
       width: 100%;
       max-width: 420px;
@@ -194,112 +207,334 @@
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
+
+    /* ── Scroll cue ── */
+    .scroll-cue {
+      display: flex; flex-direction: column; align-items: center;
+      gap: 6px; margin-top: 28px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #64748b;
+    }
+    .scroll-cue svg { animation: bounce 2.4s ease-in-out infinite; }
+    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
+    @media (prefers-reduced-motion: reduce) { .scroll-cue svg { animation: none; } }
+
+    /* ── Zone 2 — explainer ── */
+    .explainer {
+      max-width: 560px;
+      margin: 80px auto 60px;
+      padding: 0 20px;
+      color: #cbd5e1;
+    }
+    .expl-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #94a3b8; margin-bottom: 14px;
+    }
+    .section-title {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 48px; line-height: 1.0;
+      letter-spacing: -0.005em; text-transform: uppercase;
+      color: #f8fafc; margin-bottom: 40px;
+    }
+    @media (max-width: 420px) { .section-title { font-size: 36px; } }
+    .section-sub {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 24px; text-transform: uppercase;
+      color: #f8fafc; margin: 48px 0 14px;
+    }
+
+    /* Three pillars */
+    .pillars { display: grid; gap: 28px; list-style: none; padding: 0; }
+    .pillar { display: grid; grid-template-columns: 32px 1fr; gap: 0 16px; align-items: start; }
+    .pillar-icon { color: var(--accent); padding-top: 2px; }
+    .pillar h3 {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
+      text-transform: uppercase; color: #f8fafc; margin-bottom: 4px;
+    }
+    .pillar p { font-size: 15px; line-height: 1.5; color: #cbd5e1; }
+
+    /* Today card mockup */
+    .proof {
+      margin: 48px 0;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 22px; overflow: hidden;
+      background: rgba(255,255,255,0.02);
+    }
+    .proof-card { padding: 24px; }
+    .proof-eyebrow {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 0.18em; text-transform: uppercase;
+      color: #64748b; margin-bottom: 14px;
+    }
+    .proof-coach-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px; border-radius: 20px;
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px; letter-spacing: 0.1em; color: #10b981;
+      margin-bottom: 10px;
+    }
+    .proof-session-name {
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 42px; line-height: 1.0;
+      color: #f8fafc; margin-bottom: 6px;
+    }
+    @media (max-width: 420px) { .proof-session-name { font-size: 32px; } }
+    .proof-meta {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; color: #64748b; letter-spacing: 0.08em;
+      margin-bottom: 20px;
+    }
+    .proof-steps {
+      display: grid; gap: 10px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding-top: 16px; margin-bottom: 20px;
+    }
+    .proof-step {
+      display: flex; align-items: center; gap: 10px;
+      font-size: 14px; color: #94a3b8; line-height: 1.4;
+    }
+    .proof-step-dot {
+      width: 5px; height: 5px; border-radius: 50%;
+      background: rgba(16,185,129,0.5); flex-shrink: 0;
+    }
+    .proof-btn {
+      display: block; width: 100%;
+      padding: 14px; border-radius: 14px;
+      background: rgba(16,185,129,0.1); border: 1px solid rgba(16,185,129,0.25);
+      font-family: 'Barlow Condensed', sans-serif;
+      font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
+      text-transform: uppercase; color: #10b981; text-align: center;
+    }
+    .proof figcaption {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: #94a3b8; padding: 12px 16px;
+      border-top: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* What we don't do */
+    .anti { list-style: none; padding: 0; display: grid; gap: 8px; }
+    .anti li {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px; line-height: 1.5; color: #cbd5e1;
+      padding-left: 20px; position: relative;
+    }
+    .anti li::before { content: '—'; position: absolute; left: 0; color: #64748b; }
+
+    .pricing { font-size: 15px; line-height: 1.6; color: #cbd5e1; }
+    .pricing strong { color: #f8fafc; font-weight: 700; }
+
+    .back-cta { margin-top: 48px; padding-bottom: 8px; text-align: center; }
+    .back-cta a {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+      color: #94a3b8; text-decoration: none;
+    }
+    .back-cta a:hover { color: var(--accent); }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">
-      <div class="logo-mark">JF</div>
-      <div class="logo-text">JustFit<span>.cc</span></div>
-    </div>
 
-    <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
-    <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
-      <div style="font-size:36px;margin-bottom:16px;">✉️</div>
-      <div id="magic-title" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
-      <div id="magic-sub" style="font-size:14px;color:#64748b;">Verifying your link.</div>
-    </div>
-
-    <!-- FORGOT PASSWORD VIEW -->
-    <div id="forgot-view" style="display:none;">
-      <h1 style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
-      <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
-      <div id="forgot-alert" class="alert"></div>
-      <div class="field">
-        <label>Email</label>
-        <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
-      </div>
-      <button class="btn-primary" id="forgot-btn">Send Reset Link</button>
-      <a id="back-link" class="back-link">← Back to login</a>
-    </div>
-
-    <!-- MAIN AUTH VIEW -->
-    <div id="main-view">
-      <div class="mode-tabs">
-        <button class="mode-tab active" id="tab-login">Login</button>
-        <button class="mode-tab"        id="tab-signup">Sign Up</button>
+  <!-- ── ZONE 1 — auth above the fold ── -->
+  <div id="top" class="zone1">
+    <div class="card">
+      <div class="logo">
+        <div class="logo-mark">JF</div>
+        <div class="logo-text">JustFit<span>.cc</span></div>
       </div>
 
-      <div id="main-alert" class="alert"></div>
-
-      <!-- Login method switcher (only shown in login mode) -->
-      <div id="method-switcher" class="method-tabs">
-        <button class="method-tab active" id="mt-password">Password</button>
-        <button class="method-tab"        id="mt-magic">Magic Link</button>
+      <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
+      <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
+        <div style="font-size:36px;margin-bottom:16px;">✉️</div>
+        <div id="magic-title" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
+        <div id="magic-sub" style="font-size:14px;color:#64748b;">Verifying your link.</div>
       </div>
 
-      <!-- Password form -->
-      <div id="password-form">
+      <!-- FORGOT PASSWORD VIEW -->
+      <div id="forgot-view" style="display:none;">
+        <h1 style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
+        <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
+        <div id="forgot-alert" class="alert"></div>
         <div class="field">
           <label>Email</label>
-          <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+          <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
         </div>
-        <div class="field" id="password-field">
-          <label>Password</label>
-          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
-        </div>
-        <a id="forgot-link" class="forgot-link">Forgot password?</a>
-        <!-- Acceptance checkbox — shown only in Sign Up mode (toggled by login.js) -->
-        <div class="accept-row" id="accept-row" style="display:none;">
-          <input type="checkbox" id="accept-check" />
-          <label for="accept-check">
-            I have read and agree to the
-            <a href="/terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a>,
-            <a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer &amp; Liability Waiver</a>,
-            and <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
-            of JustFit.cc.
-          </label>
-        </div>
-        <button class="btn-primary" id="submit-btn">Login</button>
+        <button class="btn-primary" id="forgot-btn">Send Reset Link</button>
+        <a id="back-link" class="back-link">← Back to login</a>
       </div>
 
-      <!-- Magic link form -->
-      <div id="magic-form" style="display:none;">
-        <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
-        <div class="field">
-          <label>Email</label>
-          <input type="email" id="magic-email" placeholder="you@example.com" autocomplete="email" />
+      <!-- MAIN AUTH VIEW -->
+      <div id="main-view">
+        <div class="mode-tabs">
+          <button class="mode-tab active" id="tab-login">Login</button>
+          <button class="mode-tab"        id="tab-signup">Sign Up</button>
         </div>
-        <button class="btn-primary" id="magic-btn">Send Login Link</button>
+
+        <div id="main-alert" class="alert"></div>
+
+        <!-- Login method switcher (only shown in login mode) -->
+        <div id="method-switcher" class="method-tabs">
+          <button class="method-tab active" id="mt-password">Password</button>
+          <button class="method-tab"        id="mt-magic">Magic Link</button>
+        </div>
+
+        <!-- Password form -->
+        <div id="password-form">
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <div class="field" id="password-field">
+            <label>Password</label>
+            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+          </div>
+          <a id="forgot-link" class="forgot-link">Forgot password?</a>
+          <!-- Acceptance checkbox — shown only in Sign Up mode (toggled by login.js) -->
+          <div class="accept-row" id="accept-row" style="display:none;">
+            <input type="checkbox" id="accept-check" />
+            <label for="accept-check">
+              I have read and agree to the
+              <a href="/terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a>,
+              <a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer &amp; Liability Waiver</a>,
+              and <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
+              of JustFit.cc.
+            </label>
+          </div>
+          <button class="btn-primary" id="submit-btn">Login</button>
+        </div>
+
+        <!-- Magic link form -->
+        <div id="magic-form" style="display:none;">
+          <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
+          <div class="field">
+            <label>Email</label>
+            <input type="email" id="magic-email" placeholder="you@example.com" autocomplete="email" />
+          </div>
+          <button class="btn-primary" id="magic-btn">Send Login Link</button>
+        </div>
+
+        <!-- Passkey button (shown if platform authenticator available) -->
+        <div id="passkey-section" style="display:none;">
+          <div class="divider">or</div>
+          <button class="btn-passkey" id="passkey-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+            <span id="passkey-label">Use Face ID / Touch ID</span>
+          </button>
+        </div>
       </div>
 
-      <!-- Passkey button (shown if platform authenticator available) -->
-      <div id="passkey-section" style="display:none;">
-        <div class="divider">or</div>
-        <button class="btn-passkey" id="passkey-btn">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-            <circle cx="12" cy="9" r="2.5"/>
-          </svg>
-          <span id="passkey-label">Use Face ID / Touch ID</span>
+      <p class="tagline">Privacy-first · No social feed · Just you vs yesterday.</p>
+
+      <div style="text-align:center;margin-top:20px;">
+        <button id="guest-btn" style="background:none;border:none;color:#475569;font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:8px 0;">
+          Continue without account →
         </button>
+        <p style="color:#334155;font-size:11px;margin-top:6px;">Your data is saved locally. Add email later to keep access.</p>
       </div>
+
+      <p style="margin-top:16px;font-size:12px;text-align:center;">
+        <a href="/privacy.html" style="color:#64748b;text-decoration:none;margin-right:12px;">Privacy Policy</a>
+        <a href="/terms.html" style="color:#64748b;text-decoration:none;">Terms &amp; Conditions</a>
+      </p>
+    </div><!-- /.card -->
+
+    <div class="scroll-cue" aria-hidden="true">
+      <span>What is this?</span>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
+           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M6 9 L12 15 L18 9"/>
+      </svg>
     </div>
+  </div><!-- /.zone1 -->
 
-    <p class="tagline">Privacy-first · No social feed · Just you vs yesterday.</p>
+  <!-- ── ZONE 2 — product explainer below the fold ── -->
+  <section class="explainer" aria-labelledby="explainer-title">
+    <p class="expl-eyebrow">JustFit.cc</p>
+    <h2 id="explainer-title" class="section-title">What JustFit does.</h2>
 
-    <div style="text-align:center;margin-top:20px;">
-      <button id="guest-btn" style="background:none;border:none;color:#475569;font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:8px 0;">
-        Continue without account →
-      </button>
-      <p style="color:#334155;font-size:11px;margin-top:6px;">Your data is saved locally. Add email later to keep access.</p>
-    </div>
+    <ul class="pillars" role="list">
+      <li class="pillar">
+        <span class="pillar-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
+          </svg>
+        </span>
+        <div>
+          <h3>One session a day</h3>
+          <p>A coach picks one, adapted to who you are today.</p>
+        </div>
+      </li>
+      <li class="pillar">
+        <span class="pillar-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <polygon points="16.24,7.76 14.12,14.12 7.76,16.24 9.88,9.88"/>
+          </svg>
+        </span>
+        <div>
+          <h3>Adapts to real life</h3>
+          <p>Sleep, energy, time, pain, travel, recovery — all signals.</p>
+        </div>
+      </li>
+      <li class="pillar">
+        <span class="pillar-icon" aria-hidden="true">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+        </span>
+        <div>
+          <h3>Privacy is the product</h3>
+          <p>Your data stays on your device unless you choose to back up.</p>
+        </div>
+      </li>
+    </ul>
 
-    <p style="margin-top:16px;font-size:12px;text-align:center;">
-      <a href="/privacy.html" style="color:#64748b;text-decoration:none;margin-right:12px;">Privacy Policy</a>
-      <a href="/terms.html" style="color:#64748b;text-decoration:none;">Terms &amp; Conditions</a>
-    </p>
-  </div>
+    <figure class="proof">
+      <div class="proof-card">
+        <p class="proof-eyebrow">Monday 5 May · 5 day streak</p>
+        <div class="proof-coach-pill">
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          MILITARY · K3
+        </div>
+        <p class="proof-session-name">Cooper Test</p>
+        <p class="proof-meta">40 MIN · 7 MOVEMENTS · BLOCK 2</p>
+        <div class="proof-steps">
+          <div class="proof-step"><span class="proof-step-dot"></span>Easy Jog Warm-up · 7 min</div>
+          <div class="proof-step"><span class="proof-step-dot"></span>Cooper 12-min Test</div>
+          <div class="proof-step"><span class="proof-step-dot"></span>Military Press · 3 × 10</div>
+          <div class="proof-step" style="color:#475569;">
+            <span class="proof-step-dot" style="background:rgba(255,255,255,0.1);"></span>
+            + 4 more movements
+          </div>
+        </div>
+        <div class="proof-btn">Start session</div>
+      </div>
+      <figcaption>Today, on JustFit.</figcaption>
+    </figure>
+
+    <h3 class="section-sub">What we don't do.</h3>
+    <ul class="anti" role="list">
+      <li>No streaks designed to scare you.</li>
+      <li>No leaderboards.</li>
+      <li>No sharing, no social, no posts.</li>
+      <li>No nutrition tracking.</li>
+      <li>No data sold or shared. Ever.</li>
+    </ul>
+
+    <h3 class="section-sub">Pricing.</h3>
+    <p class="pricing"><strong>Free</strong> for the daily session. <strong>Pro · €4/month</strong> for plan regeneration and history beyond 12 weeks.</p>
+
+    <p class="back-cta"><a href="#top">Back to sign in →</a></p>
+  </section>
 
   <script src="/login.js" defer></script>
 </body>
