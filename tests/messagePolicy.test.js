@@ -221,3 +221,38 @@ describe('deriveChipLabel', () => {
     expect(deriveChipLabel([], 'BMI-adjusted session')).toBe('Adapted for you');
   });
 });
+
+// ── R557 + R561 coverage ──────────────────────────────────────────────────────
+
+describe('R557 (cycling coach TSB)', () => {
+  it('is mapped to adaptive_safety in RULE_POLICY', () => {
+    expect(RULE_POLICY['R557']).toBe('adaptive_safety');
+  });
+  it('has a label with Training adaptation category', () => {
+    expect(RULE_LABELS['R557'].category).toBe('Training adaptation');
+    expect(typeof RULE_LABELS['R557'].text).toBe('string');
+  });
+  it('is suppressed on rest days by deriveCoachSentence', () => {
+    const s = deriveCoachSentence(['R557 — TSB override'], null, 'standard', 'rest');
+    expect(s).toBeNull();
+  });
+});
+
+describe('R561 (sport mobility injection)', () => {
+  it('is mapped to adaptive_safety in RULE_POLICY', () => {
+    expect(RULE_POLICY['R561']).toBe('adaptive_safety');
+  });
+  it('has a label with Training adaptation category', () => {
+    expect(RULE_LABELS['R561'].category).toBe('Training adaptation');
+    expect(typeof RULE_LABELS['R561'].text).toBe('string');
+  });
+  it('returns a sentence for R561', () => {
+    const s = deriveCoachSentence(['R561 — Sport mobility injection: Hip Flexor Stretch added for running'], null);
+    expect(typeof s).toBe('string');
+    expect(s.length).toBeGreaterThan(0);
+  });
+  it('is suppressed on rest days by deriveCoachSentence', () => {
+    const s = deriveCoachSentence(['R561 — mobility injection'], null, 'standard', 'rest');
+    expect(s).toBeNull();
+  });
+});
