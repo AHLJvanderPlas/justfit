@@ -1791,30 +1791,29 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               </div>
             ) : plan ? (
               <>
-                {/* Session eyebrow */}
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                {/* Session eyebrow + coach pill in top-right */}
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
                   <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>TODAY · DAY {(history ?? []).length + 1}</div>
+                  {(() => {
+                    const milA = !!(prefs?.preferences?.military_coach?.active);
+                    const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+                    const ccA  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
+                    if (!milA && !rcA && !ccA) return null;
+                    const tagLabel = milA
+                      ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
+                      : rcA ? `Running · ${prefs.preferences.run_coach.target_km}km`
+                      : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
+                    return (
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
+                        {milA && <MilitaryIcon size={9} />}{tagLabel}
+                      </div>
+                    );
+                  })()}
                 </div>
-                {/* Coach tag — eyebrow pill just above session name */}
-                {(() => {
-                  const milA = !!(prefs?.preferences?.military_coach?.active);
-                  const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
-                  const ccA  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
-                  if (!milA && !rcA && !ccA) return null;
-                  const tagLabel = milA
-                    ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
-                    : rcA ? `Running · ${prefs.preferences.run_coach.target_km}km`
-                    : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
-                  return (
-                    <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99, marginBottom: 10 }}>
-                      {milA && <MilitaryIcon size={9} />}{tagLabel}
-                    </div>
-                  );
-                })()}
-                {/* Session name — hero size, white throughout */}
+                {/* Session name — hero size; line2 in accent colour */}
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ ...display(52, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line1}</div>
-                  {line2 && <div style={{ ...display(52, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line2}</div>}
+                  <div style={{ ...display(42, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line1}</div>
+                  {line2 && <div style={{ ...display(42, 900), color: "var(--accent)", lineHeight: 0.95, textTransform: "uppercase" }}>{line2}</div>}
                 </div>
                 {/* Coach / program badges */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
