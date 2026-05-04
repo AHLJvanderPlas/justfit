@@ -363,7 +363,7 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
 
       {!progression ? (
         <Glass style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 22, marginBottom: 10 }}>🏋️</div>
+          <div style={{ marginBottom: 10 }}><Icons.lift size={22} c={C.muted} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>No progression data yet</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Complete your first workout and your training profile will appear here.</div>
         </Glass>
@@ -806,7 +806,7 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
                   {weakest && (
                     <>
                       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 15 }}>🎯</div>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icons.compass size={15} c={C.emerald} /></div>
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Priority axis: {RADAR_LABELS[weakest.axis]}</div>
                           <div style={{ fontSize: 11, color: C.muted }}>Score {weakest.score} — the planner is already biasing sessions here.</div>
@@ -1025,7 +1025,7 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
                     <>
                       <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 18 }}>🚴</div>
+                        <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icons.cycle size={18} c={C.emerald} /></div>
                         <div style={{ flex: 1 }}>
                           <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
                             Cycling Coach — Week {cc.week ?? 1} · {unitLabel}

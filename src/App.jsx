@@ -1511,7 +1511,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
 
       {scoreBump && (
         <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: 16 }}>
-          Consistency score: {prevScore} → {score} ⚡
+          Consistency score: {prevScore} → {score}
         </div>
       )}
       {!scoreBump && <div style={{ marginBottom: 16 }} />}
@@ -1526,7 +1526,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
         </button>
         {!bonusDone && beforeNight && (
           <button onClick={onBonusSession} style={{ flex: 1, padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
-            ⚡ Bonus session
+            <Icons.bolt size={14} c={C.emerald} /> Bonus session
           </button>
         )}
       </div>
@@ -2070,12 +2070,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
-                      🚴 {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
+                      {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cross_training_run && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
-                      🏃 Cross-Training · Level {plan.cross_training_run.level}
+                      Cross-Training · Level {plan.cross_training_run.level}
                     </span>
                   )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
@@ -2190,7 +2190,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               </>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 12, padding: "32px 0" }}>
-                <div style={{ fontSize: 40 }}>🎯</div>
+                <Icons.target size={40} c={C.muted} />
                 <p style={{ fontSize: 14, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>
                   Complete the daily check-in to<br />generate today's session.
                 </p>
@@ -2284,7 +2284,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const canExportRunTcx = runSteps.length > 0;
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🏃</div>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+                <Icons.run size={20} c={C.emerald} />
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Run Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Plan · Week {rc.week ?? 1} of {totalWeeks}</div>
@@ -2318,7 +2320,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
             return (
               <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🏃</div>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                  <Icons.run size={20} c={C.emerald} />
+                </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach — Cross-Training</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Run · Level {level}</div>
@@ -2347,7 +2351,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           const canExportTcx = !!(cycStep?.intervals_json);
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald, fontSize: 20 }}>🚴</div>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icons.cycle size={20} c={C.emerald} />
+              </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
@@ -3135,7 +3141,7 @@ export default function App() {
         setHistory(newHistory);
         setBonusDone(true);
         localStorage.setItem(`jf_bonus_${today}`, "1");
-        setActivityToast("Double session! 🔥");
+        setActivityToast("Double session — great work.");
         setTimeout(() => setActivityToast(""), 3000);
       } catch (e) {
         console.error("Failed to save bonus execution:", e);
@@ -3627,7 +3633,7 @@ export default function App() {
       {showCooperModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
-            <div style={{ fontSize: 28, marginBottom: 8 }}>🏃</div>
+            <div style={{ marginBottom: 12 }}><Icons.run size={28} c={C.emerald} /></div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>Cooper Test Complete</div>
             <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>How far did you run in 12 minutes? Enter your distance in meters.</div>
             <input

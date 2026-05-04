@@ -294,7 +294,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Your workout history will appear here.</div>
         </Glass>
       ) : (() => {
-        const STRAVA_ICON  = { strava_ride: '🚴', strava_run: '🏃', strava_walk: '🚶', strava_hike: '🥾', strava_swim: '🏊', strava_row: '🚣', strava_workout: '💪' };
+        const STRAVA_ICON  = { strava_ride: 'cycle', strava_run: 'run', strava_walk: 'run', strava_hike: 'mountain', strava_swim: 'bolt', strava_row: 'lift', strava_workout: 'bolt' };
         const STRAVA_LABEL = { strava_ride: 'Ride', strava_run: 'Run', strava_walk: 'Walk', strava_hike: 'Hike', strava_swim: 'Swim', strava_row: 'Row', strava_workout: 'Workout' };
         const isStravaFn = e => typeof e.execution_type === 'string' && e.execution_type.startsWith('strava_');
         const parseMeta = e => { if (!e.strava_metadata_json) return null; try { return JSON.parse(e.strava_metadata_json); } catch { return null; } };
@@ -336,7 +336,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               const hasStrava = !!stravaMeta;
 
               const sportType  = stravaSource?.execution_type ?? '';
-              const sportIcon  = STRAVA_ICON[sportType]  ?? '⚡';
+              const sportIconKey = STRAVA_ICON[sportType] ?? 'bolt';
+              const SportIcon = Icons[sportIconKey] || Icons.bolt;
               const sportLabel = STRAVA_LABEL[sportType] ?? sportType;
               const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
               const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
@@ -344,8 +345,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               return (
                 <Glass key={h.id} style={{ padding: "16px 20px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                    <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: isStravaCard ? "rgba(252,76,2,0.12)" : C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", fontSize: isStravaCard ? 20 : undefined }}>
-                      {isStravaCard ? sportIcon : (
+                    <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: isStravaCard ? "rgba(252,76,2,0.12)" : C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                      {isStravaCard ? <SportIcon size={20} c="rgba(252,76,2,0.8)" /> : (
                         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
@@ -365,7 +366,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       {/* Strava activity name when merged from a separate entry */}
                       {mergedStravaEntry && stravaMeta?.name && (
                         <div style={{ fontSize: 11, color: "#FC4C02", fontWeight: 600, marginTop: 3 }}>
-                          {sportIcon} {stravaMeta.name}{distKm ? ` · ${distKm} km` : ""}{elevM ? ` · ↑${elevM}m` : ""}
+                          <SportIcon size={11} c="#FC4C02" /> {stravaMeta.name}{distKm ? ` · ${distKm} km` : ""}{elevM ? ` · ↑${elevM}m` : ""}
                         </div>
                       )}
                       {/* Strava metrics: speed, watts, HR, calories */}

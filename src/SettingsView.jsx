@@ -4,7 +4,7 @@ import { logout, clearPlanCache } from "./authHelpers.js";
 import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, RUN_TARGETS } from "./appConstants.js";
-import { GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
+import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -870,10 +870,10 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
           {/* ── Training mode cards ── */}
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
             {[
-              { id: "general",  emoji: "⚡", title: "GENERAL HEALTH",  sub: "Strength · fat loss · mobility · endurance" },
-              { id: "running",  emoji: "🏃", title: "RUNNING COACH",   sub: "5K → marathon plans · R556 ladder" },
-              { id: "cycling",  emoji: "🚴", title: "CYCLING COACH",   sub: "Indoor + outdoor intervals" },
-              { id: "military", emoji: "🎖", title: "MILITARY COACH",  sub: "Keuring KCT · MARSOF · CSE" },
+              { id: "general",  icon: "bolt",    title: "GENERAL HEALTH",  sub: "Strength · fat loss · mobility · endurance" },
+              { id: "running",  icon: "run",     title: "RUNNING COACH",   sub: "5K → marathon plans · R556 ladder" },
+              { id: "cycling",  icon: "cycle",   title: "CYCLING COACH",   sub: "Indoor + outdoor intervals" },
+              { id: "military", icon: "shield",  title: "MILITARY COACH",  sub: "Keuring KCT · MARSOF · CSE" },
             ].map(card => {
               const isGeneral = card.id === "general";
               // selected = currently open/editing (drives highlight + expands settings)
@@ -914,7 +914,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                     display: "flex", alignItems: "center", gap: 12,
                   }}
                 >
-                  <span style={{ fontSize: 20, flexShrink: 0 }}>{card.emoji}</span>
+                  {card.id === "military" ? <MilitaryIcon size={20} /> : (() => { const Ic = Icons[card.icon] || Icons.bolt; return <Ic size={20} c={selected ? C.emerald : C.muted} />; })()}
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div style={{ ...eyebrow, fontSize: 11, color: selected ? C.emerald : C.text }}>{card.title}</div>
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{card.sub}</div>
@@ -1004,7 +1004,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
               onClick={() => setPlanEquipment(eq => eq.includes("running_shoes") ? eq : [...eq.filter(v => v !== "none"), "running_shoes"])}
               style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
             >
-              <span style={{ fontSize: 18 }}>👟</span>
+              <Icons.run size={18} c={C.emerald} />
               <div>
                 <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add running shoes</div>
                 <div style={{ fontSize: 11, color: C.muted }}>Required for the running programme — tap to add to your equipment list.</div>
@@ -1357,7 +1357,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                         onClick={() => setPlanEquipment(eq => eq.includes("trail_shoes") ? eq : [...eq.filter(v => v !== "none"), "trail_shoes"])}
                         style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
                       >
-                        <span style={{ fontSize: 18 }}>👟</span>
+                        <Icons.run size={18} c={C.emerald} />
                         <div>
                           <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add trail shoes / hiking boots</div>
                           <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions — tap to add to your equipment list.</div>
@@ -2459,7 +2459,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
                 {bodyMode !== "standard" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: "1px solid rgba(245,158,11,0.2)" }}>
-                    <span style={{ fontSize: 16 }}>🤰</span>
+                    <Icons.moon size={16} c={C.amber} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>
                       {bodyMode === "pregnant" ? "Pregnancy mode" : "Postnatal mode"}
                     </span>
@@ -2467,7 +2467,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onChan
                 )}
                 {cycleTrackingMode === "smart" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                    <span style={{ fontSize: 16 }}>🔄</span>
+                    <Icons.refresh size={16} c={C.emerald} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>Smart cycle tracking</span>
                   </div>
                 )}
