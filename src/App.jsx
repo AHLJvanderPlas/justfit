@@ -2036,10 +2036,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
               </div>
             ) : plan ? (
               <>
-                {/* Session eyebrow + ID */}
+                {/* Session eyebrow */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                   <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>TODAY · DAY {(history ?? []).length + 1}</div>
-                  <div style={{ ...mono(9), color: C.faint }}>SESSION_{String(plan.steps?.length ?? 0).padStart(2, "0")}</div>
                 </div>
                 {/* Coach tag — eyebrow pill just above session name */}
                 {(() => {
@@ -2057,10 +2056,10 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     </div>
                   );
                 })()}
-                {/* Session name — hero size */}
+                {/* Session name — hero size, white throughout */}
                 <div style={{ marginBottom: 10 }}>
                   <div style={{ ...display(52, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line1}</div>
-                  {line2 && <div style={{ ...display(52, 900), color: "var(--accent)", lineHeight: 0.95, textTransform: "uppercase" }}>{line2}</div>}
+                  {line2 && <div style={{ ...display(52, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line2}</div>}
                 </div>
                 {/* Coach / program badges */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
