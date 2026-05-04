@@ -2243,8 +2243,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView }) {
   const [intentSaved, setIntentSaved] = useState(false);
+  const [nowMs] = useState(() => Date.now());
   const pref = prefs.preferences ?? {};
   const milA = !!(pref.military_coach?.active);
   const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
@@ -2279,6 +2280,8 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const mp = plan?.military_program;
   const rc  = pref.run_coach ?? {};
   const cc  = pref.cycling_coach ?? {};
+  const RADAR_AXES_CC = ["push", "pull", "legs", "core", "conditioning", "mobility"];
+  const RADAR_LABELS_CC = { push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cardio", mobility: "Mobility" };
 
   return (
     <div>
@@ -2350,6 +2353,442 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
           </button>
         </Glass>
       )}
+
+      {/* ── Training Goal (general mode, no specialist coach) ── */}
+      {!milA && !rcA && !ccA && (() => {
+        const currentGoal = GOALS.find(g => g.value === (prefs.training_goal ?? progression?.goal ?? "health")) ?? GOALS[0];
+        const exp = EXPERIENCE.find(e => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
+        return (
+          <Glass style={{ padding: 20, marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+              <GoalIcon value={currentGoal.value} size={20} />
+            </div>
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+              <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                {exp.label}
+              </span>
+            </div>
+            <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>Change in Settings →</div>
+          </Glass>
+        );
+      })()}
+
+      {/* ── Running programme ── */}
+      {rcA && (() => {
+        const PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+        const totalWeeks = PROGRAM_WEEKS[rc.target_km ?? 5] ?? 8;
+        const week = rc.week ?? 1;
+        const sessionInWeek = rc.session_in_week ?? 0;
+        const pct = Math.min(100, Math.round(((week - 1) * 3 + sessionInWeek) / (totalWeeks * 3) * 100));
+        const unlockedTargets = rc.unlocked_targets ?? [];
+        const sessionsLeft = 3 - sessionInWeek;
+        const lastRunDate = rc.last_run_at_ms ? new Date(rc.last_run_at_ms).toISOString().slice(0, 10) : null;
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const runReadyToday = (!lastRunDate || lastRunDate < todayStr) && sessionInWeek < 3;
+        const weeks = Array.from({ length: totalWeeks }, (_, i) => i + 1);
+        return (
+          <>
+            {/* Programme card */}
+            <Glass style={{ padding: 20, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                  </div>
+                  <div>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>Running Coach</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Program</div>
+                  </div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.02em" }}>Week {week}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>of {totalWeeks}</div>
+                </div>
+              </div>
+              <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
+                <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", borderRadius: 999, transition: "width 0.5s ease" }} />
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Session {sessionInWeek} of 3 this week — any 3 days you train</div>
+              <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
+                {[{n:1,day:"Run 1",type:"Intervals"},{n:2,day:"Run 2",type:"Zone 2"},{n:3,day:"Run 3",type:"Intervals"}].map(s => {
+                  const done = sessionInWeek >= s.n;
+                  const next = sessionInWeek === s.n - 1;
+                  return (
+                    <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? "var(--accent-dim)" : next ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", border: `1px solid ${done ? "var(--accent-border)" : next ? C.border : "rgba(255,255,255,0.04)"}` }}>
+                      <div style={{ fontSize: 9, fontWeight: 900, color: done ? "var(--accent)" : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
+                      <div style={{ fontSize: 9, color: done ? "var(--accent)" : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
+                      {done && <div style={{ fontSize: 9, color: "var(--accent)" }}>✓</div>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                {[5, 10, 15, 20, 30].map(t => {
+                  const done = unlockedTargets.includes(String(t));
+                  const isCurrent = t === (rc.target_km ?? 5);
+                  return (
+                    <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? "var(--accent-border)" : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.02)", color: isCurrent ? "var(--accent)" : done ? C.muted : C.subtle }}>
+                      {done ? "✓ " : ""}{t}km
+                    </div>
+                  );
+                })}
+              </div>
+            </Glass>
+            {/* Plan timeline */}
+            <Glass style={{ padding: 20, marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 14 }}>
+                {rc.target_km}km Plan — {totalWeeks}-Week Progression
+              </div>
+              <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48, marginBottom: 8 }}>
+                {weeks.map(w => {
+                  const barH = Math.max(6, Math.round((w / totalWeeks) * 44));
+                  const isPast = w < week;
+                  const isCurrent = w === week;
+                  return (
+                    <div key={w} style={{ flex: 1 }}>
+                      <div style={{ width: "100%", height: barH, borderRadius: 3, background: isPast ? "var(--accent)" : isCurrent ? "rgba(var(--accent-rgb),0.6)" : C.border, transition: "height 0.3s ease" }} />
+                    </div>
+                  );
+                })}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
+                <span style={{ fontSize: 10, color: C.subtle }}>Week 1</span>
+                <span style={{ fontSize: 10, color: C.subtle }}>Week {totalWeeks}</span>
+              </div>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                {[["var(--accent)", "Completed"], ["rgba(var(--accent-rgb),0.6)", `Current (Week ${week})`], [C.border, "Upcoming"]].map(([bg, label]) => (
+                  <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 2, background: bg }} />
+                    <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
+                  </div>
+                ))}
+              </div>
+            </Glass>
+            {/* Insight */}
+            <Glass style={{ padding: "16px 20px", marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                </div>
+                <div>
+                  <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
+                    Running Coach — {rc.target_km}km, Week {week} of {totalWeeks}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
+                    {runReadyToday
+                      ? `Run ${sessionInWeek + 1} of 3 this week — warm-up and your ${sessionInWeek === 1 ? "Zone 2 easy run" : "interval run"} are included in today's plan.`
+                      : sessionsLeft > 0
+                        ? `${sessionsLeft} run${sessionsLeft > 1 ? "s" : ""} left this week — train any day that suits you.`
+                        : "Week complete — great work. Your next running week starts when you're ready."}
+                  </div>
+                </div>
+              </div>
+            </Glass>
+          </>
+        );
+      })()}
+
+      {/* ── Cycling programme ── */}
+      {ccA && (() => {
+        const sessionInWeek = cc.session_in_week ?? 0;
+        const daysPerWeek = cc.cycling_days_per_week ?? 3;
+        const sessionsLeft = daysPerWeek - sessionInWeek;
+        const WEEK_PATTERN = ['Intervals', 'Zone 2', 'Intervals'];
+        const nextLabel = WEEK_PATTERN[sessionInWeek] ?? 'Intervals';
+        const unitLabel = cc.unit === 'hr' ? 'heart rate zones' : `FTP ${cc.ftp_watts ?? 200}W`;
+        const insightText = sessionsLeft === daysPerWeek
+          ? `${daysPerWeek} sessions this week — ${WEEK_PATTERN.join(' · ')}.`
+          : sessionsLeft > 0
+          ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining. Up next: ${nextLabel}.`
+          : 'Week complete — good work. Your next cycling week begins on your next session.';
+
+        const intervalWeeks = cc.ftp_test_interval_weeks ?? 6;
+        const testedAtMs = cc.ftp_tested_at_ms ?? null;
+        const todayMs = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z').getTime();
+        const ftpStale = !testedAtMs || (todayMs - testedAtMs) > intervalWeeks * 7 * 86400000;
+        const weeksAgo = testedAtMs ? Math.floor((todayMs - testedAtMs) / (7 * 86400000)) : null;
+
+        const pmcSeries = cyclingPmc?.series ?? [];
+        const pmcLatest = cyclingPmc?.latest ?? null;
+        const pmcHasData = pmcSeries.length > 0 && pmcLatest;
+        const pmcChartW = 300, pmcChartH = 52;
+        const pmcN = pmcSeries.length;
+        const pmcMaxY = pmcN > 0 ? pmcSeries.reduce((m, d) => Math.max(m, d.ctl, d.atl), 10) : 100;
+        const pmcToX = (i) => pmcN > 1 ? (i / (pmcN - 1)) * pmcChartW : pmcChartW / 2;
+        const pmcToY = (v) => pmcChartH - (v / pmcMaxY) * (pmcChartH - 6) - 2;
+        const ctlPts = pmcSeries.map((d, i) => `${pmcToX(i).toFixed(1)},${pmcToY(d.ctl).toFixed(1)}`).join(' ');
+        const atlPts = pmcSeries.map((d, i) => `${pmcToX(i).toFixed(1)},${pmcToY(d.atl).toFixed(1)}`).join(' ');
+
+        const tsb = pmcLatest?.tsb ?? null;
+        const tsbMsg = tsb === null ? null
+          : tsb < -25 ? 'Fatigue is high — keep it easy or take a recovery day'
+          : tsb < -10 ? 'Good training load — keep building'
+          : tsb <= 5  ? 'Fresh enough for quality work'
+          : 'Very fresh — good day for a hard session, test, or longer ride';
+        const tsbColor = tsb === null ? C.muted : tsb < -25 ? '#f43f5e' : tsb < -10 ? '#f59e0b' : "var(--accent)";
+
+        const ftpHistory = cc.ftp_history ?? [];
+        const ftpSparkN = ftpHistory.length;
+        const ftpSparkH = 32, ftpSparkW = 300;
+        const ftpMin = ftpSparkN >= 2 ? ftpHistory.reduce((m, h) => Math.min(m, h.ftp_watts), ftpHistory[0].ftp_watts) : 0;
+        const ftpMax = ftpSparkN >= 2 ? ftpHistory.reduce((m, h) => Math.max(m, h.ftp_watts), ftpHistory[0].ftp_watts) : 1;
+        const ftpRange = ftpMax - ftpMin || 1;
+        const ftpPts = ftpSparkN >= 2
+          ? ftpHistory.map((h, i) => {
+              const x = (i / (ftpSparkN - 1)) * ftpSparkW;
+              const y = ftpSparkH - ((h.ftp_watts - ftpMin) / ftpRange) * (ftpSparkH - 8) - 4;
+              return `${x.toFixed(1)},${y.toFixed(1)}`;
+            }).join(' ')
+          : '';
+
+        return (
+          <Glass style={{ padding: 20, marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 12, marginBottom: (pmcHasData || ftpSparkN >= 2) ? 14 : 0 }}>
+              <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                <Icons.cycle size={18} c="var(--accent)" />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
+                  Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{insightText}</div>
+                {ftpStale && cc.unit === 'watts' && ftpSnoozedUntil < nowMs && plan?.slot_type !== 'rest' && (
+                  <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
+                    <div style={{ fontSize: 11, color: "#f59e0b", lineHeight: 1.5, marginBottom: 7 }}>
+                      FTP refresh recommended{weeksAgo !== null ? ` — tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no test on record'}.
+                    </div>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <button onClick={() => setView("settings")} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", color: "#f59e0b" }}>
+                        Go to FTP test
+                      </button>
+                      <button
+                        onClick={() => { const until = nowMs + 7 * 86400000; const _u = getUserId(); localStorage.setItem(_u ? `jf_ftp_snooze_until_${_u}` : 'jf_ftp_snooze_until', String(until)); setFtpSnoozedUntil(until); }}
+                        style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted }}
+                      >
+                        Remind me next week
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {pmcHasData && (
+              <div>
+                <svg viewBox={`0 0 ${pmcChartW} ${pmcChartH}`} width="100%" height={pmcChartH} style={{ display: "block", overflow: "visible" }}>
+                  <polyline points={atlPts} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={ctlPts} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--accent)" }}>
+                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" /></svg>
+                    CTL fitness
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#f59e0b" }}>
+                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
+                    ATL fatigue
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {[{ label: 'CTL', value: pmcLatest.ctl, color: "var(--accent)" }, { label: 'ATL', value: pmcLatest.atl, color: "#f59e0b" }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
+                    <div key={label} style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px", textAlign: "center" }}>
+                      <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 2 }}>{label}</div>
+                      <div style={{ ...mono(13), color, fontWeight: 700 }}>{value.toFixed(0)}</div>
+                    </div>
+                  ))}
+                </div>
+                {tsbMsg && (
+                  <div style={{ marginTop: 8, fontSize: 11, color: tsbColor, lineHeight: 1.5 }}>
+                    {tsbMsg}{cyclingPmc?.hasEstimated && <span style={{ color: C.muted }}> · ~est.</span>}
+                  </div>
+                )}
+              </div>
+            )}
+            {ftpSparkN >= 2 && (
+              <div style={{ marginTop: 14 }}>
+                <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>FTP PROGRESS</div>
+                <svg viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
+                  <polyline points={ftpPts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  {ftpHistory.map((h, i) => {
+                    const x = (i / (ftpSparkN - 1)) * ftpSparkW;
+                    const y = ftpSparkH - ((h.ftp_watts - ftpMin) / ftpRange) * (ftpSparkH - 8) - 4;
+                    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="3" fill="var(--accent)" />;
+                  })}
+                </svg>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
+                  <div style={{ fontSize: 10, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
+                  <div style={{ ...mono(11), color: "var(--accent)", fontWeight: 700 }}>{ftpHistory[ftpSparkN - 1].ftp_watts}W current</div>
+                </div>
+              </div>
+            )}
+          </Glass>
+        );
+      })()}
+
+      {/* ── Military programme ── */}
+      {milA && (() => {
+        const mil = pref.military_coach ?? {};
+        const track = mil.track ?? 'keuring';
+        const clusterCurrent = mil.cluster_current ?? (track === 'keuring' ? 0 : 1);
+        const clusterTarget = mil.cluster_target ?? clusterCurrent;
+        const trackLabel = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
+        const mode = mil.mode ?? 'target';
+        const maxLevel = 6;
+        const CLUSTER_DESC = track === 'keuring'
+          ? { 0: "Basis", 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
+          : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced" };
+        const daysToAssessment = mode === 'target' && mil.target_date
+          ? Math.ceil((new Date(mil.target_date + 'T12:00:00').getTime() - nowMs) / 86_400_000)
+          : null;
+        const nextLevel = Math.min(clusterCurrent + 1, maxLevel);
+        const lastCooper = mil.last_cooper_distance_m ?? null;
+        const COOPER_THRESHOLDS = [0, 1800, 2000, 2200, 2400, 2600, 2800];
+        const cooperLevel = lastCooper
+          ? COOPER_THRESHOLDS.reduce((lvl, t, i) => lastCooper >= t ? i : lvl, 0)
+          : null;
+        const cooperBenchmark = lastCooper
+          ? `${lastCooper}m — ${cooperLevel === 0 ? 'Below KB' : milClL(track, cooperLevel)}`
+          : null;
+        const nextCooperTarget = track === 'keuring' ? (COOPER_THRESHOLDS[nextLevel] ?? null) : null;
+        const cooperGap = lastCooper && nextCooperTarget && nextLevel <= maxLevel && clusterCurrent < maxLevel
+          ? Math.max(0, nextCooperTarget - lastCooper) : null;
+        const ownedWeights = Array.isArray(mil.pack_weights_available_kg) ? mil.pack_weights_available_kg : [];
+        const maxOwnedKg = ownedWeights.length > 0 ? Math.max(...ownedWeights) : null;
+        const MIL_MARCH_TARGET = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 25, 6: 30 };
+        const nextMarchTarget = track === 'keuring' ? (MIL_MARCH_TARGET[nextLevel] ?? null) : null;
+        const tips = track === 'keuring' ? [
+          mode === 'open'
+            ? `Next milestone: ${milClL(track, nextLevel)} — ${CLUSTER_DESC[nextLevel] ?? ''}. Cooper target: ≥${nextCooperTarget ?? '?'}m${cooperGap ? `, ${cooperGap}m to go` : ''}.`
+            : clusterCurrent < clusterTarget
+              ? `Your Cooper test result determines your ${milClL(track, clusterCurrent)} level. Run 3×12-min efforts per week to build baseline endurance.`
+              : `You're at your target level — keep training consistently to maintain it.`,
+          "Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march.",
+          clusterCurrent <= 2 ? "At KB–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
+          clusterCurrent <= 4 ? "At K3–K4: mix interval runs with longer easy runs to build capacity." :
+          "At K5–K6: peak performance — taper carefully before your assessment.",
+        ] : [
+          `Opleiding programme trains all-round fitness. Build strength and running endurance in parallel.`,
+          "March sessions develop load-bearing endurance — the pack weight increases progressively.",
+          clusterCurrent <= 3 ? "Foundation phase: focus on completing all sessions rather than intensity." : "Progression phase: small weekly volume increases, watch for signs of overload.",
+        ];
+        const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
+        const sortedAxes = RADAR_AXES_CC.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
+        const weakest = sortedAxes[0];
+        return (
+          <>
+            {/* Level ladder */}
+            <Glass style={{ padding: 20, marginBottom: 12 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                  <MilitaryIcon size={20} />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach · {trackLabel}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
+                    Current: {milClL(track, clusterCurrent)}
+                    {mode !== 'open' && clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {milClL(track, clusterTarget)}</span>}
+                    {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {milClL(track, clusterCurrent + 1)}</span>}
+                  </div>
+                  {daysToAssessment !== null && (
+                    <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? "#f59e0b" : C.muted, marginTop: 2, fontWeight: 700 }}>
+                      {daysToAssessment > 0 ? `${daysToAssessment} days to assessment` : daysToAssessment === 0 ? "Assessment today" : "Assessment date passed"}
+                    </div>
+                  )}
+                  {mode === 'fit' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Fit target — no fixed date</div>}
+                  {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Continuous progression</div>}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 4 }}>
+                {Array.from({ length: track === 'keuring' ? 7 : 6 }, (_, i) => track === 'keuring' ? i : i + 1).map(lvl => {
+                  const isPast = lvl < clusterCurrent;
+                  const isCurrent = lvl === clusterCurrent;
+                  const isTarget = mode !== 'open' && lvl === clusterTarget;
+                  const isGap = mode !== 'open' && lvl > clusterCurrent && lvl < clusterTarget;
+                  return (
+                    <div key={lvl} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 3 }}>
+                      <div style={{
+                        width: "100%", height: 6, borderRadius: 3,
+                        background: isCurrent ? accentHex : isPast ? `${accentHex}60` : isGap ? `${accentHex}20` : isTarget ? `${accentHex}40` : C.border,
+                        border: isTarget ? `1px solid ${accentHex}` : "none",
+                        transition: "background 0.3s ease",
+                      }} />
+                      <span style={{ fontSize: 9, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
+                        {milClL(track, lvl)}
+                      </span>
+                      {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>NOW</span>}
+                      {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>GOAL</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              {CLUSTER_DESC[clusterCurrent] !== undefined && (
+                <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>{milClL(track, clusterCurrent)} — {CLUSTER_DESC[clusterCurrent]}</div>
+              )}
+            </Glass>
+            {/* Coach Insights */}
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 12 }}>
+                Coach Insights
+              </div>
+              <Glass style={{ padding: 20 }}>
+                {(cooperBenchmark || maxOwnedKg !== null) && (
+                  <>
+                    <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
+                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cooper test</div>
+                        {cooperBenchmark
+                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{milClL(track, cooperLevel)}</span></div>
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>No test recorded</div>}
+                        {nextCooperTarget && clusterCurrent < maxLevel && (
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                            {milClL(track, nextLevel)} requires ≥{nextCooperTarget}m
+                            {cooperGap != null && cooperGap > 0 && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {cooperGap}m to go</span>}
+                            {cooperGap === 0 && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · achieved</span>}
+                          </div>
+                        )}
+                      </div>
+                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>March weight</div>
+                        {maxOwnedKg !== null
+                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>max</span></div>
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>Not set</div>}
+                        {nextMarchTarget && clusterCurrent < maxLevel && (
+                          <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
+                            {milClL(track, nextLevel)} target: {nextMarchTarget} kg
+                            {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · ready</span>}
+                            {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
+                          </div>
+                        )}
+                        {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Set weights in Settings →</div>}
+                      </div>
+                    </div>
+                    <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+                  </>
+                )}
+                {weakest && (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icons.compass size={15} c="var(--accent)" /></div>
+                      <div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Priority axis: {RADAR_LABELS_CC[weakest.axis]}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>Score {weakest.score} — the planner is already biasing sessions here.</div>
+                      </div>
+                    </div>
+                    <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
+                  </>
+                )}
+                {tips.map((tip, i) => (
+                  <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < tips.length - 1 ? 12 : 0 }}>
+                    <div style={{ width: 6, height: 6, borderRadius: 3, background: "var(--accent)", flexShrink: 0, marginTop: 6 }} />
+                    <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{tip}</div>
+                  </div>
+                ))}
+              </Glass>
+            </div>
+          </>
+        );
+      })()}
 
       {/* ── Coach settings link ── */}
       <button
@@ -3336,6 +3775,12 @@ export default function App() {
                 onUpdate={setPrefs}
                 onNavigateSettings={() => setView("settings")}
                 onWeeklyPlan={() => setView("plan")}
+                progression={progression}
+                cyclingPmc={cyclingPmc}
+                ftpSnoozedUntil={ftpSnoozedUntil}
+                setFtpSnoozedUntil={setFtpSnoozedUntil}
+                accentHex={prefs.preferences?.accent ?? "#10b981"}
+                setView={setView}
               />
             )}
             {view === "plan" && (
@@ -3344,16 +3789,12 @@ export default function App() {
             {view === "history" && (
               <HistoryView
                 progression={progression}
-                cyclingPmc={cyclingPmc}
                 isLoading={isLoadingProgression}
                 token={token}
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
                 history={history}
-                plan={plan}
                 setView={setView}
-                ftpSnoozedUntil={ftpSnoozedUntil}
-                setFtpSnoozedUntil={setFtpSnoozedUntil}
               />
             )}
             {view === "awards" && (
