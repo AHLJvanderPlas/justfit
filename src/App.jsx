@@ -1890,34 +1890,59 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
 function iconKeyFor(ex) {
   const slug = (ex?.exercise_slug || ex?.name || "").toLowerCase().replace(/\s+/g, "-");
   const tags = (() => { try { return JSON.parse(ex?.tags_json || "[]"); } catch { return []; } })();
-  // Existing matches
+  // Push
   if (slug.includes("push-up") || slug.includes("pushup")) return "pushup";
-  if (slug.includes("squat")) return "squat";
-  if (slug.includes("deadlift")) return "deadlift";
   if (slug.includes("bench")) return "bench";
-  if (slug.includes("row")) return "row";
-  if (slug.includes("pull-up") || slug.includes("pullup") || slug.includes("chin")) return "pull";
-  if (slug.includes("plank")) return "plank";
-  if (slug.includes("lunge") || slug.includes("split-squat")) return "lunge";
-  if (slug.includes("curl")) return "curl";
-  if (slug.includes("sit-up") || slug.includes("crunch")) return "sit";
-  if (slug.includes("kettlebell") || slug.includes("swing")) return "kettle";
-  if (tags.includes("cardio") || slug.includes("run") || slug.includes("jog")) return "run";
-  // New matches
-  if (slug.includes("lateral-raise") || slug.includes("front-raise") || slug.includes("face-pull") || slug.includes("upright-row")) return "shoulder";
-  if (slug.includes("press") || slug.includes("overhead") || slug.includes("shoulder-press")) return "press";
   if (slug.includes("dip")) return "dip";
+  if (slug.includes("jerk") || slug.includes("push-press") || slug.includes("clean-and-press")) return "jerk";
+  if (slug.includes("lateral-raise") || slug.includes("front-raise") || slug.includes("face-pull") || slug.includes("upright-row")) return "shoulder";
+  if (slug.includes("press") || slug.includes("overhead")) return "press";
+  // Pull
+  if (slug.includes("pull-up") || slug.includes("pullup") || slug.includes("chin-up")) return "pull";
+  if (slug.includes("clean") || slug.includes("snatch") || slug.includes("high-pull")) return "clean";
+  if (slug.includes("row")) return "row";
+  if (slug.includes("curl")) return "curl";
+  // Legs
   if (slug.includes("hip-thrust") || slug.includes("glute-bridge") || slug.includes("rdl") || slug.includes("romanian")) return "hip";
-  if (slug.includes("band") || slug.includes("resistance-band")) return "band";
-  if (slug.includes("step-up") || slug.includes("box-jump") || slug.includes("stair")) return "step";
+  if (slug.includes("leg-press")) return "legpress";
+  if (slug.includes("leg-extension") || slug.includes("leg-curl")) return "machine";
+  if (slug.includes("deadlift")) return "deadlift";
+  if (slug.includes("squat")) return "squat";
+  if (slug.includes("lunge") || slug.includes("split-squat")) return "lunge";
+  if (slug.includes("good-morning") || slug.includes("hyperextension") || slug.includes("back-extension")) return "hinge";
   if (slug.includes("stair-climb")) return "climb";
-  if (slug.includes("sprint") || slug.includes("high-knees") || slug.includes("mountain-climber") || slug.includes("jumping-jack") || slug.includes("burpee") || slug.includes("jump")) return "sprint";
-  if ((slug.includes("walk") || slug.includes("march") || slug.includes("carry")) && !slug.includes("run") && !slug.includes("jog")) return "walk";
+  if (slug.includes("step-up") || slug.includes("box-jump") || slug.includes("stair")) return "step";
+  // Core
+  if (slug.includes("plank")) return "plank";
+  if (slug.includes("sit-up") || slug.includes("crunch")) return "sit";
+  if (slug.includes("hollow") || slug.includes("dead-bug") || slug.includes("deadbug")) return "hollow";
+  if (slug.includes("leg-raise") || slug.includes("knee-raise") || slug.includes("hanging-knee") || slug.includes("hanging-leg")) return "legraise";
   if (slug.includes("twist") || slug.includes("rotation") || slug.includes("woodchop")) return "rotation";
+  // Cardio
+  if (slug.includes("burpee")) return "burpee";
+  if (slug.includes("mountain-climber")) return "mtnclimber";
+  if (slug.includes("jumping-jack")) return "jack";
+  if (slug.includes("jump-rope") || slug.includes("skipping")) return "jumprope";
+  if (slug.includes("swim")) return "swim";
+  if (tags.includes("cardio") || slug.includes("run") || slug.includes("jog")) return "run";
+  if (slug.includes("sprint") || slug.includes("high-knees") || slug.includes("jump")) return "sprint";
+  if ((slug.includes("walk") || slug.includes("march") || slug.includes("carry")) && !slug.includes("run") && !slug.includes("jog")) return "walk";
+  if (slug.includes("cycling") || slug.includes("bike") || slug.includes("cycle")) return "bike";
+  // Conditioning
+  if (slug.includes("kettlebell") || slug.includes("swing")) return "kettle";
+  if (slug.includes("band") || slug.includes("resistance-band")) return "band";
+  if (slug.includes("turkish") || slug.includes("get-up") || slug.includes("getup")) return "getup";
+  if (slug.includes("sled")) return "sled";
+  if (slug.includes("battle-rope") || slug.includes("battle_rope")) return "ropes";
+  if (slug.includes("sandbag") || slug.includes("sand-bag")) return "sandbag";
+  if (tags.includes("military") || slug.includes("cooper") || slug.includes("pack")) return "military";
+  // Skill
+  if (slug.includes("agility") || slug.includes("ladder") || slug.includes("cone-drill")) return "agility";
+  if (slug.includes("boxing") || slug.includes("shadow-box") || slug.includes("heavy-bag")) return "box";
+  if (slug.includes("yoga") || slug.includes("downward-dog") || slug.includes("cobra")) return "yoga";
+  // Recovery
   if (slug.includes("breath") || slug.includes("box-breathing") || slug.includes("diaphragm")) return "breathe";
   if (slug.includes("foam-roll")) return "foam";
-  if (tags.includes("military") || slug.includes("cooper") || slug.includes("pack")) return "military";
-  if (slug.includes("cycling") || slug.includes("bike") || slug.includes("cycle")) return "bike";
   if (tags.includes("mobility") || tags.includes("recovery") || slug.includes("stretch") || slug.includes("child") || slug.includes("pigeon") || slug.includes("foam")) return "stretch";
   return "default";
 }
