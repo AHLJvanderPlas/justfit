@@ -877,7 +877,7 @@ Write points:
 
 ## Planner Engine (functions/api/plan.js)
 
-Engine version: **v1.8.0** (sport-aware bias layer added in R560).
+Engine version: **v1.9.0** (sport-aware bias layer R560–R561; R557 TSB-aware cycling autoregulation).
 
 Signature: `runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext)`
 Returns: `{ date, slot_type, intensity, session_name, steps[], rule_trace[], pregnancy_week, trimester, postnatal_phase }`

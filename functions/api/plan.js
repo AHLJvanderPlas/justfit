@@ -339,7 +339,7 @@ export async function onRequestPost({ request, env }) {
           const now = Date.now();
           await env.DB.prepare(`
             INSERT INTO day_plans (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-            VALUES (?, ?, ?, 'final', ?, 'adapt_free', 'v1.7.0', 'adapt', ?, ?)
+            VALUES (?, ?, ?, 'final', ?, 'adapt_free', 'v1.9.0', 'adapt', ?, ?)
             ON CONFLICT(user_id, date) DO UPDATE SET plan_json=excluded.plan_json, updated_at_ms=excluded.updated_at_ms
           `).bind(adaptId, user_id, date, JSON.stringify(adapted), now, now).run();
           const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
@@ -370,7 +370,7 @@ export async function onRequestPost({ request, env }) {
         await env.DB.prepare(`
           INSERT INTO day_plans
             (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.7.0', ?, ?, ?)
+          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.9.0', ?, ?, ?)
           ON CONFLICT(user_id, date) DO UPDATE SET
             plan_json = excluded.plan_json,
             updated_at_ms = excluded.updated_at_ms
