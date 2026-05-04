@@ -34,6 +34,13 @@ fi
 
 Free external monitors: UptimeRobot (5-min interval), Better Stack (3-min), Freshping (1-min).
 
+**UptimeRobot setup (recommended — free tier, 5-min interval):**
+1. Create account at https://uptimerobot.com
+2. Add monitor: HTTP(s), URL = `https://justfit.cc/api/ping`, interval = 5 minutes
+3. Alert contact: your email
+4. Set alert threshold: 2 failures before alert (avoids one-off cold-start false positives)
+5. Optional: add a second monitor for `https://justfit.cc` (the SPA shell itself)
+
 ---
 
 ## Incident response
@@ -75,6 +82,25 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT bucket, count, win
 # Clear a specific bucket if needed
 npx wrangler d1 execute justfit-db --remote --command "DELETE FROM auth_rate_limits WHERE bucket='login:email:user@example.com';"
 ```
+
+---
+
+---
+
+## D1 Database Backup
+
+D1 does not have automatic scheduled snapshots. Export manually before any significant migration or release.
+
+```bash
+# Export full database to a local SQLite file
+npx wrangler d1 export justfit-db --remote --output justfit-backup-$(date +%Y%m%d).sql
+
+# Verify the export is non-empty
+wc -l justfit-backup-*.sql
+```
+
+Recommended cadence: before each migration, and once per week during active development.
+Store the `.sql` files outside the repo (not committed — may contain user data).
 
 ---
 
