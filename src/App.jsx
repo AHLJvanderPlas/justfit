@@ -248,7 +248,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
   const [sports, setSports] = useState((pp.sport_prefs?.sports) ?? []);
   const [saving, setSaving] = useState(false);
 
-  const TOTAL_STEPS = 5;
+  const TOTAL_STEPS = 6;
 
   const handleSkip = () => {
     if (step < TOTAL_STEPS - 1) setStep(step + 1); else handleFinish();
@@ -642,7 +642,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>
                 Default session length
               </div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 28 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 4 }}>
                 {DURATION_OPTIONS.map((d) => (
                   <button
                     key={d}
@@ -659,13 +659,17 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                   </button>
                 ))}
               </div>
+            </>
+          )}
 
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
-                Sports you play <span style={{ fontWeight: 500, textTransform: "none" }}>(optional)</span>
+          {/* ── Step 5: Sports (optional) ── */}
+          {step === 5 && (
+            <>
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>Any sports you play?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+                Optional — we'll complement your training and fill the gaps your sport doesn't cover.
               </div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 12 }}>
-                We'll complement your training — filling the gaps your sport doesn't cover.
-              </div>
+
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 {ONBOARDING_SPORTS.map((s) => {
                   const active = sports.includes(s.id);
@@ -693,8 +697,13 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                 })}
               </div>
               {sports.length > 0 && (
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 6 }}>
-                  First tap = primary sport. Tap again to remove.
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
+                  First tap = primary sport. The planner fills the gaps it doesn't cover.
+                </div>
+              )}
+              {sports.length === 0 && (
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 12, lineHeight: 1.5 }}>
+                  No sport? That's fine — tap "Start Training" to begin with a balanced plan.
                 </div>
               )}
             </>
