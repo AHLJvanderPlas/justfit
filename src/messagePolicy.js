@@ -50,7 +50,9 @@ export const RULE_POLICY = {
   R554: 'adaptive_safety',
   R555: 'adaptive_safety',
   R556: 'adaptive_safety',
+  R557: 'adaptive_safety',
   R560: 'adaptive_safety',
+  R561: 'adaptive_safety',
   R558: 'adaptive_safety',
   R559: 'adaptive_safety',
   R562: 'adaptive_safety',
@@ -95,9 +97,12 @@ export const RULE_LABELS = {
   R551: { category: 'Training adaptation', text: 'Weakest fitness area prioritised today.' },
   R552: { category: 'Training adaptation', text: 'Volume adapted based on your current training mode.' },
   R553: { category: 'Training adaptation', text: 'Mobility maintenance included — over 7 days since last mobility session.' },
+  R554: { category: 'Training adaptation', text: 'Session structure explained by your progression profile.' },
   R555: { category: 'Training adaptation', text: 'Safe run/walk intervals for your current conditioning level.' },
   R556: { category: 'Training adaptation', text: 'Running Coach programme active.' },
+  R557: { category: 'Training adaptation', text: 'Cycling Coach programme — TSB-aware session selection.' },
   R560: { category: 'Training adaptation', text: 'Session biased toward your primary sport.' },
+  R561: { category: 'Training adaptation', text: 'Sport-specific mobility exercise added to support your sport.' },
   R558: { category: 'Training adaptation', text: 'Volume reduced after a long break — easing back in safely.' },
   R559: { category: 'Training adaptation', text: 'Recovery mode — low intensity, mobility and recovery exercises only.' },
   R562: { category: 'Safety adaptation',   text: 'Exercises adjusted around your injury areas.' },
@@ -173,6 +178,7 @@ const SENTENCE_VARIANTS = {
   R551: "Weakest fitness area targeted — balanced development over time.",
   R568: "Polarised training day — alternating Zone 2 and high-intensity work.",
   R560: "Session biased toward your primary sport.",
+  R561: "Sport mobility added — one targeted exercise to support your sport.",
   R556: "Running Coach programme — structured progression, week by week.",
   R555: "Safe run/walk intervals matched to your current conditioning level.",
 };
@@ -183,7 +189,7 @@ const SENTENCE_SEVERITY_ORDER = [
   'R558', 'R559', 'R511', 'R512', 'R513', 'R545', 'R546',
   'R516', 'R515', 'R510', 'R563', 'R565',
   'R520', 'R521', 'R522', 'R523', 'R524', 'R525',
-  'R553', 'R551', 'R556', 'R555', 'R568', 'R560',
+  'R553', 'R551', 'R556', 'R555', 'R568', 'R560', 'R561', 'R557',
 ];
 
 /**
@@ -194,7 +200,7 @@ export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standar
   const traceStr = (ruleTrace ?? []).join(' ');
   // On rest days, skip training-specific rules that don't apply (e.g. "Bodyweight only today")
   const restSkip = slotType === 'rest'
-    ? new Set(['R516','R515','R510','R511','R512','R513','R524','R525','R553','R551','R560','R563','R565','R558','R520','R521','R522','R523','R555','R556','R568'])
+    ? new Set(['R516','R515','R510','R511','R512','R513','R524','R525','R553','R551','R560','R561','R557','R563','R565','R558','R520','R521','R522','R523','R555','R556','R568'])
     : null;
   const order = restSkip ? SENTENCE_SEVERITY_ORDER.filter(c => !restSkip.has(c)) : SENTENCE_SEVERITY_ORDER;
   const top = order.find(code => traceStr.includes(code));
