@@ -360,6 +360,32 @@ export default function HistoryView({ progression, cyclingPmc, isLoading, token,
           <span style={{ fontWeight: 700, color: C.text }}>Goal: {goal.replace(/_/g, " ")} — </span>
           {weeklyOutcome.insight}
         </div>
+        {/* Goal-fit progress row — shown when progression data available */}
+        {progression?.goal_fit != null && (
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
+            {/* Goal-fit ring */}
+            <svg width={36} height={36} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
+              <circle cx={18} cy={18} r={14} fill="none" stroke="rgba(var(--accent-rgb),0.12)" strokeWidth={3} />
+              <circle cx={18} cy={18} r={14} fill="none" stroke="var(--accent)" strokeWidth={3}
+                strokeDasharray={`${(progression.goal_fit / 100) * 87.96} 87.96`}
+                strokeLinecap="round" transform="rotate(-90 18 18)" />
+              <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight="900"
+                fontFamily="monospace" fill="var(--accent)">{progression.goal_fit}%</text>
+            </svg>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
+                {progression.goal_fit >= 80 ? "Profile aligned with your goal" :
+                 progression.goal_fit >= 50 ? "Building toward your goal" :
+                 "Room to grow toward your goal"}
+              </div>
+              {progression.insights?.biggest_gap && (
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                  Focus: {progression.insights.biggest_gap.label} — already on the planner's radar
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </Glass>
 
       {!progression ? (
