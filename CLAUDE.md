@@ -125,19 +125,13 @@ These seven principles are the decision framework. When a feature, rule, or desi
 
 ## Product Roadmap Priorities
 
-Primary items — directly support the core principles.
+All items are on the v2 list. See the Product TODO List section for the full assessed backlog.
 
 1. ~~**Return-to-training mode**~~ ✅ Done — R558: ≥14-day gap → volume ×0.75 re-ramp. *(Principle 2 + 3)*
-2. **Primary-intent conflict hierarchy** — Define which goal/programme wins when general goals, sport bias, military/running/cycling coaches, injury rules, and body-aware states collide. *(Principle 5)*
+2. ~~**Primary-intent conflict hierarchy**~~ ✅ Done — COACH_PRIORITY constant in plan.js + conflict modal in Settings → Your Coach. *(Principle 5)*
 3. ~~**Recovery mode**~~ ✅ Done — R559: "Taking it easy today" check-in toggle → low intensity + mobility/recovery pool. *(Principle 2 + 3)*
 4. ~~**Self-service data export**~~ ✅ Done — "Download my data (JSON)" in Settings (F1). *(Principle 6)*
-5. **Weekly outcome summary** — Show whether the user is actually moving toward their goal, not just completing daily sessions. *(Principle 1 + 4)*
-
-## Secondary Roadmap Ideas
-
-- Program readiness / baseline assessment
-- User-facing adaptation memory (visible log of why the plan changed)
-- Better offline / weak-network workout resilience
+5. ~~**Weekly outcome summary**~~ → moved to v2 backlog (see Product TODO List)
 
 ---
 
@@ -1132,34 +1126,44 @@ None currently. 🟢
 
 ## Product TODO List
 
-Improvements identified but not yet built. Ordered roughly by impact.
+All items are on the v2 backlog. Risk / impact / complexity assessed for each.
+Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 🔧 Medium effort · 🏗 High effort
 
-### High Priority (next up)
-- **Images/GIFs in instruction cards** — `gif_url` already exists on every plan step; just needs a collapsible image area in the WorkoutView instruction card. Makes coaching feel premium and reduces form errors. High impact for beta users.
-- ~~**Offline resilience**~~ ✅ Done — `src/offlineCache.js`; IDB store `jf-offline/plans` keyed by date; write-through on every plan load; fallback served when getTodayPlan or generatePlan fails. Exercise data (alternatives) not yet cached — still network-dependent.
+### Ready to build — web-only, no blockers
 
-### Workout UX
-- **Level-appropriate cues** — Cues prefixed with `💡💡` in the DB indicate level-specific advice (Beginner / Intermediate / Advanced). In WorkoutView, filter cues by `experience_level` from prefs: show only the matching level's `💡💡` cues plus all single-`💡` cues. Requires a prefix convention in the data.
-- **"Why" + training target section** — Add a `why` field and a `muscle_target` / `cardio_target` field to `instructions_json` per exercise. Show in the instruction phase below the step cards. For now can be derived from `category` + `tags_json` without DB changes (e.g. strength + "core" tag → "Targets: Core & Stability").
-- **BMI-aware pace guidance** — For cardio exercises, when user is in the obese BMI range, show lower pace ranges or a dedicated slow-build-up note. Could be a posture-like `bmi_note` field in `instructions_json`, or a rule in WorkoutView that replaces the standard cues.
+| # | Item | Risk | Effort | Impact | Notes |
+|---|---|---|---|---|---|
+| A | **"Why" + training target in WorkoutView** | 🟢 | ⚡ | Medium | Derive from `category`+`tags_json` — no DB change; adds coaching depth to every session |
+| B | **Weekly outcome summary** | 🟢 | 🔧 | High | Use existing `user_progression` data; show goal-trajectory sentence + trend indicator on Progress tab |
+| C | **Level-appropriate cues** | 🟢 | ⚡ | Medium | Filter `💡💡`-prefixed cues in WorkoutView by `experience_level`; convention already in DB |
+| D | **Log activity UX consolidation** | 🟢 | ⚡ | Low–Med | After session, show bonus-plan + extra-time input on the complete card instead of separate taps |
+| E | **BMI-aware pace guidance** | 🟡 | 🔧 | Low–Med | `bmi_note` field in `instructions_json` or WorkoutView rule for obese BMI + cardio exercises |
+| F | **`why` + `muscle_target` data seeding** | 🟢 | 🏗 | Medium | New fields in `instructions_json`; requires a migration seeding all ~290 exercises — data-heavy |
 
-### After Session
-- **Log activity flow after session** — On the session complete card, the "Log activity" button logs a manual activity. Consider also showing extra-time input there so the user can immediately get a bonus plan suggestion without having to tap "Bonus session" separately.
+### Content-blocked (needs assets first)
 
-### Running Coach — Future Enhancements
-- **Regression on skips**: ✅ Implemented — if >7 days since last run while enrolled, both plan.js (plan preview) and execution.js (on save) step back one week. User sees the correct regressed week before starting.
-- ~~**Milestone awards**~~ ✅ Done — migration 0033 adds 5 running milestone awards; AwardsView reads `run_coach.unlocked_targets[]` via `runUnlocked` prop.
-- ~~**Program progress in Progress tab**~~ ✅ Done — Running Coach header card (Week X of Y · Nkm Program + progress bar) added above Goal Fit card, parallel to Military Coach header.
+| # | Item | Blocker | Notes |
+|---|---|---|---|
+| G | **Images/GIFs in instruction cards** | No images/GIFs exist yet | UI is trivial (`gif_url` on every step); blocked on content creation |
 
-### Women's Health — v2 Roadmap
-- **R526 — Perimenopause phase** *(explicitly out of scope for v1)*: The current cycle rules (R520–R525) assume standard menstruation. Perimenopause involves irregular cycles and hormone fluctuations without pregnancy. A future R526 could detect `cycle_profile.mode = 'perimenopause'` and adapt: longer recovery windows, lower stress threshold (T.STRESS_PERIMENOPAUSE), reduced intensity defaults, and exercise bias toward mobility and low-impact strength rather than HIIT. Would require a new `mode` value in the `cycle_profile` table and a Settings toggle alongside the existing pregnancy/postnatal setup.
+### Deferred by user
 
-### Apple Watch / Apple Health — v2 Roadmap
-- **Apple Health workout export (iOS companion app)** — PWAs cannot write to Apple HealthKit directly; a lightweight native iOS companion app is required. Proposed bridge architecture: `justfit.cc → iOS companion app (WorkoutKit API) → scheduled workout on Apple Watch → completed workout saved to Apple Health`. The companion app needs only: login (reuse JWT), sync today's plan (fetch `/api/plan`), and HealthKit write permission. **Assessment**: medium complexity, high user value for Apple Watch users. The PWA already exports TCX files which can be imported into Apple Health manually — this is the short-term workaround. The native app is a v2 project requiring App Store submission and a separate codebase. Not a web-only deliverable. Add to roadmap when iOS development resources are available.
+| # | Item | Risk | Effort | Notes |
+|---|---|---|---|---|
+| H | **Pro tier gating** | 🟡 | 🔧 | Feature flags + entitlements table already exist; needs UX + enforcement |
+| I | **Stripe integration** | 🟡 | 🏗 | Depends on H; requires Stripe account + webhook handler + D1 subscription state |
 
-### Data Quality
-- ~~**Continue enriching exercise instructions**~~ ✅ Done — Migration 0034 enriched 30 exercises (dumbbell rows/presses/legs, resistance bands, kettlebells, cat-cow, shoulder rolls, progressive muscle relaxation). All active exercises now have steps + cues. Future: add `why` and `muscle_target` fields for deeper coaching context.
-- **Add `why` and `muscle_target` to all exercises** — New fields in `instructions_json`. Could be seeded via a migration script.
+### Requires native app (not web-only)
+
+| # | Item | Notes |
+|---|---|---|
+| J | **Apple Watch / HealthKit** | Needs Swift iOS companion app (WorkoutKit bridge); TCX export is the web workaround |
+
+### Women's Health v2
+
+| # | Item | Risk | Effort | Notes |
+|---|---|---|---|---|
+| K | **R526 — Perimenopause mode** | 🟡 | 🏗 | New `cycle_profile.mode='perimenopause'`; irregular cycle rules, lower stress threshold, mobility bias |
 
 ---
 
