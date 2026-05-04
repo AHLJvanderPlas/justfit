@@ -363,6 +363,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           ? [new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
                           : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
                       </div>
+                      {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={chip} /></div> : null; })()}
                       {/* Strava activity name when merged from a separate entry */}
                       {mergedStravaEntry && stravaMeta?.name && (
                         <div style={{ fontSize: 11, color: "#FC4C02", fontWeight: 600, marginTop: 3 }}>

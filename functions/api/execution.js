@@ -696,7 +696,7 @@ export async function onRequestGet({ request, env }) {
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-    const [result, stepsResult] = await Promise.all([
+    const [result, stepsResult, plansResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, date, execution_type, status, total_duration_sec,
                 perceived_exertion, tss_planned, tss_actual, tss_source,
@@ -717,6 +717,15 @@ export async function onRequestGet({ request, env }) {
          )
          ORDER BY es.execution_id, es.step_index`
       ).bind(user_id, limit).all(),
+      // Fetch rule_trace from day_plans for the same date window (adaptation memory)
+      env.DB.prepare(
+        `SELECT date, JSON_EXTRACT(plan_json, '$.rule_trace') AS rule_trace_json
+         FROM day_plans
+         WHERE user_id = ?
+           AND date IN (
+             SELECT DISTINCT date FROM executions WHERE user_id = ? ORDER BY created_at_ms DESC LIMIT ?
+           )`
+      ).bind(user_id, user_id, limit).all(),
     ]);
 
     const stepsByExec = {};
@@ -729,9 +738,17 @@ export async function onRequestGet({ request, env }) {
       });
     }
 
+    // rule_trace keyed by date for O(1) lookup
+    const ruleTraceByDate = {};
+    for (const p of plansResult.results) {
+      try { ruleTraceByDate[p.date] = p.rule_trace_json ? JSON.parse(p.rule_trace_json) : null; }
+      catch { /* ignore malformed */ }
+    }
+
     const executions = result.results.map(e => ({
       ...e,
       steps: stepsByExec[e.id] ?? [],
+      rule_trace: ruleTraceByDate[e.date] ?? null,
     }));
 
     return Response.json({ executions });
