@@ -1965,6 +1965,9 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     trace.push(`R555 — Interval pinned back after category filter (targetCategory: ${targetCategory})`);
   }
 
+  // Sport-bias enabled flag — shared by R560 (target nudge) and R561 (mobility injection)
+  const sportBiasEnabled = prefs?.preferences?.sport_prefs?.bias_enabled !== false;
+
   // ==================================================================
   // PROGRESSION RULES (R550–R560) — only in standard non-bonus sessions
   // ==================================================================
@@ -1973,8 +1976,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const chartMode   = progressionState.chartMode ?? 'balanced';
     const baseTargets = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
     const _sportPrefs = prefs?.preferences?.sport_prefs;
-    const _biasEnabled = _sportPrefs?.bias_enabled !== false;
-    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride && _biasEnabled)
+    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride && sportBiasEnabled)
       ? computeSportBiasedTargets(baseTargets, _sportPrefs, runSessionsLast7, cyclingSessionsLast7)
       : { targets: baseTargets, biasTrace: null };
     if (biasTrace) {
@@ -2120,7 +2122,6 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
   // Injects one sport_mobility:{primary} tagged exercise at the end of standard sessions
   // when the selection doesn't already contain one. Bypassed for coach-specific sessions.
   let selection = baseSelection;
-  const sportBiasEnabled = prefs?.preferences?.sport_prefs?.bias_enabled !== false;
   if (
     sportBiasEnabled && !inSpecialMode && !runProgramOverride && !crossTrainingOverride
     && !cyclingProgramOverride && !militaryProgramOverride && !militaryDbSelection
