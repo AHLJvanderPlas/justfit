@@ -1928,7 +1928,7 @@ function splitTitle(name) {
   return [upper.slice(0, i), upper.slice(i + 1)];
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle }) {
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -2263,6 +2263,21 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   {cooperBenchmark && (
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Cooper: {cooperBenchmark}</div>
                   )}
+                  {/* Block progress hairline */}
+                  {(() => {
+                    const bn = mp?.block_number ?? mil.block_number ?? 1;
+                    const bi = mp?.block_session_index ?? 0;
+                    const SESS = 4;
+                    const pct = Math.min(100, ((((bn - 1) % 6) * SESS + bi) / (6 * SESS)) * 100);
+                    return (
+                      <div style={{ marginTop: 8 }}>
+                        <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                          <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
+                        </div>
+                        <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>BLOCK {((bn - 1) % 6) + 1} OF 6</div>
+                      </div>
+                    );
+                  })()}
                 </div>
                 {(isPostAssess || isBaseBuild || milMode === 'fit' || isCalibration || isDeload || isTaper) && (
                   <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
@@ -2291,6 +2306,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Run Coach</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Plan · Week {rc.week ?? 1} of {totalWeeks}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {rc.session_in_week ?? 0} of 3 this week</div>
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${Math.min(100, ((rc.week ?? 1) / totalWeeks) * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
+                  </div>
+                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {rc.week ?? 1} OF {totalWeeks}</div>
+                </div>
               </div>
               {canExportRunTcx && (
                 <button
@@ -2361,6 +2382,12 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 {sessionTypeLabel && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionTypeLabel}</div>
                 )}
+                <div style={{ marginTop: 8 }}>
+                  <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                    <div style={{ height: "100%", width: `${Math.min(100, (((cc.week ?? 1) - 1) % 7 + 1) / 7 * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
+                  </div>
+                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {((cc.week ?? 1) - 1) % 7 + 1} OF 7</div>
+                </div>
               </div>
               {canExportTcx && (() => {
                 const intervals = JSON.parse(cycStep.intervals_json);
@@ -2435,7 +2462,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
       </Glass>
 
       {/* ── Weekly outcome summary ──────────────────── */}
-      <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 16 }}>
+      <Glass style={{ padding: "14px 20px", marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 6 }}>This week</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
@@ -2446,6 +2473,15 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           ))}
         </div>
       </Glass>
+
+      {/* ── Block C: Quick check-in link ─────────────── */}
+      {!todayCompleted && onCheckIn && (
+        <div style={{ textAlign: "center", marginBottom: 16 }}>
+          <button onClick={onCheckIn} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, fontFamily: "inherit" }}>
+            Updated how you're feeling? <span style={{ color: "var(--accent)", fontWeight: 700 }}>Check in →</span>
+          </button>
+        </div>
+      )}
 
     </div>
   );
@@ -3397,6 +3433,7 @@ export default function App() {
                   onLogActivity={() => setShowLogActivity(true)}
                   onBonusSession={() => setShowBonusPicker(true)}
                   onWhyNot={() => setShowWhyNot(true)}
+                  onCheckIn={() => setShowCheckIn(true)}
                   prefs={prefs}
                   planError={planError}
                   onRetryPlan={handleRetryPlan}
