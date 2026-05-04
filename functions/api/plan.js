@@ -867,6 +867,23 @@ function getDefaultRest(exercise, slotType) {
 
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Intent hierarchy (highest → lowest priority — later items can be overridden by earlier)
+//
+//  1. Body mode — pregnancy / postnatal (R530–R544): overrides everything; special exercise
+//     pools and intensity caps apply regardless of any other coach or plan state.
+//  2. Military Coach (R570–R582): takes full control of session type, pool, and volume.
+//     Bypasses standard rules R510–R565 (R581). Check-in pain/energy signals still apply.
+//  3. Running Coach (R556): prescribes structured run programme session (runProgramOverride).
+//  4. Cycling Coach (R557): prescribes structured cycling session (cyclingProgramOverride).
+//  5. Cycling cross-training run (R557c): prescribes shadow run session (crossTrainingOverride).
+//  6. Check-in adaptations — recovery mode (R559), pain → rest (R514), time budget (R510),
+//     sleep/energy/stress (R511–R513), no-kit/no-gear (R515–R516).
+//  7. Injury-aware filtering (R562–R565): filters and supplements pool for chronic/acute pain.
+//  8. Progression rules (R550–R561): bias targets, weak-axis preference, sport bias, mobility.
+//
+// Principle 5: "One active training intent at a time." The hierarchy above is the enforcement.
+// ---------------------------------------------------------------------------
 function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null) {
   // militaryTemplateItems: ordered exercise rows from program_template_items for the current
   // strength session (kracht / kracht_marsen / circuit). null → falls back to pool path.
