@@ -1052,10 +1052,14 @@ Calculated server-side from executions table:
 | Mission/Vision v1.1 (F2) | ✅ Live — mission.html and getMissionEmail() updated to reflect current Product Vision, Mission, and all 7 Product Principles; "What JustFit Is — and Is Not" section added; version bumped to v1.1 April 2026 |
 | R558 Return-to-training re-ramp (F3) | ✅ Live — parallel D1 query for last execution date; ≥14-day gap → volumeMultiplier × 0.75; bypassed for military coach and pregnancy/postnatal; trace: "R558 — Back after N-day break → volume ×0.75" |
 | R559 Recovery mode toggle (F4) | ✅ Live — "Taking it easy today" toggle in check-in modal; sets intensity=low, filters exercise pool to mobility/recovery only; bypassed for military and pregnancy/postnatal; stored in checkin_json.recovery_mode |
-| AdaptationChip on PlanWeekView (F5) | ✅ Live — Today's Plan card in weekly view shows chip label (via deriveChipLabel) when a rule adaptation is active |
+| AdaptationChip on PlanWeekView (F5) | ✅ Live — Today's Plan card in weekly view shows chip label (via deriveChipLabel) when a rule adaptation is active; completed sessions in history also show adaptation chip via rule_trace from execution GET |
 | Active coach badge on Dashboard (F6) | ✅ Live — persistent inline badge below greeting shows active coach label (Military · K3 / Running · 10km / Cycling · Week 4); renders only when a coach is active |
 | Check-in simplification — SVG smiley row (F8) | ✅ Live — Motivation + Stress sliders replaced with 3-button SVG smiley row ("Not great" / "Okay" / "Good"); feeling maps to stress + motivation at submit time (sad→stress=10/motivation=2, neutral→stress=4/motivation=6, good→stress=2/motivation=10); DB schema and all planner rules (R511–R513) unchanged; pre-fill from last check-in derives feeling from stored stress/motivation |
-| Offline / IndexedDB sync | ✅ Live — `src/offlineCache.js`; cachePlan() writes on every plan state change; getCachedPlan() fallback in getTodayPlan + generatePlan catch blocks; IDB store: `jf-offline/plans`, keyPath=date |
+| Offline / IndexedDB sync | ✅ Live — `src/offlineCache.js` DB_VERSION=2; cachePlan() write-through + getCachedPlan() fallback; IDB stores: `jf-offline/plans` (keyPath=date) + `jf-offline/exercises` (keyPath=slug); cacheExercises()/getCachedExercises() used in WorkoutView alternatives sheet (write-through on success, IDB fallback on network failure) |
+| Strava visibility sync | ✅ Live — `visibilitychange` listener in App.jsx fires Strava sync when user returns to app tab; 5-min cooldown (shared key `jf_strava_auto_sync` with app-open 30-min sync) |
+| COACH_PRIORITY intent hierarchy | ✅ Live — `COACH_PRIORITY` constant in plan.js formalises intent order as machine-readable array (pregnant→postnatal→military→running→cycling→cycling_cross→general); returned on every plan response as `coach_priority[]`; adjacent to intent-hierarchy comment block |
+| Adaptation memory (execution rule_trace) | ✅ Live — execution.js GET adds parallel D1 query with JSON_EXTRACT to attach rule_trace per date; PlanWeekView shows AdaptationChip on past sessions |
+| messagePolicy R557+R561 test coverage | ✅ Live — 9 new Vitest test cases covering RULE_POLICY, RULE_LABELS, deriveCoachSentence, rest-day suppression for R557 (TSB autoregulation) and R561 (sport mobility injection) |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
 
@@ -1149,6 +1153,9 @@ Improvements identified but not yet built. Ordered roughly by impact.
 
 ### Women's Health — v2 Roadmap
 - **R526 — Perimenopause phase** *(explicitly out of scope for v1)*: The current cycle rules (R520–R525) assume standard menstruation. Perimenopause involves irregular cycles and hormone fluctuations without pregnancy. A future R526 could detect `cycle_profile.mode = 'perimenopause'` and adapt: longer recovery windows, lower stress threshold (T.STRESS_PERIMENOPAUSE), reduced intensity defaults, and exercise bias toward mobility and low-impact strength rather than HIIT. Would require a new `mode` value in the `cycle_profile` table and a Settings toggle alongside the existing pregnancy/postnatal setup.
+
+### Apple Watch / Apple Health — v2 Roadmap
+- **Apple Health workout export (iOS companion app)** — PWAs cannot write to Apple HealthKit directly; a lightweight native iOS companion app is required. Proposed bridge architecture: `justfit.cc → iOS companion app (WorkoutKit API) → scheduled workout on Apple Watch → completed workout saved to Apple Health`. The companion app needs only: login (reuse JWT), sync today's plan (fetch `/api/plan`), and HealthKit write permission. **Assessment**: medium complexity, high user value for Apple Watch users. The PWA already exports TCX files which can be imported into Apple Health manually — this is the short-term workaround. The native app is a v2 project requiring App Store submission and a separate codebase. Not a web-only deliverable. Add to roadmap when iOS development resources are available.
 
 ### Data Quality
 - ~~**Continue enriching exercise instructions**~~ ✅ Done — Migration 0034 enriched 30 exercises (dumbbell rows/presses/legs, resistance bands, kettlebells, cat-cow, shoulder rolls, progressive muscle relaxation). All active exercises now have steps + cues. Future: add `why` and `muscle_target` fields for deeper coaching context.
