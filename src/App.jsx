@@ -1772,6 +1772,44 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         </button>
       </div>
 
+      {/* ── Goal header ────────────────────────────── */}
+      {(() => {
+        const pref = prefs?.preferences ?? {};
+        const milA = !!(pref.military_coach?.active);
+        const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
+        const ccA  = !!(pref.cycling_coach?.active && !pref.cycling_coach?.completed);
+        const GOAL_LABELS = {
+          fat_loss:    "Lose weight & feel better",
+          strength:    "Build strength & muscle",
+          health:      "Improve overall fitness",
+          mobility:    "Boost energy & manage stress",
+          muscle_gain: "Build muscle",
+          endurance:   "Build endurance",
+        };
+        let goalText, coachText;
+        if (milA) {
+          const track = pref.military_coach?.track ?? "keuring";
+          const lvl   = milClL(track, pref.military_coach?.cluster_current ?? 0);
+          goalText  = "MILITARY COACH";
+          coachText = `${track === "keuring" ? "Keuring" : "Opleiding"} · ${lvl}`;
+        } else if (rcA) {
+          goalText  = "RUNNING COACH";
+          coachText = `${pref.run_coach.target_km}km programme · Week ${pref.run_coach.week ?? 1}`;
+        } else if (ccA) {
+          goalText  = "CYCLING COACH";
+          coachText = `${(pref.cycling_coach.sub_goal ?? "build_fitness").replace(/_/g, " ")} · Week ${pref.cycling_coach.week ?? 1}`;
+        } else {
+          goalText  = (GOAL_LABELS[prefs?.training_goal ?? "health"] ?? "Improve overall fitness").toUpperCase();
+          coachText = null;
+        }
+        return (
+          <div style={{ marginBottom: 14 }}>
+            <div style={{ ...mono(10), color: "var(--accent)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
+            {coachText && <div style={{ ...mono(10), color: C.muted, letterSpacing: "0.1em", marginTop: 2 }}>{coachText}</div>}
+          </div>
+        );
+      })()}
+
       {/* ── Session area ───────────────────────────── */}
       {todayCompleted ? (
         <DoneCard score={score} prevScore={prevScore} completedSession={completedSession} onLogActivity={onLogActivity} onBonusSession={onBonusSession} bonusDone={bonusDone} />
@@ -1804,8 +1842,13 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                       : rcA ? `Running · ${prefs.preferences.run_coach.target_km}km`
                       : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
                     return (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
-                        {milA && <MilitaryIcon size={9} />}{tagLabel}
+                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
+                          {milA && <MilitaryIcon size={9} />}{tagLabel}
+                        </div>
+                        <div style={{ ...mono(), fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, padding: "3px 7px", borderRadius: 99 }}>
+                          Add-on
+                        </div>
                       </div>
                     );
                   })()}
