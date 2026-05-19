@@ -247,6 +247,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
   const [duration, setDuration] = useState(p.session_duration_min ?? 45);
   const [sports, setSports] = useState((pp.sport_prefs?.sports) ?? []);
   const [saving, setSaving] = useState(false);
+  const [isPregnancyGoal, setIsPregnancyGoal] = useState(false);
 
   const TOTAL_STEPS = 6;
 
@@ -387,8 +388,8 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
             </>
           )}
 
-          {/* ── Step 1: About you ── */}
-          {step === 1 && (
+          {/* ── Step 2: About you ── */}
+          {step === 2 && (
             <>
               <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>About you</div>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>This helps us personalise your training baseline.</div>
@@ -556,33 +557,55 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
             </>
           )}
 
-          {/* ── Step 2: Goal ── */}
-          {step === 2 && (
+          {/* ── Step 1: Goal ── */}
+          {step === 1 && (
             <>
-              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>What's your goal?</div>
-              <div style={{ fontSize: 13, color: C.muted, marginBottom: 24 }}>Your plan adapts to this every day.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                {GOALS.map((g) => (
-                  <button
-                    key={g.value}
-                    onClick={() => setGoal(g.value)}
-                    style={{
-                      position: "relative", overflow: "hidden",
-                      padding: "14px 12px", minHeight: 92,
-                      borderRadius: 16, display: "flex", flexDirection: "column", justifyContent: "flex-end",
-                      border: `1px solid ${goal === g.value ? C.emeraldBorder : C.border}`,
-                      background: goal === g.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
-                      color: goal === g.value ? C.emerald : C.muted,
-                      fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
-                    }}
-                  >
-                    <div style={{ position: "absolute", left: "66%", top: "33%", transform: "translate(-50%,-50%)", opacity: goal === g.value ? 0.7 : 0.22, pointerEvents: "none" }}>
-                      {GOAL_ICONS[g.value]}
-                    </div>
-                    <div style={{ position: "relative", zIndex: 1 }}>{g.label}</div>
-                  </button>
-                ))}
+              <div style={{ fontSize: 22, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 6 }}>What's your primary goal?</div>
+              <div style={{ fontSize: 13, color: C.muted, marginBottom: 20 }}>Your plan adapts around this every day.</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {[
+                  { value: "fat_loss", label: "Lose weight & feel better", sub: "Burn fat, build energy", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg> },
+                  { value: "strength", label: "Build strength & muscle", sub: "Get stronger week by week", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 4v6a6 6 0 0 0 12 0V4"/><line x1="4" y1="4" x2="20" y2="4"/></svg> },
+                  { value: "health", label: "Improve overall fitness", sub: "More stamina, more capacity", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg> },
+                  { value: "mobility", label: "Boost energy & manage stress", sub: "Consistent movement, calmer mind", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/></svg> },
+                  { value: "pregnancy", label: "Stay active during/after pregnancy", sub: "Safe movement for every phase", icon: <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="6" r="3"/><path d="M9 13c-2 .5-4 2-4 4v1h14v-1c0-2-2-3.5-4-4"/><path d="M12 13v5"/></svg> },
+                ].map((g) => {
+                  const isSelected = g.value === "pregnancy" ? isPregnancyGoal : (!isPregnancyGoal && goal === g.value);
+                  return (
+                    <button
+                      key={g.value}
+                      onClick={() => {
+                        if (g.value === "pregnancy") {
+                          setIsPregnancyGoal(true);
+                          setGoal("health");
+                        } else {
+                          setIsPregnancyGoal(false);
+                          setGoal(g.value);
+                        }
+                      }}
+                      style={{
+                        padding: "14px 16px", borderRadius: 16, textAlign: "left",
+                        border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`,
+                        background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        cursor: "pointer", display: "flex", alignItems: "center", gap: 14,
+                      }}
+                    >
+                      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: isSelected ? "rgba(var(--accent-rgb),0.2)" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: isSelected ? "var(--accent)" : C.muted }}>
+                        {g.icon}
+                      </div>
+                      <div>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: isSelected ? C.emerald : C.text, marginBottom: 2 }}>{g.label}</div>
+                        <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{g.sub}</div>
+                      </div>
+                    </button>
+                  );
+                })}
               </div>
+              {isPregnancyGoal && (
+                <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b", lineHeight: 1.5, padding: "10px 14px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
+                  You'll complete pregnancy setup in Settings after onboarding.
+                </div>
+              )}
             </>
           )}
 
