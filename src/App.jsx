@@ -2837,14 +2837,24 @@ const NAV_ITEMS = [
     ),
   },
   {
-    id: "coach",
-    label: "Coach",
-    icon: (a) => <Icons.compass size={22} c={a ? "var(--accent)" : "#64748b"} />,
-  },
-  {
     id: "history",
     label: "Progress",
     icon: (a) => <Icons.chart size={22} c={a ? "var(--accent)" : "#64748b"} />,
+  },
+  {
+    id: "plan",
+    label: "This Week",
+    icon: (a) => (
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2">
+        <rect width="18" height="18" x="3" y="4" rx="2" />
+        <line x1="16" y1="2" x2="16" y2="6" />
+        <line x1="8" y1="2" x2="8" y2="6" />
+        <line x1="3" y1="10" x2="21" y2="10" />
+        <line x1="8" y1="15" x2="8" y2="15" strokeLinecap="round" strokeWidth="2.5" />
+        <line x1="12" y1="15" x2="12" y2="15" strokeLinecap="round" strokeWidth="2.5" />
+        <line x1="16" y1="15" x2="16" y2="15" strokeLinecap="round" strokeWidth="2.5" />
+      </svg>
+    ),
   },
   {
     id: "settings",
@@ -3843,6 +3853,7 @@ export default function App() {
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onNavigateAwards={() => setView("awards")}
+                  onNavigateCoach={() => setView("coach")}
                   onProgressionRefresh={() =>
                     api.getProgression(token)
                       .then((data) => { if (data?.ok) setProgression(data); })

@@ -112,7 +112,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onNavigateCoach }) {
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -768,15 +768,20 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
           <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>SETTINGS</h1>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
-              { key: "coach",   label: "Your coach",  sub: "Training intent · active programme · Strava" },
+              { key: "goal",    label: "Your goal",   sub: "Primary focus · training days · session length" },
               { key: "you",     label: "You",          sub: "Body · equipment · schedule · appearance" },
+              { key: "coaches", label: "Coaches",      sub: "Active programmes · add-on coaches · Strava" },
               { key: "awards",  label: "Trophy room",  sub: "Awards & milestones" },
               { key: "privacy", label: "Privacy",      sub: "Data export · legal docs · feedback" },
               { key: "account", label: "Account",      sub: "Email · passkeys · security" },
             ].map((row, i, arr) => (
               <button
                 key={row.key}
-                onClick={() => row.key === "awards" ? onNavigateAwards?.() : setSubView(row.key)}
+                onClick={() => {
+                  if (row.key === "awards") onNavigateAwards?.();
+                  else if (row.key === "coaches") onNavigateCoach?.();
+                  else setSubView(row.key);
+                }}
                 style={{
                   display: "flex", alignItems: "center", justifyContent: "space-between",
                   width: "100%", padding: "18px 0", background: "none", border: "none",
@@ -802,10 +807,108 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             ‹
           </button>
           <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
-            {subView === "coach" ? "YOUR COACH" : subView === "you" ? "YOU" : subView === "privacy" ? "PRIVACY" : "ACCOUNT"}
+            {subView === "goal" ? "YOUR GOAL" : subView === "you" ? "YOU" : subView === "privacy" ? "PRIVACY" : "ACCOUNT"}
           </h1>
         </div>
       )}
+
+      {subView === "goal" && (() => {
+        const GOAL_OPTIONS = [
+          { value: "fat_loss",  label: "Lose weight & feel better",   sub: "Burn fat, build energy",           icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
+          ) },
+          { value: "strength",  label: "Build strength & muscle",      sub: "Get stronger week by week",        icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 5v7"/><path d="M18 5v7"/><path d="M8 5H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4"/><path d="M16 5h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4"/><path d="M8 9h8"/><path d="M10 15h4"/><path d="M12 12v6"/></svg>
+          ) },
+          { value: "health",    label: "Improve overall fitness",      sub: "More stamina, more capacity",      icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+          ) },
+          { value: "mobility",  label: "Boost energy & manage stress", sub: "Consistent movement, calmer mind", icon: (
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a7 7 0 0 1 7 7c0 4.5-7 13-7 13S5 13.5 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+          ) },
+        ];
+        const currentGoal = prefs.training_goal ?? "health";
+
+        const handleGoalSave = async (val) => {
+          onUpdate(p => ({ ...p, training_goal: val }));
+          await api.saveProfile(token, { training_goal: val });
+        };
+
+        const daysPerWeek = prefs.preferences?.training_days_per_week ?? 3;
+        const sessionMins = prefs.session_duration_min ?? 45;
+
+        const handleDays = async (n) => {
+          const updated = { ...(prefs.preferences ?? {}), training_days_per_week: n };
+          onUpdate(p => ({ ...p, preferences: updated }));
+          await api.saveProfile(token, { preferences: updated });
+        };
+
+        const handleMins = async (m) => {
+          onUpdate(p => ({ ...p, session_duration_min: m }));
+          await api.saveProfile(token, { session_duration_min: m });
+        };
+
+        return (
+          <div>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>PRIMARY FOCUS</div>
+            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+              JustFit adapts your daily sessions to this. Coaches are add-ons you can activate separately.
+            </div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
+              {GOAL_OPTIONS.map(opt => {
+                const sel = currentGoal === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => handleGoalSave(opt.value)}
+                    style={{
+                      display: "flex", alignItems: "center", gap: 14,
+                      padding: "16px 18px", borderRadius: 16, textAlign: "left", cursor: "pointer",
+                      background: sel ? "rgba(var(--accent-rgb),0.1)" : C.bgCard,
+                      border: sel ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
+                    }}
+                  >
+                    <span style={{ color: sel ? "var(--accent)" : C.muted, flexShrink: 0 }}>{opt.icon}</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: sel ? "var(--accent)" : C.text, marginBottom: 2 }}>{opt.label}</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>{opt.sub}</div>
+                    </div>
+                    {sel && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5"><path d="m20 6-11 11-5-5"/></svg>}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>TRAINING DAYS</div>
+            <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
+              {[2, 3, 4, 5].map(n => (
+                <button key={n} onClick={() => handleDays(n)} style={{
+                  flex: 1, padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: "pointer",
+                  background: daysPerWeek === n ? "rgba(var(--accent-rgb),0.12)" : C.bgCard,
+                  border: daysPerWeek === n ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
+                  color: daysPerWeek === n ? "var(--accent)" : C.text,
+                }}>
+                  {n}x
+                </button>
+              ))}
+            </div>
+
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>SESSION LENGTH</div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[15, 30, 45, 60].map(m => (
+                <button key={m} onClick={() => handleMins(m)} style={{
+                  flex: 1, padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 13, cursor: "pointer",
+                  background: sessionMins === m ? "rgba(var(--accent-rgb),0.12)" : C.bgCard,
+                  border: sessionMins === m ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
+                  color: sessionMins === m ? "var(--accent)" : C.text,
+                }}>
+                  {m}m
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
 
       {subView === "coach" && (<>
         {/* ── Active intent header ─────────────────────────── */}
