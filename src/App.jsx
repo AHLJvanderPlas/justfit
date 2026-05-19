@@ -1683,7 +1683,7 @@ function splitTitle(name) {
   return [upper.slice(0, i), upper.slice(i + 1)];
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach }) {
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -2270,6 +2270,43 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           ))}
         </div>
       </Glass>
+
+      {/* ── Coach discovery card (after 3 sessions, no specialist coach) ── */}
+      {(() => {
+        const pref = prefs?.preferences ?? {};
+        const milA = !!(pref.military_coach?.active);
+        const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
+        const ccA  = !!(pref.cycling_coach?.active && !pref.cycling_coach?.completed);
+        const sessions = (history ?? []).length;
+        if (milA || rcA || ccA || sessions < 3) return null;
+        const dismissed = localStorage.getItem("jf_coach_discovery_dismissed");
+        if (dismissed) return null;
+        return (
+          <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ ...eyebrow, color: "var(--accent)", marginBottom: 6 }}>SPECIALIST COACHING</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.4, marginBottom: 4 }}>Want a structured training programme?</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Add Running, Cycling, or Military coaching as an add-on alongside your current goal.</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 10 }}>
+              <button
+                onClick={() => onNavigateCoach?.()}
+                style={{ flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 12, cursor: "pointer", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}
+              >
+                Explore coaches →
+              </button>
+              <button
+                onClick={() => localStorage.setItem("jf_coach_discovery_dismissed", "1")}
+                style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer", background: "transparent", border: `1px solid ${C.border}`, color: C.muted }}
+              >
+                Not for me
+              </button>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* ── Block C: Quick check-in link ─────────────── */}
       {!todayCompleted && onCheckIn && (
@@ -3820,6 +3857,7 @@ export default function App() {
                   token={token}
                   history={history}
                   onNavigateProgress={() => setView('history')}
+                  onNavigateCoach={() => setView("coach")}
                   cycle={prefs.cycle}
                 />
               </>
