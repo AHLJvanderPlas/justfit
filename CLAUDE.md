@@ -1010,7 +1010,7 @@ Calculated server-side from executions table:
 | Sign Out button in Settings | ✅ Live |
 | execution_steps D1 batch insert | ✅ Fixed — no more 500s |
 | EU liability waiver modal | ✅ Removed from startup — waiver text lives in the onboarding flow; no longer a separate gate |
-| Onboarding flow | ✅ Live — 2-scenario model: full onboarding on first use OR ≥90 days inactive (server-side last_activity_at_ms); daily check-in otherwise; "Re-do onboarding" button in Settings below BMI card; 6-step flow (waiver / name / goal / fitness / equipment+time / sports) |
+| Onboarding flow | ✅ Live — 2-scenario model: full onboarding on first use OR ≥90 days inactive (server-side last_activity_at_ms); daily check-in otherwise; "Re-do onboarding" button in Settings → You; 6-step flow (waiver / **goal** / about-you / fitness / equipment+time / sports); goal step is first (goals-first design): 5 vertical full-width cards (fat_loss/strength/health/mobility/pregnancy); pregnancy option sets training_goal=health + shows amber note to complete pregnancy setup in Settings |
 | Weekly plan view (7-day) | ✅ Live — Plan tab in nav, shows session strip + completed sessions |
 | Landing page (marketing) | ✅ Live — public/index.html, dark design, features, rules, privacy |
 | PWA manifest | ✅ Live — manifest.json, theme-color, apple-mobile-web-app tags |
