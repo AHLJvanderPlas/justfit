@@ -1,0 +1,27 @@
+@import "tailwindcss";
+
+@theme {
+  /* JustFit design tokens */
+  --color-bg: #020617;
+  --color-bg-card: rgba(255, 255, 255, 0.04);
+  --color-border: rgba(255, 255, 255, 0.08);
+  --color-emerald: #10b981;
+  --color-emerald-dim: rgba(16, 185, 129, 0.15);
+  --color-emerald-border: rgba(16, 185, 129, 0.3);
+  --color-text: #f8fafc;
+  --color-muted: #64748b;
+  --color-subtle: #334155;
+
+  /* Typography */
+  --font-display: "Barlow Condensed", sans-serif;
+  --font-body: "Inter Tight", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+}
+
+html, body {
+  background-color: #020617;
+  color: #f8fafc;
+  font-family: "Inter Tight", sans-serif;
+  min-height: 100dvh;
+  margin: 0;
+}

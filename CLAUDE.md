@@ -5,14 +5,14 @@ These rules apply to EVERY task in EVERY session, without exception.
 ## After every change
 - Run `npm run smoke` first — lint + build + live API checks; must pass before pushing
 - Then commit and push (source backup): `git add . && git commit -m "..." && git push`
-- Then deploy: `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- Then deploy: `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
 - **After deploy**: update the "Current Build Status" table in `CLAUDE.md` and `README.md` to reflect the change — never leave docs stale after a deployment
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
-- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
 - Wrangler must be logged in to `ahljvanderplas@gmail.com` (account: JustFit.cc, ID: ce96b957f7de20cc5d388eba856fa8dc)
 - Check with: `npx wrangler whoami` — if wrong account, run `npx wrangler logout` then `npx wrangler login`
 - D1 migrations: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
@@ -60,7 +60,7 @@ Keep all responses short. The user reads results, not reasoning.
 ## Design rules
 - Background: #020617, accent: #10b981 emerald, cards: rgba(255,255,255,0.04)
 - Border radius: 28px for cards, 14px for inputs, 16px for buttons
-- All styles inline — no Tailwind, no CSS modules, no external stylesheets
+- All styles inline — no Tailwind, no CSS modules, no external stylesheets (client-app). Trainer-app uses Tailwind v4 with @theme tokens.
 - Typography: Barlow Condensed (display), Inter Tight (body), JetBrains Mono (data). Loaded via Google Fonts. Use the `display()`, `eyebrow`, `mono()` helpers in `App.jsx` instead of writing inline font-family strings.
 - font-weight 900 for display headings, 700 for labels, 500 for body
 
@@ -150,9 +150,13 @@ Each new coach, programme, or mode must be evaluated against these four constrai
 
 ## Stack
 
+**This repo is a monorepo (npm workspaces).** The trainer portal is being rebuilt per `docs/JUSTFIT_TRAINER_PORTAL_REBUILD_PLAN.md`. Follow that document's phase order. The vanilla JS portal at the old domain remains live during rebuild; do not modify it unless explicitly asked.
+
 | Layer | Technology |
 |---|---|
-| Frontend | React + Vite; app shell/state orchestration in `src/App.jsx`; Settings and Awards split into lazy-loaded view modules (`src/SettingsView.jsx`, `src/AwardsView.jsx`); non-React modules in `src/` (`apiClient.js`, `messagePolicy.js`, `errorReporter.js`); no router library |
+| Frontend (client-app) | React + Vite; app shell/state orchestration in `packages/client-app/src/App.jsx`; Settings and Awards split into lazy-loaded view modules; non-React modules in `src/` (`apiClient.js`, `messagePolicy.js`, `errorReporter.js`); no router library |
+| Frontend (trainer-app) | React + Vite + TypeScript + Tailwind v4 in `packages/trainer-app/` — trainer portal rebuild (P1A+) |
+| Shared | `packages/shared/` — design tokens, types, auth helpers, rule engine (populated P1A+) |
 | Hosting | Cloudflare Pages (manual deploy via Wrangler; GitHub push is source backup only) |
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) bound as `DB` |
@@ -184,28 +188,42 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 ## Project Structure
 
 ```
-justfit/
-├── src/
-│   ├── App.jsx          ← app shell, view orchestration, primary workout/dashboard logic
-│   ├── WorkoutView.jsx  ← full-screen workout execution overlay (phase state machine, rep counting, rest timer)
-│   ├── PlanWeekView.jsx ← 7-day plan view with session strips and completed sessions (lazy-loaded)
-│   ├── HistoryView.jsx  ← Progress tab: trajectory chart, radar, awards entry, cycling PMC (lazy-loaded)
-│   ├── SettingsView.jsx ← Settings tab with 4 sub-views: You / Your Coach / Privacy / Account (lazy-loaded)
-│   ├── AwardsView.jsx   ← Hall of Fame component (lazy-loaded via React.lazy to reduce initial bundle)
-│   ├── MuscleMap.jsx    ← anatomical front+back SVG muscle map (male/female variants, lazy-loaded)
-│   ├── uiComponents.jsx ← shared Glass card, Badge, and other reusable UI primitives
-│   ├── icons.jsx        ← Icons (UI SVGs) + ExerciseIcon (movement line-art, 27 types)
-│   ├── ErrorBoundary.jsx ← React error boundary wrapper
-│   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
-│   ├── tokens.js        ← design token object C, display(), eyebrow, mono(), ACCENT_COLORS, applyAccent()
-│   ├── appConstants.js  ← RUN_TARGETS, EQUIPMENT_OPTIONS, ALL_SPORTS, GOALS, EXPERIENCE, SEX_OPTIONS
-│   ├── planUtils.js     ← client-side plan helpers (upcoming session preview, conflict detection)
-│   ├── exportUtils.js   ← file export generators: generateCyclingTcx(), generateZwoFile(), generateErgFile(), generateRunningTcx()
-│   ├── authHelpers.js   ← JWT decode helpers, guest detection, token storage
-│   ├── offlineCache.js  ← IndexedDB offline cache: cachePlan() write-through + getCachedPlan() fallback
-│   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
-│   ├── errorReporter.js ← fire-and-forget client error reporting (plan_generation, auth_failure); dedupes per session
-│   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), hasBlockingSafety(), deriveChipLabel()
+justfit/                             ← monorepo root (npm workspaces)
+├── packages/
+│   ├── client-app/                  ← JustFit PWA (app.justfit.cc)
+│   │   ├── src/
+│   │   │   ├── App.jsx          ← app shell, view orchestration, primary workout/dashboard logic
+│   │   │   ├── WorkoutView.jsx  ← full-screen workout execution overlay (phase state machine, rep counting, rest timer)
+│   │   │   ├── PlanWeekView.jsx ← 7-day plan view with session strips and completed sessions (lazy-loaded)
+│   │   │   ├── HistoryView.jsx  ← Progress tab: trajectory chart, radar, awards entry, cycling PMC (lazy-loaded)
+│   │   │   ├── SettingsView.jsx ← Settings tab with 4 sub-views: You / Your Coach / Privacy / Account (lazy-loaded)
+│   │   │   ├── AwardsView.jsx   ← Hall of Fame component (lazy-loaded via React.lazy to reduce initial bundle)
+│   │   │   ├── MuscleMap.jsx    ← anatomical front+back SVG muscle map (male/female variants, lazy-loaded)
+│   │   │   ├── uiComponents.jsx ← shared Glass card, Badge, and other reusable UI primitives
+│   │   │   ├── icons.jsx        ← Icons (UI SVGs) + ExerciseIcon (movement line-art, 27 types)
+│   │   │   ├── ErrorBoundary.jsx ← React error boundary wrapper
+│   │   │   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
+│   │   │   ├── tokens.js        ← design token object C, display(), eyebrow, mono(), ACCENT_COLORS, applyAccent()
+│   │   │   ├── appConstants.js  ← RUN_TARGETS, EQUIPMENT_OPTIONS, ALL_SPORTS, GOALS, EXPERIENCE, SEX_OPTIONS
+│   │   │   ├── planUtils.js     ← client-side plan helpers (upcoming session preview, conflict detection)
+│   │   │   ├── exportUtils.js   ← file export generators: generateCyclingTcx(), generateZwoFile(), generateErgFile(), generateRunningTcx()
+│   │   │   ├── authHelpers.js   ← JWT decode helpers, guest detection, token storage
+│   │   │   ├── offlineCache.js  ← IndexedDB offline cache: cachePlan() write-through + getCachedPlan() fallback
+│   │   │   ├── apiClient.js     ← all API calls (fetch wrappers, error code attachment)
+│   │   │   ├── errorReporter.js ← fire-and-forget client error reporting (plan_generation, auth_failure); dedupes per session
+│   │   │   └── messagePolicy.js ← message severity policy: RULE_POLICY, RULE_LABELS, parseRuleTrace(), hasBlockingSafety(), deriveChipLabel()
+│   │   ├── public/              ← static assets (login.html, magic.html, manifests, etc.)
+│   │   ├── index.html           ← Vite entry point
+│   │   ├── vite.config.js
+│   │   └── package.json
+│   ├── trainer-app/             ← Trainer Portal React app (trainer.justfit.cc) — P1A+ rebuild
+│   │   ├── src/                 ← React + TypeScript + Tailwind v4
+│   │   ├── index.html
+│   │   ├── vite.config.ts
+│   │   └── package.json
+│   └── shared/                  ← Shared: design tokens, types, auth helpers, rule engine (P1A+)
+│       ├── src/index.ts
+│       └── package.json
 ├── functions/
 │   └── api/
 │       ├── accept-terms.js ← POST records explicit versioned legal acceptance
@@ -1178,7 +1196,7 @@ Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 
 - **DB IDs**: always `crypto.randomUUID()`
 - **Error responses**: always `Response.json({ error: "Internal error" }, { status: 500 })` with `console.error(e)` server-side
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
-- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main`
+- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
 - **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
 - **Refs vs state for tracking**: mutable data that doesn't need to trigger re-renders (e.g. `stepsActualRef`, `restStartedAtRef`) goes in `useRef`. UI state goes in `useState`.
 - **Functional setState for counters**: use `setCurrentSet(s => s + 1)` not `setCurrentSet(currentSet + 1)` inside effects/callbacks to avoid stale closure issues.
@@ -1220,7 +1238,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 # Deploy (smoke → push → wrangler)
 npm run smoke
 git add . && git commit -m "feat: ..." && git push
-npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
+npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main
 
 # Check recent executions
 npx wrangler d1 execute justfit-db --remote --command "SELECT id, user_id, date, perceived_exertion, total_duration_sec FROM executions ORDER BY created_at_ms DESC LIMIT 10;"
