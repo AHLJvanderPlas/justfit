@@ -352,6 +352,40 @@ const api = {
     });
     return res.json();
   },
+
+  // Trainer invite (Sub-flow A + B)
+  async lookupTrainerInvite(inviteToken) {
+    const res = await fetch(`/api/trainer-invite?t=${encodeURIComponent(inviteToken)}`, {
+      headers: this._auth(),
+    });
+    return res.json();
+  },
+
+  async acceptTrainerInvite(token, inviteToken, action = 'accept') {
+    const res = await fetch('/api/trainer-invite/accept', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ token: inviteToken, action }),
+    });
+    return res.json();
+  },
+
+  // Connect to trainer via QR/code (Sub-flow C)
+  async lookupConnect(trainerToken) {
+    const res = await fetch(`/api/connect?t=${encodeURIComponent(trainerToken)}`, {
+      headers: this._auth(),
+    });
+    return res.json();
+  },
+
+  async connectToTrainer(token, trainerToken) {
+    const res = await fetch('/api/connect', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ trainer_token: trainerToken }),
+    });
+    return res.json();
+  },
 };
 
 export default api;

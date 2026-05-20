@@ -7,6 +7,25 @@ let passkeyAvailable = false;
 const CURRENT_TERMS_VERSION   = '1.1';
 const CURRENT_PRIVACY_VERSION = '1.0';
 
+// ─── POST-AUTH REDIRECT ──────────────────────────────────────────────────
+// After successful login/signup, redirect to pending trainer invite if present, else home.
+function redirectAfterAuth() {
+  const pending = sessionStorage.getItem('jf_pending_invite');
+  if (pending) {
+    sessionStorage.removeItem('jf_pending_invite');
+    window.location.href = '/trainer-invite?t=' + encodeURIComponent(pending);
+  } else {
+    window.location.href = '/';
+  }
+}
+
+// Check for ?invite= on login page URL (new-user invite flow)
+(function() {
+  const p = new URLSearchParams(window.location.search);
+  const inv = p.get('invite');
+  if (inv) sessionStorage.setItem('jf_pending_invite', inv);
+})();
+
 // ─── BASE64URL HELPERS ───────────────────────────────────────────────────
 const b64url = buf =>
   btoa(String.fromCharCode(...new Uint8Array(buf)))
@@ -122,7 +141,7 @@ async function handleSubmit() {
 
     localStorage.setItem('jf_token',   data.token);
     localStorage.setItem('jf_user_id', data.userId);
-    window.location.href = '/';
+    redirectAfterAuth();
   } catch {
     showAlert('main-alert', 'Network error. Please try again.');
     btn.disabled = false;
@@ -227,7 +246,7 @@ async function handlePasskeyLogin() {
 
     localStorage.setItem('jf_token',   completeRes.token);
     localStorage.setItem('jf_user_id', completeRes.userId);
-    window.location.href = '/';
+    redirectAfterAuth();
   } catch (e) {
     if (e.name === 'NotAllowedError') {
       showAlert('main-alert', 'Passkey sign-in was cancelled or no passkey found. Use password or magic link instead.');
@@ -260,7 +279,7 @@ async function handleGuestSignup() {
     }
     localStorage.setItem('jf_token',   data.token);
     localStorage.setItem('jf_user_id', data.userId);
-    window.location.href = '/';
+    redirectAfterAuth();
   } catch {
     showAlert('main-alert', 'Network error. Please try again.');
     btn.disabled = false;
@@ -283,7 +302,7 @@ async function verifyMagicLink(token) {
     localStorage.setItem('jf_user_id', data.userId);
     document.getElementById('magic-title').textContent = 'Signed in!';
     document.getElementById('magic-sub').textContent   = 'Redirecting…';
-    setTimeout(() => { window.location.href = '/'; }, 600);
+    setTimeout(redirectAfterAuth, 600);
   } catch (e) {
     document.getElementById('magic-title').textContent = 'Link expired';
     document.getElementById('magic-sub').innerHTML =
@@ -294,7 +313,7 @@ async function verifyMagicLink(token) {
 // ─── INIT ─────────────────────────────────────────────────────────────────
 (async () => {
   // Already logged in?
-  if (localStorage.getItem('jf_token')) { window.location.href = '/'; return; }
+  if (localStorage.getItem('jf_token')) { redirectAfterAuth(); return; }
 
   // Magic link in URL?
   const params = new URLSearchParams(window.location.search);

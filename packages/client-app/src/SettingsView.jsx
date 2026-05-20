@@ -3648,6 +3648,13 @@ function TrainersSubView({ token }) {
   const [levelChanging, setLevelChanging] = useState(null);
   const [error, setError] = useState('');
 
+  // Connect to trainer flow (Sub-flow C)
+  const [connectStep, setConnectStep] = useState(0); // 0=hidden 1=code-entry 2=confirm 3=done
+  const [connectCode, setConnectCode] = useState('');
+  const [connectGymInfo, setConnectGymInfo] = useState(null);
+  const [connectLoading, setConnectLoading] = useState(false);
+  const [connectError, setConnectError] = useState('');
+
   useEffect(() => {
     if (!token) return;
     Promise.all([api.getDisclosures(token), api.getIntake(token)])
@@ -3746,7 +3753,7 @@ function TrainersSubView({ token }) {
         <Glass style={{ padding: 24, textAlign: 'center' }}>
           <p style={{ fontSize: 32, marginBottom: 8 }}>👥</p>
           <p style={{ fontSize: 14, color: C.muted }}>No trainers connected yet.</p>
-          <p style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Your trainer will send you an invite link.</p>
+          <p style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Your trainer will send you an invite link, or connect via a short code below.</p>
         </Glass>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 24 }}>
@@ -3787,6 +3794,91 @@ function TrainersSubView({ token }) {
               </p>
             </Glass>
           ))}
+        </div>
+      )}
+
+      {/* Connect to trainer (Sub-flow C) */}
+      {connectStep === 0 && (
+        <button onClick={() => { setConnectStep(1); setConnectError(''); setConnectCode(''); setConnectGymInfo(null); }}
+          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 20, width: '100%' }}>
+          <span style={{ fontSize: 16 }}>+</span> Connect to a trainer
+        </button>
+      )}
+      {connectStep === 1 && (
+        <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}` }}>
+          <p style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 12 }}>ENTER TRAINER CODE</p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+            Ask your trainer for their code (format: FIT-XXXXXX) or paste a full invite link.
+          </p>
+          <input
+            value={connectCode}
+            onChange={e => { setConnectCode(e.target.value.trim()); setConnectError(''); }}
+            placeholder="FIT-XXXXXX"
+            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? '#f87171' : C.border}`, background: 'rgba(255,255,255,0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
+          />
+          {connectError && <p style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{connectError}</p>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              disabled={connectLoading || !connectCode}
+              onClick={async () => {
+                setConnectLoading(true); setConnectError('');
+                try {
+                  const res = await api.lookupConnect(connectCode);
+                  if (res.error) { setConnectError('Code not found — check with your trainer.'); }
+                  else { setConnectGymInfo(res); setConnectStep(2); }
+                } catch { setConnectError('Could not reach server — try again.'); }
+                finally { setConnectLoading(false); }
+              }}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 13, cursor: (connectLoading || !connectCode) ? 'not-allowed' : 'pointer', opacity: (connectLoading || !connectCode) ? 0.5 : 1 }}>
+              {connectLoading ? '…' : 'Look up →'}
+            </button>
+            <button onClick={() => setConnectStep(0)}
+              style={{ padding: '12px 16px', borderRadius: 12, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      {connectStep === 2 && connectGymInfo && (
+        <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(16,185,129,0.05)', border: `1px solid ${C.emeraldBorder}` }}>
+          <p style={{ ...eyebrow, fontSize: 9.5, color: C.emerald, marginBottom: 12 }}>CONFIRM CONNECTION</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{connectGymInfo.trainer_name}</p>
+          <p style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 16 }}>{connectGymInfo.gym_name}</p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
+            Your trainer will need to approve this request before they can view your data.
+          </p>
+          {connectError && <p style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{connectError}</p>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              disabled={connectLoading}
+              onClick={async () => {
+                setConnectLoading(true); setConnectError('');
+                try {
+                  const res = await api.connectToTrainer(token, connectCode);
+                  if (res.ok || res.error === 'already_connected') setConnectStep(3);
+                  else setConnectError(res.error ?? 'Request failed');
+                } catch { setConnectError('Could not reach server — try again.'); }
+                finally { setConnectLoading(false); }
+              }}
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 13, cursor: connectLoading ? 'not-allowed' : 'pointer', opacity: connectLoading ? 0.5 : 1 }}>
+              {connectLoading ? '…' : 'Send request'}
+            </button>
+            <button onClick={() => { setConnectStep(1); setConnectGymInfo(null); }}
+              style={{ padding: '12px 16px', borderRadius: 12, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+              Back
+            </button>
+          </div>
+        </div>
+      )}
+      {connectStep === 3 && (
+        <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(16,185,129,0.05)', border: `1px solid ${C.emeraldBorder}`, textAlign: 'center' }}>
+          <p style={{ fontSize: 24, marginBottom: 8 }}>✓</p>
+          <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>Request sent!</p>
+          <p style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>Your trainer will approve the connection shortly.</p>
+          <button onClick={() => { setConnectStep(0); setConnectCode(''); setConnectGymInfo(null); }}
+            style={{ padding: '10px 20px', borderRadius: 12, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer' }}>
+            Done
+          </button>
         </div>
       )}
 
