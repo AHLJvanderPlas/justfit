@@ -1,6 +1,6 @@
 // POST /api/client/assignments/:id/sessions/:sessionId/complete — complete an assigned session (P1E)
-import { getUser } from '../../../../../../_shared/auth.js';
-import { writeAudit, ACTIONS } from '../../../../../../../lib/audit.js';
+import { getUser } from '../../../../../_shared/auth.js';
+import { writeAudit, ACTIONS } from '../../../../../../lib/audit.js';
 
 export async function onRequest(context) {
   const { request, env, params } = context;
