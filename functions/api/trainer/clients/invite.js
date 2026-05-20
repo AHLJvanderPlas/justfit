@@ -1,5 +1,5 @@
 // POST /api/trainer/clients/invite — trainer sends an email invite to a client
-import { requireGymContext } from '../../../../lib/middleware.js';
+import { requireGymContext } from '../../../lib/middleware.js';
 
 function inviteEmailHtml(gymName, trainerName, acceptUrl) {
   return `<!DOCTYPE html>
