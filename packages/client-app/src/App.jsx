@@ -1143,51 +1143,6 @@ const ACTIVITY_TYPES = [
 ];
 const ACTIVITY_DURATIONS = [15, 20, 30, 45, 60, 90];
 
-function LogActivityModal({ onSave, onClose }) {
-  const [type, setType] = useState(null);
-  const [duration, setDuration] = useState(null);
-
-  const pill = (active) => ({
-    padding: "9px 18px",
-    borderRadius: 999,
-    fontSize: 13,
-    fontWeight: 800,
-    cursor: "pointer",
-    border: active ? `1px solid ${C.emerald}` : `1px solid ${C.border}`,
-    background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
-    color: active ? C.emerald : C.muted,
-  });
-
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 520, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", padding: "32px 24px 40px" }}>
-        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 24 }}>Log Activity</div>
-
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 12 }}>Type</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-          {ACTIVITY_TYPES.map((t) => (
-            <button key={t.label} onClick={() => setType(t)} style={pill(type?.label === t.label)}>{t.label}</button>
-          ))}
-        </div>
-
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginBottom: 12 }}>Duration</div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 32 }}>
-          {ACTIVITY_DURATIONS.map((d) => (
-            <button key={d} onClick={() => setDuration(d)} style={pill(duration === d)}>{d}m</button>
-          ))}
-        </div>
-
-        <button
-          disabled={!type || !duration}
-          onClick={() => onSave(type.value, duration)}
-          style={{ width: "100%", padding: 16, borderRadius: 16, fontSize: 15, fontWeight: 900, background: (!type || !duration) ? C.subtle : C.emerald, border: "none", color: (!type || !duration) ? C.muted : "#fff", cursor: (!type || !duration) ? "not-allowed" : "pointer", boxShadow: (!type || !duration) ? "none" : "0 8px 30px rgba(var(--accent-rgb),0.3)" }}
-        >
-          Save Activity
-        </button>
-      </div>
-    </div>
-  );
-}
 
 // ─── WHY NOT MODAL ────────────────────────────────────────────────────────────
 const WHY_NOT_OPTIONS = [
@@ -1228,6 +1183,16 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const scoreBump = score > prevScore;
   const beforeNight = new Date().getHours() < 23;
+  const [logOpen, setLogOpen] = useState(false);
+  const [logType, setLogType] = useState(null);
+  const [logDuration, setLogDuration] = useState(null);
+
+  const chipStyle = (active) => ({
+    padding: "8px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer",
+    border: active ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`,
+    background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+    color: active ? C.emerald : C.muted,
+  });
 
   return (
     <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
@@ -1257,9 +1222,41 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
 
       <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
 
-      <button onClick={onLogActivity} style={{ width: "100%", padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, marginBottom: !bonusDone && beforeNight ? 12 : 0 }}>
-        + Log activity
-      </button>
+      {/* Inline log activity */}
+      {!logOpen ? (
+        <button onClick={() => setLogOpen(true)} style={{ width: "100%", padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, marginBottom: (!bonusDone && beforeNight) ? 12 : 0 }}>
+          + Log activity
+        </button>
+      ) : (
+        <div style={{ marginBottom: (!bonusDone && beforeNight) ? 12 : 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Activity type</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
+            {ACTIVITY_TYPES.map(t => (
+              <button key={t.label} onClick={() => setLogType(t)} style={chipStyle(logType?.label === t.label)}>{t.label}</button>
+            ))}
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Duration</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
+            {ACTIVITY_DURATIONS.map(d => (
+              <button key={d} onClick={() => setLogDuration(d)} style={chipStyle(logDuration === d)}>{d}m</button>
+            ))}
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              disabled={!logType || !logDuration}
+              onClick={() => { onLogActivity(logType.value, logDuration); setLogOpen(false); setLogType(null); setLogDuration(null); }}
+              style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(255,255,255,0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
+            >
+              Log it →
+            </button>
+            <button onClick={() => { setLogOpen(false); setLogType(null); setLogDuration(null); }} style={{ padding: "12px 16px", borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.muted }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Inline bonus session */}
       {!bonusDone && beforeNight && (
         <div>
           <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Bonus session — how many minutes?</div>
@@ -1276,23 +1273,6 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   );
 }
 
-// ─── BONUS MINUTE PICKER ──────────────────────────────────────────────────────
-function BonusMinutePicker({ onSelect, onClose }) {
-  const opts = [10, 15, 20, 30];
-  return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 360, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, marginBottom: 8, letterSpacing: "-0.02em" }}>Bonus Session</div>
-        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>How many extra minutes do you have?</p>
-        <div style={{ display: "flex", gap: 10, marginBottom: 8 }}>
-          {opts.map(m => (
-            <button key={m} onClick={() => onSelect(m)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontSize: 15, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>{m}</button>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ─── PREGNANCY PROGRESS BANNER ───────────────────────────────────────────────
 const PREGNANCY_MILESTONES = [
@@ -3103,7 +3083,6 @@ export default function App() {
   const [bonusDone, setBonusDone] = useState(
     () => localStorage.getItem(`jf_bonus_${today}`) === "1"
   );
-  const [showLogActivity, setShowLogActivity] = useState(false);
   const [activityToast, setActivityToast] = useState("");
   const [showWhyNot, setShowWhyNot] = useState(false);
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
@@ -3673,7 +3652,6 @@ export default function App() {
 
   const handleLogActivity = useCallback(
     async (executionType, durationMin) => {
-      setShowLogActivity(false);
       try {
         await api.saveActivity(userId, today, executionType, durationMin * 60);
         const [newScore, newHistory] = await Promise.all([
@@ -3870,7 +3848,7 @@ export default function App() {
                   todayCompleted={todayCompleted}
                   completedSession={completedSession}
                   bonusDone={bonusDone}
-                  onLogActivity={() => setShowLogActivity(true)}
+                  onLogActivity={handleLogActivity}
                   onBonusSession={handleBonusSelect}
                   onWhyNot={() => setShowWhyNot(true)}
                   onCheckIn={() => setShowCheckIn(true)}
@@ -4120,12 +4098,6 @@ export default function App() {
         </div>
       )}
 
-      {showLogActivity && (
-        <LogActivityModal
-          onSave={handleLogActivity}
-          onClose={() => setShowLogActivity(false)}
-        />
-      )}
 
 
 
