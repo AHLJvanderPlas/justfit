@@ -715,13 +715,15 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           })();
 
           // General cues = non-level-specific cues shown in "Why this helps".
-          // Single-level cues (Pattern B) are filtered out; multi-level combined cues (Pattern A) kept for all.
+          // Single-level cues (Pattern B) are filtered out; multi-level combined cues (Pattern A) level-filtered.
+          // 💡 = basic tip shown to all levels. 💡💡 = advanced technique tip, hidden for beginners.
           const cleanCues = cues
             .filter(c => !isSingleLevel(c))
             .map(c => {
               const emojiCount = (c.match(/^(💡\s*)+/)?.[0]?.match(/💡/g) ?? []).length;
               return { text: stripEmoji(c), level: emojiCount >= 2 ? 2 : 1 };
-            });
+            })
+            .filter(cue => cue.level < 2 || expLevel !== 'beginner');
 
           // Prefer DB-seeded why (migration 0055); derive from category when absent or when cues exist
           const derivedWhy = (() => {
