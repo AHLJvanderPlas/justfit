@@ -296,7 +296,28 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
       mobility:    "Regularity beats intensity. 3 sessions per week is your foundation.",
     };
     const insight = insightMap[goal] ?? "Consistency is your most powerful tool.";
-    return { done, target, trend, exertionLabel, verdict, verdictLabel, verdictColor, insight };
+
+    // Mini 5-bar sparkline: 4 prior weeks + this week
+    const sparkWeeks = [];
+    for (let i = 4; i >= 0; i--) {
+      const d = new Date(nowMs); d.setDate(d.getDate() - i * 7);
+      const wk = getIsoWeek(d.toISOString().slice(0, 10));
+      if (!sparkWeeks.includes(wk)) sparkWeeks.push(wk);
+    }
+    const allWeekCounts = {};
+    history.filter(h => h.status === "completed").forEach(h => { const wk = getIsoWeek(h.date); allWeekCounts[wk] = (allWeekCounts[wk] || 0) + 1; });
+    const sparkCounts = sparkWeeks.map(wk => allWeekCounts[wk] ?? 0);
+
+    // Total minutes trained this week
+    const totalMins = Math.round(thisWeek.reduce((s, h) => s + (h.total_duration_sec ?? 0), 0) / 60);
+
+    // Session type chips
+    const typeLabels = { workout: 'Strength', run_coach: 'Run', cycling_coach: 'Ride', cycling_cross_run: 'X-train', bonus: 'Bonus' };
+    const typeCounts = {};
+    thisWeek.forEach(h => { const lbl = typeLabels[h.execution_type] ?? 'Session'; typeCounts[lbl] = (typeCounts[lbl] || 0) + 1; });
+    const typeChips = Object.entries(typeCounts).map(([label, count]) => ({ label, count }));
+
+    return { done, target, trend, exertionLabel, verdict, verdictLabel, verdictColor, insight, totalMins, sparkCounts, typeChips };
   })();
 
   const streak = computeStreak(history);
@@ -331,26 +352,59 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
             {weeklyOutcome.verdictLabel}
           </span>
         </div>
-        {/* Session dots + count */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+        {/* Hero metrics row */}
+        <div style={{ display: "flex", alignItems: "flex-end", gap: 20, marginBottom: 14 }}>
+          <div>
+            <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
+              <span style={{ ...display(34), color: "var(--accent)" }}>{weeklyOutcome.done}</span>
+              <span style={{ ...display(20), color: C.faint }}>/{weeklyOutcome.target}</span>
+            </div>
+            <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>SESSIONS</div>
+          </div>
+          {weeklyOutcome.totalMins > 0 && (
+            <div>
+              <div style={{ ...display(34), color: C.text }}>
+                {weeklyOutcome.totalMins >= 60
+                  ? `${Math.floor(weeklyOutcome.totalMins / 60)}h${weeklyOutcome.totalMins % 60 > 0 ? `${weeklyOutcome.totalMins % 60}m` : ""}`
+                  : `${weeklyOutcome.totalMins}m`}
+              </div>
+              <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>TRAINED</div>
+            </div>
+          )}
+          {/* Mini sparkline — 5 bars, rightmost = this week */}
+          <div style={{ marginLeft: "auto", display: "flex", alignItems: "flex-end", gap: 3, height: 32 }}>
+            {weeklyOutcome.sparkCounts.map((count, i) => {
+              const maxSpark = Math.max(...weeklyOutcome.sparkCounts, 1);
+              const isCurrent = i === weeklyOutcome.sparkCounts.length - 1;
+              const h = count > 0 ? Math.max(4, Math.round((count / maxSpark) * 28)) : 3;
+              return (
+                <div key={i} style={{ width: 8, height: h, borderRadius: 2, background: isCurrent ? "var(--accent)" : "rgba(255,255,255,0.14)", alignSelf: "flex-end" }} />
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Session dots + trend */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: 5 }}>
             {Array.from({ length: weeklyOutcome.target }).map((_, i) => (
-              <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weeklyOutcome.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weeklyOutcome.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
+              <div key={i} style={{ width: 9, height: 9, borderRadius: "50%", background: i < weeklyOutcome.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weeklyOutcome.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
             ))}
           </div>
-          <span style={{ ...mono(12), color: C.text }}>
-            {weeklyOutcome.done} / {weeklyOutcome.target} sessions
-          </span>
           {weeklyOutcome.trend !== 0 && (
             <span style={{ ...mono(11), color: weeklyOutcome.trend > 0 ? C.emerald : C.muted }}>
-              {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${weeklyOutcome.trend}`} vs last week
+              {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${Math.abs(weeklyOutcome.trend)}`} vs last week
             </span>
           )}
           {weeklyOutcome.exertionLabel && (
-            <span style={{ fontSize: 10, fontWeight: 700, color: C.muted, marginLeft: "auto" }}>
-              {weeklyOutcome.exertionLabel}
-            </span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{weeklyOutcome.exertionLabel}</span>
           )}
+          {/* Session type chips */}
+          {weeklyOutcome.typeChips.length > 1 && weeklyOutcome.typeChips.map(chip => (
+            <span key={chip.label} style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 999, background: C.bgCard2, color: C.faint, border: `1px solid ${C.border}` }}>
+              {chip.count > 1 ? `${chip.count}× ` : ""}{chip.label}
+            </span>
+          ))}
         </div>
         {/* Goal insight */}
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>

@@ -74,8 +74,8 @@ fi
 # Confirm LEGAL_VERSIONS in login.js matches the server-side source of truth
 TERMS_SERVER=$(grep "CURRENT_TERMS_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")
 PRIVACY_SERVER=$(grep "CURRENT_PRIVACY_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")
-TERMS_CLIENT=$(grep "CURRENT_TERMS_VERSION" public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
-PRIVACY_CLIENT=$(grep "CURRENT_PRIVACY_VERSION" public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+TERMS_CLIENT=$(grep "CURRENT_TERMS_VERSION" packages/client-app/public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
+PRIVACY_CLIENT=$(grep "CURRENT_PRIVACY_VERSION" packages/client-app/public/login.js | grep -o "'[^']*'" | head -1 | tr -d "'")
 if [ "$TERMS_SERVER" = "$TERMS_CLIENT" ] && [ "$PRIVACY_SERVER" = "$PRIVACY_CLIENT" ]; then
   ok "LEGAL_VERSIONS in sync: login.js matches legalVersions.js (terms=${TERMS_SERVER}, privacy=${PRIVACY_SERVER})"
 else
@@ -83,14 +83,14 @@ else
 fi
 
 # Confirm App.jsx uses LEGAL_VERSIONS constant instead of bare string literals
-if grep -q "LEGAL_VERSIONS" src/App.jsx; then
+if grep -q "LEGAL_VERSIONS" packages/client-app/src/App.jsx; then
   ok "App.jsx uses LEGAL_VERSIONS constant"
 else
   fail "App.jsx has hardcoded version strings in acceptTerms call"
 fi
 
 # Confirm App.jsx terms gate is fail-closed (no silent catch that dismisses gate)
-if grep -q "setTermsAcceptError" src/App.jsx; then
+if grep -q "setTermsAcceptError" packages/client-app/src/App.jsx; then
   ok "App.jsx terms gate is fail-closed"
 else
   fail "App.jsx terms gate catch block may dismiss gate on error"
@@ -98,7 +98,7 @@ fi
 
 # Detect self-referential C token definitions (amber: C.amber inside the C object literal)
 # This causes a fatal TypeError on every page load (TDZ: C is undefined while being initialized)
-for f in src/App.jsx src/SettingsView.jsx; do
+for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.jsx; do
   if grep -qE "^\s+(amber|rose|amberDim|roseDim|amberBorder|roseBorder):\s+C\." "$f"; then
     fail "$f has self-referential C token definition (e.g. amber: C.amber) — use literal values"
   else

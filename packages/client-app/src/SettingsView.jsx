@@ -3637,14 +3637,13 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
 const LEVEL_LABELS = { L0: 'None', L1: 'Basic', L2: 'Standard', L3: 'Full (billable)', L4: 'Complete' };
 const LEVEL_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4'];
 
-function TrainersSubView({ token, C, display, Glass }) {
+function TrainersSubView({ token }) {
   const [disclosures, setDisclosures] = useState([]);
   const [intake, setIntake] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showIntake, setShowIntake] = useState(false);
   const [intakeForm, setIntakeForm] = useState({ goals: [], experience_level: 'beginner', injuries: [], equipment_access: [], availability_days_per_week: 3 });
   const [savingIntake, setSavingIntake] = useState(false);
-  const [respondingTo, setRespondingTo] = useState(null); // { gymId, requestId, requestedLevel }
   const [responding, setResponding] = useState(false);
   const [levelChanging, setLevelChanging] = useState(null);
   const [error, setError] = useState('');
@@ -3689,7 +3688,6 @@ function TrainersSubView({ token, C, display, Glass }) {
         ? { ...d, upgrade_request: null, level: response === 'accept' ? (d.upgrade_request?.target_level ?? d.level) : d.level }
         : d
       ));
-      setRespondingTo(null);
     } catch (e) {
       setError(e.message ?? 'Failed');
     } finally { setResponding(false); }
