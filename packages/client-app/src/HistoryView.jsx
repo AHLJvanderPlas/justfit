@@ -3,6 +3,7 @@ import { C, display, eyebrow, mono } from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
+import { t, useLang } from "./i18n.js";
 
 // ─── TRAJECTORY HELPERS ────────────────────────────────────────────────────────
 function getIsoWeek(dateStr) {
@@ -45,10 +46,10 @@ function trajectorySentence(history) {
   const counts = weekKeys.map(wk => weekCounts[wk] ?? 0);
   const avg = counts.reduce((s, c) => s + c, 0) / Math.max(1, counts.length);
   const last = counts[counts.length - 1] ?? 0;
-  if (avg >= 4 && last >= avg) return "You're moving forward — three of the last four weeks were ≥4 sessions.";
-  if (last < avg * 0.5 && avg > 0) return "Slower week than usual. Worth a check-in?";
-  if (avg < 2) return "We're rebuilding. Aim for one extra session this week.";
-  return "Steady. Keep showing up.";
+  if (avg >= 4 && last >= avg) return t("You're moving forward \u2014 three of the last four weeks were \u22654 sessions.");
+  if (last < avg * 0.5 && avg > 0) return t("Slower week than usual. Worth a check-in?");
+  if (avg < 2) return t("We're rebuilding. Aim for one extra session this week.");
+  return t("Steady. Keep showing up.");
 }
 
 function TrajectoryChart({ history, accentHex }) {
@@ -206,6 +207,7 @@ const GOAL_LABELS_MAP = {
 };
 
 export default function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, history = [], setView }) {
+  useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
@@ -258,10 +260,10 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
     return (
       <div>
         <div style={{ marginBottom: 36 }}>
-          <h1 style={{ ...display(36), color: C.text }}>PROGRESS</h1>
+          <h1 style={{ ...display(36), color: C.text }}>{t("PROGRESS")}</h1>
         </div>
         <Glass style={{ padding: 48, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Loading your progression…</div>
+          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>{t("Loading your progression\u2026")}</div>
         </Glass>
       </div>
     );
@@ -327,11 +329,11 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
     <div>
       {/* ── Trajectory hero ── */}
       <div style={{ marginBottom: 32 }}>
-        <h1 style={{ ...display(36), color: C.text, margin: "0 0 20px 0" }}>PROGRESS</h1>
+        <h1 style={{ ...display(36), color: C.text, margin: "0 0 20px 0" }}>{t("PROGRESS")}</h1>
         <Glass style={{ padding: 20, marginBottom: 20 }}>
           {completedCount === 0 ? (
             <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: C.muted, fontStyle: "italic" }}>
-              Start your first session to begin the chart.
+              {t("Start your first session to begin the chart.")}
             </div>
           ) : (
             <TrajectoryChart history={history} accentHex={accentHex} />
@@ -339,7 +341,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
         </Glass>
         <div style={{ marginBottom: 8 }}>
           <span style={{ ...display(28), color: C.text }}>STREAK · </span>
-          <span style={{ ...display(28), color: "var(--accent)" }}>{streak} {streak === 1 ? "DAY" : "DAYS"}</span>
+          <span style={{ ...display(28), color: "var(--accent)" }}>{streak} {streak === 1 ? t("DAY") : t("DAYS")}</span>
         </div>
         <div style={{ fontSize: 16, color: C.muted, lineHeight: 1.5 }}>{trajectorySentence(history)}</div>
       </div>
@@ -347,9 +349,9 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
       {/* ── Weekly outcome card ── */}
       <Glass style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>THIS WEEK</div>
+          <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("THIS WEEK")}</div>
           <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: weeklyOutcome.verdictColor, background: `${weeklyOutcome.verdictColor}18`, border: `1px solid ${weeklyOutcome.verdictColor}40`, padding: "3px 10px", borderRadius: 999 }}>
-            {weeklyOutcome.verdictLabel}
+            {t(weeklyOutcome.verdictLabel)}
           </span>
         </div>
         {/* Hero metrics row */}
@@ -359,7 +361,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               <span style={{ ...display(34), color: "var(--accent)" }}>{weeklyOutcome.done}</span>
               <span style={{ ...display(20), color: C.faint }}>/{weeklyOutcome.target}</span>
             </div>
-            <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>SESSIONS</div>
+            <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>{t("SESSIONS")}</div>
           </div>
           {weeklyOutcome.totalMins > 0 && (
             <div>
@@ -368,7 +370,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
                   ? `${Math.floor(weeklyOutcome.totalMins / 60)}h${weeklyOutcome.totalMins % 60 > 0 ? `${weeklyOutcome.totalMins % 60}m` : ""}`
                   : `${weeklyOutcome.totalMins}m`}
               </div>
-              <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>TRAINED</div>
+              <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>{t("TRAINED")}</div>
             </div>
           )}
           {/* Mini sparkline — 5 bars, rightmost = this week */}
@@ -393,23 +395,23 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
           </div>
           {weeklyOutcome.trend !== 0 && (
             <span style={{ ...mono(11), color: weeklyOutcome.trend > 0 ? C.emerald : C.muted }}>
-              {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${Math.abs(weeklyOutcome.trend)}`} vs last week
+              {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${Math.abs(weeklyOutcome.trend)}`} {t("vs last week")}
             </span>
           )}
           {weeklyOutcome.exertionLabel && (
-            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{weeklyOutcome.exertionLabel}</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>{t(weeklyOutcome.exertionLabel)}</span>
           )}
           {/* Session type chips */}
           {weeklyOutcome.typeChips.length > 1 && weeklyOutcome.typeChips.map(chip => (
             <span key={chip.label} style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 999, background: C.bgCard2, color: C.faint, border: `1px solid ${C.border}` }}>
-              {chip.count > 1 ? `${chip.count}× ` : ""}{chip.label}
+              {chip.count > 1 ? `${chip.count}× ` : ""}{t(chip.label)}
             </span>
           ))}
         </div>
         {/* Goal insight */}
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
           <span style={{ fontWeight: 700, color: C.text }}>Goal: {goal.replace(/_/g, " ")} — </span>
-          {weeklyOutcome.insight}
+          {t(weeklyOutcome.insight)}
         </div>
         {/* Goal-fit progress row — shown when progression data available */}
         {progression?.goal_fit != null && (
@@ -442,8 +444,8 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
       {!progression ? (
         <Glass style={{ padding: 48, textAlign: "center" }}>
           <div style={{ marginBottom: 10 }}><Icons.lift size={22} c={C.muted} /></div>
-          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>No progression data yet</div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>Complete your first workout and your training profile will appear here.</div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>{t("No progression data yet")}</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{t("Complete your first workout and your training profile will appear here.")}</div>
         </Glass>
       ) : (
         <>
@@ -515,7 +517,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               {/* ── Radar chart ── */}
               <Glass style={{ padding: 20, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
                 <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16, alignSelf: "flex-start" }}>
-                  TRAINING BALANCE
+                  {t("TRAINING BALANCE")}
                 </div>
                 <RadarChart
                   scores={displayScores}
@@ -526,12 +528,12 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
                 <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 12, height: 3, borderRadius: 2, background: accentHex }} />
-                    <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>Current</span>
+                    <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{t("Current")}</span>
                   </div>
                   {showCompare && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 12, height: 2, borderRadius: 1, background: `${accentHex}55`, borderTop: "1px dashed", borderColor: `${accentHex}55` }} />
-                      <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{sportMode === "military" ? "Military target" : "Goal target"}</span>
+                      <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{sportMode === "military" ? t("Military target") : t("Goal target")}</span>
                     </div>
                   )}
                 </div>
@@ -558,7 +560,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
             </div>
             <div>
               <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>
-                {sportMode === "running" || sportMode === "cycling" ? "Program Fit" : sportMode === "military" ? "Military Fit" : "Goal Fit"}
+                {sportMode === "running" || sportMode === "cycling" ? t("Program Fit") : sportMode === "military" ? t("Military Fit") : t("Goal Fit")}
               </div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
                 {sportMode === "running"
@@ -577,7 +579,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
           {/* ── Axis breakdown for military ── */}
           {sportMode === "military" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>AXIS BREAKDOWN</div>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -610,7 +612,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
           {sportMode === "general" && (progression.insights || (progression.planner_explanation ?? []).length > 0) && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
-                Key Insights
+                {t("Key Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
 
@@ -618,8 +620,8 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
                 {sportMode === "general" && progression.insights && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     {[
-                      { key: "strongest", label: "Strongest", val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
-                      { key: "weakest",   label: "Weakest",   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
+                      { key: "strongest", label: t("Strongest"), val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
+                      { key: "weakest",   label: t("Weakest"),   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
                     ].map(({ key, label, val, sub }) => val ? (
                       <div key={key}>
                         <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
@@ -674,7 +676,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
 
           {sportMode === "general" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>AXIS BREAKDOWN</div>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -710,11 +712,11 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               <div style={{ marginBottom: 20, paddingTop: 4 }}>
                 {nextAward && (
                   <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
-                    Next: {nextAward.name} — {nextAward.remaining} {nextAward.remaining === 1 ? "session" : "sessions"} to go
+                    Next: {nextAward.name} — {nextAward.remaining} {t(nextAward.remaining === 1 ? "session to go" : "sessions to go")}
                   </div>
                 )}
                 <button onClick={() => setView("awards")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
-                  Trophy room →
+                  {t("Trophy room \u2192")}
                 </button>
               </div>
             );
@@ -726,7 +728,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
             if (!recent.length) return null;
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>RECENT SESSIONS</div>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("RECENT SESSIONS")}</div>
                 {recent.map((session) => {
                   const steps = session.steps ?? [];
                   const mins = session.total_duration_sec ? Math.round(session.total_duration_sec / 60) : null;
@@ -756,7 +758,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
                         );
                       })}
                       {!steps.length && (
-                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>No exercises recorded</div>
+                        <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{t("No exercises recorded")}</div>
                       )}
                     </Glass>
                   );
@@ -771,7 +773,7 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               onClick={() => setShowAdvanced(s => !s)}
               style={{ background: "none", border: "none", padding: 0, fontSize: 11, fontWeight: 700, color: C.muted, cursor: "pointer", letterSpacing: "0.05em" }}
             >
-              {showAdvanced ? "▾ Advanced" : "▸ Advanced"}
+              {showAdvanced ? t("\u25be Advanced") : t("\u25b8 Advanced")}
             </button>
             {showAdvanced && (
               <div style={{ marginTop: 12 }}>
@@ -780,9 +782,9 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
                   disabled={recomputing}
                   style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
                 >
-                  {recomputing ? "Recomputing…" : "Rebuild scores from history"}
+                  {recomputing ? t("Recomputing\u2026") : t("Rebuild scores from history")}
                 </button>
-                {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{recomputeMsg}</div>}
+                {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{t(recomputeMsg)}</div>}
                 <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
                   Recalculates progression scores from your full workout history. Use if you migrate accounts or need a fresh score.
                 </div>

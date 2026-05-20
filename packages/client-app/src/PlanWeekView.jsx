@@ -5,9 +5,11 @@ import { estimateMins } from "./planUtils.js";
 import api from "./apiClient.js";
 import { deriveChipLabel } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
+import { t, useLang } from "./i18n.js";
 
 
 export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
+  useLang();
   const today = new Date().toISOString().split("T")[0];
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(!!userId);
@@ -21,10 +23,10 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     setDeleting(true);
     try {
       await onDeleteExecution(deleteTarget.id);
-      setDeleteToast("Session removed");
+      setDeleteToast(t("Session removed"));
       setTimeout(() => setDeleteToast(""), 3000);
     } catch {
-      setDeleteToast("Delete failed — try again");
+      setDeleteToast(t("Delete failed \u2014 try again"));
       setTimeout(() => setDeleteToast(""), 3000);
     }
     setDeleting(false);
@@ -126,8 +128,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     return d.toISOString().split("T")[0];
   });
 
-  const dayNames = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-  const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const dayNames = [t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")];
+  const monthNames = [t("Jan"),t("Feb"),t("Mar"),t("Apr"),t("May"),t("Jun"),t("Jul"),t("Aug"),t("Sep"),t("Oct"),t("Nov"),t("Dec")];
 
   // Map history by date for quick lookup
   const doneByDate = {};
@@ -139,9 +141,9 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     <div style={{ padding: "0 0 32px" }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 4 }}>
-          This Week
+          {t('This Week')}
         </div>
-        <div style={{ fontSize: 13, color: C.muted }}>Your last 7 days at a glance</div>
+        <div style={{ fontSize: 13, color: C.muted }}>{t('Your last 7 days at a glance')}</div>
       </div>
 
       {/* 7-day strip */}
@@ -199,13 +201,13 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       {plan && plan.slot_type !== "rest" && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-            Today's Plan
+            {t("Today's Plan")}
           </div>
           <Glass style={{ padding: "16px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: plan.steps?.length ? 10 : 0 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 3 }}>
-                  {plan.session_name || "Today's session"}
+                  {plan.session_name || t("Today's session")}
                 </div>
                 <div style={{ fontSize: 12, color: C.muted }}>
                   {(() => { const d = new Date(today + "T12:00:00"); return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()}`; })()}
@@ -221,7 +223,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             {plan.steps?.length > 0 && (
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
                 {plan.steps.slice(0, 5).map((s) => s.name).join(" · ")}
-                {plan.steps.length > 5 && ` · +${plan.steps.length - 5} more`}
+                {plan.steps.length > 5 && ` · ${t('+{n} more', { n: plan.steps.length - 5 })}`}
               </div>
             )}
           </Glass>
@@ -231,11 +233,11 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       {/* Coming up */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Coming Up
+          {t("Coming Up")}
         </div>
         {loadingUpcoming ? (
           <Glass style={{ padding: 20, textAlign: "center" }}>
-            <div style={{ fontSize: 13, color: C.muted }}>Predicting upcoming sessions…</div>
+            <div style={{ fontSize: 13, color: C.muted }}>{t("Predicting upcoming sessions\u2026")}</div>
           </Glass>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -258,7 +260,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                     </div>
                     {isRest ? (
                       <div style={{ padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
-                        Rest day
+                        {t("Rest day")}
                       </div>
                     ) : mins ? (
                       <div style={{ padding: "3px 10px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 11, fontWeight: 800, color: C.emerald }}>
@@ -268,7 +270,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                   </div>
                   {!isRest && exercises.length > 0 && (
                     <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-                      {exercises.join(" · ")}{extra > 0 ? ` · +${extra} more` : ""}
+                      {exercises.join(" · ")}{extra > 0 ? ` · ${t('+{n} more', { n: extra })}` : ""}
                     </div>
                   )}
                 </Glass>
@@ -280,7 +282,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {/* All history */}
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-        Completed Sessions
+        {t("Completed Sessions")}
       </div>
 
       {deleteToast && (
@@ -291,7 +293,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {!history || history.length === 0 ? (
         <Glass style={{ padding: 28, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Your workout history will appear here.</div>
+          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>{t("Your workout history will appear here.")}</div>
         </Glass>
       ) : (() => {
         const STRAVA_ICON  = { strava_ride: 'cycle', strava_run: 'run', strava_walk: 'run', strava_hike: 'mountain', strava_swim: 'bolt', strava_row: 'lift', strava_workout: 'bolt' };
@@ -409,7 +411,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
                             {completedSteps.slice(0, 6).map((s, i) => (
                               <div key={i} style={{ fontSize: 11, color: C.muted }}>
-                                {s.name} · {s.sets} set{s.sets !== 1 ? 's' : ''}{s.detail ? ` × ${s.detail}` : ''}
+                                {s.name} · {s.sets} {s.sets !== 1 ? t('sets') : t('set')}{s.detail ? ` × ${s.detail}` : ''}
                               </div>
                             ))}
                             {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}
@@ -450,7 +452,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       {deleteTarget && (
         <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,6,23,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
-            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Delete session?</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Delete session?")}</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
               This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: "#f87171" }}>DELETE</strong> to confirm.
             </div>
@@ -458,7 +460,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               type="text"
               value={deleteInput}
               onChange={(e) => setDeleteInput(e.target.value)}
-              placeholder="Type DELETE"
+              placeholder={t("Type DELETE")}
               autoFocus
               style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
             />
@@ -467,14 +469,14 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                 onClick={() => { setDeleteTarget(null); setDeleteInput(""); }}
                 style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
               >
-                Cancel
+                {t("Cancel")}
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={deleteInput !== "DELETE" || deleting}
                 style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
               >
-                {deleting ? "Deleting…" : "Delete"}
+                {deleting ? t("Deleting\u2026") : t("Delete")}
               </button>
             </div>
           </Glass>

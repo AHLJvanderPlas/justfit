@@ -5,6 +5,7 @@ import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, RUN_TARGETS } from "./appConstants.js";
 import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
+import { t, useLang, setLang, getLang } from "./i18n.js";
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -113,6 +114,7 @@ const DOCS = [
 ];
 
 function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onNavigateCoach }) {
+  useLang();
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
   const [passkeyMsg, setPasskeyMsg]             = useState("");
@@ -765,16 +767,16 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
 
       {subView === null ? (
         <div style={{ marginBottom: 32 }}>
-          <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>SETTINGS</h1>
+          <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>{t("SETTINGS")}</h1>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
-              { key: "goal",    label: "Your goal",   sub: "Primary focus · training days · session length" },
-              { key: "you",     label: "You",          sub: "Body · equipment · schedule · appearance" },
-              { key: "coaches",  label: "Coaches",      sub: "Active programmes · add-on coaches · Strava" },
-              { key: "trainers", label: "Trainers",    sub: "Connected trainers · data sharing · intake" },
-              { key: "awards",   label: "Trophy room", sub: "Awards & milestones" },
-              { key: "privacy",  label: "Privacy",     sub: "Data export · legal docs · feedback" },
-              { key: "account", label: "Account",      sub: "Email · passkeys · security" },
+              { key: "goal",    label: t("Your goal"),   sub: t("Primary focus \u00b7 training days \u00b7 session length") },
+              { key: "you",     label: t("You"),          sub: t("Body \u00b7 equipment \u00b7 schedule \u00b7 appearance") },
+              { key: "coaches",  label: t("Coaches"),      sub: t("Active programmes \u00b7 add-on coaches \u00b7 Strava") },
+              { key: "trainers", label: t("Trainers"),    sub: t("Connected trainers \u00b7 data sharing \u00b7 intake") },
+              { key: "awards",   label: t("Trophy room"), sub: t("Awards & milestones") },
+              { key: "privacy",  label: t("Privacy"),     sub: t("Data export \u00b7 legal docs \u00b7 feedback") },
+              { key: "account", label: t("Account"),      sub: t("Email \u00b7 passkeys \u00b7 security") },
             ].map((row, i, arr) => (
               <button
                 key={row.key}
@@ -808,7 +810,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             ‹
           </button>
           <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
-            {subView === "goal" ? "YOUR GOAL" : subView === "you" ? "YOU" : subView === "privacy" ? "PRIVACY" : subView === "trainers" ? "TRAINERS" : "ACCOUNT"}
+            {subView === "goal" ? t("YOUR GOAL") : subView === "you" ? t("YOU") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
           </h1>
         </div>
       )}
@@ -2983,11 +2985,40 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       <div style={{ marginBottom: 32 }}>
         {/* ── Appearance ── */}
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Appearance
+          {t("Appearance")}
         </div>
         <Glass style={{ padding: 24 }}>
+          {/* ── Language toggle ── */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
+              {t("Language")}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {["nl", "en"].map((lang) => {
+                const active = getLang() === lang;
+                return (
+                  <button
+                    key={lang}
+                    onClick={() => setLang(lang)}
+                    style={{
+                      padding: "8px 20px", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: "pointer",
+                      border: `1px solid ${active ? "var(--accent-border, rgba(16,185,129,0.3))" : C.border}`,
+                      background: active ? "var(--accent-dim, rgba(16,185,129,0.15))" : "rgba(255,255,255,0.04)",
+                      color: active ? "var(--accent, #10b981)" : C.muted,
+                    }}
+                  >
+                    {lang === "nl" ? "NL" : "EN"}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
+              {getLang() === "nl" ? "App wordt weergegeven in het Nederlands." : "App is displayed in English."}
+            </div>
+          </div>
+          <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 }}>
-            Accent colour
+            {t("Accent colour")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
             {ACCENT_COLORS.map((ac) => {

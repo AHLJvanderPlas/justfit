@@ -5,6 +5,7 @@ import { musclesFor, formatExDuration, estimateMins } from "./planUtils.js";
 import { ALL_EQUIPMENT } from "./appConstants.js";
 import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
+import { t, useLang } from "./i18n.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -29,6 +30,7 @@ function ExerciseGif({ gifUrl, name }) {
 
 // ─── WORKOUT VIEW — coaching state machine ─────────────────────────────────────
 export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
+  useLang();
   const exercises = plan?.steps ?? [];
   const totalExercises = exercises.length;
   const startTimeRef = useRef(Date.now());
@@ -302,14 +304,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       setAdjustedDuration((prev) => {
         const current = prev ?? cur?.target_duration_sec ?? 30;
         const next = Math.max(10, Math.min(300, current + delta));
-        showAdjustLabel(`Adjusted to ${next}s`);
+        showAdjustLabel(t('Adjusted to {n}s', { n: next }));
         return next;
       });
     } else {
       setAdjustedReps((prev) => {
         const current = prev ?? cur?.target_reps ?? 10;
         const next = Math.max(1, Math.min(30, current + delta));
-        showAdjustLabel(`Adjusted to ${next} reps`);
+        showAdjustLabel(t('Adjusted to {n} reps', { n: next }));
         return next;
       });
     }
@@ -395,11 +397,11 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           </svg>
         </div>
         <div>
-          <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>Time to Recover.</div>
-          <p style={{ fontSize: 14, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>Your plan calls for active recovery today.</p>
+          <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>{t('Time to Recover.')}</div>
+          <p style={{ fontSize: 14, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>{t('Your plan calls for active recovery today.')}</p>
         </div>
         <button onClick={onBack} style={{ padding: "12px 28px", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.emerald, cursor: "pointer" }}>
-          Return Home
+          {t('Return Home')}
         </button>
       </div>
     );
@@ -412,14 +414,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       {showCancel && (
         <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Glass style={{ padding: 32, maxWidth: 320, width: "100%", textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 8 }}>Quit workout?</div>
-            <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>Your progress won't be saved.</p>
+            <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t('Quit workout?')}</div>
+            <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>{t("Your progress won't be saved.")}</p>
             <div style={{ display: "flex", gap: 12 }}>
               <button onClick={() => setShowCancel(false)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
-                Resume
+                {t('Resume')}
               </button>
               <button onClick={onBack} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", cursor: "pointer" }}>
-                Quit
+                {t('Quit')}
               </button>
             </div>
           </Glass>
@@ -429,7 +431,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       {/* Wake lock fallback — non-intrusive hint if screen lock can't be prevented */}
       {wakeLockDenied && ["instruction","working","resting"].includes(phase) && (
         <div style={{ flexShrink: 0, background: "rgba(245,158,11,0.12)", borderBottom: "1px solid rgba(245,158,11,0.25)", padding: "8px 20px", textAlign: "center" }}>
-          <span style={{ fontSize: 12, color: C.amber }}>Tip: disable auto-lock in Phone Settings to keep your screen on.</span>
+          <span style={{ fontSize: 12, color: C.amber }}>{t('Tip: disable auto-lock in Phone Settings to keep your screen on.')}</span>
         </div>
       )}
 
@@ -439,21 +441,21 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <button onClick={() => setShowCancel(true)} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
-                ← Cancel
+                {t('← Cancel')}
               </button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
                   {phase === "resting" ? exercises[exIdx]?.name : cur?.name}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                  {exIdx + 1} of {totalExercises} exercises
+                  {t('{n} of {total} exercises', { n: exIdx + 1, total: totalExercises })}
                 </div>
               </div>
               <div style={{ minWidth: 56, textAlign: "right" }}>
                 {phase === "resting" || phase === "working"
-                  ? <span style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase" }}>Set {currentSet}/{totalSets}</span>
+                  ? <span style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase" }}>{t('Set {current}/{total}', { current: currentSet, total: totalSets })}</span>
                   : phase === "instruction" && exIdx > 0
-                  ? <button onClick={handlePrevExercise} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center", marginLeft: "auto" }}>← Prev</button>
+                  ? <button onClick={handlePrevExercise} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center", marginLeft: "auto" }}>{t('← Prev')}</button>
                   : null}
               </div>
             </div>
@@ -482,7 +484,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
               <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                 <button onClick={onBack} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
-                  ← Back
+                  {t('← Back')}
                 </button>
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{plan.session_name}</div>
                 <div style={{ minWidth: 56 }} />
@@ -497,7 +499,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <div style={{ marginBottom: 28 }}>
                   <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{plan.session_name}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} exercises</span>
+                    <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} {t('exercises')}</span>
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
                     {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{totalMinsOv} min{ovMins > 0 ? ` incl. ${ovMins}m overhead` : ""}</span>}
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
@@ -519,7 +521,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     <div style={{ marginBottom: 28 }}>
                       {portable.length > 0 && (
                         <div style={{ marginBottom: stationary.length > 0 ? 14 : 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Grab these</div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Grab these')}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             {portable.map(eq => <Chip key={eq} eq={eq} />)}
                           </div>
@@ -527,7 +529,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       )}
                       {stationary.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Make sure this is set up</div>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Make sure this is set up')}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             {stationary.map(eq => <Chip key={eq} eq={eq} />)}
                           </div>
@@ -538,7 +540,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 })()}
 
                 {/* Exercise list */}
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>Your session</div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Your session')}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {exercises.map((s, i) => {
                     const instr = s.instructions_json ? JSON.parse(s.instructions_json) : null;
@@ -580,7 +582,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.35)" }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                  Start Workout
+                  {t('Start Workout')}
                 </button>
               </div>
             </div>
@@ -599,9 +601,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
           // Pad to minimum 3 steps so the instruction phase never feels empty
           const GENERIC_STEPS = [
-            "Set up in the correct starting position.",
-            "Focus on controlled movement — quality over speed.",
-            "Finish strong. You've got this.",
+            t("Set up in the correct starting position."),
+            t("Focus on controlled movement — quality over speed."),
+            t("Finish strong. You\u2019ve got this."),
           ];
           const paddedSteps = rawSteps.length >= 3
             ? rawSteps
@@ -616,7 +618,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           const rawCards = paddedSteps.map((s) => ({ text: s, accent: null }));
           if (pregnancyNote) rawCards.unshift({ text: pregnancyNote, accent: "amber" });
           if (postnatalNote) rawCards.unshift({ text: postnatalNote, accent: "rose" });
-          if (isPelvicFloor) rawCards.push({ text: "Remember: the release is just as important as the squeeze. Full relaxation between each rep.", accent: "rose" });
+          if (isPelvicFloor) rawCards.push({ text: t("Remember: the release is just as important as the squeeze. Full relaxation between each rep."), accent: "rose" });
           // Equipment for this exercise (filter trivial items)
           const exEquip = JSON.parse(cur.equipment_required_json || '["none"]')
             .filter(e => e !== "none" && e !== "chair");
@@ -761,11 +763,11 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     <span style={{ fontSize: 13, color: C.subtle }}>·</span>
                   </>}
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
-                    {totalSets} {totalSets === 1 ? "set" : "sets"}
+                    {totalSets} {totalSets === 1 ? t("set") : t("sets")}
                   </span>
                   <span style={{ fontSize: 13, color: C.subtle }}>·</span>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
-                    {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} reps`}
+                    {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} ${t('reps')}`}
                   </span>
                 </div>
               </div>
@@ -773,7 +775,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card 1: Equipment (only when needed) ── */}
               {(exEquip.length > 0 || showMatHint) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Equipment</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Equipment')}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {exEquip.map(eq => (
                       <span key={eq} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
@@ -782,7 +784,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     ))}
                     {showMatHint && (
                       <span style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted }}>
-                        Yoga / exercise mat (optional)
+                        {t('Yoga / exercise mat (optional)')}
                       </span>
                     )}
                   </div>
@@ -792,7 +794,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: Muscles targeted ── */}
               {hasMuscles && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>Muscles targeted</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>{t('Muscles targeted')}</div>
                   <div style={{ display: "flex", justifyContent: "center" }}>
                     <Suspense fallback={null}>
                       <MuscleMap primary={muscles.primary} secondary={muscles.secondary} gender={gender} size={180} showLabels={false} primaryColor={accentHex} secondaryColor={`${accentHex}50`} />
@@ -803,7 +805,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               {/* ── Card 2: Instructions — highlighted like today card ── */}
               <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(2,6,23,0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>Instructions</div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Instructions')}</div>
 
                 {/* Pregnancy / postnatal alert at top of instructions */}
                 {(pregnancyNote || postnatalNote) && (
@@ -825,7 +827,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   ))}
                   {isPelvicFloor && (
                     <div style={{ marginTop: 4, padding: "10px 14px", borderRadius: 12, background: C.roseDim, border: "1px solid rgba(244,63,94,0.3)" }}>
-                      <p style={{ fontSize: 13, fontWeight: 700, color: C.rose, margin: 0, lineHeight: 1.6 }}>Remember: the release is just as important as the squeeze. Full relaxation between each rep.</p>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: C.rose, margin: 0, lineHeight: 1.6 }}>{t("Remember: the release is just as important as the squeeze. Full relaxation between each rep.")}</p>
                     </div>
                   )}
                 </div>
@@ -835,7 +837,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {(targetCardText || derivedTargetText) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--accent-rgb),0.08)", border: "1px solid rgba(var(--accent-rgb),0.3)" }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
-                    {targetCardText ? `Your target · ${expLevel.charAt(0).toUpperCase() + expLevel.slice(1)}` : "Your target today"}
+                    {targetCardText ? t('Your target · {level}', { level: expLevel.charAt(0).toUpperCase() + expLevel.slice(1) }) : t('Your target today')}
                   </div>
                   <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText ?? derivedTargetText}</p>
                   {/* For intervals: also show pace guidance from level-specific cue if we're showing the structure */}
@@ -848,7 +850,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card 4: Why (general cues, or derived fallback) ── */}
               {(cleanCues.length > 0 || derivedWhy) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Why this helps</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Why this helps')}</div>
                   {cleanCues.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {cleanCues.map((cue, i) => (
@@ -867,7 +869,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: BMI pace guidance (cardio, BMI ≥ 30 only) ── */}
               {bmiNote && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#f59e0b", textTransform: "uppercase", marginBottom: 8 }}>Pace guidance</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#f59e0b", textTransform: "uppercase", marginBottom: 8 }}>{t('Pace guidance')}</div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b", margin: 0, lineHeight: 1.6 }}>{bmiNote}</p>
                 </div>
               )}
@@ -875,7 +877,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: Weight & rep strategy (weighted exercises only) ── */}
               {cur.coaching_note && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Weight &amp; rep strategy</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>{t('Weight & rep strategy')}</div>
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{cur.coaching_note}</p>
                 </div>
               )}
@@ -887,7 +889,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   onClick={() => setPhase("working")}
                   style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
                 >
-                  Ready — let's go →
+                  {t('Ready \u2014 let\u2019s go \u2192')}
                 </button>
               </div>
             </div>
@@ -900,7 +902,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 120px", display: "flex", flexDirection: "column", gap: 20 }}>
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-                Set {currentSet} of {totalSets}
+                {t('Set {current} of {total}', { current: currentSet, total: totalSets })}
               </div>
               <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{cur.name}</div>
             </div>
@@ -952,14 +954,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                         style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
                       >
                         <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>Start</span>
+                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>{t('Start')}</span>
                       </button>
                     ) : (
                       <button
                         onClick={() => { setTimerRunning(false); handleSetDone(totalDur - timerRemaining); }}
                         style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 15, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
                       >
-                        ■ Done early
+                        {t('\u25a0 Done early')}
                       </button>
                     )}
                   </div>
@@ -980,7 +982,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   : isComplete
                   ? "rgba(var(--accent-rgb),0.4)"
                   : "rgba(var(--accent-rgb),0.2)";
-                const tapLabel = isComplete ? "SET COMPLETE" : tapFlash ? "COUNTED!" : "TAP TO COUNT REP";
+                const tapLabel = isComplete ? t("SET COMPLETE") : tapFlash ? t("COUNTED!") : t("TAP TO COUNT REP");
 
                 return (
                   <div>
@@ -1033,7 +1035,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                         onClick={() => handleSetDone(targetReps)}
                         style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}
                       >
-                        ✓ All {targetReps} reps done
+                        {t('\u2713 All {n} reps done', { n: targetReps })}
                       </button>
                     )}
                   </div>
@@ -1048,19 +1050,19 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   onClick={handleSkipExercise}
                   style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 12, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
                 >
-                  Skip
+                  {t('Skip')}
                 </button>
                 <button
                   onClick={handleOpenAlternatives}
                   style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
                 >
-                  {isPregnancyMode ? "This doesn't feel right" : "Show alternatives"}
+                  {isPregnancyMode ? t("This doesn't feel right") : t("Show alternatives")}
                 </button>
                 <button
                   onClick={() => handleSetDone(repCount)}
                   style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
                 >
-                  Finish set →
+                  {t('Finish set \u2192')}
                 </button>
               </div>
             </div>
@@ -1083,14 +1085,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px max(40px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", minHeight: "calc(100dvh - 80px)", justifyContent: "center" }}>
               {/* Set complete label */}
               <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                Set {currentSet - 1} of {totalSets} complete ✓
+                {t('Set {n} of {total} complete \u2713', { n: currentSet - 1, total: totalSets })}
               </div>
 
               {/* Breathing reminder (pregnancy/postnatal only, auto-dismisses in 3s) */}
               {showBreathingReminder && (
                 <div style={{ width: "100%", background: "rgba(245,158,11,0.1)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 14, padding: "14px 18px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
                   <p style={{ margin: 0, fontSize: 14, color: C.amber, lineHeight: 1.5, fontWeight: 600 }}>
-                    Take a breath — inhale through nose, sigh out through mouth.
+                    {t('Take a breath \u2014 inhale through nose, sigh out through mouth.')}
                   </p>
                   <button onClick={() => { clearTimeout(breathingTimerRef.current); setShowBreathingReminder(false); }} style={{ background: "none", border: "none", color: C.amber, cursor: "pointer", fontSize: 18, lineHeight: 1, padding: 4, flexShrink: 0 }}>×</button>
                 </div>
@@ -1110,7 +1112,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   />
                 </svg>
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>REST</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>{t('REST')}</div>
                   <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: restColor, transition: "color 0.4s", animation: restRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
                     {String(Math.floor(restRemaining / 60)).padStart(1, "0")}:{String(restRemaining % 60).padStart(2, "0")}
                   </div>
@@ -1129,7 +1131,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   onClick={handleSkipRest}
                   style={{ padding: "12px 24px", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(255,255,255,0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", minHeight: 48 }}
                 >
-                  Skip rest →
+                  {t('Skip rest \u2192')}
                 </button>
                 <button
                   onClick={() => adjustRest(15)}
@@ -1142,14 +1144,16 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* Breath cue (general users only — pregnancy users get the amber banner above) */}
               {!showBreathingReminder && (
                 <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic", animation: "pulse 4s ease-in-out infinite" }}>
-                  Breathe · let your heart rate settle
+                  {t('Breathe \u00b7 let your heart rate settle')}
                 </div>
               )}
 
               {/* Next up */}
               {nextExName && (
                 <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
-                  {isLastSet ? `Next: ${nextExName}` : `Next set: ${isTimeBased ? `${adjustedDuration ?? cur?.target_duration_sec}s` : `${targetReps} ×`} ${nextExName}`}
+                  {isLastSet
+                    ? t('Next: {name}', { name: nextExName })
+                    : t('Next set: {spec} \xd7 {name}', { spec: isTimeBased ? `${adjustedDuration ?? cur?.target_duration_sec}s` : targetReps, name: nextExName })}
                 </div>
               )}
             </div>
@@ -1173,26 +1177,26 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // RPE label config based on session type
           const getRpeConfig = (v) => {
             if (isStrengthSession) {
-              if (v <= 3) return { label: "Too light", sub: "Add weight or reps next session", color: "#3b82f6" };
-              if (v <= 6) return { label: "Just right", sub: "Weight and reps were appropriate", color: C.emerald };
-              if (v <= 9) return { label: "Hard", sub: "At your limit — hold or progress slowly", color: C.amber };
-              return { label: "Too heavy", sub: "Reduce weight or reps next session", color: "#ef4444" };
+              if (v <= 3) return { label: t("Too light"), sub: t("Add weight or reps next session"), color: "#3b82f6" };
+              if (v <= 6) return { label: t("Just right"), sub: t("Weight and reps were appropriate"), color: C.emerald };
+              if (v <= 9) return { label: t("Hard"), sub: t("At your limit \u2014 hold or progress slowly"), color: C.amber };
+              return { label: t("Too heavy"), sub: t("Reduce weight or reps next session"), color: "#ef4444" };
             }
             // Cardio / general
-            if (v <= 2) return { label: "Very easy", sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: "#3b82f6" };
-            if (v <= 4) return { label: "Easy", sub: isCardio ? "Zone 2 · Comfortable, conversational" : "Low effort — could do much more", color: C.emerald };
-            if (v <= 6) return { label: "Moderate", sub: isCardio ? "Zone 3 · Breathing harder" : "Good effort", color: "#84cc16" };
-            if (v <= 8) return { label: "Hard", sub: isCardio ? "Zone 4–5 · Pushing your limits" : "Near your limit", color: C.amber };
-            return { label: "Maximum", sub: isCardio ? "Zone 5+ · At or near your limit" : "Max effort — could not have done more", color: "#ef4444" };
+            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: "#3b82f6" };
+            if (v <= 4) return { label: t("Easy"), sub: isCardio ? "Zone 2 · Comfortable, conversational" : t("Low effort \u2014 could do much more"), color: C.emerald };
+            if (v <= 6) return { label: t("Moderate"), sub: isCardio ? "Zone 3 · Breathing harder" : t("Good effort"), color: "#84cc16" };
+            if (v <= 8) return { label: t("Hard"), sub: isCardio ? "Zone 4\u20135 · Pushing your limits" : t("Near your limit"), color: C.amber };
+            return { label: t("Maximum"), sub: isCardio ? "Zone 5+ · At or near your limit" : t("Max effort \u2014 could not have done more"), color: "#ef4444" };
           };
 
           const rpeConfig = getRpeConfig(rpeValue);
           return (
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
               <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>Session done!</div>
+                <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>{t('Session done!')}</div>
                 <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
-                  {isStrengthSession ? "How was the weight and effort?" : "Rate your effort (RPE)"}
+                  {isStrengthSession ? t("How was the weight and effort?") : t("Rate your effort (RPE)")}
                 </p>
               </div>
 
@@ -1215,9 +1219,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   style={{ width: "100%", height: 8, borderRadius: 999, accentColor: rpeConfig.color, cursor: "pointer", outline: "none" }}
                 />
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? "Too light" : "Very easy"}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? t("Too light") : t("Very easy")}</span>
                   <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>RPE 1–10</span>
-                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? "Too heavy" : "Maximum"}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? t("Too heavy") : t("Maximum")}</span>
                 </div>
               </div>
 
@@ -1241,14 +1245,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 onClick={() => handleFinishSession(rpeValue)}
                 style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: rpeConfig.color, border: "none", color: "#fff", cursor: "pointer", letterSpacing: "-0.01em", transition: "background 0.2s" }}
               >
-                Log session →
+                {t('Log session \u2192')}
               </button>
 
               <button
                 onClick={() => handleFinishSession(null)}
                 style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
               >
-                Skip rating
+                {t('Skip rating')}
               </button>
             </div>
           );
@@ -1272,21 +1276,21 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(255,255,255,0.15)", margin: "0 auto 20px" }} />
 
             <div style={{ padding: "0 20px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>Alternatives for {cur?.name}</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>Same sets and reps, different movement</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{t('Alternatives for {name}', { name: cur?.name })}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{t('Same sets and reps, different movement')}</div>
             </div>
 
             {altLoading ? (
-              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>Loading...</div>
+              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>{t('Loading...')}</div>
             ) : altExercises.length === 0 ? (
-              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14, fontStyle: "italic" }}>No alternatives found for this exercise.</div>
+              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14, fontStyle: "italic" }}>{t('No alternatives found for this exercise.')}</div>
             ) : (
               <div style={{ padding: "8px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
                 {altExercises.map((alt) => {
                   const tags = JSON.parse(alt.tags_json || "[]");
                   const isEasier = tags.includes("beginner") || alt.slug.includes("knee") || alt.slug.includes("incline") || alt.slug.includes("assisted");
                   const isHarder = tags.includes("advanced") || alt.slug.includes("diamond") || alt.slug.includes("weighted") || alt.slug.includes("single");
-                  const hint = isEasier ? "Easier" : isHarder ? "Harder" : "Similar";
+                  const hint = isEasier ? t("Easier") : isHarder ? t("Harder") : t("Similar");
                   return (
                     <div key={alt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px", background: "rgba(255,255,255,0.04)", borderRadius: 16, border: `1px solid ${C.border}` }}>
                       <div style={{ flex: 1 }}>
@@ -1297,7 +1301,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                         onClick={() => handleChooseAlternative(alt)}
                         style={{ padding: "10px 16px", borderRadius: 12, fontWeight: 700, fontSize: 13, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}
                       >
-                        Try this
+                        {t('Try this instead')}
                       </button>
                     </div>
                   );

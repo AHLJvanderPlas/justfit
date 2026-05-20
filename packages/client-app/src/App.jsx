@@ -8,6 +8,7 @@ import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons
 import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload } from "./planUtils.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messagePolicy.js";
+import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
 import { cachePlan, getCachedPlan } from "./offlineCache.js";
@@ -868,26 +869,26 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">{inner}</svg>
   );
   const CHIP_DEFS = [
-    { val: "pain",       label: "Pain or soreness", icon: ci(<><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>) },
-    { val: "poor_sleep", label: "Rough night",      icon: ci(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>) },
-    { val: "low_energy", label: "Low energy",       icon: ci(<><rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/></>) },
-    { val: "zero_time",  label: "Zero time today",  icon: ci(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></>) },
-    { val: "gym",        label: "Gym access today", icon: ci(<><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="7" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="9" x2="20" y2="15"/></>) },
-    { val: "taking_easy",label: "Taking it easy",  icon: ci(<path d="M17 8C8 10 5.9 16.17 3.82 19.25c3.82 1.24 7.47-.93 8.74-2.97C13.42 14.77 14 11 14 11c1.72 2.4 2 7 2 7 2-2.4 2-5 2-5 2.4 1 3 3 3 3C22 10 17 8 17 8z"/>) },
-    ...(showPeriodChip ? [{ val: "period", label: "Period today", icon: ci(<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>) }] : []),
+    { val: "pain",       label: t("Pain or soreness"), icon: ci(<><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>) },
+    { val: "poor_sleep", label: t("Rough night"),      icon: ci(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>) },
+    { val: "low_energy", label: t("Low energy"),       icon: ci(<><rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/></>) },
+    { val: "zero_time",  label: t("Zero time today"),  icon: ci(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></>) },
+    { val: "gym",        label: t("Gym access today"), icon: ci(<><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="7" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="9" x2="20" y2="15"/></>) },
+    { val: "taking_easy",label: t("Taking it easy"),  icon: ci(<path d="M17 8C8 10 5.9 16.17 3.82 19.25c3.82 1.24 7.47-.93 8.74-2.97C13.42 14.77 14 11 14 11c1.72 2.4 2 7 2 7 2-2.4 2-5 2-5 2.4 1 3 3 3 3C22 10 17 8 17 8z"/>) },
+    ...(showPeriodChip ? [{ val: "period", label: t("Period today"), icon: ci(<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>) }] : []),
   ];
 
   const PAIN_AREAS = [
-    { k: "knee",       l: "Knee"       },
-    { k: "shoulder",   l: "Shoulder"   },
-    { k: "lower_back", l: "Lower back" },
-    { k: "ankle",      l: "Ankle"      },
+    { k: "knee",       l: t("Knee")       },
+    { k: "shoulder",   l: t("Shoulder")   },
+    { k: "lower_back", l: t("Lower back") },
+    { k: "ankle",      l: t("Ankle")      },
   ];
 
   const smileys = [
-    { val: 1, label: "Not great", color: "#f87171", Face: SadFace     },
-    { val: 2, label: "Okay",      color: C.muted,   Face: NeutralFace },
-    { val: 3, label: "Good",      color: C.emerald, Face: HappyFace   },
+    { val: 1, label: t("Not great"), color: "#f87171", Face: SadFace     },
+    { val: 2, label: t("Okay"),      color: C.muted,   Face: NeutralFace },
+    { val: 3, label: t("Good"),      color: C.emerald, Face: HappyFace   },
   ];
 
   const dotCount = needsStep3 ? 3 : 2;
@@ -922,8 +923,8 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
           {step === 1 && (
             <div>
               <div style={{ textAlign: "center", paddingTop: 8, paddingBottom: 4 }}>
-                <div style={{ ...display(26, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>How are you today?</div>
-                <div style={{ fontSize: 14, color: C.muted }}>Tap to tell your coach</div>
+                <div style={{ ...display(26, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>{t("How are you feeling?")}</div>
+                <div style={{ fontSize: 14, color: C.muted }}>{t("Tap to tell your coach")}</div>
               </div>
               <div style={{ display: "flex", gap: 12, paddingTop: 24, paddingBottom: 32 }}>
                 {smileys.map((sm) => {
@@ -948,8 +949,8 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
           {step === 2 && (
             <div>
               <div style={{ paddingTop: 8, paddingBottom: 4 }}>
-                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>What's going on?</div>
-                <div style={{ fontSize: 14, color: C.muted }}>Tap anything that fits — or just hit Apply</div>
+                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>{t("What's going on?")}</div>
+                <div style={{ fontSize: 14, color: C.muted }}>{t("Tap anything that fits \u2014 or just hit Apply")}</div>
               </div>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 16, paddingBottom: 14 }}>
                 {CHIP_DEFS.map(({ val, label, icon }) => {
@@ -967,7 +968,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                 })}
               </div>
               <textarea
-                placeholder="Rough night? Big day? Tell me anything…"
+                placeholder={t("Rough night? Big day? Tell me anything\u2026")}
                 value={freeText}
                 onChange={e => setFreeText(e.target.value)}
                 style={{ width: "100%", minHeight: 72, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
@@ -1105,7 +1106,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                 onClick={handleStep2Apply}
                 style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
               >
-                Apply →
+                {t("Apply")} →
               </button>
             </div>
           )}
@@ -1121,7 +1122,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                 onClick={buildAndSave}
                 style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
               >
-                Apply →
+                {t("Apply")} →
               </button>
             </div>
           )}
@@ -1202,14 +1203,14 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
         </div>
         <div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>Session Complete</div>
+          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{t("Session Complete")}</div>
           <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>
             {sessionLabel}{mins ? ` · ${mins} min` : ""}
           </div>
         </div>
       </div>
 
-      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>Great work. You showed up today.</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>{t("Great work. You showed up today.")}</div>
 
       {scoreBump && (
         <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: 16 }}>
@@ -1894,7 +1895,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     : null;
                   const text = sentence ?? fallback;
                   return text ? (
-                    <div style={{ fontSize: 15, lineHeight: 1.5, color: '#cbd5e1', maxWidth: '34ch', marginBottom: 14 }}>{text}</div>
+                    <div style={{ fontSize: 15, lineHeight: 1.5, color: '#cbd5e1', maxWidth: '34ch', marginBottom: 14 }}>{t(text)}</div>
                   ) : null;
                 })()}
                 {/* Session meta: time / moves / intensity */}
@@ -3017,7 +3018,7 @@ function Nav({ view, setView }) {
                   color: active ? C.emerald : C.muted,
                 }}
               >
-                {item.label}
+                {t(item.label)}
               </span>
             </button>
           );
@@ -3278,6 +3279,7 @@ function PendingInviteModal({ token, inviteToken, onDone }) {
 
 // ─── ROOT APP ─────────────────────────────────────────────────────────────────
 export default function App() {
+  useLang();
   const userId = getUserId();
   const token = getToken();
   // Namespace user-scoped localStorage keys so multiple accounts on one device don't share state
