@@ -266,7 +266,7 @@ justfit/
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0057+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0059+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1066,6 +1066,7 @@ Calculated server-side from executions table:
 | In-app documentation system | ✅ Live — 5 docs (Mission/Vision, How It Works, Privacy Policy, Terms & Conditions, Disclaimer); shared DocViewer with back + "See full page →" header controls + metadata bar (version, effectiveDate); DOCS module-level constant as single source of truth; Settings Information list driven by DOCS.map; standalone HTML pages for all 5 docs (public/mission.html, public/how-it-works.html, public/privacy.html, public/terms.html, public/disclaimer.html); Share + Email buttons available on all 5 pages; /api/legal-email supports all 5 docs via Resend; SettingsView lazy-split (428KB main chunk) |
 | Terms & Privacy acceptance audit | ✅ Live — migration 0023 adds accepted_terms_version/at_ms + accepted_privacy_version/at_ms to users table; signup requires acceptance checkbox (login.html) and validates version server-side (400 if missing); stored in users INSERT; existing users shown fullscreen gate modal on next app load (needsTermsAcceptance from profile GET); /api/accept-terms JWT-gated endpoint records acceptance; re-prompts automatically when CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION bumps in auth.js + profile.js |
 | Hidden admin dashboard | ✅ Live — `/dashboard` (not linked in UI) shows registered user count + chronological event/error list (newest first). Data source: `/api/dashboard` (JWT-independent, secret-gated via `DASHBOARD_PASSWORD`, fallback `ADMIN_KEY`). Event storage: `app_events` table (migration 0024). `feedback.js` now persists structured events for dashboard visibility. |
+| Owner admin portal | ✅ Live — `/admin/` full SPA (session-gated, DB-backed). Covers: platform KPIs dashboard, user management (deactivate/GDPR delete), trainer lifecycle (approve/reject/suspend/plan-change), billing (invoices + plan pricing + MRR summary), exercise library CRUD, admin team management + audit log. Migration 0058 adds admin tables. Bootstrap: set `ADMIN_EMAIL` + `ADMIN_PASSWORD` env vars for first login. |
 
 ## Drift from original mission/vision
 
