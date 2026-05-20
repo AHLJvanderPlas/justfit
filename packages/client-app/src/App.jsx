@@ -1923,7 +1923,14 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                         <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
                         </div>
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text }}>{s.name}</span>
+                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                          {s.name}
+                          {s.trainer_logo_url && (
+                            <span style={{ width: 18, height: 18, borderRadius: 4, background: s.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, display: "inline-flex", border: "1px solid rgba(255,255,255,0.1)" }}>
+                              <img src={s.trainer_logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                            </span>
+                          )}
+                        </span>
                         <span style={{ ...mono(11), color: C.muted }}>
                           {(() => {
                             const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");

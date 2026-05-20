@@ -740,7 +740,14 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
           return (
             <>
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 100px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 100px", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}>
+
+              {/* Trainer gym logo badge — top-right, custom exercises only */}
+              {cur.trainer_logo_url && (
+                <div style={{ position: "absolute", top: 24, right: 20, width: 36, height: 36, borderRadius: 8, background: cur.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, border: "1px solid rgba(255,255,255,0.12)" }}>
+                  <img src={cur.trainer_logo_url} alt="gym logo" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
+                </div>
+              )}
 
               {/* Exercise name + target */}
               <div style={{ textAlign: "center", marginBottom: 4 }}>

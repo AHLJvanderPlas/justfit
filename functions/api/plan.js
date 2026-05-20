@@ -87,7 +87,7 @@ export async function onRequestPost({ request, env }) {
     const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
          FROM exercises WHERE is_active = 1`
@@ -130,6 +130,17 @@ export async function onRequestPost({ request, env }) {
          WHERE pti.program_template_id IN ('run-5km','run-10km','run-15km','run-20km','run-30km')
          ORDER BY pti.program_template_id, pti.block_week, pti.session_order`
       ).all(),
+      // Custom gym exercises with branding — scoped to user's active memberships
+      user_id
+        ? env.DB.prepare(
+            `SELECT ce.id, ce.name, ce.exercise_type, ce.equipment_required_json,
+                    ce.instructions_markdown, g.branding_json
+             FROM custom_exercises ce
+             JOIN gyms g ON g.id = ce.gym_id
+             JOIN gym_memberships gm ON gm.gym_id = ce.gym_id AND gm.user_id = ? AND gm.status = 'active'
+             WHERE ce.is_active = 1`
+          ).bind(user_id).all()
+        : Promise.resolve(null),
     ]);
     // Use unified protocols when available; fall back to legacy cycling_workouts
     const protocolRows = cyclingProtocolsResult?.results ?? [];
@@ -143,7 +154,29 @@ export async function onRequestPost({ request, env }) {
       ? buildRunProgramsFromTemplates(runProgramItemRows)
       : null;
 
-    const allExercises = exResult.results;
+    const customExRows = customExResult?.results ?? [];
+    const allExercises = [
+      ...exResult.results,
+      ...customExRows.map(ce => {
+        const branding = ce.branding_json ? JSON.parse(ce.branding_json) : {};
+        const logoUrl = branding.logo_data_url ?? null;
+        return {
+          id: ce.id,
+          slug: `custom-${ce.id}`,
+          name: ce.name,
+          category: ce.exercise_type ?? 'strength',
+          tags_json: '[]',
+          equipment_required_json: ce.equipment_required_json ?? '["none"]',
+          media_json: null,
+          instructions_json: ce.instructions_markdown
+            ? JSON.stringify({ steps: ce.instructions_markdown.split('\n').filter(s => s.trim()), cues: [] })
+            : null,
+          alternatives_json: null,
+          metrics_json: null,
+          ...(logoUrl ? { trainer_logo_url: logoUrl, trainer_logo_bg: branding.logo_bg_color ?? '#0a0a0a' } : {}),
+        };
+      }),
+    ];
     const allTemplates = templates.results;
     const prefs = userPrefs
       ? {
@@ -2291,6 +2324,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       alternatives_json: ex.alternatives_json ?? null,
       gif_url: media.gif_url ?? null,
       coaching_note: coachingNote,
+      ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
     };
   });
 
