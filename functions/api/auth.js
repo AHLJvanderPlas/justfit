@@ -7,6 +7,7 @@ const MAGIC_EXPIRY_MS  = 15 * 60 * 1000;   // 15 min  — magic links (ms)
 const VERIFY_EXPIRY_MS = 24 * 60 * 60 * 1000; // 24 h — email verify / change tokens
 const WEBAUTHN_EXPIRY = 120;              // 2 min   — challenge JWT (sec)
 const FROM_ADDRESS    = 'JustFit.cc <noreply@justfit.cc>';
+const APP_URL         = 'https://app.justfit.cc';
 
 // ─── BASE64URL HELPERS ────────────────────────────────────────────────────────
 function b64url(buffer) {
@@ -171,7 +172,7 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
       sendEmail(emailLower, 'JustFit — you already have an account', emailShell(`
         <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">You already have an account</h1>
         <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Someone (possibly you) tried to create a new JustFit account with this email address. No changes were made to your account.</p>
-        <a href="https://justfit.cc/login.html" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Sign in instead →</a>
+        <a href="${APP_URL}/login.html" style="display:inline-block;background:#10b981;color:#fff;font-weight:900;font-size:14px;padding:14px 28px;border-radius:12px;text-decoration:none;">Sign in instead →</a>
         <p style="color:#334155;font-size:12px;margin-top:20px;">If you didn't request this, you can safely ignore this email.</p>
       `), env.RESEND_API_KEY).catch(() => {});
     }
@@ -199,7 +200,7 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   ]);
 
   if (env.RESEND_API_KEY) {
-    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${rawVerifyToken}`;
+    const verifyUrl = `${APP_URL}/api/auth?verify_email=${rawVerifyToken}`;
     await sendEmail(emailLower, 'Welcome to JustFit.cc — verify your email', emailShell(`
       <h1 style="font-size:28px;font-weight:900;letter-spacing:-0.02em;margin:0 0 12px;">You're in.</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 24px;">Your first plan is ready. Verify your email to secure your account — or just start training.</p>
@@ -344,7 +345,7 @@ async function handleForgotPassword({ email }, env, _secret) {
       `INSERT INTO password_reset_tokens (token, user_id, email, expires_at_ms, created_at_ms) VALUES (?, ?, ?, ?, ?)`
     ).bind(tokenHash, user.id, emailLower, now + RESET_EXPIRY_MS, now).run();
 
-    const resetUrl = `https://justfit.cc/reset-password.html?token=${rawToken}`;
+    const resetUrl = `${APP_URL}/reset-password.html?token=${rawToken}`;
     const accent = await getUserAccent(user.id, env);
     await sendEmail(emailLower, 'Reset your JustFit password', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Reset your password</h1>
@@ -414,7 +415,7 @@ async function handleMagicLink({ email }, env) {
       `INSERT INTO magic_link_tokens (token, user_id, email, expires_at_ms, created_at_ms) VALUES (?, ?, ?, ?, ?)`
     ).bind(tokenHash, user?.id ?? null, emailLower, now + MAGIC_EXPIRY_MS, now).run();
 
-    const magicUrl = `https://justfit.cc/magic.html?token=${rawToken}`;
+    const magicUrl = `${APP_URL}/magic.html?token=${rawToken}`;
     const accent = await getUserAccent(user?.id ?? null, env);
     await sendEmail(emailLower, 'Your JustFit login link ⚡', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Here's your login link</h1>
@@ -723,7 +724,7 @@ async function handleResendVerification(request, env, secret) {
   ).bind(tokenHash, user.userId, authUser.email, code, now + VERIFY_EXPIRY_MS, now).run();
 
   if (env.RESEND_API_KEY) {
-    const verifyUrl = `https://justfit.cc/api/auth?verify_email=${rawToken}`;
+    const verifyUrl = `${APP_URL}/api/auth?verify_email=${rawToken}`;
     const accent = await getUserAccent(user.userId, env);
     await sendEmail(authUser.email, 'Verify your JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Verify your email</h1>
@@ -797,7 +798,7 @@ async function handleRequestEmailChange({ new_email }, request, env, secret) {
   ).bind(tokenHash, user.userId, user.email, code, newEmailLower, now + VERIFY_EXPIRY_MS, now).run();
 
   if (env.RESEND_API_KEY) {
-    const changeUrl = `https://justfit.cc/api/auth?change_email=${rawToken}`;
+    const changeUrl = `${APP_URL}/api/auth?change_email=${rawToken}`;
     const accent = await getUserAccent(user.userId, env);
     await sendEmail(newEmailLower, 'Confirm your new JustFit email address', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Confirm your new email</h1>
@@ -861,7 +862,7 @@ async function handleVerifyEmailLink(token, env) {
   ).bind(tokenHash).first();
 
   if (!row || row.used_at_ms || row.expires_at_ms < Date.now()) {
-    return Response.redirect('https://justfit.cc/?verify_error=1', 302);
+    return Response.redirect(`${APP_URL}/?verify_error=1`, 302);
   }
 
   const now = Date.now();
@@ -870,7 +871,7 @@ async function handleVerifyEmailLink(token, env) {
     env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(row.user_id),
   ]);
 
-  return Response.redirect('https://justfit.cc/?email_verified=1', 302);
+  return Response.redirect(`${APP_URL}/?email_verified=1`, 302);
 }
 
 async function handleChangeEmailLink(token, env) {
@@ -880,7 +881,7 @@ async function handleChangeEmailLink(token, env) {
   ).bind(tokenHash).first();
 
   if (!row || row.used_at_ms || row.expires_at_ms < Date.now() || !row.new_email) {
-    return Response.redirect('https://justfit.cc/?verify_error=1', 302);
+    return Response.redirect(`${APP_URL}/?verify_error=1`, 302);
   }
 
   const now = Date.now();
@@ -904,7 +905,7 @@ async function handleChangeEmailLink(token, env) {
   }
 
   // Link-based change: JWT is re-issued on next app login. Redirect with success flag.
-  return Response.redirect('https://justfit.cc/?email_changed=1', 302);
+  return Response.redirect(`${APP_URL}/?email_changed=1`, 302);
 }
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────

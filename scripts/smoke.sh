@@ -4,7 +4,7 @@
 # Runs lint + build then sanity-checks the live API endpoints.
 
 set -e
-PROD="https://justfit.cc"
+PROD="https://app.justfit.cc"
 PASS=0; FAIL=0
 
 ok()   { echo "  ✓ $1"; PASS=$((PASS+1)); }

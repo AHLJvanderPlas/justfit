@@ -154,8 +154,8 @@ export async function onRequest(context) {
     ).bind(emailLower).first();
 
     const html = existingUser
-      ? inviteEmailHtml(gym.name, trainerName, `https://justfit.cc/trainer-invite?t=${inviteToken}`)
-      : signupInviteEmailHtml(gym.name, trainerName, `https://justfit.cc/signup?invite=${inviteToken}`);
+      ? inviteEmailHtml(gym.name, trainerName, `https://app.justfit.cc/trainer-invite?t=${inviteToken}`)
+      : signupInviteEmailHtml(gym.name, trainerName, `https://app.justfit.cc/signup?invite=${inviteToken}`);
     const subject = existingUser
       ? `${trainerName} wants to connect with you on JustFit`
       : `${trainerName} invited you to JustFit`;
