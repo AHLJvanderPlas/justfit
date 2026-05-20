@@ -695,6 +695,25 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // Final "Your target" content — prefer level-specific cue, fall back to interval structure
           const targetCardText = levelTargetText ?? intervalStructureText;
 
+          // Always-on derived target for exercises without level-specific or interval targets
+          const derivedTargetText = (() => {
+            if (targetCardText) return null;
+            const goal = prefs?.training_goal ?? 'health';
+            if (cur.category === 'mobility') return "Hold at mild tension — not pain. Breathe into the stretch on each exhale.";
+            if (cur.category === 'recovery') return "Keep the movement passive. Focus on releasing tension, not working through it.";
+            if (cur.category === 'cardio' || tags.includes('cardio')) {
+              if (goal === 'fat_loss') return "Steady effort — you should be able to speak a sentence but feel the work. Zone 2 is where fat burns.";
+              if (goal === 'endurance') return "Zone 2 — conversational pace you can sustain. This builds your aerobic engine.";
+              return "Conversational pace throughout. Steady and sustainable beats hard and short.";
+            }
+            if (cur.category === 'strength' || tags.includes('strength') || cur.category === 'mixed') {
+              if (goal === 'strength' || goal === 'muscle_gain') return "Last 2 reps of each set should feel genuinely hard. If they don't, that's your signal to add load next session.";
+              if (goal === 'fat_loss') return "Control the movement, keep rest short (45–60s). Strength work is metabolic — treat it that way.";
+              return "Complete all sets with good form. One quality rep builds more than three sloppy ones.";
+            }
+            return "Focus on the movement, not the clock. Quality over speed.";
+          })();
+
           // General cues = non-level-specific cues shown in "Why this helps".
           // Single-level cues (Pattern B) are filtered out; multi-level combined cues (Pattern A) kept for all.
           const cleanCues = cues
@@ -803,13 +822,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 </div>
               </div>
 
-              {/* ── Card 3: Your target today (level-specific or interval structure) ── */}
-              {targetCardText && (
-                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
+              {/* ── Card 3: Your target today (level-specific, interval structure, or derived fallback) ── */}
+              {(targetCardText || derivedTargetText) && (
+                <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--accent-rgb),0.08)", border: "1px solid rgba(var(--accent-rgb),0.3)" }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
-                    Your target · {expLevel.charAt(0).toUpperCase() + expLevel.slice(1)}
+                    {targetCardText ? `Your target · ${expLevel.charAt(0).toUpperCase() + expLevel.slice(1)}` : "Your target today"}
                   </div>
-                  <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText}</p>
+                  <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText ?? derivedTargetText}</p>
                   {/* For intervals: also show pace guidance from level-specific cue if we're showing the structure */}
                   {intervalStructureText && levelTargetText && (
                     <p style={{ fontSize: 13, color: C.emerald, margin: "6px 0 0", opacity: 0.75, lineHeight: 1.5 }}>{levelTargetText}</p>
