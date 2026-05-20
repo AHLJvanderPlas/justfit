@@ -25,3 +25,21 @@ html, body {
   min-height: 100dvh;
   margin: 0;
 }
+
+/* Shared input style used across trainer views */
+.input {
+  width: 100%;
+  background-color: var(--color-bg);
+  border: 1px solid var(--color-border);
+  border-radius: 14px;
+  padding: 10px 14px;
+  color: var(--color-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  box-sizing: border-box;
+}
+.input:focus {
+  border-color: var(--color-emerald);
+}

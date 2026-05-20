@@ -62,6 +62,16 @@ async function hmacSign(data, secret) {
   return b64url(sig);
 }
 
+/** Fetch gym memberships for a user to embed in JWT. Returns [] if gyms table not yet created. */
+async function fetchMemberships(userId, env) {
+  try {
+    const rows = await env.DB.prepare(
+      `SELECT gym_id, role, status FROM gym_memberships WHERE user_id = ? AND status = 'active' LIMIT 20`
+    ).bind(userId).all();
+    return (rows.results ?? []).map(r => ({ gym_id: r.gym_id, role: r.role, status: r.status }));
+  } catch { return []; }
+}
+
 async function createJWT(payload, secret, expirySeconds = JWT_EXPIRY) {
   const header = btoa(JSON.stringify({ alg: 'HS256', typ: 'JWT' }));
   const body   = btoa(JSON.stringify({ ...payload, exp: Math.floor(Date.now() / 1000) + expirySeconds }));
@@ -202,8 +212,11 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
     `), env.RESEND_API_KEY).catch(() => {});
   }
 
-  const token = await createJWT({ userId, email: emailLower }, secret);
-  return Response.json({ ok: true, token, userId });
+  const [token, memberships] = await Promise.all([
+    createJWT({ userId, email: emailLower }, secret),
+    fetchMemberships(userId, env),
+  ]);
+  return Response.json({ ok: true, token, userId, memberships });
 }
 
 async function handleLogin({ email, password }, request, env, secret) {
@@ -237,14 +250,15 @@ async function handleLogin({ email, password }, request, env, secret) {
   await env.DB.prepare(`UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`)
     .bind(now, authUser.id).run();
 
-  const [token, acceptRow] = await Promise.all([
+  const [token, acceptRow, memberships] = await Promise.all([
     createJWT({ userId: authUser.user_id, email: emailLower }, secret),
     env.DB.prepare(`SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.user_id).first(),
+    fetchMemberships(authUser.user_id, env),
   ]);
   const needsTermsAcceptance =
     (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
     (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
-  return Response.json({ ok: true, token, userId: authUser.user_id, needsTermsAcceptance });
+  return Response.json({ ok: true, token, userId: authUser.user_id, needsTermsAcceptance, memberships });
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
@@ -441,8 +455,11 @@ async function handleMagicVerify(token, env, secret) {
   await env.DB.prepare(`UPDATE auth_users SET email_verified = 1, last_login_at_ms = ? WHERE user_id = ?`)
     .bind(now, row.user_id).run();
 
-  const sessionToken = await createJWT({ userId: row.user_id, email: row.email }, secret);
-  return Response.json({ ok: true, token: sessionToken, userId: row.user_id });
+  const [sessionToken, memberships] = await Promise.all([
+    createJWT({ userId: row.user_id, email: row.email }, secret),
+    fetchMemberships(row.user_id, env),
+  ]);
+  return Response.json({ ok: true, token: sessionToken, userId: row.user_id, memberships });
 }
 
 // ─── PASSKEY: BEGIN REGISTRATION ─────────────────────────────────────────────
@@ -614,8 +631,11 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
   ]);
 
   // 8. Issue session token
-  const token = await createJWT({ userId: cred.user_id, email: cred.email }, secret);
-  return Response.json({ ok: true, token, userId: cred.user_id });
+  const [token, memberships] = await Promise.all([
+    createJWT({ userId: cred.user_id, email: cred.email }, secret),
+    fetchMemberships(cred.user_id, env),
+  ]);
+  return Response.json({ ok: true, token, userId: cred.user_id, memberships });
 }
 
 // ─── DELETE ACCOUNT ───────────────────────────────────────────────────────────

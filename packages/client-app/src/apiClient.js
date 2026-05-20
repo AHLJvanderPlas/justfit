@@ -291,6 +291,67 @@ const api = {
     });
     return res.json();
   },
+
+  // Trainer disclosures (P1B)
+  async getDisclosures(token) {
+    const res = await fetch("/api/client/disclosures", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async upsertDisclosure(token, gymId, level, data = {}) {
+    const res = await fetch("/api/client/disclosures", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Gym-Id": gymId },
+      body: JSON.stringify({ level, ...data }),
+    });
+    return res.json();
+  },
+
+  async respondUpgradeRequest(token, gymId, requestId, response) {
+    const res = await fetch(`/api/client/disclosures/${gymId}/upgrade-response`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ request_id: requestId, response }),
+    });
+    return res.json();
+  },
+
+  // Client intake (P1C)
+  async getIntake(token) {
+    const res = await fetch("/api/client/intake", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json();
+    return data.intake ?? null;
+  },
+
+  async saveIntake(token, intake) {
+    const res = await fetch("/api/client/intake", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(intake),
+    });
+    return res.json();
+  },
+
+  // GDPR (P1I)
+  async gdprExport(token) {
+    const res = await fetch("/api/client/gdpr/export", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async gdprRequestDelete(token) {
+    const res = await fetch("/api/client/gdpr/delete", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
 };
 
 export default api;
