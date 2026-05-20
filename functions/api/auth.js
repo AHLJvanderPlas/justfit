@@ -658,6 +658,8 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM referrals WHERE referrer_user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_availability WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_contact WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM strava_byo_credentials WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM strava_connections WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_preferences WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_profile WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM auth_users WHERE user_id = ?').bind(uid),

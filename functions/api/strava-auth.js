@@ -46,23 +46,21 @@ function corsHeaders() {
 async function getByoCreds(userId, env) {
   try {
     const row = await env.DB.prepare(
-      `SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
+      `SELECT client_id, client_secret FROM strava_byo_credentials WHERE user_id = ? LIMIT 1`
     ).bind(userId).first();
-    const prefs = JSON.parse(row?.preferences_json ?? '{}');
-    const byo = prefs.strava_byo ?? {};
-    return {
-      clientId:     byo.client_id     || env.STRAVA_CLIENT_ID     || null,
-      clientSecret: byo.client_secret || env.STRAVA_CLIENT_SECRET || null,
-      isByo:        !!(byo.client_id && byo.client_secret),
-    };
-  } catch { return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false }; }
+    if (row?.client_id && row?.client_secret) {
+      return { clientId: row.client_id, clientSecret: row.client_secret, isByo: true, byoClientId: row.client_id };
+    }
+    return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null };
+  } catch { return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null }; }
 }
 
 async function handleGet(request, env) {
   const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
-  const { clientId, isByo } = await getByoCreds(userId, env);
+  const byoCreds = await getByoCreds(userId, env);
+  const { clientId, isByo } = byoCreds;
   if (!clientId) return Response.json({ error: 'Strava not configured' }, { status: 503 });
 
   // Fetch existing connection status
@@ -101,6 +99,7 @@ async function handleGet(request, env) {
     auth_url: `${STRAVA_AUTH_URL}?${params}`,
     connection,
     is_byo: isByo,
+    client_id: byoCreds.byoClientId ?? null,
   }, { headers: corsHeaders() });
 }
 
@@ -118,27 +117,23 @@ async function handlePost(request, env) {
     if (!clientId || !clientSecret) {
       return Response.json({ error: 'client_id and client_secret are required' }, { status: 400 });
     }
+    // Validate: client_id should be numeric, client_secret should be a hex string
+    if (!/^\d+$/.test(clientId)) {
+      return Response.json({ error: 'client_id must be a numeric Strava App ID' }, { status: 400 });
+    }
+    if (clientSecret.length < 20) {
+      return Response.json({ error: 'client_secret appears too short' }, { status: 400 });
+    }
     try {
-      const byoJson = JSON.stringify({ client_id: clientId, client_secret: clientSecret });
-      const existingRow = await env.DB.prepare(
-        `SELECT user_id FROM user_preferences WHERE user_id = ? LIMIT 1`
-      ).bind(userId).first();
-      if (existingRow) {
-        await env.DB.prepare(
-          `UPDATE user_preferences
-           SET preferences_json = json_patch(preferences_json, json_object('strava_byo', json(?))),
-               updated_at_ms = ?
-           WHERE user_id = ?`
-        ).bind(byoJson, Date.now(), userId).run();
-      } else {
-        await env.DB.prepare(
-          `INSERT INTO user_preferences
-             (user_id, units, training_goal, experience_level, intensity_pref,
-              session_duration_min, days_per_week_target, preferences_json,
-              created_at_ms, updated_at_ms)
-           VALUES (?, 'metric', 'health', 'beginner', 5, 30, 3, ?, ?, ?)`
-        ).bind(userId, JSON.stringify({ strava_byo: { client_id: clientId, client_secret: clientSecret } }), Date.now(), Date.now()).run();
-      }
+      const nowMs = Date.now();
+      await env.DB.prepare(`
+        INSERT INTO strava_byo_credentials (user_id, client_id, client_secret, created_at_ms, updated_at_ms)
+        VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          client_id     = excluded.client_id,
+          client_secret = excluded.client_secret,
+          updated_at_ms = excluded.updated_at_ms
+      `).bind(userId, clientId, clientSecret, nowMs, nowMs).run();
       return Response.json({ ok: true }, { headers: corsHeaders() });
     } catch (e) {
       console.error('strava-auth save_byo:', e);
@@ -247,7 +242,10 @@ async function handleDelete(request, env) {
   if (!userId) return authError('Unauthorized');
 
   try {
-    await env.DB.prepare(`DELETE FROM strava_connections WHERE user_id = ?`).bind(userId).run();
+    await env.DB.batch([
+      env.DB.prepare(`DELETE FROM strava_connections WHERE user_id = ?`).bind(userId),
+      env.DB.prepare(`DELETE FROM strava_byo_credentials WHERE user_id = ?`).bind(userId),
+    ]);
   } catch (e) {
     console.error('strava-auth DELETE:', e);
     return Response.json({ error: 'Internal error' }, { status: 500 });

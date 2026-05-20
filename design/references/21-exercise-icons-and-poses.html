@@ -1,0 +1,612 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Icon coverage & pose illustrations — JustFit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter+Tight:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0a0a;
+    --panel:#111;
+    --ink:#f5f5f5;
+    --dim:#9aa0a6;
+    --line:rgba(255,255,255,0.10);
+    --accent:#f43f5e;
+    --good:#10b981;
+    --warn:#f59e0b;
+    --miss:#ef4444;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--ink);font-family:"Inter Tight",system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:"Barlow Condensed",sans-serif;letter-spacing:0.01em;margin:0}
+  .mono{font-family:"JetBrains Mono",monospace}
+</style>
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script type="text/babel" src="design-canvas.jsx"></script>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useMemo } = React;
+
+// ─── Existing exercise icons (from src/icons.jsx EXERCISE_PATHS) ──────────────
+// Recreated faithfully so the audit shows the real things.
+const EX_PATHS = {
+  pushup: <><circle cx="4" cy="8" r="1.8"/><line x1="5.5" y1="9" x2="18" y2="11.5"/><line x1="18" y1="11.5" x2="21" y2="10.5"/><line x1="9" y1="9.7" x2="9" y2="14.5"/><line x1="9" y1="14.5" x2="13" y2="14.5"/><line x1="14" y1="10.5" x2="14" y2="15"/><line x1="14" y1="15" x2="18" y2="15"/></>,
+  squat: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="12"/><line x1="12" y1="8" x2="7.5" y2="11"/><line x1="12" y1="8" x2="16.5" y2="11"/><line x1="12" y1="12" x2="8" y2="17"/><line x1="8" y1="17" x2="6.5" y2="21"/><line x1="12" y1="12" x2="16" y2="17"/><line x1="16" y1="17" x2="17.5" y2="21"/></>,
+  deadlift: <><circle cx="7" cy="5" r="1.8"/><line x1="7" y1="6.8" x2="13" y2="13"/><line x1="9" y1="9" x2="16" y2="14"/><line x1="13" y1="13" x2="11" y2="20"/><line x1="13" y1="13" x2="16" y2="20"/><line x1="14.5" y1="17" x2="21" y2="17"/><circle cx="21" cy="17" r="1.5"/></>,
+  bench: <><circle cx="4.5" cy="13" r="1.8"/><line x1="6.3" y1="13" x2="19" y2="13"/><line x1="19" y1="13" x2="20.5" y2="11"/><line x1="10" y1="13" x2="10" y2="7"/><line x1="10" y1="7" x2="15" y2="7"/><line x1="15" y1="7" x2="15" y2="13"/><line x1="8" y1="7.5" x2="17" y2="7.5"/></>,
+  row: <><circle cx="5" cy="8" r="1.8"/><line x1="6.5" y1="9" x2="15" y2="13"/><line x1="15" y1="13" x2="13" y2="20"/><line x1="15" y1="13" x2="18" y2="20"/><line x1="9" y1="10.5" x2="10" y2="15"/><line x1="10" y1="15" x2="14" y2="13"/><circle cx="15" cy="12.5" r="1.5"/></>,
+  pull: <><line x1="3" y1="3" x2="21" y2="3"/><circle cx="12" cy="6.5" r="1.8"/><line x1="12" y1="8.3" x2="12" y2="15"/><line x1="12" y1="8.3" x2="7" y2="3"/><line x1="12" y1="8.3" x2="17" y2="3"/><line x1="12" y1="11" x2="8.5" y2="13.5"/><line x1="12" y1="11" x2="15.5" y2="13.5"/><line x1="12" y1="15" x2="10" y2="21"/><line x1="12" y1="15" x2="14" y2="21"/></>,
+  plank: <><circle cx="4" cy="8" r="1.8"/><line x1="5.5" y1="9" x2="19" y2="11.5"/><line x1="19" y1="11.5" x2="22" y2="10.5"/><line x1="9" y1="9.8" x2="8" y2="14.5"/><line x1="8" y1="14.5" x2="13" y2="14.5"/><line x1="14" y1="10.5" x2="13" y2="15"/><line x1="13" y1="15" x2="18" y2="15"/></>,
+  lunge: <><circle cx="10" cy="4" r="1.8"/><line x1="10" y1="5.8" x2="10" y2="12"/><line x1="10" y1="9" x2="13" y2="11"/><line x1="10" y1="12" x2="7" y2="18"/><line x1="7" y1="18" x2="5" y2="22"/><line x1="10" y1="12" x2="15" y2="16"/><line x1="15" y1="16" x2="15" y2="22"/></>,
+  curl: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="14"/><line x1="12" y1="9" x2="17" y2="12"/><line x1="17" y1="12" x2="16" y2="8"/><circle cx="15.5" cy="7" r="1.5"/><line x1="12" y1="9" x2="7" y2="12"/><line x1="12" y1="14" x2="9" y2="21"/><line x1="12" y1="14" x2="15" y2="21"/></>,
+  sit: <><circle cx="16" cy="7" r="1.8"/><line x1="15" y1="8.5" x2="9" y2="14"/><line x1="9" y1="14" x2="7" y2="19"/><line x1="7" y1="19" x2="14" y2="19"/><line x1="14" y1="19" x2="16" y2="15"/><line x1="9" y1="14" x2="14" y2="11"/></>,
+  kettle: <><circle cx="8" cy="5" r="1.8"/><line x1="8" y1="6.8" x2="12" y2="13"/><line x1="10" y1="9" x2="17" y2="6"/><line x1="12" y1="13" x2="10" y2="20"/><line x1="12" y1="13" x2="15" y2="20"/><circle cx="19" cy="6" r="2.5"/><path d="M17 3.5 Q19 2 21 3.5" fill="none"/></>,
+  run: <><circle cx="14" cy="4" r="1.8"/><line x1="14" y1="5.8" x2="12" y2="13"/><line x1="12" y1="9" x2="17" y2="7"/><line x1="12" y1="9" x2="8" y2="12"/><line x1="12" y1="13" x2="17" y2="18"/><line x1="17" y1="18" x2="20" y2="16"/><line x1="12" y1="13" x2="9" y2="19"/><line x1="9" y1="19" x2="7" y2="22"/></>,
+  press: <><circle cx="11" cy="7" r="1.8"/><line x1="11" y1="8.8" x2="11" y2="16"/><line x1="11" y1="9.5" x2="11" y2="3"/><line x1="11" y1="3" x2="9" y2="3"/><line x1="11" y1="3" x2="13" y2="3"/><circle cx="9" cy="3" r="1.5"/><circle cx="13" cy="3" r="1.5"/><line x1="11" y1="16" x2="9" y2="22"/><line x1="11" y1="16" x2="13" y2="22"/></>,
+  dip: <><line x1="3" y1="9" x2="11" y2="9"/><line x1="13" y1="9" x2="21" y2="9"/><circle cx="12" cy="6" r="1.8"/><line x1="12" y1="7.8" x2="12" y2="14"/><line x1="12" y1="9" x2="9" y2="11"/><line x1="9" y1="11" x2="9" y2="9"/><line x1="12" y1="9" x2="15" y2="11"/><line x1="15" y1="11" x2="15" y2="9"/><line x1="12" y1="14" x2="10" y2="18"/><line x1="10" y1="18" x2="13" y2="20"/><line x1="12" y1="14" x2="14" y2="18"/><line x1="14" y1="18" x2="17" y2="20"/></>,
+  hip: <><circle cx="4" cy="17" r="1.8"/><line x1="5.5" y1="16.5" x2="13" y2="11"/><line x1="5.5" y1="17.5" x2="9" y2="19"/><line x1="13" y1="11" x2="17" y2="14"/><line x1="17" y1="14" x2="17" y2="20"/><line x1="3" y1="20.5" x2="20" y2="20.5"/></>,
+  stretch: <><circle cx="6" cy="11" r="1.8"/><line x1="7.5" y1="11.5" x2="14" y2="15"/><line x1="11" y1="13" x2="18" y2="17"/><line x1="14" y1="15" x2="20" y2="17"/><line x1="20" y1="17" x2="21" y2="15.5"/><line x1="4" y1="18.5" x2="22" y2="18.5"/></>,
+  band: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="14"/><line x1="12" y1="9" x2="4" y2="9"/><line x1="12" y1="9" x2="20" y2="9"/><path d="M4 9 Q12 11 20 9" fill="none"/><circle cx="4" cy="9" r="1.5"/><circle cx="20" cy="9" r="1.5"/><line x1="12" y1="14" x2="9" y2="21"/><line x1="12" y1="14" x2="15" y2="21"/></>,
+  step: <><circle cx="8" cy="4" r="1.8"/><line x1="8" y1="5.8" x2="8" y2="13"/><line x1="8" y1="9" x2="5" y2="11"/><line x1="8" y1="9" x2="11" y2="7"/><line x1="8" y1="13" x2="14" y2="14"/><line x1="14" y1="14" x2="14" y2="18"/><line x1="8" y1="13" x2="7" y2="22"/><line x1="13" y1="18" x2="22" y2="18"/><line x1="13" y1="18" x2="13" y2="22"/><line x1="22" y1="18" x2="22" y2="22"/><line x1="13" y1="22" x2="22" y2="22"/></>,
+  walk: <><circle cx="11" cy="4" r="1.8"/><line x1="11" y1="5.8" x2="11" y2="13"/><line x1="11" y1="9" x2="14" y2="11.5"/><line x1="11" y1="9" x2="8" y2="11.5"/><line x1="11" y1="13" x2="15" y2="18"/><line x1="15" y1="18" x2="16" y2="22"/><line x1="11" y1="13" x2="8" y2="19"/><line x1="8" y1="19" x2="6" y2="22"/></>,
+  sprint: <><circle cx="15" cy="4" r="1.8"/><line x1="14.5" y1="5.7" x2="11" y2="13"/><line x1="13" y1="9" x2="19" y2="6"/><line x1="13" y1="9" x2="6" y2="11"/><line x1="11" y1="13" x2="17" y2="15"/><line x1="17" y1="15" x2="20" y2="11"/><line x1="11" y1="13" x2="7" y2="18"/><line x1="7" y1="18" x2="3" y2="20"/></>,
+  rotation: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="14"/><line x1="12" y1="9" x2="18" y2="11"/><circle cx="19" cy="11.5" r="2"/><path d="M5 9 Q3 12 5 14" fill="none"/><line x1="5" y1="14" x2="6.5" y2="13.5"/><line x1="5" y1="14" x2="4.5" y2="12.5"/><line x1="12" y1="14" x2="9" y2="21"/><line x1="12" y1="14" x2="15" y2="21"/></>,
+  breathe: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="14"/><line x1="12" y1="8" x2="6" y2="11"/><line x1="12" y1="8" x2="18" y2="11"/><path d="M8 3 Q9 1.5 11 1.5" fill="none"/><path d="M16 3 Q15 1.5 13 1.5" fill="none"/><line x1="12" y1="14" x2="10" y2="21"/><line x1="12" y1="14" x2="14" y2="21"/></>,
+  foam: <><circle cx="4" cy="11" r="1.8"/><line x1="5.5" y1="11.5" x2="13" y2="14"/><line x1="5.5" y1="11.5" x2="7" y2="16"/><line x1="7" y1="16" x2="6" y2="20"/><line x1="13" y1="14" x2="18" y2="13"/><line x1="18" y1="13" x2="20" y2="17"/><ellipse cx="13" cy="17" rx="3" ry="1.5" fill="none"/><line x1="2" y1="20.5" x2="22" y2="20.5"/></>,
+  military: <><circle cx="10" cy="4" r="1.8"/><line x1="10" y1="5.8" x2="10" y2="13"/><line x1="6" y1="7" x2="6" y2="12"/><line x1="6" y1="7" x2="9" y2="7"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="10" y1="9" x2="13" y2="7"/><line x1="10" y1="9" x2="8" y2="12"/><line x1="10" y1="13" x2="14" y2="16"/><line x1="14" y1="16" x2="14" y2="20"/><line x1="10" y1="13" x2="9" y2="22"/></>,
+  bike: <><circle cx="5" cy="18" r="2.5"/><circle cx="19" cy="18" r="2.5"/><line x1="5" y1="18" x2="12" y2="18"/><line x1="12" y1="18" x2="19" y2="18"/><line x1="12" y1="18" x2="14" y2="11"/><line x1="19" y1="18" x2="14" y2="11"/><line x1="13" y1="11" x2="15" y2="11"/><circle cx="13" cy="6" r="1.8"/><line x1="13" y1="7.8" x2="14" y2="11"/><line x1="13.5" y1="9" x2="18" y2="11"/><line x1="14" y1="11" x2="12" y2="18"/><line x1="14" y1="11" x2="16" y2="14"/><line x1="16" y1="14" x2="13" y2="17"/></>,
+  climb: <><line x1="3" y1="22" x2="11" y2="22"/><line x1="11" y1="22" x2="11" y2="18"/><line x1="11" y1="18" x2="17" y2="18"/><line x1="17" y1="18" x2="17" y2="14"/><line x1="17" y1="14" x2="22" y2="14"/><circle cx="9" cy="5" r="1.8"/><line x1="9" y1="6.8" x2="10" y2="13"/><line x1="9.5" y1="9" x2="14" y2="6"/><line x1="9.5" y1="9" x2="6" y2="11"/><line x1="10" y1="13" x2="14" y2="14"/><line x1="14" y1="14" x2="14" y2="18"/><line x1="10" y1="13" x2="9" y2="22"/></>,
+  shoulder: <><circle cx="12" cy="3.5" r="1.8"/><line x1="12" y1="5.3" x2="12" y2="14"/><line x1="12" y1="8" x2="5" y2="8"/><line x1="12" y1="8" x2="19" y2="8"/><circle cx="4" cy="8" r="1.5"/><circle cx="20" cy="8" r="1.5"/><line x1="12" y1="14" x2="10" y2="21"/><line x1="12" y1="14" x2="14" y2="21"/></>,
+  default: <><circle cx="4" cy="12" r="3"/><circle cx="20" cy="12" r="3"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="9" y1="9" x2="9" y2="15"/><line x1="15" y1="9" x2="15" y2="15"/></>,
+};
+
+const Ico = ({ k, size = 56, c = "#fff" }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    {EX_PATHS[k] || EX_PATHS.default}
+  </svg>
+);
+
+// ─── Audit data ─────────────────────────────────────────────────────────────
+// Each row: a real ex slug family from the DB; what icon it currently maps to;
+// gap status; suggested new icon key (only for "missing/new" ones).
+const AUDIT = [
+  // ── Existing strong matches ────────────────────────────────────────────
+  { group:"Push", slug:"push-up", maps:"pushup", status:"good" },
+  { group:"Push", slug:"bench-press", maps:"bench", status:"good" },
+  { group:"Push", slug:"shoulder-press / overhead-press", maps:"press", status:"good" },
+  { group:"Push", slug:"dip", maps:"dip", status:"good" },
+  { group:"Push", slug:"lateral-raise / front-raise / face-pull", maps:"shoulder", status:"good" },
+
+  { group:"Pull", slug:"pull-up / chin-up", maps:"pull", status:"good" },
+  { group:"Pull", slug:"row (any)", maps:"row", status:"good" },
+  { group:"Pull", slug:"curl", maps:"curl", status:"good" },
+
+  { group:"Legs", slug:"squat", maps:"squat", status:"good" },
+  { group:"Legs", slug:"lunge / split-squat", maps:"lunge", status:"good" },
+  { group:"Legs", slug:"deadlift", maps:"deadlift", status:"good" },
+  { group:"Legs", slug:"hip-thrust / glute-bridge / RDL", maps:"hip", status:"good" },
+  { group:"Legs", slug:"step-up / box-jump / stair", maps:"step", status:"good" },
+
+  { group:"Core", slug:"plank", maps:"plank", status:"good" },
+  { group:"Core", slug:"sit-up / crunch", maps:"sit", status:"good" },
+  { group:"Core", slug:"twist / rotation / woodchop", maps:"rotation", status:"good" },
+
+  { group:"Cardio", slug:"run / jog", maps:"run", status:"good" },
+  { group:"Cardio", slug:"walk / march / carry", maps:"walk", status:"good" },
+  { group:"Cardio", slug:"sprint / burpee / mountain-climber / jumping-jack / jump", maps:"sprint", status:"weak", note:"5 distinct movements share one icon — burpee, MC, jacks all read identically" },
+  { group:"Cardio", slug:"cycling / bike", maps:"bike", status:"good" },
+  { group:"Cardio", slug:"stair-climb", maps:"climb", status:"good" },
+
+  { group:"Recovery", slug:"stretch / child-pose / pigeon", maps:"stretch", status:"good" },
+  { group:"Recovery", slug:"foam-roll", maps:"foam", status:"good" },
+  { group:"Recovery", slug:"breathing / box-breathing", maps:"breathe", status:"good" },
+
+  { group:"Conditioning", slug:"kettlebell / swing", maps:"kettle", status:"good" },
+  { group:"Conditioning", slug:"resistance-band", maps:"band", status:"good" },
+  { group:"Conditioning", slug:"military / cooper / ruck", maps:"military", status:"good" },
+
+  // ── Real DB slugs falling through to "default" dumbbell ───────────────────
+  { group:"Push", slug:"push-press / clean-and-press / jerk", maps:"default", status:"missing", suggest:"jerk", why:"Power/strength move; explosive overhead — distinct from strict press" },
+  { group:"Pull", slug:"clean-pull / clean / snatch / high-pull", maps:"default", status:"missing", suggest:"clean", why:"Olympic lift — bar travels from floor to shoulders/overhead" },
+  { group:"Pull", slug:"face-pull (band)", maps:"shoulder", status:"weak", note:"Mapped to lateral-raise but pulls toward face — different vector" },
+  { group:"Legs", slug:"calf-raise / squat-calf-raise", maps:"squat", status:"weak", note:"Falls under 'squat' substring; different muscle, different motion" },
+  { group:"Legs", slug:"good-morning / hyperextension / back-extension", maps:"default", status:"missing", suggest:"hinge", why:"Hip hinge with bar on traps — common posterior-chain movement" },
+  { group:"Legs", slug:"leg-press", maps:"default", status:"missing", suggest:"legpress", why:"Machine seat angle, legs pressing platform — visually distinct" },
+  { group:"Legs", slug:"leg-extension / leg-curl (machine)", maps:"default", status:"missing", suggest:"machine", why:"Seated isolation; pad on shin or ankle" },
+  { group:"Core", slug:"hollow-hold / dead-bug / hollow-rock", maps:"default", status:"missing", suggest:"hollow", why:"Supine, lower back pressed flat, arms+legs raised — anti-extension" },
+  { group:"Core", slug:"side-plank", maps:"plank", status:"weak", note:"Mapped to plank but lateral orientation; oblique-focused" },
+  { group:"Core", slug:"hanging-leg-raise / knee-raise", maps:"default", status:"missing", suggest:"legraise", why:"Hangs from bar, knees/legs up — anti-extension under load" },
+  { group:"Cardio", slug:"burpee", maps:"sprint", status:"missing-distinct", suggest:"burpee", why:"Squat-thrust to jump — too iconic to share with sprint" },
+  { group:"Cardio", slug:"mountain-climber", maps:"sprint", status:"missing-distinct", suggest:"mtnclimber", why:"Plank position with alternating knee drive — visually unique" },
+  { group:"Cardio", slug:"jumping-jack", maps:"sprint", status:"missing-distinct", suggest:"jack", why:"Front-view star pose — universally readable shape" },
+  { group:"Cardio", slug:"jump-rope / skipping", maps:"sprint", status:"missing", suggest:"jumprope", why:"Rope arc above figure — distinct from sprinting" },
+  { group:"Cardio", slug:"box-jump", maps:"step", status:"weak", note:"Mapped to step-up but it's an explosive jump — different intent" },
+  { group:"Cardio", slug:"row-erg / rowing-machine", maps:"row", status:"weak", note:"Bent-over barbell row icon ≠ seated rowing erg" },
+  { group:"Cardio", slug:"swim / swimming", maps:"default", status:"missing", suggest:"swim", why:"Cardio menu has it in many plans; needs water/stroke cue" },
+  { group:"Conditioning", slug:"farmer-carry / suitcase-carry", maps:"walk", status:"weak", note:"'Carry' falls into walk; loses the loaded-carry meaning" },
+  { group:"Conditioning", slug:"sled-push / sled-drag / prowler", maps:"default", status:"missing", suggest:"sled", why:"Conditioning workhorse; figure leaning into bar" },
+  { group:"Conditioning", slug:"battle-ropes", maps:"default", status:"missing", suggest:"ropes", why:"Two arcs in front of figure — instantly readable" },
+  { group:"Conditioning", slug:"sandbag (clean/carry/over-shoulder)", maps:"default", status:"missing", suggest:"sandbag", why:"Military programs use these; bag has soft silhouette" },
+  { group:"Conditioning", slug:"turkish-getup", maps:"default", status:"missing", suggest:"getup", why:"Distinctive — half-kneeling with weight pressed up" },
+  { group:"Recovery", slug:"yoga-pose (downward-dog, cobra, etc.)", maps:"default", status:"missing", suggest:"yoga", why:"Non-stretch yoga shapes; more iconic than 'stretch'" },
+  { group:"Skill", slug:"agility / ladder / cone-drill", maps:"default", status:"missing", suggest:"agility", why:"Military & sport — figure with cones/ladder marks" },
+  { group:"Skill", slug:"box / boxing / shadow-box / heavy-bag", maps:"default", status:"missing", suggest:"box", why:"Combat-style cardio — fists up, stance" },
+];
+
+// ─── New proposed icons (sketched) ───────────────────────────────────────────
+const NEW_PATHS = {
+  burpee: <><circle cx="6" cy="3.5" r="1.5"/><line x1="6" y1="5" x2="6" y2="9"/><line x1="6" y1="9" x2="3" y2="13"/><line x1="6" y1="9" x2="9" y2="13"/><path d="M3 18 Q6 15 12 17 T22 18" fill="none"/><circle cx="20" cy="17.5" r="1.3"/></>,
+  mtnclimber: <><circle cx="4" cy="9" r="1.6"/><line x1="5.4" y1="10" x2="20" y2="13"/><line x1="20" y1="13" x2="22" y2="12.5"/><line x1="18" y1="12.5" x2="14" y2="20"/><line x1="14" y1="20" x2="11" y2="20"/><line x1="13" y1="13" x2="11" y2="17"/><line x1="11" y1="17" x2="8" y2="17"/></>,
+  jack: <><circle cx="12" cy="4" r="1.8"/><line x1="12" y1="5.8" x2="12" y2="14"/><line x1="12" y1="8" x2="4" y2="4"/><line x1="12" y1="8" x2="20" y2="4"/><line x1="12" y1="14" x2="6" y2="22"/><line x1="12" y1="14" x2="18" y2="22"/></>,
+  jumprope: <><circle cx="12" cy="6" r="1.8"/><line x1="12" y1="7.8" x2="12" y2="14"/><line x1="12" y1="10" x2="9" y2="12"/><line x1="9" y1="12" x2="6" y2="9"/><line x1="12" y1="10" x2="15" y2="12"/><line x1="15" y1="12" x2="18" y2="9"/><path d="M5 8 Q12 -1 19 8" fill="none"/><line x1="12" y1="14" x2="10" y2="20"/><line x1="12" y1="14" x2="14" y2="20"/><line x1="6" y1="21" x2="18" y2="21"/></>,
+  hinge: <><circle cx="6" cy="4" r="1.8"/><line x1="6.5" y1="5.5" x2="13" y2="11"/><line x1="13" y1="11" x2="20" y2="9"/><line x1="13" y1="11" x2="13" y2="17"/><line x1="13" y1="17" x2="11" y2="22"/><line x1="13" y1="17" x2="15" y2="22"/><line x1="3" y1="11" x2="21" y2="11"/></>,
+  legpress: <><line x1="2" y1="20" x2="22" y2="20"/><line x1="3" y1="20" x2="9" y2="14"/><circle cx="6" cy="13" r="1.6"/><line x1="6" y1="14.5" x2="9" y2="14"/><line x1="9" y1="14" x2="14" y2="11"/><line x1="14" y1="11" x2="20" y2="14"/><line x1="20" y1="14" x2="20" y2="20"/><line x1="9" y1="14" x2="9" y2="11"/></>,
+  hollow: <><line x1="2" y1="18" x2="22" y2="18"/><circle cx="6" cy="14" r="1.5"/><path d="M7 14 Q12 11 17 13" fill="none"/><line x1="7" y1="13" x2="9" y2="9"/><line x1="9" y1="9" x2="11" y2="6"/><line x1="14" y1="13" x2="17" y2="9"/><line x1="17" y1="9" x2="20" y2="6"/></>,
+  legraise: <><line x1="3" y1="3" x2="21" y2="3"/><circle cx="12" cy="6.5" r="1.6"/><line x1="12" y1="8" x2="9" y2="3"/><line x1="12" y1="8" x2="15" y2="3"/><line x1="12" y1="8" x2="12" y2="13"/><line x1="12" y1="13" x2="20" y2="11"/><line x1="20" y1="11" x2="21" y2="8"/><line x1="12" y1="13" x2="20" y2="14"/></>,
+  swim: <><path d="M2 16 Q6 14 10 16 T18 16 T22 16" fill="none"/><path d="M2 20 Q6 18 10 20 T18 20 T22 20" fill="none"/><circle cx="7" cy="10" r="1.6"/><line x1="8" y1="11" x2="14" y2="13"/><line x1="14" y1="13" x2="20" y2="10"/><line x1="8" y1="11" x2="3" y2="9"/></>,
+  sled: <><circle cx="9" cy="5" r="1.6"/><line x1="9" y1="6.5" x2="11" y2="13"/><line x1="11" y1="13" x2="14" y2="11"/><line x1="14" y1="11" x2="14" y2="6"/><line x1="11" y1="13" x2="9" y2="20"/><line x1="11" y1="13" x2="14" y2="20"/><rect x="15" y="6" width="6" height="3"/><line x1="15" y1="9" x2="15" y2="20"/><line x1="21" y1="9" x2="21" y2="20"/><line x1="14" y1="20" x2="22" y2="20"/></>,
+  ropes: <><circle cx="12" cy="4" r="1.8"/><line x1="12" y1="5.8" x2="12" y2="14"/><line x1="12" y1="9" x2="8" y2="11"/><line x1="12" y1="9" x2="16" y2="11"/><path d="M8 11 Q5 8 3 13 Q5 18 3 22" fill="none"/><path d="M16 11 Q19 8 21 13 Q19 18 21 22" fill="none"/><line x1="12" y1="14" x2="10" y2="21"/><line x1="12" y1="14" x2="14" y2="21"/></>,
+  sandbag: <><circle cx="8" cy="4" r="1.6"/><line x1="8" y1="5.5" x2="9" y2="11"/><line x1="9" y1="11" x2="13" y2="9"/><rect x="11" y="5" width="6" height="4" rx="1"/><line x1="11" y1="6" x2="17" y2="6"/><line x1="9" y1="11" x2="7" y2="20"/><line x1="9" y1="11" x2="11" y2="20"/></>,
+  getup: <><circle cx="7" cy="13" r="1.6"/><line x1="7" y1="14.5" x2="9" y2="20"/><line x1="7" y1="14.5" x2="13" y2="14"/><line x1="13" y1="14" x2="14" y2="20"/><line x1="13" y1="14" x2="13" y2="6"/><line x1="13" y1="6" x2="11" y2="3"/><line x1="13" y1="6" x2="15" y2="3"/><circle cx="13" cy="3" r="1.5"/></>,
+  yoga: <><circle cx="12" cy="5" r="1.8"/><line x1="12" y1="6.8" x2="12" y2="13"/><line x1="12" y1="9" x2="6" y2="13"/><line x1="6" y1="13" x2="3" y2="11"/><line x1="12" y1="9" x2="18" y2="13"/><line x1="18" y1="13" x2="21" y2="11"/><line x1="12" y1="13" x2="9" y2="18"/><line x1="9" y1="18" x2="14" y2="18"/><line x1="14" y1="18" x2="12" y2="13"/></>,
+  agility: <><line x1="3" y1="20" x2="21" y2="20"/><circle cx="6" cy="20" r="0.6"/><circle cx="11" cy="20" r="0.6"/><circle cx="16" cy="20" r="0.6"/><circle cx="14" cy="4" r="1.6"/><line x1="14" y1="5.5" x2="13" y2="11"/><line x1="13" y1="9" x2="18" y2="7"/><line x1="13" y1="9" x2="9" y2="11"/><line x1="13" y1="11" x2="17" y2="14"/><line x1="13" y1="11" x2="9" y2="17"/></>,
+  box: <><circle cx="11" cy="4" r="1.8"/><line x1="11" y1="5.8" x2="10" y2="13"/><line x1="11" y1="8" x2="17" y2="6"/><circle cx="18" cy="6" r="1.4"/><line x1="11" y1="9" x2="6" y2="9"/><circle cx="5" cy="9" r="1.4"/><line x1="10" y1="13" x2="13" y2="20"/><line x1="10" y1="13" x2="7" y2="20"/></>,
+  clean: <><circle cx="9" cy="3.5" r="1.7"/><line x1="9" y1="5.3" x2="9" y2="11"/><line x1="9" y1="9" x2="14" y2="6"/><line x1="14" y1="6" x2="20" y2="4"/><circle cx="20" cy="4" r="1.4"/><line x1="9" y1="11" x2="6" y2="20"/><line x1="9" y1="11" x2="12" y2="20"/></>,
+  jerk: <><circle cx="12" cy="9" r="1.7"/><line x1="12" y1="10.5" x2="12" y2="16"/><line x1="12" y1="11" x2="9" y2="3"/><line x1="12" y1="11" x2="15" y2="3"/><line x1="6" y1="3" x2="18" y2="3"/><line x1="12" y1="16" x2="9" y2="22"/><line x1="12" y1="16" x2="15" y2="22"/><line x1="9" y1="13" x2="14" y2="13"/></>,
+  machine: <><line x1="3" y1="20" x2="21" y2="20"/><line x1="20" y1="20" x2="20" y2="6"/><line x1="20" y1="6" x2="14" y2="6"/><line x1="14" y1="6" x2="14" y2="14"/><circle cx="9" cy="11" r="1.6"/><line x1="9" y1="12.5" x2="11" y2="20"/><line x1="9" y1="12.5" x2="6" y2="20"/><line x1="9" y1="11" x2="14" y2="14"/><line x1="14" y1="14" x2="11" y2="20"/></>,
+};
+
+// ─── Push-up pose: hi-fi figurative illustration ─────────────────────────────
+// Anatomical line drawing — black stroke on white (toggleable).
+// 600×400 viewBox, side view, top of the push-up.
+function PushUpPose({ phase = "top", invert = false, showGrid = false }) {
+  const stroke = invert ? "#fff" : "#0a0a0a";
+  const bg = invert ? "#0a0a0a" : "#ffffff";
+  // Tween a few key joint positions between top and bottom of push-up.
+  const t = phase === "top" ? 0 : phase === "bottom" ? 1 : 0.5;
+  const lerp = (a,b) => a + (b - a) * t;
+
+  // Anchor points (tuned by eye for a realistic side-view)
+  const shoulder = { x: 200, y: lerp(170, 220) };
+  const elbow    = { x: 200, y: lerp(265, 240) };
+  const wrist    = { x: 200, y: 320 };
+  const hip      = { x: 350, y: lerp(180, 230) };
+  const knee     = { x: 470, y: lerp(220, 270) };
+  const ankle    = { x: 540, y: 320 };
+  const head     = { cx: 145, cy: lerp(165, 215), rx: 38, ry: 30, rot: -8 };
+  const neck     = { x: 175, y: lerp(170, 220) };
+  // Back curve control point — slight arch
+  const backMid  = { x: 275, y: lerp(170, 220) };
+
+  return (
+    <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%", height:"100%", display:"block", background: bg }}>
+      {showGrid && (
+        <g stroke="#e5e5e5" strokeWidth="0.5">
+          {Array.from({length:13}).map((_,i)=> <line key={"v"+i} x1={i*50} y1="0" x2={i*50} y2="400"/>)}
+          {Array.from({length:9}).map((_,i)=>  <line key={"h"+i} x1="0" y1={i*50} x2="600" y2={i*50}/>)}
+        </g>
+      )}
+      {/* Floor */}
+      <line x1="40" y1="320" x2="560" y2="320" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
+      <g stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+        {/* Head — oval, slight tilt */}
+        <ellipse cx={head.cx} cy={head.cy} rx={head.rx} ry={head.ry} transform={`rotate(${head.rot} ${head.cx} ${head.cy})`}/>
+        {/* Hair line cue */}
+        <path d={`M ${head.cx-30} ${head.cy-22} Q ${head.cx-15} ${head.cy-32} ${head.cx+10} ${head.cy-26}`}/>
+        {/* Ear */}
+        <path d={`M ${head.cx+20} ${head.cy-2} q 4 2 0 8`}/>
+        {/* Jaw → chin to neck */}
+        <path d={`M ${head.cx+25} ${head.cy+18} Q ${head.cx+35} ${head.cy+22} ${neck.x} ${neck.y-6}`}/>
+        {/* Neck-to-shoulder */}
+        <path d={`M ${neck.x} ${neck.y-6} L ${shoulder.x} ${shoulder.y}`}/>
+        {/* Back / torso top line — shoulder to hip with subtle curve */}
+        <path d={`M ${shoulder.x} ${shoulder.y} Q ${backMid.x} ${backMid.y - 4} ${hip.x} ${hip.y}`}/>
+        {/* Underside of torso — slight sag suggestion at bottom phase */}
+        <path d={`M ${shoulder.x+15} ${shoulder.y+18} Q ${backMid.x} ${backMid.y + 22} ${hip.x-10} ${hip.y+18}`}/>
+        {/* Arm: shoulder→elbow→wrist (wrist anchored to floor) */}
+        <path d={`M ${shoulder.x} ${shoulder.y} L ${elbow.x} ${elbow.y} L ${wrist.x} ${wrist.y}`}/>
+        {/* Triceps cue */}
+        <path d={`M ${shoulder.x+8} ${shoulder.y+10} Q ${(shoulder.x+elbow.x)/2 + 6} ${(shoulder.y+elbow.y)/2} ${elbow.x+4} ${elbow.y-2}`}/>
+        {/* Forearm */}
+        <path d={`M ${elbow.x-6} ${elbow.y+4} L ${wrist.x-6} ${wrist.y-4}`}/>
+        {/* Hand */}
+        <path d={`M ${wrist.x-10} ${wrist.y} h 22`}/>
+        {/* Glute / hip line */}
+        <path d={`M ${hip.x-6} ${hip.y-4} Q ${hip.x+6} ${hip.y-12} ${hip.x+22} ${hip.y-6}`}/>
+        {/* Leg: hip→knee→ankle */}
+        <path d={`M ${hip.x} ${hip.y} L ${knee.x} ${knee.y} L ${ankle.x} ${ankle.y}`}/>
+        {/* Quad cue */}
+        <path d={`M ${hip.x+10} ${hip.y+12} Q ${(hip.x+knee.x)/2 + 4} ${(hip.y+knee.y)/2 + 8} ${knee.x-4} ${knee.y+2}`}/>
+        {/* Calf cue */}
+        <path d={`M ${knee.x+4} ${knee.y+8} Q ${(knee.x+ankle.x)/2 + 4} ${(knee.y+ankle.y)/2 + 6} ${ankle.x-2} ${ankle.y-4}`}/>
+        {/* Foot — toes on floor */}
+        <path d={`M ${ankle.x-8} ${ankle.y} L ${ankle.x+18} ${ankle.y}`}/>
+        <path d={`M ${ankle.x-2} ${ankle.y-2} L ${ankle.x+18} ${ankle.y}`}/>
+        {/* Shorts band */}
+        <path d={`M ${hip.x-12} ${hip.y} q -2 16 12 18`}/>
+        {/* T-shirt sleeve hint */}
+        <path d={`M ${shoulder.x-10} ${shoulder.y-2} q 6 14 22 18`}/>
+      </g>
+    </svg>
+  );
+}
+
+// ─── Animated push-up loop (toggle) ──────────────────────────────────────────
+function PushUpLoop({ invert = false }) {
+  const [t, setT] = useState(0);
+  const [playing, setPlaying] = useState(true);
+  useEffect(() => {
+    if (!playing) return;
+    let raf, last = performance.now();
+    const tick = (now) => {
+      const dt = (now - last) / 1000; last = now;
+      setT(prev => (prev + dt / 2.4) % 1); // 2.4s loop
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [playing]);
+  // Sinusoidal phase between top(0) and bottom(1)
+  const phase = (Math.sin(t * Math.PI * 2 - Math.PI/2) + 1) / 2;
+  const phaseLabel = phase < 0.33 ? "top" : phase > 0.66 ? "bottom" : "mid";
+  // Re-use PushUpPose with explicit numeric phase
+  return (
+    <div style={{ position:"relative" }}>
+      <svg viewBox="0 0 600 400" xmlns="http://www.w3.org/2000/svg" style={{ width:"100%", height:"100%", display:"block", background: invert ? "#0a0a0a" : "#fff" }}>
+        <PoseFigure t={phase} invert={invert} />
+      </svg>
+      <div style={{ position:"absolute", left:14, bottom:14, display:"flex", gap:8 }}>
+        <button onClick={()=>setPlaying(p=>!p)} style={btnStyle(invert)}>{playing? "pause" : "play"}</button>
+        <span style={{ ...badgeStyle(invert), textTransform:"uppercase" }}>{phaseLabel}</span>
+      </div>
+    </div>
+  );
+}
+
+function PoseFigure({ t, invert }) {
+  const stroke = invert ? "#fff" : "#0a0a0a";
+  const lerp = (a,b) => a + (b - a) * t;
+  const shoulder = { x: 200, y: lerp(170, 220) };
+  const elbow    = { x: 200, y: lerp(265, 240) };
+  const wrist    = { x: 200, y: 320 };
+  const hip      = { x: 350, y: lerp(180, 230) };
+  const knee     = { x: 470, y: lerp(220, 270) };
+  const ankle    = { x: 540, y: 320 };
+  const head     = { cx: 145, cy: lerp(165, 215) };
+  const neck     = { x: 175, y: lerp(170, 220) };
+  const backMid  = { x: 275, y: lerp(170, 220) };
+  return (
+    <>
+      <line x1="40" y1="320" x2="560" y2="320" stroke={stroke} strokeWidth="2" strokeLinecap="round"/>
+      <g stroke={stroke} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none">
+        <ellipse cx={head.cx} cy={head.cy} rx="38" ry="30" transform={`rotate(-8 ${head.cx} ${head.cy})`}/>
+        <path d={`M ${head.cx-30} ${head.cy-22} Q ${head.cx-15} ${head.cy-32} ${head.cx+10} ${head.cy-26}`}/>
+        <path d={`M ${head.cx+20} ${head.cy-2} q 4 2 0 8`}/>
+        <path d={`M ${head.cx+25} ${head.cy+18} Q ${head.cx+35} ${head.cy+22} ${neck.x} ${neck.y-6}`}/>
+        <path d={`M ${neck.x} ${neck.y-6} L ${shoulder.x} ${shoulder.y}`}/>
+        <path d={`M ${shoulder.x} ${shoulder.y} Q ${backMid.x} ${backMid.y - 4} ${hip.x} ${hip.y}`}/>
+        <path d={`M ${shoulder.x+15} ${shoulder.y+18} Q ${backMid.x} ${backMid.y + 22} ${hip.x-10} ${hip.y+18}`}/>
+        <path d={`M ${shoulder.x} ${shoulder.y} L ${elbow.x} ${elbow.y} L ${wrist.x} ${wrist.y}`}/>
+        <path d={`M ${shoulder.x+8} ${shoulder.y+10} Q ${(shoulder.x+elbow.x)/2 + 6} ${(shoulder.y+elbow.y)/2} ${elbow.x+4} ${elbow.y-2}`}/>
+        <path d={`M ${elbow.x-6} ${elbow.y+4} L ${wrist.x-6} ${wrist.y-4}`}/>
+        <path d={`M ${wrist.x-10} ${wrist.y} h 22`}/>
+        <path d={`M ${hip.x-6} ${hip.y-4} Q ${hip.x+6} ${hip.y-12} ${hip.x+22} ${hip.y-6}`}/>
+        <path d={`M ${hip.x} ${hip.y} L ${knee.x} ${knee.y} L ${ankle.x} ${ankle.y}`}/>
+        <path d={`M ${hip.x+10} ${hip.y+12} Q ${(hip.x+knee.x)/2 + 4} ${(hip.y+knee.y)/2 + 8} ${knee.x-4} ${knee.y+2}`}/>
+        <path d={`M ${knee.x+4} ${knee.y+8} Q ${(knee.x+ankle.x)/2 + 4} ${(knee.y+ankle.y)/2 + 6} ${ankle.x-2} ${ankle.y-4}`}/>
+        <path d={`M ${ankle.x-8} ${ankle.y} L ${ankle.x+18} ${ankle.y}`}/>
+        <path d={`M ${ankle.x-2} ${ankle.y-2} L ${ankle.x+18} ${ankle.y}`}/>
+        <path d={`M ${hip.x-12} ${hip.y} q -2 16 12 18`}/>
+        <path d={`M ${shoulder.x-10} ${shoulder.y-2} q 6 14 22 18`}/>
+      </g>
+    </>
+  );
+}
+
+const btnStyle = (invert) => ({
+  font:"500 12px 'Inter Tight', sans-serif",
+  background: invert ? "#fff" : "#0a0a0a",
+  color: invert ? "#0a0a0a" : "#fff",
+  border:"none", padding:"6px 12px", borderRadius:6, cursor:"pointer", letterSpacing:"0.04em", textTransform:"uppercase"
+});
+const badgeStyle = (invert) => ({
+  font:"500 11px 'JetBrains Mono', monospace",
+  background: invert ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+  color: invert ? "#fff" : "#0a0a0a",
+  padding:"6px 10px", borderRadius:6, letterSpacing:"0.06em"
+});
+
+// ─── App ────────────────────────────────────────────────────────────────────
+function App() {
+  // Group existing icons by category for the audit grid
+  const groups = useMemo(() => {
+    const by = {};
+    AUDIT.forEach(r => {
+      (by[r.group] = by[r.group] || []).push(r);
+    });
+    return by;
+  }, []);
+
+  // Counters for the headline
+  const counts = useMemo(() => {
+    const c = { good:0, weak:0, missing:0, distinctNeeded:0, totalGaps:0 };
+    AUDIT.forEach(r => {
+      if (r.status === "good") c.good++;
+      else if (r.status === "weak") c.weak++;
+      else if (r.status === "missing") c.missing++;
+      else if (r.status === "missing-distinct") c.distinctNeeded++;
+    });
+    c.totalGaps = c.weak + c.missing + c.distinctNeeded;
+    return c;
+  }, []);
+
+  return (
+    <DesignCanvas
+      title="21 — Exercise icon audit & pose illustration"
+      subtitle="Coverage map for the existing icon set, then a hi-fi pose study (CSS/SVG, no GIF)."
+    >
+      {/* Section 1: status overview */}
+      <DCSection id="overview" title="Coverage at a glance">
+        <DCArtboard id="ov-1" label="Stats" width={1280} height={420}>
+          <Overview counts={counts} />
+        </DCArtboard>
+      </DCSection>
+
+      {/* Section 2: full audit grid */}
+      <DCSection id="grid" title="Full audit by group">
+        <DCArtboard id="grid-1" label="Existing icons + gaps" width={1280} height={1700}>
+          <AuditGrid groups={groups} />
+        </DCArtboard>
+      </DCSection>
+
+      {/* Section 3: proposed new icons */}
+      <DCSection id="new" title="Proposed new icons (sketches, side view, 24×24)">
+        <DCArtboard id="new-1" label="Strength + Olympic + machines" width={1280} height={520}>
+          <NewIconsBoard
+            keys={["jerk","clean","hinge","legpress","machine","hollow","legraise"]}
+            labels={{
+              jerk:"Push-press / Jerk",
+              clean:"Clean / Snatch / Clean-pull",
+              hinge:"Good-morning / Back-extension",
+              legpress:"Leg press",
+              machine:"Leg ext / Leg curl",
+              hollow:"Hollow-hold / Dead-bug",
+              legraise:"Hanging leg-raise",
+            }}
+          />
+        </DCArtboard>
+
+        <DCArtboard id="new-2" label="Conditioning + cardio" width={1280} height={520}>
+          <NewIconsBoard
+            keys={["burpee","mtnclimber","jack","jumprope","sled","ropes","sandbag","getup","swim","box","agility"]}
+            labels={{
+              burpee:"Burpee",
+              mtnclimber:"Mountain climber",
+              jack:"Jumping jack",
+              jumprope:"Jump rope",
+              sled:"Sled push / drag",
+              ropes:"Battle ropes",
+              sandbag:"Sandbag",
+              getup:"Turkish get-up",
+              swim:"Swim",
+              box:"Boxing / shadow-box",
+              agility:"Agility / ladder",
+            }}
+          />
+        </DCArtboard>
+
+        <DCArtboard id="new-3" label="Recovery" width={1280} height={300}>
+          <NewIconsBoard
+            keys={["yoga"]}
+            labels={{ yoga:"Yoga (downward-dog, etc.)" }}
+          />
+        </DCArtboard>
+      </DCSection>
+
+      {/* Section 4: pose illustration */}
+      <DCSection id="pose" title="Pose illustration — push-up (CSS/SVG, no GIF)">
+        <DCArtboard id="pose-1" label="Static — top of rep (white bg)" width={1280} height={520}>
+          <PoseBoard variant="top" invert={false} />
+        </DCArtboard>
+        <DCArtboard id="pose-2" label="Static — bottom of rep (dark bg, white lines)" width={1280} height={520}>
+          <PoseBoard variant="bottom" invert={true} />
+        </DCArtboard>
+        <DCArtboard id="pose-3" label="Animated loop (no GIF — pure SVG + RAF)" width={1280} height={520}>
+          <LoopBoard invert={true} />
+        </DCArtboard>
+        <DCArtboard id="pose-4" label="Implementation notes" width={1280} height={760}>
+          <ImplementationNotes />
+        </DCArtboard>
+      </DCSection>
+    </DesignCanvas>
+  );
+}
+
+// ─── Boards ─────────────────────────────────────────────────────────────────
+function Overview({ counts }) {
+  const tile = (label, value, color, sub) => (
+    <div style={{ background:"#111", border:"1px solid var(--line)", borderRadius:8, padding:"24px 28px", flex:1 }}>
+      <div style={{ font:"500 11px 'JetBrains Mono', monospace", color:"var(--dim)", letterSpacing:"0.1em", textTransform:"uppercase" }}>{label}</div>
+      <div style={{ font:`800 64px/1 'Barlow Condensed', sans-serif`, color, marginTop:8 }}>{value}</div>
+      {sub && <div style={{ font:"400 13px/1.4 'Inter Tight'", color:"var(--dim)", marginTop:10, maxWidth:240 }}>{sub}</div>}
+    </div>
+  );
+  return (
+    <div style={{ width:"100%", height:"100%", padding:32, display:"flex", flexDirection:"column", gap:24 }}>
+      <div>
+        <h1 style={{ font:"800 44px/1 'Barlow Condensed'", textTransform:"uppercase", letterSpacing:"0.01em" }}>What we have, what's missing</h1>
+        <p style={{ color:"var(--dim)", maxWidth:780, marginTop:10, lineHeight:1.5 }}>
+          The icon set in <span className="mono" style={{color:"var(--ink)"}}>src/icons.jsx</span> covers <strong>27 movement keys</strong> via the <span className="mono">EXERCISE_PATHS</span> map and <strong>26 substring rules</strong> in <span className="mono">iconKeyFor()</span> in App.jsx. Movements outside those rules fall through to the generic dumbbell <span className="mono">default</span>. Below: which buckets are solid, which are blurry, and which need new icons.
+        </p>
+      </div>
+      <div style={{ display:"flex", gap:16 }}>
+        {tile("Solid coverage", counts.good, "var(--good)", "Movement is mapped to a distinct, accurate icon.")}
+        {tile("Weak / shared", counts.weak, "var(--warn)", "Mapped, but the icon is a poor match (e.g. side-plank → plank).")}
+        {tile("Missing → default", counts.missing, "var(--miss)", "Falls through to the generic dumbbell icon.")}
+        {tile("Sharing one slot", counts.distinctNeeded, "var(--accent)", "Five cardio movements all map to 'sprint'.")}
+        {tile("Total gaps", counts.totalGaps, "#fff", "Distinct new icons + regroupings to add.")}
+      </div>
+    </div>
+  );
+}
+
+function StatusDot({ status }) {
+  const map = { good:"var(--good)", weak:"var(--warn)", missing:"var(--miss)", "missing-distinct":"var(--accent)" };
+  return <span style={{ width:8, height:8, borderRadius:"50%", background:map[status], display:"inline-block" }} />;
+}
+
+function AuditGrid({ groups }) {
+  return (
+    <div style={{ width:"100%", padding:"24px 32px", display:"flex", flexDirection:"column", gap:20 }}>
+      {Object.entries(groups).map(([g, rows]) => (
+        <div key={g}>
+          <div style={{ display:"flex", alignItems:"baseline", gap:14, paddingBottom:8, borderBottom:"1px solid var(--line)" }}>
+            <h3 style={{ font:"700 22px 'Barlow Condensed'", textTransform:"uppercase", letterSpacing:"0.04em" }}>{g}</h3>
+            <span className="mono" style={{ color:"var(--dim)", fontSize:11 }}>{rows.length} movement families</span>
+          </div>
+          <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(280px, 1fr))", gap:12, marginTop:14 }}>
+            {rows.map((r,i)=>(
+              <div key={i} style={{ background:"#111", border:"1px solid var(--line)", borderRadius:8, padding:14, display:"flex", gap:14, alignItems:"flex-start" }}>
+                <div style={{ width:48, height:48, flexShrink:0, background:r.maps==="default"?"#1a1a1a":"transparent", border:"1px solid var(--line)", borderRadius:6, display:"flex", alignItems:"center", justifyContent:"center" }}>
+                  <Ico k={r.maps} size={36} c={r.status==="good"?"#fff":"#9aa0a6"} />
+                </div>
+                <div style={{ flex:1, minWidth:0 }}>
+                  <div style={{ display:"flex", alignItems:"center", gap:6, marginBottom:4 }}>
+                    <StatusDot status={r.status} />
+                    <span className="mono" style={{ fontSize:11, color:"var(--dim)", textTransform:"uppercase", letterSpacing:"0.06em" }}>
+                      {r.status === "good" ? "ok" : r.status === "weak" ? "weak match" : r.status === "missing-distinct" ? "needs distinct" : "missing"}
+                    </span>
+                  </div>
+                  <div style={{ font:"600 14px 'Inter Tight'", lineHeight:1.3, wordBreak:"break-word" }}>{r.slug}</div>
+                  <div className="mono" style={{ fontSize:11, color:"var(--dim)", marginTop:4 }}>→ {r.maps}{r.suggest?` → suggest: ${r.suggest}`:""}</div>
+                  {(r.note || r.why) && <div style={{ font:"400 12px/1.5 'Inter Tight'", color:"var(--dim)", marginTop:6 }}>{r.note || r.why}</div>}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function NewIconsBoard({ keys, labels }) {
+  return (
+    <div style={{ width:"100%", height:"100%", padding:"28px 32px" }}>
+      <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fill, minmax(180px, 1fr))", gap:14 }}>
+        {keys.map(k => (
+          <div key={k} style={{ background:"#111", border:"1px solid var(--line)", borderRadius:8, padding:18, display:"flex", flexDirection:"column", alignItems:"center", gap:10 }}>
+            <div style={{ width:80, height:80, display:"flex", alignItems:"center", justifyContent:"center" }}>
+              <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                {NEW_PATHS[k] || EX_PATHS.default}
+              </svg>
+            </div>
+            <div className="mono" style={{ fontSize:11, color:"var(--accent)", letterSpacing:"0.06em" }}>{k}</div>
+            <div style={{ font:"500 13px/1.3 'Inter Tight'", textAlign:"center", color:"var(--ink)" }}>{labels[k]}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PoseBoard({ variant, invert }) {
+  return (
+    <div style={{ width:"100%", height:"100%", display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:24, padding:24 }}>
+      <div style={{ background: invert ? "#0a0a0a" : "#fff", border:"1px solid var(--line)", borderRadius:8, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <PushUpPose phase={variant} invert={invert} />
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:14, justifyContent:"center" }}>
+        <div className="mono" style={{ fontSize:11, color:"var(--accent)", textTransform:"uppercase", letterSpacing:"0.1em" }}>{invert ? "Dark · white lines" : "Light · black lines"}</div>
+        <h2 style={{ font:"800 36px/1 'Barlow Condensed'", textTransform:"uppercase" }}>Push-up — {variant === "top" ? "top of rep" : "bottom of rep"}</h2>
+        <p style={{ color:"var(--dim)", lineHeight:1.5, maxWidth:380 }}>
+          Side view, no background, single-stroke vector. Joints animate by lerping between two key poses (top: arms locked out · bottom: chest near floor). Renders identically on retina, mobile, print.
+        </p>
+        <ul style={{ listStyle:"none", padding:0, margin:0, display:"flex", flexDirection:"column", gap:6, color:"var(--ink)" }}>
+          <li className="mono" style={{ fontSize:12 }}>— stroke 2.5px, round caps + joins</li>
+          <li className="mono" style={{ fontSize:12 }}>— 600×400 viewBox · scales to any size</li>
+          <li className="mono" style={{ fontSize:12 }}>— inherits currentColor → recolours per theme</li>
+          <li className="mono" style={{ fontSize:12 }}>— file size: ~1.4 KB gzip vs ~80 KB for a small GIF</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function LoopBoard({ invert }) {
+  return (
+    <div style={{ width:"100%", height:"100%", display:"grid", gridTemplateColumns:"1.6fr 1fr", gap:24, padding:24 }}>
+      <div style={{ background: invert ? "#0a0a0a" : "#fff", border:"1px solid var(--line)", borderRadius:8, overflow:"hidden", display:"flex", alignItems:"center", justifyContent:"center" }}>
+        <PushUpLoop invert={invert} />
+      </div>
+      <div style={{ display:"flex", flexDirection:"column", gap:14, justifyContent:"center" }}>
+        <div className="mono" style={{ fontSize:11, color:"var(--accent)", textTransform:"uppercase", letterSpacing:"0.1em" }}>Animated · 2.4s loop · sin-wave easing</div>
+        <h2 style={{ font:"800 36px/1 'Barlow Condensed'", textTransform:"uppercase" }}>Why not a GIF</h2>
+        <ul style={{ listStyle:"none", padding:0, margin:0, display:"flex", flexDirection:"column", gap:8, color:"var(--ink)", lineHeight:1.5 }}>
+          <li><strong>Crisp at any size.</strong> SVG vector — no pixelation on retina or 4K.</li>
+          <li><strong>Theme-aware.</strong> Inherits text colour → switches with light/dark mode automatically.</li>
+          <li><strong>Tiny.</strong> A push-up GIF: 30–80 KB. This: ~2 KB of inline SVG + a small RAF loop.</li>
+          <li><strong>Pausable & accessible.</strong> Easy <span className="mono">prefers-reduced-motion</span> guard — pause and show static top-of-rep frame.</li>
+          <li><strong>Editable.</strong> Tweak phase keyframes, timing, joint positions in code — no asset pipeline.</li>
+          <li><strong>Same model = many movements.</strong> Re-use the joint rig for squat, lunge, deadlift, etc. by changing the keyframe poses.</li>
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function ImplementationNotes() {
+  return (
+    <div style={{ width:"100%", height:"100%", padding:"28px 36px", display:"flex", flexDirection:"column", gap:18 }}>
+      <h2 style={{ font:"800 36px/1 'Barlow Condensed'", textTransform:"uppercase" }}>How to add this to the app</h2>
+      <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:24 }}>
+        <div>
+          <h3 style={{ font:"700 18px 'Barlow Condensed'", textTransform:"uppercase", color:"var(--accent)" }}>1. Extend <span className="mono">EXERCISE_PATHS</span></h3>
+          <p style={{ color:"var(--dim)", lineHeight:1.5, marginTop:8 }}>
+            Add the 22 new keys to <span className="mono">src/icons.jsx</span>: clean, jerk, hinge, legpress, machine, hollow, legraise, burpee, mtnclimber, jack, jumprope, sled, ropes, sandbag, getup, swim, box, agility, yoga, sideplank, farmer, rowerg.
+          </p>
+        </div>
+        <div>
+          <h3 style={{ font:"700 18px 'Barlow Condensed'", textTransform:"uppercase", color:"var(--accent)" }}>2. Update <span className="mono">iconKeyFor()</span> in App.jsx</h3>
+          <p style={{ color:"var(--dim)", lineHeight:1.5, marginTop:8 }}>
+            <strong>Re-order rules</strong> so distinct movements (burpee, mountain-climber, jumping-jack, jump-rope) match before the catch-all <span className="mono">sprint</span> bucket. Add new substring rules for clean/jerk/hinge/etc.
+          </p>
+        </div>
+        <div>
+          <h3 style={{ font:"700 18px 'Barlow Condensed'", textTransform:"uppercase", color:"var(--accent)" }}>3. Pose illustrations — separate component</h3>
+          <p style={{ color:"var(--dim)", lineHeight:1.5, marginTop:8 }}>
+            Create <span className="mono">src/poses.jsx</span> with a <span className="mono">&lt;ExercisePose slug name phase animated /&gt;</span> component. One joint rig, many keyframe sets keyed by exercise slug. Used in the workout-detail view, NOT in the small list icons.
+          </p>
+        </div>
+        <div>
+          <h3 style={{ font:"700 18px 'Barlow Condensed'", textTransform:"uppercase", color:"var(--accent)" }}>4. Two tiers, not one</h3>
+          <p style={{ color:"var(--dim)", lineHeight:1.5, marginTop:8 }}>
+            Keep small <span className="mono">ExerciseIcon</span> (24×24, 1.5 stroke) for lists and dashboards. Use the new larger pose figure (600×400) only on the exercise instruction screen, where space + context warrants the detail.
+          </p>
+        </div>
+      </div>
+      <div style={{ background:"#111", border:"1px solid var(--line)", borderRadius:8, padding:16, marginTop:8 }}>
+        <div className="mono" style={{ fontSize:11, color:"var(--accent)", letterSpacing:"0.1em", textTransform:"uppercase", marginBottom:8 }}>Rollout order</div>
+        <div className="mono" style={{ fontSize:13, lineHeight:1.7, color:"var(--ink)" }}>
+          1. Add 8 highest-ROI icons (burpee, mtnclimber, jack, sled, ropes, getup, hinge, hollow)<br/>
+          2. Wire to iconKeyFor() — verify in app, no regressions<br/>
+          3. Build PoseFigure rig; deliver push-up + squat as first two pose illustrations<br/>
+          4. Then: deadlift, lunge, plank, pull-up, bench → 7 hi-fi poses cover ~80% of all session content
+        </div>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
+</script>
+</body>
+</html>

@@ -160,30 +160,33 @@ export async function onRequestPost(context) {
   const userId = await getAuthUserId(request, env);
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Load connection + user preferences in parallel
-  const [conn, prefsRow] = await Promise.all([
+  // Load connection, user preferences, and BYO credentials in parallel
+  const [conn, prefsRow, byoRow] = await Promise.all([
     env.DB.prepare(`
       SELECT access_token, refresh_token, expires_at_ms, last_sync_at_ms, user_id
       FROM strava_connections WHERE user_id = ?
     `).bind(userId).first(),
     env.DB.prepare(`SELECT preferences_json FROM user_preferences WHERE user_id = ?`)
       .bind(userId).first(),
+    env.DB.prepare(`SELECT client_id, client_secret FROM strava_byo_credentials WHERE user_id = ?`)
+      .bind(userId).first(),
   ]);
 
   if (!conn) return Response.json({ error: 'Strava not connected' }, { status: 404 });
 
-  // Parse user prefs for FTP / max HR (TSS) and BYO Strava credentials
+  // Parse user prefs for FTP / max HR (TSS)
   let ftpWatts = 0, maxHr = 0;
   let byoCreds = null;
   try {
     const prefs = JSON.parse(prefsRow?.preferences_json ?? '{}');
     ftpWatts = prefs.cycling_coach?.ftp_watts ?? 0;
     maxHr    = prefs.cycling_coach?.max_hr ?? 0;
-    const byo = prefs.strava_byo ?? {};
-    if (byo.client_id && byo.client_secret) {
-      byoCreds = { clientId: byo.client_id, clientSecret: byo.client_secret };
-    }
   } catch { /* ignore */ }
+
+  // BYO credentials from dedicated table (never from preferences_json)
+  if (byoRow?.client_id && byoRow?.client_secret) {
+    byoCreds = { clientId: byoRow.client_id, clientSecret: byoRow.client_secret };
+  }
 
   // Get valid access token (refreshes if needed)
   let accessToken;
