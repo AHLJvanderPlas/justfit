@@ -1073,6 +1073,7 @@ Calculated server-side from executions table:
 | Adaptation memory (execution rule_trace) | ✅ Live — execution.js GET adds parallel D1 query with JSON_EXTRACT to attach rule_trace per date; PlanWeekView shows AdaptationChip on past sessions |
 | messagePolicy R557+R561 test coverage | ✅ Live — 9 new Vitest test cases covering RULE_POLICY, RULE_LABELS, deriveCoachSentence, rest-day suppression for R557 (TSB autoregulation) and R561 (sport mobility injection) |
 | R526 Perimenopause mode | ✅ Live — migration 0056 adds `'perimenopause'` to `cycle_profile.mode` CHECK; R526 in plan.js caps intensity at moderate, lowers stress threshold to ≥5 (vs ≥7 standard), disables cycle phase rules R520–R525; SettingsView violet toggle in Body mode section; App.jsx banner; messagePolicy entry |
+| Dutch-first i18n + language toggle | ✅ Live — `src/i18n.js`: `t()`, `useLang()`, `setLang()`, 500+ NL translations; WorkoutView / PlanWeekView / HistoryView / SettingsView / App.jsx all wrapped; NL/EN toggle in Settings → You → Appearance; training science terms (FTP/TSS/RPE etc.) stay English in both modes; default `'nl'`, stored in `localStorage('jf_lang')` |
 | Pro tier gating | ⬜ Not started |
 | Stripe integration | ⬜ Not started |
 
