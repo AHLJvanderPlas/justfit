@@ -5,14 +5,14 @@ These rules apply to EVERY task in EVERY session, without exception.
 ## After every change
 - Run `npm run smoke` first — lint + build + live API checks; must pass before pushing
 - Then commit and push (source backup): `git add . && git commit -m "..." && git push`
-- Then deploy: `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
+- Then deploy: `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
 - **After deploy**: update the "Current Build Status" table in `CLAUDE.md` and `README.md` to reflect the change — never leave docs stale after a deployment
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
-- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
+- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
 - Wrangler must be logged in to `ahljvanderplas@gmail.com` (account: JustFit.cc, ID: ce96b957f7de20cc5d388eba856fa8dc)
 - Check with: `npx wrangler whoami` — if wrong account, run `npx wrangler logout` then `npx wrangler login`
 - D1 migrations: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
@@ -175,7 +175,7 @@ built-in fetch, and `env.DB` for D1. No bcrypt, no jose, no external JWT librari
 | D1 database name | `justfit-db` |
 | D1 database ID | `4c6fedf0-b9e2-4441-aa98-71c1420136c1` |
 | D1 binding name | `DB` |
-| Pages project name | `justfit` |
+| Pages project name | `justfit-app` |
 | Cloudflare account email | ahljvanderplas@gmail.com |
 
 wrangler.toml is configured with the D1 binding. Always use `--remote` flag when querying D1:
@@ -1199,7 +1199,7 @@ Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 
 - **DB IDs**: always `crypto.randomUUID()`
 - **Error responses**: always `Response.json({ error: "Internal error" }, { status: 500 })` with `console.error(e)` server-side
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
-- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main`
+- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
 - **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
 - **Refs vs state for tracking**: mutable data that doesn't need to trigger re-renders (e.g. `stepsActualRef`, `restStartedAtRef`) goes in `useRef`. UI state goes in `useState`.
 - **Functional setState for counters**: use `setCurrentSet(s => s + 1)` not `setCurrentSet(currentSet + 1)` inside effects/callbacks to avoid stale closure issues.
@@ -1241,7 +1241,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_m
 # Deploy (smoke → push → wrangler)
 npm run smoke
 git add . && git commit -m "feat: ..." && git push
-npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit --branch=main
+npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main
 
 # Check recent executions
 npx wrangler d1 execute justfit-db --remote --command "SELECT id, user_id, date, perceived_exertion, total_duration_sec FROM executions ORDER BY created_at_ms DESC LIMIT 10;"
