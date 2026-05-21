@@ -116,6 +116,17 @@ async function hashPassword(password, salt, secret) {
   return btoa(String.fromCharCode(...new Uint8Array(hash)));
 }
 
+async function hashPasswordPbkdf2(password, salt, iterations = 100000) {
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']
+  );
+  const bits = await crypto.subtle.deriveBits(
+    { name: 'PBKDF2', salt: new TextEncoder().encode(salt), iterations, hash: 'SHA-256' },
+    keyMaterial, 256
+  );
+  return b64url(bits);
+}
+
 // ─── EMAIL SENDING ────────────────────────────────────────────────────────────
 async function sendEmail(to, subject, html, apiKey) {
   await fetch('https://api.resend.com/emails', {
@@ -181,7 +192,8 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
 
   const userId           = crypto.randomUUID();
   const salt             = crypto.randomUUID();
-  const hash             = await hashPassword(password, salt, secret);
+  const pbkdfIterations  = 100000;
+  const hash             = await hashPasswordPbkdf2(password, salt, pbkdfIterations);
   const now              = Date.now();
   const rawVerifyToken   = generateSecureToken();
   const verifyTokenHash  = await sha256b64url(rawVerifyToken);
@@ -191,8 +203,8 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   await env.DB.batch([
     env.DB.prepare(`INSERT INTO users (id, status, primary_email, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)`)
       .bind(userId, emailLower, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
-    env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'sha256+salt', ?, ?, ?)`)
-      .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now, now),
+    env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'pbkdf2+sha256', ?, ?, ?)`)
+      .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${pbkdfIterations}:${hash}`, now, now, now),
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, ends_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'pro_trial', 'trial', 'trialing', ?, ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, now, now + 14 * 86400000, now, now),
     env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
@@ -234,22 +246,44 @@ async function handleLogin({ email, password }, request, env, secret) {
   }
 
   const authUser = await env.DB.prepare(
-    `SELECT a.id, a.user_id, a.password_hash FROM auth_users a WHERE a.email = ? AND a.provider = 'password' LIMIT 1`
+    `SELECT a.id, a.user_id, a.password_hash, a.password_algo FROM auth_users a WHERE a.email = ? AND a.provider = 'password' LIMIT 1`
   ).bind(emailLower).first();
   if (!authUser) {
     await Promise.all([recordAttempt(ipBucket, HOUR, env), recordAttempt(emailBucket, HOUR, env)]);
     return Response.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
-  const [salt, storedHash] = authUser.password_hash.split(':');
-  if (await hashPassword(password, salt, secret) !== storedHash) {
+  const algo = authUser.password_algo ?? 'sha256+salt';
+  let verified = false;
+  let needsUpgrade = false;
+
+  if (algo === 'pbkdf2+sha256') {
+    const [salt, iters, storedHash] = authUser.password_hash.split(':');
+    verified = (await hashPasswordPbkdf2(password, salt, parseInt(iters, 10))) === storedHash;
+  } else {
+    // Legacy sha256+salt — verify then silently upgrade
+    const [salt, storedHash] = authUser.password_hash.split(':');
+    verified = (await hashPassword(password, salt, secret)) === storedHash;
+    if (verified) needsUpgrade = true;
+  }
+
+  if (!verified) {
     await Promise.all([recordAttempt(ipBucket, HOUR, env), recordAttempt(emailBucket, HOUR, env)]);
     return Response.json({ error: 'Invalid email or password' }, { status: 401 });
   }
 
   const now = Date.now();
-  await env.DB.prepare(`UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`)
-    .bind(now, authUser.id).run();
+  if (needsUpgrade) {
+    const newSalt = crypto.randomUUID();
+    const iterations = 100000;
+    const newHash = await hashPasswordPbkdf2(password, newSalt, iterations);
+    await env.DB.prepare(
+      `UPDATE auth_users SET password_hash = ?, password_algo = 'pbkdf2+sha256', last_login_at_ms = ? WHERE id = ?`
+    ).bind(`${newSalt}:${iterations}:${newHash}`, now, authUser.id).run();
+  } else {
+    await env.DB.prepare(`UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`)
+      .bind(now, authUser.id).run();
+  }
 
   const [token, acceptRow, memberships] = await Promise.all([
     createJWT({ userId: authUser.user_id, email: emailLower }, secret),
@@ -376,14 +410,15 @@ async function handleResetPassword({ reset_token, new_password }, request, env, 
   if (row.used_at_ms)            return Response.json({ error: 'This reset link has already been used' }, { status: 400 });
   if (row.expires_at_ms < Date.now()) return Response.json({ error: 'This reset link has expired' }, { status: 400 });
 
-  const salt = crypto.randomUUID();
-  const hash = await hashPassword(new_password, salt, secret);
-  const now  = Date.now();
+  const salt       = crypto.randomUUID();
+  const iterations = 100000;
+  const hash       = await hashPasswordPbkdf2(new_password, salt, iterations);
+  const now        = Date.now();
 
   await env.DB.batch([
-    // Update password
-    env.DB.prepare(`UPDATE auth_users SET password_hash = ?, updated_at_ms = ? WHERE user_id = ? AND provider = 'password'`)
-      .bind(`${salt}:${hash}`, now, row.user_id),
+    // Update password with PBKDF2
+    env.DB.prepare(`UPDATE auth_users SET password_hash = ?, password_algo = 'pbkdf2+sha256', updated_at_ms = ? WHERE user_id = ? AND provider = 'password'`)
+      .bind(`${salt}:${iterations}:${hash}`, now, row.user_id),
     // Mark this token as used
     env.DB.prepare(`UPDATE password_reset_tokens SET used_at_ms = ? WHERE token = ?`)
       .bind(now, resetTokenHash),
