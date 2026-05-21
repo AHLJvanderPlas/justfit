@@ -276,6 +276,7 @@ export async function onRequestPost({ request, env }) {
     let cyclingSessionsLast7 = 0;
     let runSessionsLast7 = 0;
     let crossRunsLast7 = 0;
+    let assignedProgramRow = null;
     const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
     const isRunCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
     const isCrossTrainActive = !!(isCyclingCoachActive && prefs?.preferences?.cycling_coach?.run_cross_training);
@@ -304,8 +305,24 @@ export async function onRequestPost({ request, env }) {
         user_id && isCrossTrainActive
           ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_cross_run' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
           : Promise.resolve(null),
+        // Trainer-assigned program session for today
+        user_id
+          ? env.DB.prepare(`
+              SELECT p.name AS program_name, ps.name AS session_name,
+                     (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id) AS total_sessions,
+                     (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id AND scheduled_date <= ?) AS session_number
+              FROM program_assignments pa
+              JOIN programs p ON p.id = pa.program_id
+              JOIN assigned_sessions asgn ON asgn.program_assignment_id = pa.id
+              JOIN program_sessions ps ON ps.id = asgn.session_template_id
+              WHERE pa.client_user_id = ? AND pa.status = 'active' AND pa.start_date <= ?
+                AND asgn.scheduled_date = ? AND asgn.status = 'scheduled'
+              LIMIT 1
+            `).bind(date, user_id, date, date).first()
+          : Promise.resolve(null),
       ];
-      const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow] = await Promise.all(fetches);
+      const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult] = await Promise.all(fetches);
+      assignedProgramRow = assignedProgramResult ?? null;
       if (progRow) {
         progressionState = {
           scores: JSON.parse(progRow.scores_json),
@@ -391,6 +408,22 @@ export async function onRequestPost({ request, env }) {
     }
 
     const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms);
+
+    // Inject trainer-assigned program coaching note
+    if (assignedProgramRow?.program_name) {
+      const sessNum = assignedProgramRow.session_number ?? 1;
+      const total = assignedProgramRow.total_sessions ?? 1;
+      plan.session_notes = [
+        `Van je trainer: ${assignedProgramRow.program_name} — sessie ${sessNum} van ${total}`,
+        ...(plan.session_notes ?? []),
+      ];
+      plan.assigned_program = {
+        program_name: assignedProgramRow.program_name,
+        session_name: assignedProgramRow.session_name,
+        session_number: sessNum,
+        total_sessions: total,
+      };
+    }
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
