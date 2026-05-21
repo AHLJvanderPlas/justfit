@@ -826,29 +826,15 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── Slaaptrend (30 dagen) ── */}
           {(() => {
             const sleepCheckins = checkins.filter(c => c.sleep_hours != null);
-            if (sleepCheckins.length < 3) return null;
+            if (sleepCheckins.length < 5) return null;
             const avgSleep = sleepCheckins.reduce((s, c) => s + c.sleep_hours, 0) / sleepCheckins.length;
             return (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</div>
                 <Glass style={{ padding: 16 }}>
                   <SleepTrendChart checkins={checkins} accentHex={accentHex} />
-                  <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ ...mono(11), color: C.muted }}>Gemiddeld</div>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{avgSleep.toFixed(1)}u</div>
-                    </div>
-                    <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 10, color: C.muted }}>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: accentHex }} /> ≥7u
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: '#f59e0b' }} /> 6–7u
-                      </span>
-                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: '#f43f5e' }} /> {'<6u'}
-                      </span>
-                    </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
+                    Gemiddeld {avgSleep.toFixed(1)}u slaap de afgelopen 30 dagen
                   </div>
                 </Glass>
               </div>

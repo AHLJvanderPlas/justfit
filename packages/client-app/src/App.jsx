@@ -2670,6 +2670,16 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                   Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{insightText}</div>
+                {cc.enrolled_at_ms && (() => {
+                  const weekNumber = Math.floor((Date.now() - cc.enrolled_at_ms) / (7 * 86400000)) + 1;
+                  const blockWeek = ((weekNumber - 1) % 7) + 1;
+                  const phase = blockWeek <= 2 ? "BASE" : blockWeek <= 5 ? "BUILD" : blockWeek === 6 ? "RECOVERY" : "PEAK";
+                  return (
+                    <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
+                      {phase}
+                    </div>
+                  );
+                })()}
                 {ftpStale && cc.unit === 'watts' && ftpSnoozedUntil < nowMs && plan?.slot_type !== 'rest' && (
                   <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
                     <div style={{ fontSize: 11, color: "#f59e0b", lineHeight: 1.5, marginBottom: 7 }}>
@@ -2738,6 +2748,29 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                 </div>
               </div>
             )}
+            {cc.unit !== 'hr' && cc.ftp_watts > 0 && (() => {
+              const ftp = cc.ftp_watts;
+              const ZONES = [
+                { n: 1, name: "Active recovery", lo: 0,                        hi: Math.round(ftp * 0.55) },
+                { n: 2, name: "Endurance",       lo: Math.round(ftp * 0.55),   hi: Math.round(ftp * 0.75) },
+                { n: 3, name: "Tempo",           lo: Math.round(ftp * 0.75),   hi: Math.round(ftp * 0.90) },
+                { n: 4, name: "Threshold",       lo: Math.round(ftp * 0.90),   hi: Math.round(ftp * 1.05) },
+                { n: 5, name: "VO2 Max",         lo: Math.round(ftp * 1.05),   hi: null },
+              ];
+              return (
+                <div style={{ marginTop: 14 }}>
+                  <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 8 }}>POWER ZONES</div>
+                  {ZONES.map(z => (
+                    <div key={z.n} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
+                      <div style={{ fontSize: 11, color: C.muted }}>Z{z.n} · {z.name}</div>
+                      <div style={{ ...mono(11), color: z.n >= 4 ? "var(--accent)" : C.muted, fontWeight: 700 }}>
+                        {z.hi ? `${z.lo}–${z.hi} W` : `${z.lo}+ W`}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </Glass>
         );
       })()}
