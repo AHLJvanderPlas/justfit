@@ -193,8 +193,14 @@ export async function onRequestPost({ request, env }) {
     }
 
     // Pro flag — gates structured coaching programs (R556, R557, polarised)
-    // Read from DB-stored preferences only — never trust request body to prevent self-upgrade.
-    const isPro = !!(prefs?.preferences?.isPro);
+    // Check entitlements table first; fall back to manual isPro preference override.
+    let isPro = !!(prefs?.preferences?.isPro);
+    if (user_id && !isPro) {
+      const isProRow = await env.DB.prepare(
+        `SELECT id FROM entitlements WHERE user_id = ? AND status IN ('active','trialing','grace') AND ends_at_ms > ? LIMIT 1`
+      ).bind(user_id, Date.now()).first();
+      isPro = !!isProRow;
+    }
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {

@@ -193,8 +193,8 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
       .bind(userId, emailLower, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
     env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'sha256+salt', ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${hash}`, now, now, now),
-    env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`)
-      .bind(crypto.randomUUID(), userId, now, now, now),
+    env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, ends_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'pro_trial', 'trial', 'trialing', ?, ?, ?, ?)`)
+      .bind(crypto.randomUUID(), userId, now, now + 14 * 86400000, now, now),
     env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
       .bind(verifyTokenHash, userId, emailLower, verifyCode, now + VERIFY_EXPIRY_MS, now),
   ]);

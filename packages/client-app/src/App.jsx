@@ -29,6 +29,7 @@ const PlanWeekView  = lazy(() => import("./PlanWeekView.jsx"));
 // AwardsView and SettingsView: rarely visited — lazy loaded
 const AwardsView    = lazy(() => import("./AwardsView.jsx"));
 const SettingsView  = lazy(() => import("./SettingsView.jsx"));
+const ProGate       = lazy(() => import("./ProGate.jsx"));
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
@@ -43,7 +44,7 @@ function defaultPeriodDate() {
 }
 
 // ─── PATH CHOICE ──────────────────────────────────────────────────────────────
-function PathChoiceModal({ token, onComplete }) {
+function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
   const [step, setStep] = useState("pick"); // "pick" | "running" | "cycling" | "military"
   const [saving, setSaving] = useState(false);
   const [runKm, setRunKm] = useState(5);
@@ -85,17 +86,23 @@ function PathChoiceModal({ token, onComplete }) {
             We coach four kinds of athletes.<br />Choose one. You can change later.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
-            {PATHS.map(p => (
-              <button key={p.key}
-                onClick={() => p.key === "general" ? saveAndComplete("general") : setStep(p.key)}
-                style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "18px 16px", borderRadius: 20,
-                  background: C.bgCard, border: `1px solid ${C.border}`, cursor: "pointer", textAlign: "left", gap: 8, minHeight: 140 }}
-              >
-                <span style={{ fontSize: 22, color: "var(--accent)" }}>{p.icon}</span>
-                <div style={{ ...display(16), color: C.text, lineHeight: 1.2, whiteSpace: "pre-line" }}>{p.name}</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.4 }}>{p.line}</div>
-              </button>
-            ))}
+            {PATHS.map(p => {
+              const locked = !isPro && (p.key === "running" || p.key === "cycling");
+              return (
+                <button key={p.key}
+                  onClick={() => {
+                    if (locked) { onUpgrade?.(); return; }
+                    if (p.key === "general") saveAndComplete("general"); else setStep(p.key);
+                  }}
+                  style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "18px 16px", borderRadius: 20,
+                    background: C.bgCard, border: `1px solid ${locked ? C.border : C.border}`, cursor: "pointer", textAlign: "left", gap: 8, minHeight: 140 }}
+                >
+                  <span style={{ fontSize: 22, color: locked ? C.muted : "var(--accent)" }}>{locked ? "🔒" : p.icon}</span>
+                  <div style={{ ...display(16), color: locked ? C.muted : C.text, lineHeight: 1.2, whiteSpace: "pre-line" }}>{p.name}</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.4 }}>{locked ? "Pro vereist" : p.line}</div>
+                </button>
+              );
+            })}
           </div>
           <div style={{ fontSize: 12, color: C.subtle, lineHeight: 1.6 }}>
             Privacy-first. We store only what your coach needs. Export or delete any time in Settings → Privacy.
@@ -3383,6 +3390,10 @@ export default function App() {
   const checkinModeRef = useRef(null);
   const isProRef = useRef(prefs.isPro ?? false);
   useEffect(() => { isProRef.current = prefs.isPro ?? false; }, [prefs.isPro]);
+
+  // Entitlement-based isPro (from /api/subscribe) — authoritative for UI gating
+  const [isPro, setIsPro] = useState(() => !!(prefs.isPro ?? false));
+  const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(null);
   const [lastCheckin, setLastCheckin] = useState(null);
 
   useEffect(() => {
@@ -3444,6 +3455,15 @@ export default function App() {
       setActivityToast("Verification link invalid or expired");
       setTimeout(() => setActivityToast(""), 5000);
       window.history.replaceState({}, "", "/");
+    } else if (params.get("upgrade") === "success") {
+      window.history.replaceState({}, "", "/");
+      // Refresh entitlement state after Mollie redirect
+      api.getSubscription().then(sub => {
+        if (sub.isPro) { setIsPro(true); isProRef.current = true; }
+        if (sub.early_bird_remaining != null) setEarlyBirdRemaining(sub.early_bird_remaining);
+        setActivityToast("Pro geactiveerd! Welkom bij JustFit Pro. 🎉");
+        setTimeout(() => setActivityToast(""), 6000);
+      }).catch(() => {});
     } else if (params.get("code") && params.get("scope")?.includes("activity")) {
       // Strava OAuth callback: exchange code for tokens
       const code  = params.get("code");
@@ -3493,6 +3513,11 @@ export default function App() {
         return;
       }
       handleProfileLoaded(data);
+      // Fetch entitlement state (isPro from DB, not from preferences flag)
+      api.getSubscription().then(sub => {
+        if (sub.isPro != null) { setIsPro(sub.isPro); isProRef.current = sub.isPro || !!(data.preferences?.isPro); }
+        if (sub.early_bird_remaining != null) setEarlyBirdRemaining(sub.early_bird_remaining);
+      }).catch(() => {});
     }).catch(() => setOnboardingReady(true));
     // handleProfileLoaded, token, and userId are session-stable: not React state,
     // designed to run once on mount (page reloads on auth changes).
@@ -4173,7 +4198,12 @@ export default function App() {
             )}
             {view === "awards" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <AwardsView history={history} score={score} isPro={!!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} />
+                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} />
+              </Suspense>
+            )}
+            {view === "upgrade" && (
+              <Suspense fallback={null}>
+                <ProGate onBack={() => setView("today")} earlyBirdRemaining={earlyBirdRemaining} />
               </Suspense>
             )}
             {view === "settings" && (
@@ -4214,6 +4244,9 @@ export default function App() {
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onNavigateAwards={() => setView("awards")}
                   onNavigateCoach={() => setView("coach")}
+                  isPro={isPro || !!prefs.isPro}
+                  onUpgrade={() => setView("upgrade")}
+                  onSubscriptionChange={() => api.getSubscription().then(sub => { if (sub.isPro != null) setIsPro(sub.isPro); }).catch(() => {})}
                   onProgressionRefresh={() =>
                     api.getProgression(token)
                       .then((data) => { if (data?.ok) setProgression(data); })
@@ -4285,7 +4318,7 @@ export default function App() {
       )}
 
       {showPathChoice && (
-        <PathChoiceModal token={token} onComplete={handlePathChoiceComplete} />
+        <PathChoiceModal token={token} onComplete={handlePathChoiceComplete} isPro={isPro} onUpgrade={() => { setShowPathChoice(false); setView("upgrade"); }} />
       )}
 
       {/* ── Terms acceptance gate ─────────────────────────────── */}

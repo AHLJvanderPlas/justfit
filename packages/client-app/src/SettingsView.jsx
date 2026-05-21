@@ -113,7 +113,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onNavigateCoach }) {
+function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onNavigateCoach, isPro, onUpgrade, onSubscriptionChange }) {
   useLang();
   const [passkeySupported, setPasskeySupported] = useState(false);
   const [addingPasskey, setAddingPasskey]       = useState(false);
@@ -172,8 +172,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   // Doc overlay
   const [activeDoc, setActiveDoc] = useState(null); // null | one of the DOCS entries
   // Voucher (subscription upgrade)
-  const [voucherCode, setVoucherCode] = useState("");
-  const [voucherError, setVoucherError] = useState("");
+  // Subscription management
+  const [subData, setSubData] = useState(null);
+  const [subLoading, setSubLoading] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [canceling, setCanceling] = useState(false);
   // Feedback
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSending, setFeedbackSending] = useState(false);
@@ -255,6 +258,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   const [byoClientId, setByoClientId]                 = useState(''); // populated from GET /api/strava-auth
   const [byoClientSecret, setByoClientSecret]         = useState(''); // never pre-filled (secret not returned from server)
   const [byoSaving, setByoSaving]                     = useState(false);
+  // Pro entitlement — passed from App (entitlements table) or fallback to prefs flag
+  const effectiveIsPro = !!(isPro || effectiveIsPro);
   // Training Focus
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
@@ -1131,14 +1136,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
               return prev && !unlockedTargets.includes(String(prev));
             })();
             return (
-              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
+              <div style={{ opacity: effectiveIsPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {isActive
                     ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
                     : "Progressive run programme — 3 sessions per week, any days you choose."}
                 </div>
-                {prefs.isPro ? (
+                {effectiveIsPro ? (
                   <>
                     {/* Target distance — shown for both enrollment and active state */}
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Target distance</div>
@@ -1172,7 +1177,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                     )}
                   </>
                 ) : (
-                  <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Run Coach.</div>
+                  <button onClick={onUpgrade} style={{ padding: "10px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
+                    Upgrade naar Pro →
+                  </button>
                 )}
               <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Running Coach · Structured progression</div>
@@ -1189,14 +1196,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             const ftp = parseInt(cycleFtpInput) || 200;
             const maxHr = parseInt(cycleMaxHrInput) || 180;
             return (
-              <div style={{ opacity: prefs.isPro ? 1 : 0.45 }}>
+              <div style={{ opacity: effectiveIsPro ? 1 : 0.45 }}>
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                   {ccActive
                     ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of ${ccState.cycling_days_per_week ?? 3} · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
                     : "Structured training — 5 goals, 7-week block cycle, 3–5 sessions per week, any days."}
                 </div>
-                {prefs.isPro ? (
+                {effectiveIsPro ? (
                   <>
                     {!ccActive && (
                       <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
@@ -1333,7 +1340,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                     })()}
                   </>
                 ) : (
-                  <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>Upgrade to Pro to unlock Cycle Coach.</div>
+                  <button onClick={onUpgrade} style={{ padding: "10px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
+                    Upgrade naar Pro →
+                  </button>
                 )}
               <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                 <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Cycling Coach · FTP-based training</div>
@@ -2123,14 +2132,14 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
           </div>
 
           {/* ── Polarised Training ── */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: prefs.isPro ? 1 : 0.45 }}>
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: effectiveIsPro ? 1 : 0.45 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Polarised Training</div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
               {sportPrefs.polarised_training
                 ? `Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
                 : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
             </div>
-            {prefs.isPro ? (
+            {effectiveIsPro ? (
               <button
                 onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
                 style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(255,255,255,0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
@@ -2146,18 +2155,18 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Daily Adaptive Replan</div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              {prefs.isPro ? "Recalibrates your plan each morning based on your check-in." : "Upgrade to Pro to unlock."}
+              {effectiveIsPro ? "Recalibrates your plan each morning based on your check-in." : "Upgrade to Pro to unlock."}
             </div>
             <button
               onClick={() => {
-                if (!prefs.isPro) return;
+                if (!effectiveIsPro) return;
                 const newVal = !prefs.daily_replan;
                 onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
                 api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
               }}
-              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: prefs.isPro ? "pointer" : "not-allowed", border: `1px solid ${prefs.isPro && prefs.daily_replan ? "transparent" : C.border}`, background: prefs.isPro && prefs.daily_replan ? C.emerald : "rgba(255,255,255,0.05)", color: prefs.isPro && prefs.daily_replan ? "#fff" : C.muted, opacity: prefs.isPro ? 1 : 0.4 }}
+              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(255,255,255,0.05)", color: effectiveIsPro && prefs.daily_replan ? "#fff" : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
             >
-              {prefs.isPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
+              {effectiveIsPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
             </button>
           </div>
 
@@ -2676,35 +2685,90 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
 
       {/* ── Account sub-view ─────────────────────────────────── */}
       {subView === "account" && (<>
+        {/* ── Subscription section ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Subscription</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Abonnement</div>
           <Glass style={{ padding: 24 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{prefs.isPro ? "PRO" : "BASE"} PASS</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{prefs.isPro ? "Adaptive AI planning enabled" : "Core features active"}</div>
-              </div>
-              <button
-                onClick={() => {
-                  if (!prefs.isPro) { if (!voucherCode.includes("JF26")) { setVoucherError("Invalid voucher code."); return; } setVoucherError(""); }
-                  const newVal = !prefs.isPro;
-                  onUpdate((p) => ({ ...p, isPro: newVal, preferences: { ...(p.preferences ?? {}), isPro: newVal } }));
-                  api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), isPro: newVal } }).catch(() => {});
-                  setVoucherCode("");
-                }}
-                style={{ padding: "10px 14px", borderRadius: 14, fontWeight: 900, fontSize: 12, border: `1px solid ${prefs.isPro ? C.border : C.emeraldBorder}`, background: prefs.isPro ? "rgba(255,255,255,0.03)" : C.emeraldDim, color: prefs.isPro ? C.muted : C.emerald, cursor: "pointer", flexShrink: 0 }}
-              >
-                {prefs.isPro ? "Downgrade" : "Upgrade"}
-              </button>
-            </div>
-            {!prefs.isPro && (
-              <div style={{ marginTop: 12 }}>
-                <input type="text" value={voucherCode} onChange={(e) => { setVoucherCode(e.target.value); setVoucherError(""); }} placeholder="Voucher code (4–16 characters)" maxLength={16}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "10px 14px", borderRadius: 14, border: `1px solid ${voucherError ? "rgba(239,68,68,0.5)" : C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, outline: "none" }}
-                />
-                {voucherError && <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6, fontWeight: 700 }}>{voucherError}</div>}
-              </div>
-            )}
+            {(() => {
+              // Lazy-load subscription data when this section first renders
+              if (!subData && !subLoading) {
+                setSubLoading(true);
+                api.getSubscription().then(d => { setSubData(d); setSubLoading(false); }).catch(() => setSubLoading(false));
+              }
+              if (subLoading && !subData) {
+                return <div style={{ fontSize: 13, color: C.muted }}>Laden…</div>;
+              }
+              const s = subData;
+              const isActive = s?.isPro && s?.status === 'active';
+              const isTrialing = s?.status === 'trialing';
+              const isGrace = s?.status === 'grace';
+              const isCanceled = s?.status === 'canceled' || s?.status === 'expired';
+              const endsDate = s?.ends_at_ms ? new Date(s.ends_at_ms).toLocaleDateString('nl-NL', { day: 'numeric', month: 'long', year: 'numeric' }) : null;
+              const trialDays = isTrialing && s?.ends_at_ms ? Math.max(0, Math.ceil((s.ends_at_ms - Date.now()) / 86400000)) : null;
+
+              if (isActive || isGrace) {
+                const planLabel = s.product_code?.includes('annual') ? 'Jaarlijks' : 'Maandelijks';
+                const ebLabel = s.product_code?.endsWith('_eb') ? ' · vroegboeker' : '';
+                return (
+                  <>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+                      <div>
+                        <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>JustFit Pro</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{planLabel}{ebLabel}</div>
+                      </div>
+                      <div style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 900, background: isGrace ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)", color: isGrace ? "#f59e0b" : C.emerald }}>
+                        {isGrace ? "Betalingsprobleem" : "Actief"}
+                      </div>
+                    </div>
+                    {endsDate && <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Geldig tot {endsDate}</div>}
+                    {isGrace && <div style={{ fontSize: 12, color: "#f59e0b", marginBottom: 16, lineHeight: 1.5 }}>Je betaling kon niet worden verwerkt. Je houdt 7 dagen toegang. Vernieuw je betaalmethode via Mollie.</div>}
+                    {!cancelConfirm ? (
+                      <button onClick={() => setCancelConfirm(true)} style={{ fontSize: 12, fontWeight: 700, color: C.muted, background: "none", border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>
+                        Abonnement opzeggen
+                      </button>
+                    ) : (
+                      <div style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.25)", borderRadius: 12, padding: 16 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 8 }}>Weet je het zeker?</div>
+                        <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>Je houdt toegang tot Pro tot {endsDate ?? "het einde van je periode"}. Erna ga je terug naar de gratis versie.</div>
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <button disabled={canceling} onClick={async () => { setCanceling(true); const r = await api.cancelSubscription().catch(() => null); if (r?.ok) { setSubData(d => ({ ...d, status: 'canceled' })); onSubscriptionChange?.(); } setCanceling(false); setCancelConfirm(false); }}
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: canceling ? "not-allowed" : "pointer", border: "none", background: "#ef4444", color: "#fff" }}>
+                            {canceling ? "Bezig…" : "Ja, opzeggen"}
+                          </button>
+                          <button onClick={() => setCancelConfirm(false)} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.muted }}>
+                            Annuleren
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                );
+              }
+
+              if (isTrialing) {
+                return (
+                  <>
+                    <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 4 }}>Gratis proefperiode</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Nog {trialDays} {trialDays === 1 ? "dag" : "dagen"} gratis Pro toegang</div>
+                    <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: "#fff" }}>
+                      Activeer Pro →
+                    </button>
+                  </>
+                );
+              }
+
+              // Not subscribed or canceled/expired
+              return (
+                <>
+                  <div style={{ fontSize: 14, color: C.muted, marginBottom: 16 }}>
+                    {isCanceled ? "Je abonnement is opgezegd." : "Geen actief abonnement."}
+                  </div>
+                  <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: "#fff" }}>
+                    Upgrade naar Pro →
+                  </button>
+                </>
+              );
+            })()}
           </Glass>
         </div>
         <div style={{ marginBottom: 32 }}>

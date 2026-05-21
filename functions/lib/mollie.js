@@ -60,6 +60,29 @@ export async function createSubscription({ customerId, amount, interval, descrip
 }
 
 /**
+ * Create a first-mandate payment (sequenceType='first') linked to a customer.
+ * Used to initiate a recurring subscription: after payment is paid, create the subscription.
+ */
+export async function createMandatePayment({ customerId, amount, description, redirectUrl, webhookUrl, metadata }, apiKey) {
+  return mollieReq('POST', '/payments', {
+    amount: { currency: 'EUR', value: Number(amount).toFixed(2) },
+    customerId,
+    sequenceType: 'first',
+    description,
+    redirectUrl,
+    webhookUrl,
+    metadata,
+  }, apiKey);
+}
+
+/**
+ * Cancel a Mollie subscription for a customer.
+ */
+export async function cancelSubscription(customerId, subscriptionId, apiKey) {
+  return mollieReq('DELETE', `/customers/${customerId}/subscriptions/${subscriptionId}`, null, apiKey);
+}
+
+/**
  * Verify Mollie webhook signature.
  * Mollie sends payment ID in form body; we re-fetch to get current status.
  */

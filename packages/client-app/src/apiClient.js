@@ -386,6 +386,26 @@ const api = {
     });
     return res.json();
   },
+
+  // ─── BILLING ──────────────────────────────────────────────────────────────
+  async getSubscription() {
+    const res = await fetch('/api/subscribe', { headers: this._auth() });
+    return res.json();
+  },
+
+  async startSubscription(plan) {
+    const res = await fetch('/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      body: JSON.stringify({ plan }),
+    });
+    return res.json();
+  },
+
+  async cancelSubscription() {
+    const res = await fetch('/api/subscribe', { method: 'DELETE', headers: this._auth() });
+    return res.json();
+  },
 };
 
 export default api;
