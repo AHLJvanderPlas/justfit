@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
@@ -50,6 +50,28 @@ function trajectorySentence(history) {
   if (last < avg * 0.5 && avg > 0) return t("Slower week than usual. Worth a check-in?");
   if (avg < 2) return t("We're rebuilding. Aim for one extra session this week.");
   return t("Steady. Keep showing up.");
+}
+
+function weeklyOutcomeSentence(history) {
+  const now = new Date();
+  const thisWeekKey = getIsoWeek(now.toISOString().slice(0, 10));
+  const completed = history.filter(h => h.status === "completed");
+  const thisWeekCount = completed.filter(h => getIsoWeek(h.date) === thisWeekKey).length;
+
+  const trailingCounts = [];
+  for (let i = 1; i <= 4; i++) {
+    const d = new Date(now);
+    d.setDate(d.getDate() - i * 7);
+    const wk = getIsoWeek(d.toISOString().slice(0, 10));
+    trailingCounts.push(completed.filter(h => getIsoWeek(h.date) === wk).length);
+  }
+  const sorted = [...trailingCounts].sort((a, b) => a - b);
+  const median = (sorted[1] + sorted[2]) / 2; // median of 4 values
+
+  if (thisWeekCount === 0 || median === 0) return "Fresh start \u2014 let\u2019s build from here.";
+  if (thisWeekCount > median) return "Strong week \u2014 above your average.";
+  if (thisWeekCount >= median - 0.5) return "On track \u2014 steady as usual.";
+  return "Lighter week \u2014 still consistent.";
 }
 
 function TrajectoryChart({ history, accentHex }) {
@@ -200,13 +222,49 @@ function nextSessionUnlock(n) {
   return { remaining: next - n, name: SESSION_AWARD_NAMES[next] ?? `${next} sessions` };
 }
 
+// ─── SLEEP TREND CHART ─────────────────────────────────────────────────────────
+function SleepTrendChart({ checkins, accentHex }) {
+  const now = new Date();
+  const days = [];
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i);
+    days.push(d.toISOString().slice(0, 10));
+  }
+  const byDate = {};
+  checkins.forEach(c => { if (c.sleep_hours != null) byDate[c.date] = c.sleep_hours; });
+  const values = days.map(d => byDate[d] ?? null);
+  const nonNull = values.filter(v => v != null);
+  if (nonNull.length === 0) return null;
+  const maxVal = Math.max(...nonNull, 9);
+  const W = 300, H = 56, labelH = 12, barAreaH = H - labelH;
+  const barW = W / 30;
+  return (
+    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <line x1={0} y1={barAreaH - (7 / maxVal) * barAreaH} x2={W} y2={barAreaH - (7 / maxVal) * barAreaH}
+        stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3 2" />
+      {values.map((v, i) => {
+        if (v == null) return null;
+        const h = (v / maxVal) * barAreaH;
+        const color = v >= 7 ? accentHex : v >= 6 ? '#f59e0b' : '#f43f5e';
+        return (
+          <rect key={i} x={i * barW + 1} y={barAreaH - h} width={Math.max(barW - 2, 1)} height={h}
+            fill={color} rx="1" opacity="0.8" />
+        );
+      })}
+      <text x={0} y={H} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="monospace">30 dagen</text>
+      <text x={W} y={H} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="monospace" textAnchor="end">vandaag</text>
+    </svg>
+  );
+}
+
 // ─── PROGRESSION VIEW ──────────────────────────────────────────────────────────
 const GOAL_LABELS_MAP = {
   health: "General Health", strength: "Build Strength", fat_loss: "Lose Weight",
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-export default function HistoryView({ progression, isLoading, token, prefs, onProgressionUpdate, history = [], setView }) {
+export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], setView }) {
   useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
@@ -214,6 +272,12 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
   const [recomputing, setRecomputing] = useState(false);
   const [recomputeMsg, setRecomputeMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [checkins, setCheckins] = useState([]);
+
+  useEffect(() => {
+    if (!userId) return;
+    api.getCheckins(userId, 30).then(setCheckins).catch(() => {});
+  }, [userId]);
 
   const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
   const goal = prefs?.training_goal ?? progression?.goal ?? "health";
@@ -336,7 +400,12 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               {t("Start your first session to begin the chart.")}
             </div>
           ) : (
-            <TrajectoryChart history={history} accentHex={accentHex} />
+            <>
+              <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 12 }}>
+                {weeklyOutcomeSentence(history)}
+              </div>
+              <TrajectoryChart history={history} accentHex={accentHex} />
+            </>
           )}
         </Glass>
         <div style={{ marginBottom: 8 }}>
@@ -704,6 +773,87 @@ export default function HistoryView({ progression, isLoading, token, prefs, onPr
               </Glass>
             </div>
           )}
+
+          {/* ── Power Zones (cycling coach Pro) ── */}
+          {cycleCoachActive && (() => {
+            const cc = prefs?.preferences?.cycling_coach ?? {};
+            const ftp = cc.ftp_watts ?? 200;
+            const maxHr = cc.max_hr ?? null;
+            const ZONES = [
+              { z: 1, name: 'Zone 1', desc: 'Actief herstel',  pctMin: 0,   pctMax: 55  },
+              { z: 2, name: 'Zone 2', desc: 'Duurvermogen',    pctMin: 56,  pctMax: 75  },
+              { z: 3, name: 'Zone 3', desc: 'Tempo',           pctMin: 76,  pctMax: 90  },
+              { z: 4, name: 'Zone 4', desc: 'Drempelzone',     pctMin: 91,  pctMax: 105 },
+              { z: 5, name: 'Zone 5', desc: 'VO2max',          pctMin: 106, pctMax: 150 },
+            ];
+            const ZCOLORS = ['#64748b', accentHex, '#f59e0b', '#f97316', '#ef4444'];
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>
+                <Glass style={{ padding: "4px 0" }}>
+                  {ZONES.map((z, i) => {
+                    const wMin = Math.round(ftp * z.pctMin / 100);
+                    const wMax = z.pctMax >= 150 ? null : Math.round(ftp * z.pctMax / 100);
+                    const hrMin = maxHr ? Math.round(maxHr * z.pctMin / 100) : null;
+                    const hrMax = (maxHr && z.pctMax < 150) ? Math.round(maxHr * z.pctMax / 100) : null;
+                    return (
+                      <div key={z.z} style={{ padding: "11px 0", margin: "0 16px", borderBottom: i < ZONES.length - 1 ? `1px solid ${C.border}` : "none", display: "flex", alignItems: "center", gap: 12 }}>
+                        <div style={{ width: 4, height: 36, borderRadius: 2, background: ZCOLORS[i], flexShrink: 0 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                            <span style={{ fontSize: 12, fontWeight: 900, color: C.text }}>{z.name} · {z.desc}</span>
+                            <span style={{ ...mono(12), color: ZCOLORS[i], fontWeight: 700 }}>{wMin}{wMax != null ? `–${wMax}` : '+'}W</span>
+                          </div>
+                          {maxHr && (
+                            <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
+                              {hrMin}{hrMax != null ? `–${hrMax}` : `+`} bpm
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </Glass>
+                {!maxHr && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 6, fontStyle: 'italic' }}>
+                    Stel je max. hartslag in bij Instellingen → Jouw coach om ook HR-zones te zien.
+                  </div>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* ── Slaaptrend (30 dagen) ── */}
+          {(() => {
+            const sleepCheckins = checkins.filter(c => c.sleep_hours != null);
+            if (sleepCheckins.length < 3) return null;
+            const avgSleep = sleepCheckins.reduce((s, c) => s + c.sleep_hours, 0) / sleepCheckins.length;
+            return (
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</div>
+                <Glass style={{ padding: 16 }}>
+                  <SleepTrendChart checkins={checkins} accentHex={accentHex} />
+                  <div style={{ display: "flex", gap: 16, marginTop: 12 }}>
+                    <div style={{ flex: 1 }}>
+                      <div style={{ ...mono(11), color: C.muted }}>Gemiddeld</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{avgSleep.toFixed(1)}u</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 10, color: C.muted }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: accentHex }} /> ≥7u
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: '#f59e0b' }} /> 6–7u
+                      </span>
+                      <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: '#f43f5e' }} /> {'<6u'}
+                      </span>
+                    </div>
+                  </div>
+                </Glass>
+              </div>
+            );
+          })()}
 
           {/* ── Awards entry point ── */}
           {(() => {
