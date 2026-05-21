@@ -284,7 +284,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0059+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0073+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1074,8 +1074,8 @@ Calculated server-side from executions table:
 | messagePolicy R557+R561 test coverage | ✅ Live — 9 new Vitest test cases covering RULE_POLICY, RULE_LABELS, deriveCoachSentence, rest-day suppression for R557 (TSB autoregulation) and R561 (sport mobility injection) |
 | R526 Perimenopause mode | ✅ Live — migration 0056 adds `'perimenopause'` to `cycle_profile.mode` CHECK; R526 in plan.js caps intensity at moderate, lowers stress threshold to ≥5 (vs ≥7 standard), disables cycle phase rules R520–R525; SettingsView violet toggle in Body mode section; App.jsx banner; messagePolicy entry |
 | Dutch-first i18n + language toggle | ✅ Live — `src/i18n.js`: `t()`, `useLang()`, `setLang()`, 500+ NL translations; WorkoutView / PlanWeekView / HistoryView / SettingsView / App.jsx all wrapped; NL/EN toggle in Settings → You → Appearance; training science terms (FTP/TSS/RPE etc.) stay English in both modes; default `'nl'`, stored in `localStorage('jf_lang')` |
-| Pro tier gating | ⬜ Not started |
-| Stripe integration | ⬜ Not started |
+| Consumer Pro billing (Mollie recurring) | ✅ Live — migration 0072 adds mollie_customer_id/mollie_sub_id to entitlements + billing_events table; POST/GET/DELETE /api/subscribe (checkout, entitlement state, cancel); POST /api/webhooks/mollie-consumer (first/recurring/failed/expired/canceled); 14-day trial entitlement on signup (source=trial, product_code=pro_trial); plan.js checks entitlements table for isPro (prefs.isPro remains manual override); ProGate.jsx full-screen upgrade wall (NL, early bird pricing, Mollie checkout redirect); App.jsx: isPro loaded from /api/subscribe, ?upgrade=success handler, PathChoiceModal locks running/cycling for non-Pro; SettingsView: coach enrollment locked with "Upgrade naar Pro →" CTA, Account → Abonnement section with live status + cancel flow; early bird cap: 200 subscribers |
+| Stripe integration | ⬜ Not started (Mollie chosen instead) |
 
 ---
 
