@@ -49,7 +49,7 @@ export async function onRequest(context) {
     const token = normaliseToken(rawToken).toLowerCase();
 
     const gym = await env.DB.prepare(
-      `SELECT id, name FROM gyms WHERE LOWER(trainer_token) LIKE ? || '%' LIMIT 1`
+      `SELECT id, name, sub_status, sub_ends_at_ms FROM gyms WHERE LOWER(trainer_token) LIKE ? || '%' LIMIT 1`
     ).bind(token).first();
     if (!gym) return Response.json({ error: 'Trainer code not found' }, { status: 404 });
 
@@ -71,6 +71,20 @@ export async function onRequest(context) {
         `INSERT INTO gym_memberships (id, gym_id, user_id, role, status, invited_at_ms, created_at_ms, updated_at_ms)
          VALUES (?, ?, ?, 'client', 'pending', ?, ?, ?)`
       ).bind(crypto.randomUUID(), gym.id, user.userId, now, now, now).run();
+    }
+
+    // If gym has an active B2B subscription, grant the user Pro immediately so they
+    // don't have to wait for the next Mollie payment webhook to fire.
+    if (gym.sub_status === 'active' && gym.sub_ends_at_ms) {
+      const hasEntitlement = await env.DB.prepare(
+        `SELECT id FROM entitlements WHERE user_id = ? AND source = 'trainer_grant' AND status IN ('active','grace') LIMIT 1`
+      ).bind(user.userId).first();
+      if (!hasEntitlement) {
+        await env.DB.prepare(
+          `INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, ends_at_ms, created_at_ms, updated_at_ms)
+           VALUES (?,?,?,?,?,?,?,?,?)`
+        ).bind(crypto.randomUUID(), user.userId, 'pro_consumer', 'trainer_grant', 'active', now, gym.sub_ends_at_ms, now, now).run();
+      }
     }
 
     return Response.json({ ok: true, gym_id: gym.id, gym_name: gym.name });
