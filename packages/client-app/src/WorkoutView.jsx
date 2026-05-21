@@ -28,6 +28,23 @@ function ExerciseGif({ gifUrl, name }) {
   );
 }
 
+function deriveExerciseWhy(category, tags) {
+  if (category === 'recovery') return "Recovery \u00b7 muscle repair";
+  if (tags.includes('breathing')) return "Breathwork \u00b7 relaxation & control";
+  if (tags.includes('pelvic_floor') || tags.includes('kegel')) return "Pelvic floor strength \u00b7 deep core";
+  if (category === 'mobility' || tags.includes('mobility')) return "Mobility \u00b7 flexibility & joints";
+  if (category === 'cardio' || tags.includes('cardio')) {
+    if (tags.includes('run_interval')) return "Cardio \u00b7 running fitness";
+    return "Cardio \u00b7 conditioning";
+  }
+  if (tags.includes('military')) return "Military fitness \u00b7 functional strength";
+  if (tags.includes('core')) return "Core stability \u00b7 midsection";
+  if (tags.includes('dumbbell') || tags.includes('kettlebell')) return "Builds strength \u00b7 resistance training";
+  if (tags.includes('band')) return "Builds strength \u00b7 band resistance";
+  if (tags.includes('bodyweight')) return "Builds functional strength \u00b7 upper body";
+  return "Builds strength \u00b7 compound movement";
+}
+
 // ─── WORKOUT VIEW — coaching state machine ─────────────────────────────────────
 export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) {
   useLang();
@@ -754,9 +771,12 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* Exercise name + target */}
               <div style={{ textAlign: "center", marginBottom: 4 }}>
                 {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
-                <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8, lineHeight: 1.1 }}>
+                <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 4, lineHeight: 1.1 }}>
                   {cur.name}
                 </h1>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontStyle: "italic" }}>
+                  {deriveExerciseWhy(cur.category, tags)}
+                </div>
                 <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
                   {muscleTarget && <>
                     <span style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>{muscleTarget}</span>
