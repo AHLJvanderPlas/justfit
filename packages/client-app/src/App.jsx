@@ -87,7 +87,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
             {PATHS.map(p => {
-              const locked = !isPro && (p.key === "running" || p.key === "cycling");
+              const locked = !isPro && p.key === "cycling";
               return (
                 <button key={p.key}
                   onClick={() => {
@@ -2185,6 +2185,11 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
             : null;
           const cycStep = plan?.steps?.find(s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_'));
           const canExportTcx = !!(cycStep?.intervals_json);
+          const ccSessTotal = cc.sessions_total ?? 0;
+          const ccWeekInCycle = Math.floor((ccSessTotal % 21) / 3) + 1; // 1–7
+          const ccBlockPhase = ccWeekInCycle <= 2 ? 'base' : ccWeekInCycle <= 6 ? 'build' : 'recovery';
+          const ccPhaseLabel = ccBlockPhase === 'recovery' ? 'Herstelweek — rust op schema' : ccBlockPhase === 'build' ? 'Opbouwfase' : 'Basisweek';
+          const ccPhaseShort = ccBlockPhase === 'recovery' ? 'Herstelweek' : ccBlockPhase === 'build' ? 'Opbouwfase' : 'Basisweek';
           return (
             <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2195,13 +2200,13 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3} this week</div>
                 {sessionTypeLabel && (
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionTypeLabel}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{ccPhaseShort} · {sessionTypeLabel}</div>
                 )}
                 <div style={{ marginTop: 8 }}>
                   <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
-                    <div style={{ height: "100%", width: `${Math.min(100, (((cc.week ?? 1) - 1) % 7 + 1) / 7 * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
+                    <div style={{ height: "100%", width: `${Math.min(100, ccWeekInCycle / 7 * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
-                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {((cc.week ?? 1) - 1) % 7 + 1} OF 7</div>
+                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {ccWeekInCycle} VAN 7 · {ccPhaseLabel.toUpperCase()}</div>
                 </div>
               </div>
               {canExportTcx && (() => {
@@ -3340,6 +3345,10 @@ export default function App() {
     const ts = parseInt(localStorage.getItem(uKey('jf_email_banner_dismissed')) || localStorage.getItem('jf_email_banner_dismissed') || '0');
     return ts > Date.now() - 24 * 60 * 60 * 1000;
   });
+  // Trainer message dismiss: stored as the sent_at_ms we dismissed, so new messages auto-show
+  const [trainerMsgDismissedAt, setTrainerMsgDismissedAt] = useState(() =>
+    parseInt(localStorage.getItem(uKey('jf_trainer_msg_dismissed')) || '0')
+  );
 
   // Post-workout state
   const [todayCompleted, setTodayCompleted] = useState(
@@ -4142,6 +4151,39 @@ export default function App() {
                     </button>
                   </div>
                 )}
+                {/* ── Van je trainer card ── */}
+                {(() => {
+                  const msg = prefs.trainer_message;
+                  const msgFresh = msg?.sent_at_ms && (Date.now() - msg.sent_at_ms) < 7 * 86400000;
+                  if (!msg || !msgFresh || trainerMsgDismissedAt === msg.sent_at_ms) return null;
+                  return (
+                    <div style={{ margin: "0 0 16px", padding: "16px 18px", borderRadius: 20, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.28)", position: "relative" }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                        {msg.gym_logo_url ? (
+                          <img src={msg.gym_logo_url} alt={msg.gym_name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid rgba(255,255,255,0.08)" }} />
+                        ) : (
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#f59e0b", fontSize: 16, fontWeight: 900 }}>
+                            T
+                          </div>
+                        )}
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                            Van je trainer{msg.gym_name ? ` · ${msg.gym_name}` : ""}
+                          </div>
+                          <div style={{ fontSize: 14, color: C.text, lineHeight: 1.5 }}>{msg.text}</div>
+                        </div>
+                        <button
+                          onClick={() => {
+                            setTrainerMsgDismissedAt(msg.sent_at_ms);
+                            localStorage.setItem(uKey('jf_trainer_msg_dismissed'), String(msg.sent_at_ms));
+                          }}
+                          style={{ padding: "2px 6px", borderRadius: 6, border: "none", background: "transparent", color: C.muted, fontSize: 18, cursor: "pointer", lineHeight: 1, flexShrink: 0, fontFamily: "inherit" }}
+                          aria-label="Verberg bericht"
+                        >×</button>
+                      </div>
+                    </div>
+                  );
+                })()}
                 <Dashboard
                   plan={plan}
                   score={score}
@@ -4190,6 +4232,7 @@ export default function App() {
                 progression={progression}
                 isLoading={isLoadingProgression}
                 token={token}
+                userId={userId}
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
                 history={history}
