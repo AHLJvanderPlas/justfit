@@ -1,3 +1,8 @@
+# justfit-app — Claude Code Instructions
+> For ecosystem-level process rules (build workflow, Foundation validation, doc updates) see `/justfit/CLAUDE.md`.
+
+---
+
 # Standing Instructions — Always Follow
 
 These rules apply to EVERY task in EVERY session, without exception.
@@ -284,7 +289,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0073+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0075+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1012,7 +1017,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0056) |
+| D1 schema + migrations | ✅ Live (0002–0074) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
@@ -1167,8 +1172,6 @@ Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 
 
 | # | Item | Risk | Effort | Impact | Notes |
 |---|---|---|---|---|---|
-| A | **"Why" + training target in WorkoutView** | 🟢 | ⚡ | Medium | Derive from `category`+`tags_json` — no DB change; adds coaching depth to every session |
-| B | **Weekly outcome summary** | 🟢 | 🔧 | High | Use existing `user_progression` data; show goal-trajectory sentence + trend indicator on Progress tab |
 | C | **Level-appropriate cues** | 🟢 | ⚡ | Medium | Filter `💡💡`-prefixed cues in WorkoutView by `experience_level`; convention already in DB |
 | D | **Log activity UX consolidation** | 🟢 | ⚡ | Low–Med | After session, show bonus-plan + extra-time input on the complete card instead of separate taps |
 | E | **BMI-aware pace guidance** | 🟡 | 🔧 | Low–Med | `bmi_note` field in `instructions_json` or WorkoutView rule for obese BMI + cardio exercises |
@@ -1317,5 +1320,5 @@ Four checks to enforce before merging any PR that touches the relevant area. Eac
 
 - **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0057+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0075+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.
