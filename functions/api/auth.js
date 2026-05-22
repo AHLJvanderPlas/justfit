@@ -1,4 +1,5 @@
 import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
+import { cancelSubscription } from '../lib/mollie.js';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const JWT_EXPIRY      = 60 * 60 * 24 * 7; // 7 days  — session tokens
@@ -582,7 +583,8 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
     return Response.json({ error: 'Invalid WebAuthn type' }, { status: 400 });
   }
 
-  const allowedOrigins = [`https://${rpId}`, 'https://justfit.pages.dev'];
+  const extra = env.WEBAUTHN_EXTRA_ORIGINS ? env.WEBAUTHN_EXTRA_ORIGINS.split(',') : [];
+  const allowedOrigins = [`https://${rpId}`, ...extra];
   if (!allowedOrigins.includes(clientData.origin)) {
     return Response.json({ error: 'Invalid origin' }, { status: 400 });
   }
@@ -690,6 +692,37 @@ async function handleDeleteAccount(request, env, secret) {
     await env.DB.prepare(
       `INSERT INTO deleted_users (id, email_hash, requested_by_ip, deleted_at_ms) VALUES (?, ?, ?, ?)`
     ).bind(uid, emailHash, ip, Date.now()).run();
+  }
+
+  // Cancel active Mollie subscription (billing hygiene — prevents ongoing charges)
+  const mollieRow = await env.DB.prepare(
+    `SELECT mollie_customer_id, mollie_sub_id FROM entitlements
+     WHERE user_id = ? AND status IN ('active','trialing') AND mollie_sub_id IS NOT NULL LIMIT 1`
+  ).bind(uid).first();
+  if (mollieRow?.mollie_customer_id && mollieRow?.mollie_sub_id && env.MOLLIE_API_KEY) {
+    try { await cancelSubscription(mollieRow.mollie_customer_id, mollieRow.mollie_sub_id, env.MOLLIE_API_KEY); }
+    catch { /* ignore — DB deletion proceeds regardless */ }
+  }
+
+  // Revoke Strava OAuth token (privacy — prevents dangling third-party access)
+  const stravaRow = await env.DB.prepare(
+    `SELECT access_token, refresh_token, expires_at_ms FROM strava_connections WHERE user_id = ? LIMIT 1`
+  ).bind(uid).first();
+  if (stravaRow) {
+    let token = stravaRow.access_token;
+    if ((stravaRow.expires_at_ms ?? 0) < Date.now() && env.STRAVA_CLIENT_ID && env.STRAVA_CLIENT_SECRET) {
+      try {
+        const r = await fetch('https://www.strava.com/oauth/token', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_id: env.STRAVA_CLIENT_ID, client_secret: env.STRAVA_CLIENT_SECRET, refresh_token: stravaRow.refresh_token, grant_type: 'refresh_token' }),
+        });
+        if (r.ok) { const d = await r.json(); token = d.access_token ?? token; }
+      } catch { /* use stored token as-is */ }
+    }
+    fetch('https://www.strava.com/oauth/deauthorize', {
+      method: 'POST', headers: { Authorization: `Bearer ${token}` },
+    }).catch(() => {});
   }
 
   // Delete in dependency order — execution_steps first (FK to executions), then everything else
