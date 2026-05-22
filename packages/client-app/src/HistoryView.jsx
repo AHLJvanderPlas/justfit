@@ -5,6 +5,123 @@ import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 
+// ─── SHARE PROGRESS ───────────────────────────────────────────────────────────
+async function shareProgressImage(history, streak, accentHex) {
+  const completed = history.filter(h => h.status === "completed");
+
+  // Build 12-week bar data
+  const weekCounts = {};
+  completed.forEach(h => { const wk = getIsoWeek(h.date); weekCounts[wk] = (weekCounts[wk] || 0) + 1; });
+  const now = new Date();
+  const weeks = [];
+  for (let i = 11; i >= 0; i--) {
+    const d = new Date(now);
+    d.setDate(now.getDate() - i * 7);
+    const wk = getIsoWeek(d.toISOString().slice(0, 10));
+    if (!weeks.includes(wk)) weeks.push(wk);
+  }
+  const counts = weeks.map(wk => weekCounts[wk] ?? 0);
+  const currentWeek = getIsoWeek(now.toISOString().slice(0, 10));
+  const maxCount = Math.max(...counts, 1);
+  const sorted = [...counts].sort((a, b) => a - b);
+  const median = sorted[Math.floor(sorted.length / 2)];
+  const thisWeekCount = weekCounts[currentWeek] ?? 0;
+
+  const W = 480, H = 300;
+  const canvas = document.createElement("canvas");
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext("2d");
+
+  // Background
+  ctx.fillStyle = "#020617";
+  ctx.fillRect(0, 0, W, H);
+
+  // Subtle card border
+  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
+
+  // Title
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "900 22px 'Barlow Condensed', sans-serif";
+  ctx.fillText("MY JUSTFIT PROGRESS", 24, 46);
+
+  // Streak + sessions chips
+  ctx.fillStyle = accentHex + "22";
+  roundRect(ctx, 24, 58, 110, 28, 8); ctx.fill();
+  ctx.fillStyle = accentHex;
+  ctx.font = "700 12px 'Inter Tight', sans-serif";
+  ctx.fillText(`${streak} day streak`, 34, 77);
+
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  roundRect(ctx, 142, 58, 120, 28, 8); ctx.fill();
+  ctx.fillStyle = "#94a3b8";
+  ctx.font = "700 12px 'Inter Tight', sans-serif";
+  ctx.fillText(`${thisWeekCount} sessions this week`, 152, 77);
+
+  // Bar chart
+  const barAreaTop = 108, barAreaH = 110, labelH = 20, chartW = W - 48;
+  const barChartLeft = 24;
+
+  // Median reference line
+  if (median > 0) {
+    const medY = barAreaTop + barAreaH - (median / maxCount) * barAreaH;
+    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.setLineDash([3, 2]);
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(barChartLeft, medY);
+    ctx.lineTo(barChartLeft + chartW, medY);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Bars
+  const gap = chartW / weeks.length;
+  const bw = gap * 0.6;
+  weeks.forEach((wk, i) => {
+    const count = counts[i];
+    const isCurrent = wk === currentWeek;
+    const x = barChartLeft + i * gap + (gap - bw) / 2;
+    const bh = count > 0 ? Math.max(4, (count / maxCount) * barAreaH) : 2;
+    const y = barAreaTop + barAreaH - bh;
+    ctx.fillStyle = isCurrent ? accentHex : "rgba(255,255,255,0.18)";
+    ctx.beginPath();
+    ctx.roundRect(x, y, bw, bh, 2);
+    ctx.fill();
+
+    // Week label
+    ctx.fillStyle = isCurrent ? accentHex : "rgba(100,116,139,0.4)";
+    ctx.font = `${isCurrent ? "900" : "700"} 8px monospace`;
+    ctx.textAlign = "center";
+    ctx.fillText(wk.split("-W")[1], x + bw / 2, barAreaTop + barAreaH + labelH - 4);
+    ctx.textAlign = "left";
+  });
+
+  // Watermark
+  ctx.fillStyle = "rgba(100,116,139,0.5)";
+  ctx.font = "600 11px 'Inter Tight', sans-serif";
+  ctx.textAlign = "right";
+  ctx.fillText("justfit.cc", W - 24, H - 20);
+  ctx.textAlign = "left";
+
+  return new Promise(resolve => canvas.toBlob(resolve, "image/png"));
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.arcTo(x + w, y, x + w, y + r, r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.arcTo(x + w, y + h, x + w - r, y + h, r);
+  ctx.lineTo(x + r, y + h);
+  ctx.arcTo(x, y + h, x, y + h - r, r);
+  ctx.lineTo(x, y + r);
+  ctx.arcTo(x, y, x + r, y, r);
+  ctx.closePath();
+}
+
 // ─── TRAJECTORY HELPERS ────────────────────────────────────────────────────────
 function getIsoWeek(dateStr) {
   const d = new Date(dateStr + "T12:00:00");
@@ -270,6 +387,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
   const [recomputing, setRecomputing] = useState(false);
+  const [shareState, setShareState] = useState("idle"); // idle | generating | done
   const [recomputeMsg, setRecomputeMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [checkins, setCheckins] = useState([]);
@@ -405,6 +523,29 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 {weeklyOutcomeSentence(history)}
               </div>
               <TrajectoryChart history={history} accentHex={accentHex} />
+              <button
+                onClick={async () => {
+                  if (shareState === "generating") return;
+                  setShareState("generating");
+                  try {
+                    const blob = await shareProgressImage(history, streak, accentHex);
+                    const file = new File([blob], "justfit-progress.png", { type: "image/png" });
+                    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                      await navigator.share({ files: [file], title: "My JustFit Progress" });
+                    } else {
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url; a.download = "justfit-progress.png"; a.click();
+                      setTimeout(() => URL.revokeObjectURL(url), 5000);
+                    }
+                    setShareState("done");
+                    setTimeout(() => setShareState("idle"), 3000);
+                  } catch { setShareState("idle"); }
+                }}
+                style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: shareState === "done" ? accentHex : C.muted, fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}
+              >
+                {shareState === "generating" ? "…" : shareState === "done" ? "✓ Saved" : "↑ Share progress"}
+              </button>
             </>
           )}
         </Glass>
