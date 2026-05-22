@@ -289,7 +289,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0075+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0080+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1159,6 +1159,7 @@ Calculated server-side from executions table:
 | /api/subscribe rate limiting (May 2026) | ✅ Live — POST /api/subscribe now enforces 5 checkout initiations per IP per hour using the `auth_rate_limits` table; returns 429 on abuse. (C-B6) |
 | Account deletion cleanup (May 2026) | ✅ Live — `handleDeleteAccount` in auth.js now cancels the user's active Mollie subscription (fire-and-forget) and revokes their Strava OAuth token (deauthorize API, with token refresh if expired) before erasing DB rows. (C-B4) |
 | JWT invalidation after password reset (May 2026) | ✅ Live — migration 0075 adds `token_invalidated_at_ms` to `users` table. `handleResetPassword` sets it to `now`. `_shared/auth.js getUser` rejects tokens issued before `token_invalidated_at_ms`. Prevents stolen sessions surviving a password reset. (C-B5) |
+| Multi-trainer Gym tier — consumer app [APP] (May 2026) | ✅ Live — migrations 0076–0079: `trainer_profiles`, gym model columns (`gyms.model/switch_auto_approve/trainer_tab_config_json`), gym_memberships columns (`show_in_client_app`, `team_view_opt_in`, `allow_trainer_switch`, `availability_status`, `availability_updated_at_ms`, `support_trainer_user_id`), `support_requests` table, `trainer_switch_requests` table. New `/api/client/` endpoints: `GET /trainer` (assigned trainer + team + pending switch/support + consent flag), `POST /support-request` + `GET /support-request/active`, `POST /switch-request` + `PATCH /switch-request/:id/cancel` + `GET /switch-requests`, `PATCH /trainer-switch-consent`. CoachView: Jouw trainer card (photo, bio, specialties, availability dot), Ons team chip row + profile sheet, Vraag om hulp bottom sheet (compose + sent/accepted/replied states), Wissel van trainer bottom sheet (trainer selection + message step + pending/cancel states). SettingsView > Trainers: Trainer instellingen section with allow-switch toggle (only shown when connected to gym). |
 
 ## Known Bugs to Fix
 
@@ -1323,5 +1324,5 @@ Four checks to enforce before merging any PR that touches the relevant area. Eac
 
 - **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0075+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0080+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.
