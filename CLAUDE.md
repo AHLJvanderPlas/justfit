@@ -289,7 +289,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0080+`; never reuse a number. See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0081+`; never reuse a number. See also: **Database Migration Policy** section below.
 
 ---
 
@@ -1100,7 +1100,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Historical duplicates exist at prefixes 0059/0060/0061/0072/0074 (all applied manually via `--file`; D1 `_migrations` table is empty — no wrangler-managed tracking). Do not rename applied migrations. Next valid number is `0080+`. | Low | Enforce unique monotonic numbering for all new migrations (0080+); never reuse a number. |
+| Operational drift (migration numbering/version hygiene) | Historical duplicates exist at prefixes 0059/0060/0061/0072/0074 (all applied manually via `--file`; D1 `_migrations` table is empty — no wrangler-managed tracking). Do not rename applied migrations. Next valid number is `0081+`. | Low | Enforce unique monotonic numbering for all new migrations (0081+); never reuse a number. |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
@@ -1160,6 +1160,8 @@ Calculated server-side from executions table:
 | Account deletion cleanup (May 2026) | ✅ Live — `handleDeleteAccount` in auth.js now cancels the user's active Mollie subscription (fire-and-forget) and revokes their Strava OAuth token (deauthorize API, with token refresh if expired) before erasing DB rows. (C-B4) |
 | JWT invalidation after password reset (May 2026) | ✅ Live — migration 0075 adds `token_invalidated_at_ms` to `users` table. `handleResetPassword` sets it to `now`. `_shared/auth.js getUser` rejects tokens issued before `token_invalidated_at_ms`. Prevents stolen sessions surviving a password reset. (C-B5) |
 | Multi-trainer Gym tier — consumer app [APP] (May 2026) | ✅ Live — migrations 0076–0079: `trainer_profiles`, gym model columns (`gyms.model/switch_auto_approve/trainer_tab_config_json`), gym_memberships columns (`show_in_client_app`, `team_view_opt_in`, `allow_trainer_switch`, `availability_status`, `availability_updated_at_ms`, `support_trainer_user_id`), `support_requests` table, `trainer_switch_requests` table. New `/api/client/` endpoints: `GET /trainer` (assigned trainer + team + pending switch/support + consent flag), `POST /support-request` + `GET /support-request/active`, `POST /switch-request` + `PATCH /switch-request/:id/cancel` + `GET /switch-requests`, `PATCH /trainer-switch-consent`. CoachView: Jouw trainer card (photo, bio, specialties, availability dot), Ons team chip row + profile sheet, Vraag om hulp bottom sheet (compose + sent/accepted/replied states), Wissel van trainer bottom sheet (trainer selection + message step + pending/cancel states). SettingsView > Trainers: Trainer instellingen section with allow-switch toggle (only shown when connected to gym). |
+
+| Consumer App Enhancements batch (2026-05-22) | ✅ Live — C-E1: advanced cues filter; C-E2: DoneCard UX; C-E4: GuestConvertModal (`action=convert_guest`); C-E5: R583 BMI pace note (28–30); C-E6: referral programme (`/api/referral`, JF code, 14-day Pro grant); C-E7: push subscription infrastructure (migration 0080, `/api/subscribe-push`, SW handlers — dispatch needs CF Cron Worker); C-E8: progress sharing (Canvas 2D PNG + Web Share API); C-E9: PlanWeekView week navigation chevrons; C-E10: workout notes textarea → `executions.notes` → history display |
 
 ## Known Bugs to Fix
 
@@ -1279,7 +1281,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instru
 
 ### Adding a migration
 
-1. Choose the next monotonic number (`0080`, `0081`, …). Never reuse a number, never skip one.
+1. Choose the next monotonic number (`0081`, `0082`, …). Never reuse a number, never skip one.
 2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
 3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
 4. **Update the baseline** — this is mandatory:
@@ -1324,5 +1326,5 @@ Four checks to enforce before merging any PR that touches the relevant area. Eac
 
 - **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0080+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0081+`; never reuse a number. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.
