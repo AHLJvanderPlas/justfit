@@ -426,6 +426,9 @@ async function handleResetPassword({ reset_token, new_password }, request, env, 
     // Invalidate all other unused tokens for this user
     env.DB.prepare(`UPDATE password_reset_tokens SET used_at_ms = ? WHERE user_id = ? AND used_at_ms IS NULL AND token != ?`)
       .bind(now, row.user_id, resetTokenHash),
+    // Invalidate all existing session JWTs — tokens issued before now will be rejected
+    env.DB.prepare(`UPDATE users SET token_invalidated_at_ms = ?, updated_at_ms = ? WHERE id = ?`)
+      .bind(now, now, row.user_id),
   ]);
 
   return Response.json({ ok: true });

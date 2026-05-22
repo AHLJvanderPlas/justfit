@@ -21,12 +21,32 @@ async function verifyJWT(token, secret) {
   } catch { return null; }
 }
 
+const JWT_EXPIRY_SEC = 60 * 60 * 24 * 7; // must match auth.js JWT_EXPIRY
+
 /** Returns full JWT payload { userId, email, exp } or null if invalid / missing. */
 export async function getUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
   const token = auth.replace('Bearer ', '');
   if (!token || !env.JWT_SECRET) return null;
-  return verifyJWT(token, env.JWT_SECRET);
+  const payload = await verifyJWT(token, env.JWT_SECRET);
+  if (!payload) return null;
+
+  // Check JWT invalidation: if token was issued before token_invalidated_at_ms, reject it.
+  // This protects against stolen tokens remaining valid after a password reset.
+  if (env.DB && payload.userId) {
+    try {
+      const row = await env.DB.prepare(
+        `SELECT token_invalidated_at_ms FROM users WHERE id = ? LIMIT 1`
+      ).bind(payload.userId).first();
+      const invalidatedAt = row?.token_invalidated_at_ms;
+      if (invalidatedAt) {
+        const issuedAtMs = (payload.exp - JWT_EXPIRY_SEC) * 1000;
+        if (issuedAtMs < invalidatedAt) return null;
+      }
+    } catch { /* non-fatal — fail open rather than lock out all users on DB hiccup */ }
+  }
+
+  return payload;
 }
 
 /** Returns userId string only, or null. Convenience wrapper for endpoints that only need the ID. */
