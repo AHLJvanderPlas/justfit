@@ -1156,6 +1156,9 @@ Calculated server-side from executions table:
 | Power zones from FTP (May 2026) | ✅ Live — Cycling coach card in App.jsx shows a 5-zone power table below the FTP sparkline when `ftp_watts > 0` and unit is not HR. Z1 <55% / Z2 55–75% / Z3 75–90% / Z4 90–105% / Z5 >105% FTP; Z4–Z5 rendered in accent colour. |
 | Sleep trend chart polish (May 2026) | ✅ Live — HistoryView sleep section: threshold raised from 3 to 5 check-ins; summary condensed to single sentence "Gemiddeld X.Xu slaap de afgelopen 30 dagen". |
 | Periodisation phase chip (May 2026) | ✅ Live — Cycling coach card shows BASE / BUILD / RECOVERY / PEAK chip derived from `enrolled_at_ms`. 7-week cycle: Base (wk 1–2) → Build (wk 3–5) → Recovery (wk 6) → Peak (wk 7). Only shown when `enrolled_at_ms` is set. |
+| /api/subscribe rate limiting (May 2026) | ✅ Live — POST /api/subscribe now enforces 5 checkout initiations per IP per hour using the `auth_rate_limits` table; returns 429 on abuse. (C-B6) |
+| Account deletion cleanup (May 2026) | ✅ Live — `handleDeleteAccount` in auth.js now cancels the user's active Mollie subscription (fire-and-forget) and revokes their Strava OAuth token (deauthorize API, with token refresh if expired) before erasing DB rows. (C-B4) |
+| JWT invalidation after password reset (May 2026) | ✅ Live — migration 0075 adds `token_invalidated_at_ms` to `users` table. `handleResetPassword` sets it to `now`. `_shared/auth.js getUser` rejects tokens issued before `token_invalidated_at_ms`. Prevents stolen sessions surviving a password reset. (C-B5) |
 
 ## Known Bugs to Fix
 
