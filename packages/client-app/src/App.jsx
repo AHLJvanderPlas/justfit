@@ -2346,9 +2346,83 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange }) {
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
+
+  // ── Trainer persona state ──
+  const [supportSheet, setSupportSheet] = useState(false); // compose | status
+  const [supportMsg, setSupportMsg] = useState("");
+  const [supportBroadcast, setSupportBroadcast] = useState(false);
+  const [supportSending, setSupportSending] = useState(false);
+  const [supportError, setSupportError] = useState(null);
+
+  const [switchSheet, setSwitchSheet] = useState(false);
+  const [switchStep, setSwitchStep] = useState("select"); // select | message
+  const [switchTarget, setSwitchTarget] = useState(null);
+  const [switchMsg, setSwitchMsg] = useState("");
+  const [switchSending, setSwitchSending] = useState(false);
+  const [switchError, setSwitchError] = useState(null);
+  const [cancellingSwitch, setCancellingSwitch] = useState(false);
+
+  const [profileSheet, setProfileSheet] = useState(null); // trainer object or null
+
+  const td = trainerData; // shorthand
+  const trainer = td?.assigned_trainer ?? null;
+  const gymTeam = td?.gym_team ?? null;
+  const pendingSwitch = td?.pending_switch_request ?? null;
+  const activeSupport = td?.active_support_request ?? null;
+  const gymModel = td?.gym_model ?? 'staff';
+
+  function availDot(status) {
+    const col = status === 'available' ? '#22c55e' : status === 'busy' ? '#f59e0b' : C.subtle;
+    return <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: col, marginRight: 5, flexShrink: 0 }} />;
+  }
+
+  async function handleSendSupport() {
+    if (!supportMsg.trim()) return;
+    setSupportSending(true);
+    setSupportError(null);
+    try {
+      const res = await api.submitSupportRequest(token, supportMsg.trim(), supportBroadcast);
+      if (res.ok) {
+        setSupportMsg(""); setSupportBroadcast(false); setSupportSheet(false);
+        const fresh = await api.getTrainerData(token);
+        if (fresh && !fresh.error) onTrainerDataChange(fresh);
+      } else {
+        setSupportError(res.error ?? 'Fout — probeer opnieuw');
+      }
+    } catch { setSupportError('Netwerk fout'); }
+    setSupportSending(false);
+  }
+
+  async function handleSendSwitch() {
+    if (!switchTarget) return;
+    setSwitchSending(true);
+    setSwitchError(null);
+    try {
+      const res = await api.submitSwitchRequest(token, switchTarget.user_id, switchMsg.trim() || undefined);
+      if (res.ok) {
+        setSwitchSheet(false); setSwitchStep("select"); setSwitchTarget(null); setSwitchMsg("");
+        const fresh = await api.getTrainerData(token);
+        if (fresh && !fresh.error) onTrainerDataChange(fresh);
+      } else {
+        setSwitchError(res.error ?? 'Fout — probeer opnieuw');
+      }
+    } catch { setSwitchError('Netwerk fout'); }
+    setSwitchSending(false);
+  }
+
+  async function handleCancelSwitch() {
+    if (!pendingSwitch) return;
+    setCancellingSwitch(true);
+    try {
+      await api.cancelSwitchRequest(token, pendingSwitch.id);
+      const fresh = await api.getTrainerData(token);
+      if (fresh && !fresh.error) onTrainerDataChange(fresh);
+    } catch { /* ignore */ }
+    setCancellingSwitch(false);
+  }
   const pref = prefs.preferences ?? {};
   const milA = !!(pref.military_coach?.active);
   const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
@@ -2939,6 +3013,273 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         );
       })()}
 
+      {/* ── Jouw trainer card ── */}
+      {trainer && (
+        <Glass style={{ padding: 20, marginBottom: 16 }}>
+          <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>JOUW TRAINER</div>
+          <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
+            <div style={{ width: 64, height: 64, borderRadius: 16, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+              {trainer.photo_url
+                ? <img src={trainer.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                : <span style={{ fontSize: 26, color: C.muted }}>👤</span>}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text, marginBottom: 3 }}>{trainer.display_name ?? "Jouw trainer"}</div>
+              {trainer.specialties?.length > 0 && (
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 5 }}>{trainer.specialties.slice(0, 3).join(" · ")}</div>
+              )}
+              <div style={{ display: "flex", alignItems: "center", fontSize: 12, color: C.muted }}>
+                {availDot(trainer.availability_status)}
+                {trainer.availability_status === 'available' ? "Beschikbaar" : trainer.availability_status === 'busy' ? "Bezig" : "Offline"}
+              </div>
+            </div>
+          </div>
+          {trainer.bio && (
+            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 14, fontStyle: "italic" }}>"{trainer.bio}"</div>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {/* Vraag om hulp button */}
+            {activeSupport ? (
+              <button
+                onClick={() => setSupportSheet(true)}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: C.muted, textAlign: "left" }}
+              >
+                {activeSupport.status === 'accepted' && activeSupport.reply_message
+                  ? "✓ Trainer heeft gereageerd"
+                  : activeSupport.status === 'accepted'
+                  ? "◐ Trainer is bereikbaar"
+                  : "● Hulpverzoek verstuurd"}
+              </button>
+            ) : (trainer.availability_status !== 'offline') && (
+              <button
+                onClick={() => { setSupportSheet(true); setSupportError(null); }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.text }}
+              >
+                Vraag om hulp
+              </button>
+            )}
+            {/* Wissel van trainer button — hide if only 1 trainer or pending switch */}
+            {gymTeam && gymTeam.filter(t => !t.is_assigned).length > 0 && !pendingSwitch && (
+              <button
+                onClick={() => { setSwitchSheet(true); setSwitchStep("select"); setSwitchTarget(null); setSwitchMsg(""); setSwitchError(null); }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.muted }}
+              >
+                Wissel van trainer
+              </button>
+            )}
+            {pendingSwitch && (
+              <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)" }}>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 4 }}>◐ Wisselverzoek in behandeling</div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Naar: {pendingSwitch.to_trainer_name} · {Math.round((nowMs - pendingSwitch.created_at_ms) / 86400000)} dagen geleden</div>
+                <button onClick={handleCancelSwitch} disabled={cancellingSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}>
+                  {cancellingSwitch ? "..." : "Trek verzoek in"}
+                </button>
+              </div>
+            )}
+          </div>
+        </Glass>
+      )}
+
+      {/* ── Ons team ── */}
+      {gymTeam && gymTeam.length > 1 && (
+        <Glass style={{ padding: 20, marginBottom: 16 }}>
+          <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>ONS TEAM</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+            {gymTeam.map(t => (
+              <button
+                key={t.user_id}
+                onClick={() => setProfileSheet(t)}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, border: `1px solid ${t.is_assigned ? "var(--accent-border)" : C.border}`, background: t.is_assigned ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+              >
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                  {t.photo_url
+                    ? <img src={t.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                    : <span style={{ fontSize: 16, color: C.muted }}>👤</span>}
+                </div>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>
+                    {t.display_name ?? "Trainer"}
+                    {t.is_assigned && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--accent)", fontWeight: 900 }}>JOUW</span>}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", fontSize: 11, color: C.muted }}>
+                    {availDot(t.availability_status)}
+                    {t.availability_status === 'available' ? "Beschikbaar" : t.availability_status === 'busy' ? "Bezig" : "Offline"}
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        </Glass>
+      )}
+
+      {/* ── Active support reply ── */}
+      {activeSupport?.status === 'accepted' && activeSupport.reply_message && (
+        <Glass style={{ padding: "16px 20px", marginBottom: 16, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.05)" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 6 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
+          <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5, fontStyle: "italic" }}>"{activeSupport.reply_message}"</div>
+        </Glass>
+      )}
+
+      {/* ── Support sheet ── */}
+      {supportSheet && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSupportSheet(false)} />
+          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
+            {activeSupport ? (
+              <>
+                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>HULPVERZOEK</div>
+                {activeSupport.status === 'accepted' && activeSupport.reply_message ? (
+                  <>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
+                    <div style={{ fontSize: 14, color: C.text, lineHeight: 1.6, fontStyle: "italic", marginBottom: 16 }}>"{activeSupport.reply_message}"</div>
+                  </>
+                ) : activeSupport.status === 'accepted' ? (
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>◐ {activeSupport.accepted_by?.display_name ?? "Trainer"} is bereikbaar en helpt je zo.</div>
+                ) : (
+                  <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>● Wachten op reactie van een trainer…</div>
+                )}
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, fontSize: 13, color: C.muted, marginBottom: 16 }}>
+                  Jouw vraag: "{activeSupport.message}"
+                </div>
+                <button onClick={() => setSupportSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>
+                  Sluiten
+                </button>
+              </>
+            ) : (
+              <>
+                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VRAAG OM HULP</div>
+                {trainer && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                    {availDot(trainer.availability_status)}
+                    <span style={{ fontSize: 13, color: C.muted }}>{trainer.display_name ?? "Trainer"} — {trainer.availability_status === 'available' ? "Beschikbaar" : "Bezig"}</span>
+                  </div>
+                )}
+                <textarea
+                  value={supportMsg}
+                  onChange={e => setSupportMsg(e.target.value)}
+                  placeholder="Schrijf je vraag…"
+                  maxLength={500}
+                  rows={4}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
+                />
+                <div style={{ fontSize: 11, color: C.muted, textAlign: "right", marginBottom: 12 }}>{supportMsg.length} / 500</div>
+                {gymModel === 'zzp' && gymTeam && gymTeam.filter(t => !t.is_assigned && t.availability_status !== 'offline').length > 0 && (
+                  <label style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 16, cursor: "pointer" }}>
+                    <input type="checkbox" checked={supportBroadcast} onChange={e => setSupportBroadcast(e.target.checked)} style={{ marginTop: 2 }} />
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>Stuur naar alle beschikbare trainers</div>
+                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 2 }}>Jouw trainingsdata is dan zichtbaar voor de trainer die reageert.</div>
+                    </div>
+                  </label>
+                )}
+                {supportError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{supportError}</div>}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setSupportSheet(false)} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
+                  <button onClick={handleSendSupport} disabled={supportSending || !supportMsg.trim()} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: supportMsg.trim() ? "var(--accent)" : C.subtle, cursor: supportMsg.trim() ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: supportMsg.trim() ? "#fff" : C.muted }}>
+                    {supportSending ? "Versturen…" : "Verstuur →"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Switch sheet ── */}
+      {switchSheet && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSwitchSheet(false)} />
+          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
+            {switchStep === "select" ? (
+              <>
+                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>WISSEL VAN TRAINER</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+                  {(gymTeam ?? []).filter(t => !t.is_assigned).map(t => {
+                    const clientLoad = "Gemiddeld"; // TODO: use real bucket when available
+                    return (
+                      <button
+                        key={t.user_id}
+                        onClick={() => { setSwitchTarget(t); setSwitchStep("message"); setSwitchError(null); }}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                      >
+                        <div style={{ width: 44, height: 44, borderRadius: 12, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                          {t.photo_url ? <img src={t.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 18, color: C.muted }}>👤</span>}
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{t.display_name}</div>
+                          {t.specialties?.length > 0 && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.specialties.slice(0, 2).join(" · ")}</div>}
+                          <div style={{ fontSize: 11, color: C.subtle, marginTop: 2 }}>Beschikbaarheid: {clientLoad}</div>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+                <button onClick={() => setSwitchSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
+              </>
+            ) : (
+              <>
+                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VERZOEK AAN {(switchTarget?.display_name ?? "TRAINER").toUpperCase()}</div>
+                <textarea
+                  value={switchMsg}
+                  onChange={e => setSwitchMsg(e.target.value)}
+                  placeholder="Optioneel bericht aan de gym…"
+                  maxLength={300}
+                  rows={3}
+                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 12 }}
+                />
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                  {gymModel === 'zzp'
+                    ? `Je verzoek gaat naar jouw huidige trainer${trainer?.display_name ? ", " + trainer.display_name : ""}.`
+                    : "Je verzoek gaat naar de eigenaar van de gym. Je hoort zo snel mogelijk terug."}
+                </div>
+                {switchError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{switchError}</div>}
+                <div style={{ display: "flex", gap: 10 }}>
+                  <button onClick={() => setSwitchStep("select")} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Terug</button>
+                  <button onClick={handleSendSwitch} disabled={switchSending} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                    {switchSending ? "Versturen…" : "Verstuur verzoek →"}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── Team member profile sheet ── */}
+      {profileSheet && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+          <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setProfileSheet(null)} />
+          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 48px", maxHeight: "80dvh", overflowY: "auto" }}>
+            <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 24px" }} />
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
+              <div style={{ width: 72, height: 72, borderRadius: 18, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                {profileSheet.photo_url ? <img src={profileSheet.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 30, color: C.muted }}>👤</span>}
+              </div>
+              <div>
+                <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 4 }}>{profileSheet.display_name ?? "Trainer"}</div>
+                {profileSheet.specialties?.length > 0 && (
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    {profileSheet.specialties.map(s => (
+                      <span key={s} style={{ padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>{s}</span>
+                    ))}
+                  </div>
+                )}
+                <div style={{ display: "flex", alignItems: "center", fontSize: 12, color: C.muted, marginTop: 6 }}>
+                  {availDot(profileSheet.availability_status)}
+                  {profileSheet.availability_status === 'available' ? "Beschikbaar" : profileSheet.availability_status === 'busy' ? "Bezig" : "Offline"}
+                </div>
+              </div>
+            </div>
+            {profileSheet.bio && (
+              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, fontStyle: "italic", marginBottom: 20 }}>"{profileSheet.bio}"</div>
+            )}
+            <button onClick={() => setProfileSheet(null)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Sluiten</button>
+          </div>
+        </div>
+      )}
+
       <button
         onClick={() => onWeeklyPlan()}
         style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}
@@ -3368,6 +3709,7 @@ export default function App() {
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
   const [cyclingPmc, setCyclingPmc] = useState(null);
+  const [trainerData, setTrainerData] = useState(null);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() =>
     parseInt(localStorage.getItem(uKey('jf_ftp_snooze_until')) || localStorage.getItem('jf_ftp_snooze_until') || '0')
   );
@@ -3613,6 +3955,10 @@ export default function App() {
     api
       .getCyclingPmc(token)
       .then((data) => { if (data?.ok) setCyclingPmc(data); })
+      .catch(() => {});
+    api
+      .getTrainerData(token)
+      .then((data) => { if (data && !data.error) setTrainerData(data); })
       .catch(() => {});
     api
       .getHistory(userId)
@@ -4255,6 +4601,8 @@ export default function App() {
                 setFtpSnoozedUntil={setFtpSnoozedUntil}
                 accentHex={prefs.preferences?.accent ?? "#10b981"}
                 setView={setView}
+                trainerData={trainerData}
+                onTrainerDataChange={setTrainerData}
               />
             )}
             {view === "plan" && (

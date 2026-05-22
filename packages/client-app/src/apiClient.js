@@ -154,6 +154,12 @@ const api = {
     return (data.checkins ?? [])[0] ?? null;
   },
 
+  async getCheckins(userId, limit = 30) {
+    const res = await fetch(`/api/checkin?user_id=${userId}&limit=${limit}`, { headers: this._auth() });
+    const data = await res.json();
+    return data.checkins ?? [];
+  },
+
   async getProfile(token) {
     const res = await fetch("/api/profile", {
       headers: { Authorization: `Bearer ${token}` },
@@ -404,6 +410,63 @@ const api = {
 
   async cancelSubscription() {
     const res = await fetch('/api/subscribe', { method: 'DELETE', headers: this._auth() });
+    return res.json();
+  },
+
+  // ─── MULTI-TRAINER ─────────────────────────────────────────────────────────
+  async getTrainerData(token) {
+    const res = await fetch('/api/client/trainer', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async submitSupportRequest(token, message, broadcast = false) {
+    const res = await fetch('/api/client/support-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ message, broadcast }),
+    });
+    return res.json();
+  },
+
+  async getActiveSupportRequest(token) {
+    const res = await fetch('/api/client/support-request/active', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async submitSwitchRequest(token, toTrainerUserId, message) {
+    const res = await fetch('/api/client/switch-request', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ to_trainer_user_id: toTrainerUserId, message }),
+    });
+    return res.json();
+  },
+
+  async cancelSwitchRequest(token, requestId) {
+    const res = await fetch(`/api/client/switch-request/${requestId}/cancel`, {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async getSwitchRequests(token) {
+    const res = await fetch('/api/client/switch-requests', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async setTrainerSwitchConsent(token, allow) {
+    const res = await fetch('/api/client/trainer-switch-consent', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ allow }),
+    });
     return res.json();
   },
 };

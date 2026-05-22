@@ -2771,6 +2771,47 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             })()}
           </Glass>
         </div>
+        {/* ── Early Access (Pro only) ── */}
+        {effectiveIsPro && (() => {
+          const betaFeatures = prefs.preferences?.beta_features ?? [];
+          const earlyAccessOn = betaFeatures.includes('early_access');
+          async function toggleEarlyAccess() {
+            const next = earlyAccessOn
+              ? betaFeatures.filter(f => f !== 'early_access')
+              : [...betaFeatures, 'early_access'];
+            await api.saveProfile(token, { preferences: { beta_features: next } });
+            onUpdate(p => ({ ...p, preferences: { ...(p.preferences ?? {}), beta_features: next } }));
+          }
+          return (
+            <div style={{ marginBottom: 32 }}>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Early Access</div>
+              <Glass style={{ padding: 20 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 3 }}>Vroege toegang nieuwe functies</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                      Je bent een van de eerste die nieuwe functies test vóór de brede uitrol. Feedback welkom.
+                    </div>
+                  </div>
+                  <button
+                    onClick={toggleEarlyAccess}
+                    style={{ flexShrink: 0, width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer", transition: "background 0.2s",
+                      background: earlyAccessOn ? "var(--accent)" : "rgba(255,255,255,0.1)",
+                      position: "relative" }}
+                  >
+                    <span style={{ position: "absolute", top: 3, left: earlyAccessOn ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.2s" }} />
+                  </button>
+                </div>
+                {earlyAccessOn && (
+                  <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 12, color: C.emerald }}>
+                    Early access actief — je ontvangt nieuwe functies zodra ze beschikbaar zijn.
+                  </div>
+                )}
+              </Glass>
+            </div>
+          );
+        })()}
+
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Email & identity</div>
           <Glass style={{ padding: 24 }}>
@@ -3743,6 +3784,11 @@ function TrainersSubView({ token }) {
   const [levelChanging, setLevelChanging] = useState(null);
   const [error, setError] = useState('');
 
+  // Trainer switch consent toggle
+  const [allowSwitch, setAllowSwitch] = useState(true);
+  const [switchConsentSaving, setSwitchConsentSaving] = useState(false);
+  const [isInGym, setIsInGym] = useState(false);
+
   // Connect to trainer flow (Sub-flow C)
   const [connectStep, setConnectStep] = useState(0); // 0=hidden 1=code-entry 2=confirm 3=done
   const [connectCode, setConnectCode] = useState('');
@@ -3752,8 +3798,8 @@ function TrainersSubView({ token }) {
 
   useEffect(() => {
     if (!token) return;
-    Promise.all([api.getDisclosures(token), api.getIntake(token)])
-      .then(([d, i]) => {
+    Promise.all([api.getDisclosures(token), api.getIntake(token), api.getTrainerData(token)])
+      .then(([d, i, td]) => {
         setDisclosures(d.disclosures ?? []);
         if (i) {
           setIntake(i);
@@ -3765,10 +3811,23 @@ function TrainersSubView({ token }) {
             availability_days_per_week: i.availability_days_per_week ?? 3,
           });
         }
+        if (td && !td.error && td.gym_id) {
+          setIsInGym(true);
+          setAllowSwitch(td.allow_trainer_switch !== false);
+        }
       })
       .catch(() => {})
       .finally(() => setLoading(false));
   }, [token]);
+
+  async function handleSwitchConsentToggle(newVal) {
+    setAllowSwitch(newVal);
+    setSwitchConsentSaving(true);
+    try {
+      await api.setTrainerSwitchConsent(token, newVal);
+    } catch { setAllowSwitch(!newVal); }
+    setSwitchConsentSaving(false);
+  }
 
   async function handleLevelChange(gymId, newLevel) {
     if (!token) return;
@@ -4042,6 +4101,43 @@ function TrainersSubView({ token }) {
 
       {error && !showIntake && (
         <p style={{ color: '#f87171', fontSize: 13, marginTop: 12 }}>{error}</p>
+      )}
+
+      {/* ── Trainer instellingen (only shown when connected to a gym) ── */}
+      {isInGym && (
+        <>
+          <div style={{ marginTop: 28, marginBottom: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
+            Jouw trainer
+          </div>
+          <Glass style={{ padding: 20 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 4 }}>Trainer wissel toestaan</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                  {allowSwitch
+                    ? 'Gym mag jou van trainer wisselen zonder eerst toestemming te vragen.'
+                    : 'Je bevestigt elke wisseling zelf voordat deze ingaat.'}
+                </div>
+              </div>
+              <button
+                onClick={() => handleSwitchConsentToggle(!allowSwitch)}
+                disabled={switchConsentSaving}
+                style={{
+                  width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',
+                  background: allowSwitch ? C.emerald : C.subtle,
+                  position: 'relative', flexShrink: 0, transition: 'background 0.2s',
+                  opacity: switchConsentSaving ? 0.5 : 1,
+                }}
+              >
+                <span style={{
+                  position: 'absolute', top: 3, left: allowSwitch ? 21 : 3,
+                  width: 20, height: 20, borderRadius: 10, background: '#fff',
+                  transition: 'left 0.2s',
+                }} />
+              </button>
+            </div>
+          </Glass>
+        </>
       )}
     </div>
   );
