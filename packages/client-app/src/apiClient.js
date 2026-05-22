@@ -471,6 +471,29 @@ const api = {
     return res.json();
   },
 
+  async getPushStatus() {
+    const res = await fetch('/api/subscribe-push', { headers: this._auth() });
+    return res.json();
+  },
+
+  async subscribePush(subscription) {
+    const res = await fetch('/api/subscribe-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      body: JSON.stringify({ action: 'subscribe', subscription }),
+    });
+    return res.json();
+  },
+
+  async unsubscribePush(endpoint) {
+    const res = await fetch('/api/subscribe-push', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      body: JSON.stringify({ endpoint }),
+    });
+    return res.json();
+  },
+
   async getReferral() {
     const res = await fetch('/api/referral', { headers: this._auth() });
     return res.json();

@@ -35,6 +35,21 @@ self.addEventListener('activate', e => {
   );
 });
 
+self.addEventListener('push', e => {
+  const data = e.data?.json().catch(() => ({})) ?? {};
+  const title = data.title ?? 'JustFit';
+  const body  = data.body  ?? 'Tijd voor je training vandaag!';
+  const icon  = '/icon-192.png';
+  e.waitUntil(
+    self.registration.showNotification(title, { body, icon, badge: icon, data: { url: data.url ?? '/' } })
+  );
+});
+
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(clients.openWindow(e.notification.data?.url ?? '/'));
+});
+
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET') return;
   const { pathname } = new URL(e.request.url);

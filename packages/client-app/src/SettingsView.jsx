@@ -182,6 +182,8 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   const [redeemCode, setRedeemCode] = useState("");
   const [redeemState, setRedeemState] = useState("idle"); // idle | loading | done | error
   const [redeemMsg, setRedeemMsg] = useState("");
+  const [pushState, setPushState] = useState("idle"); // idle | requesting | subscribed | denied
+  const [pushMsg, setPushMsg] = useState("");
   // Feedback
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSending, setFeedbackSending] = useState(false);
@@ -630,6 +632,34 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       }
     }
     setAddingPasskey(false);
+  };
+
+  const handleEnablePush = async () => {
+    setPushState("requesting"); setPushMsg("");
+    try {
+      const statusRes = await api.getPushStatus();
+      if (!statusRes.ok || !statusRes.vapid_public_key) {
+        setPushMsg("Push notifications zijn nog niet beschikbaar."); setPushState("idle"); return;
+      }
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') { setPushState("denied"); return; }
+      const reg = await navigator.serviceWorker.ready;
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: statusRes.vapid_public_key,
+      });
+      await api.subscribePush(sub.toJSON());
+      setPushState("subscribed"); setPushMsg("✓ Notificaties ingeschakeld");
+    } catch { setPushState("idle"); setPushMsg("Inschakelen mislukt — probeer opnieuw."); }
+  };
+
+  const handleDisablePush = async () => {
+    try {
+      const reg = await navigator.serviceWorker.ready.catch(() => null);
+      const sub = await reg?.pushManager.getSubscription().catch(() => null);
+      if (sub) { await sub.unsubscribe().catch(() => {}); await api.unsubscribePush(sub.endpoint); }
+    } catch { /* non-fatal */ }
+    setPushState("idle"); setPushMsg("");
   };
 
   // ── FTP test constants + handler ──────────────────────────────────────────
@@ -3120,6 +3150,30 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       {subView === "account" && (
       <div style={{ marginBottom: 32 }}>
         {/* Security — Passkey */}
+        {/* Push notifications */}
+        {'Notification' in window && 'serviceWorker' in navigator && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
+            <Glass style={{ padding: 20 }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Dagelijkse trainingsherinnering</div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>Ontvang een melding als je je training voor vandaag nog niet hebt gedaan.</div>
+              {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.emerald : "#f87171", marginBottom: 12 }}>{pushMsg}</div>}
+              {pushState === "denied" && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 12 }}>Notificaties geblokkeerd. Sta ze toe via je browserinstellingen.</div>}
+              {pushState !== "subscribed" && Notification.permission !== "granted" ? (
+                <button onClick={handleEnablePush} disabled={pushState === "requesting" || pushState === "denied"}
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: pushState === "denied" ? 0.4 : 1 }}>
+                  {pushState === "requesting" ? "Bezig…" : "Inschakelen"}
+                </button>
+              ) : (
+                <button onClick={handleDisablePush}
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  Uitschakelen
+                </button>
+              )}
+            </Glass>
+          </div>
+        )}
+
         {passkeySupported && (
           <div style={{ marginBottom: 32 }}>
             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
