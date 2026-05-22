@@ -1,8 +1,12 @@
-# JustFit — Monetization & Growth Roadmap
+# JustFit — Monetization & Growth Roadmap [SUPERSEDED]
 
-**Version:** 1.0
-**Date:** May 2026
-**Status:** Draft for implementation
+**Version:** 2.0 — SUPERSEDED 2026-05-22
+**Status:** This document has been replaced by two focused files:
+
+- **[ROADMAP.md](../ROADMAP.md)** — All improvements, bugs, fixes, and enhancements across all 4 products
+- **[FUNCTIONAL_DOCS.md](../FUNCTIONAL_DOCS.md)** — What is live: architecture, billing flows, B2B2C, pricing, deploy commands
+
+The content below is retained as historical reference only.
 
 ---
 
@@ -24,8 +28,8 @@
 JustFit is two commercial products sharing one database and one identity system.
 
 ```
-justfit.cc              — Marketing & company site (to build)
-app.justfit.cc          — Consumer fitness PWA (move from justfit.cc)
+justfit.cc              — Marketing & company site (live — justfit-marketing CF Pages)
+app.justfit.cc          — Consumer fitness PWA (live — justfit-app CF Pages)
 trainer.justfit.cc      — Trainer/gym practice management SaaS (live)
 admin.justfit.cc        — Owner control panel (live)
 
@@ -51,10 +55,10 @@ The shared identity creates the B2B2C flywheel: a trainer's client is also a con
 - API: Cloudflare Pages Functions (`functions/api/`)
 - Database: D1 `justfit-db` (binding `DB`)
 - Auth: JWT HMAC-SHA256, magic link, passkeys
-- Payments: Mollie recurring subscriptions (to wire up)
+- Payments: Mollie recurring subscriptions (live — consumer Pro billing)
 - PWA: manifest, offline cache (IndexedDB), wake lock
 
-**Current domain:** `justfit.cc` (to migrate to `app.justfit.cc`)
+**Live domain:** `app.justfit.cc` (migration complete)
 
 **Free tier — what's included:**
 - Adaptive daily planning + check-in system
@@ -75,7 +79,7 @@ The shared identity creates the B2B2C flywheel: a trainer's client is also a con
 - Advanced cycling cross-training runs
 - Future: AI coaching notes, custom programme builder
 
-**Entitlements model (D1):**
+**Entitlements model (D1):** ✅ Live
 ```
 entitlements
   user_id        — FK → users
@@ -84,10 +88,11 @@ entitlements
   status         — active | trialing | grace | canceled | expired
   starts_at_ms
   ends_at_ms
-  mollie_sub_id  — (add column) Mollie subscription ID for management
+  mollie_sub_id  — Mollie subscription ID (migration 0072)
+  mollie_customer_id — Mollie customer ID (migration 0072)
 ```
 
-**Enforcement point:** `plan.js` line ~164 — replace `preferences_json.isPro` flag with an entitlements table lookup. The `isPro` flag continues to work as an override for manual grants via the admin portal.
+**Enforcement:** `plan.js` checks entitlements table for `isPro`. `preferences_json.isPro` remains as manual admin override. ProGate.jsx upgrade wall live. PathChoiceModal locks Running/Cycling for non-Pro users.
 
 ---
 
@@ -95,10 +100,12 @@ entitlements
 
 **Purpose:** Company homepage, product explainer, pricing page, trainer landing, blog/SEO. Converts visitors to app signups and trainer trials.
 
+**Status: ✅ Live at `justfit.cc`**
+
 **Stack:**
-- Cloudflare Pages project: `justfit-marketing` (new, separate from the app)
+- Cloudflare Pages project: `justfit-marketing`
 - Pure HTML/CSS — no framework, no bundler, no React
-- Dutch primary, English toggle via a `/en/` path prefix or `?lang=en` query param
+- Dutch primary, English mirror at `/en/` path prefix
 - Static assets served directly by Cloudflare CDN — fast everywhere
 
 **Why separate from the app:**
@@ -107,16 +114,23 @@ entitlements
 - Pricing pages, blog, legal pages, and trainer landing all need to be standalone, not nested in the app shell
 - `justfit.cc` must work without a login — it is the public face of the company
 
-**Pages (Dutch primary):**
+**Pages (Dutch primary) — 8 live pages:**
 ```
-/                          — Homepage (product value prop, 3 user paths)
-/prijzen                   — Pricing page (consumer + trainer tiers, early bird)
-/trainers                  — Trainer portal landing page
-/over-ons                  — About / founder story
-/privacy                   — Privacy policy (links to in-app full doc)
-/voorwaarden               — Terms
-/blog/                     — SEO content (training tips, Dutch military fitness, cycling coaching)
-/en/                       — English mirror of all above pages
+/              index.html     — NL homepage (value prop, 3 user paths, live stats counter)
+/prijzen       prijzen.html   — NL pricing (consumer + trainer tiers, early bird)
+/trainers      trainers.html  — NL trainer portal landing
+/over-ons      over-ons.html  — NL about / founder story
+/en/           en/index.html  — EN homepage
+/en/pricing    en/pricing.html — EN pricing
+/en/trainers   en/trainers.html — EN trainer landing
+/en/about      en/about.html  — EN about
+```
+
+**Pending (not yet built):**
+```
+/privacy       — Privacy policy page
+/voorwaarden   — Terms page
+/blog/         — SEO content (training tips, Dutch military fitness, cycling coaching)
 ```
 
 **Conversion flows:**
@@ -150,34 +164,31 @@ Blog article                → Homepage CTA → signup
 - Encryption: per-gym AES-GCM 256-bit keys, `GYM_MASTER_KEK`
 - Payments: Mollie (trainer invoicing to clients already wired; portal subscription billing to add)
 
-**Current tier model** (`gym_memberships.subscription_tier`):
-Already has the column. Needs values defined and enforced.
+**Live tier model:** ✅ Active — subscription billing on `gyms` table (migration 0072)
 
-**Target tier model:**
-
-| Tier | `subscription_tier` value | Client limit | Trainers | BTW module | Price |
+| Tier | `sub_tier` value | Client limit | Trainers | BTW module | Price |
 |---|---|---|---|---|---|
-| Solo | `solo` | 10 active | 1 | No | €24/mo early bird → €29/mo |
+| Starter | `starter` | 15 active | 1 | No | €24/mo early bird → €29/mo |
 | Pro | `pro` | Unlimited | 1 | Yes | €39/mo early bird → €59/mo |
 | Gym | `gym` | Unlimited | Unlimited | Yes | €99/mo early bird → €149/mo |
 
-**Gate enforcement points:**
-- `functions/api/trainer/clients.js` — count active clients, return 402 when over tier limit
-- `functions/api/trainer/btw/` — check `subscription_tier === 'pro' || 'gym'`, return 403 for solo
-- `functions/api/trainer/gyms.js` — check trainer count against tier on gym creation
+Early bird = first 50 `mollie_sub` gyms. All gyms get 30-day trial (migration 0072 backfill).
 
-**B2B2C grant mechanism:**
-When a trainer links a client (`gym_memberships`), write an `entitlements` row:
-```sql
-INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, ends_at_ms)
-VALUES (uuid, client_user_id, 'pro_consumer', 'trainer_grant', 'active', now, trainer_sub_ends_at)
-```
-When the trainer subscription expires or cancels, set `status = 'expired'` on all their `trainer_grant` entitlements.
+**Gate enforcement — live:**
+- `trainer/clients.js` — 402 when `sub_tier='starter'` and client count ≥ 15
+- `trainer/btw/*` — 403 for `sub_tier='starter'` (4 endpoints)
+- In-app: trial expiry banner (≤7 days), BTW lock modal, client limit banner, tier badge in sidebar
 
-This means: **trainer pays, client gets Pro for free while the relationship is active.** The trainer's pitch to clients includes "your JustFit Pro access is included."
+**B2B2C grant mechanism:** ✅ Live (`functions/lib/b2b2c.js`)
+- `grantClientEntitlements(gymId, subEndsAtMs, DB)` — upserts `trainer_grant` entitlement for all gym clients
+- `revokeClientEntitlements(gymId, DB)` — sets status=expired on all trainer_grant entitlements for the gym
+- Called from Mollie trainer webhook (paid/recurring → grant; canceled → revoke)
+- Called from DELETE /api/trainer/subscribe (cancel flow → revoke)
+- Called from POST /api/connect (new client joins active gym → grant immediately, no webhook wait)
 
-**Trainer portal subscriptions:**
-A new `trainer_subscriptions` table (or reuse `entitlements` with `product_code = 'trainer_solo'` etc.) tracks the trainer's own portal billing. Mollie recurring subscription created on signup.
+Unique index `idx_entitlements_user_source_product` on `(user_id, source, product_code)` ensures idempotent grants.
+
+**Trainer portal subscriptions:** ✅ Live — `sub_status`, `sub_tier`, `sub_source`, `sub_starts_at_ms`, `sub_ends_at_ms`, `mollie_customer_id`, `mollie_sub_id` columns on `gyms` table (migration 0072). Mollie recurring subscription created via `POST /api/trainer/subscribe`.
 
 ---
 
@@ -193,19 +204,16 @@ A new `trainer_subscriptions` table (or reuse `entitlements` with `product_code 
 
 ## 3. Domain Strategy
 
-### Current state (problem)
+### Current state ✅ Resolved (2026-05-21)
 
 ```
-justfit.cc = React SPA (app) + static public/index.html (marketing page)
+justfit.cc     = justfit-marketing CF Pages (static HTML/CSS, 8 pages live)
+app.justfit.cc = justfit-app CF Pages (React SPA — consumer PWA)
 ```
 
-The marketing content at `justfit.cc` is a static HTML file embedded inside a Cloudflare Pages project that primarily serves a React SPA. This means:
-- The marketing page is not SEO-indexed properly (JavaScript SPA routing conflicts)
-- There is no proper pricing page, trainer landing, or blog
-- The brand home and the product are conflated — confusing for new visitors
-- The domain a trainer client would type to learn about the product opens the app login
+The domain split is complete. Marketing and product are separate deployments.
 
-### Target state
+### Achieved state
 
 ```
 justfit.cc              — Marketing site (separate CF Pages project, pure HTML/CSS)
@@ -401,11 +409,11 @@ Included in Solo, Pro, and Gym tiers — any connected client gets Pro in the co
 
 ---
 
-### Vouchers and trial
+### Vouchers and trial ✅ Live
 
-- 14-day free trial for consumer Pro (no card required using a `trial` entitlement source)
-- Trainer portal: 30-day free trial with full access (card required upfront, cancel before day 30)
-- Referral vouchers: existing `vouchers` table supports this — activate later (Phase 4)
+- Consumer Pro: 14-day free trial on signup (`source=trial, product_code=pro_trial`), no card required
+- Trainer portal: 30-day free trial on all gyms (new + existing, backfilled via migration 0072); `sub_status='trialing'`; trial expiry banner shown ≤7 days before end
+- Referral vouchers: existing `vouchers` table supports this — activate in Phase 5
 
 ---
 
@@ -463,53 +471,55 @@ Trainers are more price-sensitive to value, less to absolute cost. At €39–59
 
 ## 7. Phased Roadmap
 
-### Phase 0 — Infrastructure (1–2 weeks, before first charge)
+### Phase 0 — Infrastructure ✅ COMPLETE (2026-05-21)
 
-**Goal:** Get the domain structure right before any public pricing launch. A botched domain migration after users are paying is painful.
+**Goal:** Get the domain structure right before any public pricing launch.
 
-| Task | What | Owner | Effort |
-|---|---|---|---|
-| 0A | Add `app.justfit.cc` custom domain to the `justfit` CF Pages project | CF Dashboard | 30 min |
-| 0B | Update all internal redirect URLs to `app.justfit.cc` (login, magic link, reset, Strava OAuth) | Code + env vars | 2h |
-| 0C | Set `WEBAUTHN_RP_ID = justfit.cc` (parent domain covers subdomains) | Env var | 15 min |
-| 0D | Create new CF Pages project `justfit-marketing`, connect `justfit.cc` | CF Dashboard | 1h |
-| 0E | Build v1 marketing site (justfit.cc) — Dutch, 4 pages: home, prijzen, trainers, over-ons | HTML/CSS | 1 week |
-| 0F | Point `justfit.cc` DNS to `justfit-marketing` Pages project | CF Dashboard | 30 min |
-| 0G | Add live session count to marketing homepage from a public `/api/stats` endpoint | Code | 2h |
+| Task | What | Status |
+|---|---|---|
+| 0A | Add `app.justfit.cc` custom domain to the `justfit-app` CF Pages project | ✅ Done |
+| 0B | Update all internal redirect URLs to `app.justfit.cc` (login, magic link, reset, Strava OAuth) | ✅ Done |
+| 0C | Set `WEBAUTHN_RP_ID = justfit.cc` (parent domain covers subdomains) | ✅ Done |
+| 0D | Create new CF Pages project `justfit-marketing`, connect `justfit.cc` | ✅ Done |
+| 0E | Build v1 marketing site (justfit.cc) — Dutch, 8 pages (NL + EN mirror) | ✅ Done |
+| 0F | Point `justfit.cc` DNS to `justfit-marketing` Pages project | ✅ Done |
+| 0G | Add live session count from `/api/stats` to marketing homepages | ⬜ Pending |
 
-**Marketing site v1 must include:**
-- Homepage with 3 paths: Algemene fitness / Hardlopen & Fietsen / Trainer
-- Pricing page with early bird counter
+**Marketing site delivered:**
+- 4 NL pages: /, /prijzen, /trainers, /over-ons
+- 4 EN mirror pages: /en/, /en/pricing, /en/trainers, /en/about
 - CTA "Start gratis" → `app.justfit.cc/login.html?signup=1`
 - CTA "Trainers: probeer gratis" → `trainer.justfit.cc`
-- `/en/` English mirror (copy-paste translated, no framework magic needed)
+- `/api/stats` endpoint live at `app.justfit.cc/api/stats` (returns `{total_sessions, total_users}`, CORS *, 5-min cache)
+
+**Remaining:** 0G live stats counter on homepages; /privacy + /voorwaarden + /blog/ pages not yet built.
 
 ---
 
-### Phase 1 — Consumer Monetization (2–3 weeks)
+### Phase 1 — Consumer Monetization ✅ COMPLETE (2026-05-21)
 
-**Goal:** First paying subscribers. The app is already built — this is about putting the gate in place and the checkout flow.
+**Goal:** First paying subscribers. The gate is in place and the checkout flow is live.
 
-| Task | What | Effort |
+| Task | What | Status |
 |---|---|---|
-| 1A | Add `mollie_sub_id` and `mollie_customer_id` columns to `entitlements` table (migration) | 1h |
-| 1B | `POST /api/subscribe` endpoint — create Mollie customer + mandate payment + first subscription | 3h |
-| 1C | `POST /api/webhooks/mollie-consumer` — handle payment paid/failed/expired → update entitlements | 3h |
-| 1D | `GET /api/entitlements` — return current Pro status (used by app on load) | 1h |
-| 1E | Replace `preferences_json.isPro` lookup in `plan.js` with entitlements table query | 2h |
-| 1F | Add lock state to PathChoiceModal — Running and Cycling paths show upgrade CTA when not Pro | 2h |
-| 1G | Upgrade wall screen in app — full-screen with plan comparison, pricing, and Mollie checkout redirect | 4h |
-| 1H | Early bird counter on pricing page — read from admin API; decrement on each Pro signup | 2h |
-| 1I | `DELETE /api/subscribe` — cancel Mollie subscription, set entitlement to grace period | 2h |
-| 1J | Settings → Account: "Abonnement beheren" section showing current plan + cancel button | 2h |
-| 1K | 14-day trial entitlement — write `status='trialing'` on first signup (no card) | 1h |
+| 1A | Migration 0072: `mollie_sub_id` and `mollie_customer_id` on `entitlements` + `billing_events` table | ✅ Done |
+| 1B | `POST /api/subscribe` — Mollie customer + mandate payment + first subscription | ✅ Done |
+| 1C | `POST /api/webhooks/mollie-consumer` — paid/failed/expired/canceled → update entitlements | ✅ Done |
+| 1D | `GET /api/subscribe` — return current Pro status (isPro loaded on app load) | ✅ Done |
+| 1E | `plan.js` checks entitlements table for isPro; `preferences_json.isPro` remains manual override | ✅ Done |
+| 1F | PathChoiceModal locks Running and Cycling paths for non-Pro users | ✅ Done |
+| 1G | ProGate.jsx — full-screen upgrade wall (NL, early bird pricing, Mollie checkout redirect) | ✅ Done |
+| 1H | Early bird cap: 200 subscribers tracked; `?upgrade=success` handler in App.jsx | ✅ Done |
+| 1I | `DELETE /api/subscribe` — cancel Mollie subscription, set entitlement to grace period | ✅ Done |
+| 1J | Settings → Account → Abonnement: live status + cancel flow | ✅ Done |
+| 1K | 14-day trial entitlement on signup (`source=trial, product_code=pro_trial`) | ✅ Done |
 
-**Conversion triggers to add in the app (in addition to PathChoiceModal lock):**
-- Running Coach enrollment screen: show Pro gate before enroll button
-- Cycling Coach enrollment screen: same
-- Strava sync button: "Synchroniseer Strava → alleen beschikbaar in Pro"
-- PMC chart: visible but blurred/locked for free users — clicking opens upgrade wall
-- TCX/ZWO/ERG export buttons: same treatment
+**Conversion gates live:**
+- PathChoiceModal: Running/Cycling locked for non-Pro → ProGate wall
+- Settings → Your Coach: Running/Cycling enrollment locked with "Upgrade naar Pro →" CTA
+- Strava sync: Pro-gated
+- TCX/ZWO/ERG exports: Pro-gated
+- PMC chart: accessible (no blur treatment added — open for all cycling coach users)
 
 ---
 
@@ -545,39 +555,45 @@ Trainers are more price-sensitive to value, less to absolute cost. At €39–59
 | 3D | Unique index `idx_entitlements_user_source_product` on entitlements (user_id, source, product_code) for idempotent grants | ✅ Done |
 | 3E | B2B2C callout in BillingView: "Jouw klanten krijgen automatisch JustFit Pro…" | ✅ Done |
 
-**Note:** 3A consumer-app hook (grant on client joining an active gym) deferred — requires modifying main app's `/api/connect` endpoint.
+**Note:** 3A consumer-app hook — ✅ Now done. `POST /api/connect` checks `gyms.sub_status='active'`; if the gym has an active B2B subscription, inserts a `trainer_grant` entitlement immediately. Guarded: skips if an active trainer_grant already exists. No webhook delay for new client joins.
 
 ---
 
-### Phase 4 — Dutch-First Localization (2–3 weeks)
+### Phase 4 — Dutch-First Localization ✅ COMPLETE (2026-05-21)
 
 **Goal:** App and trainer portal speak Dutch by default. English toggle in settings.
 
-| Task | What | Effort |
+| Task | What | Status |
 |---|---|---|
-| 4A | Create `src/i18n.js` with `t()` helper, NL/EN translation files | 2h |
-| 4B | Translate app navigation, onboarding, and settings labels (highest visibility) | 1 day |
-| 4C | Translate check-in prompts, coaching copy, session names | 1 day |
-| 4D | Translate trainer portal UI (most already Dutch in copy — systematic pass) | 1 day |
-| 4E | Dutch email templates (welcome, magic link, invoice, trainer invite) via Resend | 4h |
-| 4F | Language toggle in Settings → Account (NL/EN switch, single reload) | 1h |
-| 4G | Marketing site `/en/` English path — copy-translated pages | 1 day |
-| 4H | Dutch SEO: meta tags, OG tags, `hreflang` annotations on justfit.cc | 2h |
+| 4A | `src/i18n.js` with `t()`, `useLang()`, `setLang()` helpers | ✅ Done |
+| 4B | 500+ NL translations: nav, onboarding, settings labels, coaching copy | ✅ Done |
+| 4C | WorkoutView / PlanWeekView / HistoryView / SettingsView / App.jsx all wrapped | ✅ Done |
+| 4D | Trainer portal UI — Dutch concepts (BTW, factuur, AVG) already native | ✅ Done |
+| 4E | Dutch email templates via Resend | ✅ Done |
+| 4F | NL/EN toggle in Settings → You → Appearance; stored in `localStorage('jf_lang')`; default `'nl'` | ✅ Done |
+| 4G | Marketing site `/en/` English mirror — 4 translated pages | ✅ Done |
+| 4H | Dutch SEO: meta tags on marketing site pages | ⬜ Pending (full hreflang + OG pass) |
 
 **Note on training terminology:** FTP, TSS, PMC, Zone 2, Intervals, VO2max, and all structured workout terms stay in English in both language modes. These are the established international terms — translating them would confuse rather than help Dutch athletes who look these up in English online.
 
 ---
 
-### Phase 5 — Growth & Retention (ongoing from Phase 1)
+### Phase 5 — Growth & Retention (active — 2026 H2)
 
-| Task | Priority | Notes |
-|---|---|---|
-| Referral programme | Medium | Existing `referrals` + `vouchers` tables; give 1 free Pro month per referred paid user |
-| Trainer discovery map | Medium | justfit.cc/trainers/zoeken — map of trainers using the portal; drives organic trainer signups |
-| Blog / SEO content | High | Dutch articles: "militaire keuring voorbereiding", "FTP test thuis", "hardloopschema 10km" — these have zero real competition |
-| Trainer partner programme | Low | Trainers earn referral credit when their clients upgrade independently |
-| App Store (PWA listing) | Medium | Add to Google Play Store as TWA (Trusted Web Activity); iOS via Safari "Add to Home Screen" |
-| Push notifications | Low | Service Worker already set up; add re-engagement nudge on missed check-in days |
+| Task | Priority | Status | Notes |
+|---|---|---|---|
+| Live stats counter on justfit.cc | High | ⬜ Pending | Fetch from `app.justfit.cc/api/stats` on page load; show "Al X workouts gelogd" on NL + EN homepages |
+| SEO meta + structured data | High | ⬜ Pending | Full hreflang, OG tags, JSON-LD on all 8 marketing pages; target Dutch keywords |
+| Blog skeleton + 3 NL articles | High | ⬜ Pending | `/blog/`, `/blog/militaire-keuring-voorbereiding`, `/blog/ftp-test-thuis`, `/blog/hardloopschema-10km`; Dutch articles with zero real SEO competition |
+| Referral programme | Medium | ⬜ Pending | Existing `referrals` + `vouchers` tables; give 1 free Pro month per referred paid user |
+| Trainer-to-client messaging UI | Medium | ⬜ Pending | Schema live (migration 0074: `trainer_message` + `trainer_message_sent_at_ms` on `gym_memberships`); PATCH endpoint needed; banner on Today screen live (amber, 7-day filter) |
+| Client workout history view | Medium | ⬜ Pending | GET `/api/trainer/clients/:id/history` endpoint + UI panel in trainer portal |
+| Assigned programs in client plan | Medium | ⬜ Pending | Assignments API exists; `plan.js` doesn't yet read trainer-assigned programs |
+| Trainer discovery map | Medium | ⬜ Pending | justfit.cc/trainers/zoeken — map of trainers; drives organic trainer signups |
+| Trainer partner programme | Low | ⬜ Pending | Trainers earn referral credit when clients upgrade independently |
+| App Store (PWA listing) | Medium | ⬜ Pending | Google Play TWA; iOS via "Add to Home Screen" |
+| Push notifications | Low | ⬜ Pending | Service Worker already set up; re-engagement nudge on missed check-in days |
+| Marketing site legal pages | Low | ⬜ Pending | /privacy + /voorwaarden pages on justfit.cc |
 
 ---
 
@@ -632,4 +648,4 @@ The job of the marketing site is to explain this clearly and point people to the
 
 ---
 
-*This document supersedes the pricing and architecture notes in the strategy session of May 2026. Implementation phases begin with Phase 0 (domain restructure) before any paid features are enabled.*
+*Last updated: 2026-05-21. Phases 0–4 complete. Phase 5 (Growth & Retention) is the active build track. All three products (consumer app, trainer portal, marketing site) are live in production. Monetization is live across all products — consumer Pro billing (Mollie), trainer tier billing (Mollie), and B2B2C grant flywheel all operational.*

@@ -11,6 +11,7 @@ import { t, useLang } from "./i18n.js";
 export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
   useLang();
   const today = new Date().toISOString().split("T")[0];
+  const [weekOffset, setWeekOffset] = useState(0);
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(!!userId);
   const [deleteTarget, setDeleteTarget] = useState(null);
@@ -53,7 +54,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
   // Memoized so the array reference is stable between renders (recomputes when today changes)
   const upcomingDates = useMemo(() =>
-    Array.from({ length: 5 }, (_, i) => {
+    Array.from({ length: 7 }, (_, i) => {
       const d = new Date(today + 'T12:00:00'); // anchor to today so dep is valid
       d.setDate(d.getDate() + i + 1);
       return d.toISOString().split("T")[0];
@@ -121,10 +122,10 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     })();
   }, [userId, today, runEnrolled, cycleActive, milActive, isPro, planSessionName, upcomingDates]);
 
-  // Build last 7 days
+  // Build 7-day window shifted by weekOffset
   const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - (6 - i));
+    const d = new Date(today + "T12:00:00");
+    d.setDate(d.getDate() - 6 + i + weekOffset * 7);
     return d.toISOString().split("T")[0];
   });
 
@@ -140,10 +141,16 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
   return (
     <div style={{ padding: "0 0 32px" }}>
       <div style={{ marginBottom: 28 }}>
-        <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 4 }}>
-          {t('This Week')}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>
+            {weekOffset === 0 ? t('This Week') : weekOffset === 1 ? t('Next Week') : weekOffset === -1 ? t('Last Week') : `${weekOffset > 0 ? '+' : ''}${weekOffset}w`}
+          </div>
+          <div style={{ display: "flex", gap: 4 }}>
+            <button onClick={() => setWeekOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted }}>‹</button>
+            <button onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: weekOffset >= 1 ? "not-allowed" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: weekOffset >= 1 ? C.subtle : C.muted }}>›</button>
+          </div>
         </div>
-        <div style={{ fontSize: 13, color: C.muted }}>{t('Your last 7 days at a glance')}</div>
+        <div style={{ fontSize: 13, color: C.muted }}>{weekOffset === 0 ? t('Your last 7 days at a glance') : weekOffset > 0 ? t('Upcoming plan preview') : t('Past week history')}</div>
       </div>
 
       {/* 7-day strip */}
@@ -197,8 +204,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         })}
       </div>
 
-      {/* Today's plan */}
-      {plan && plan.slot_type !== "rest" && (
+      {/* Today's plan — only when viewing current week */}
+      {weekOffset === 0 && plan && plan.slot_type !== "rest" && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Today's Plan")}
@@ -230,8 +237,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         </div>
       )}
 
-      {/* Coming up */}
-      <div style={{ marginBottom: 32 }}>
+      {/* Coming up \u2014 hidden for past-week views */}
+      {weekOffset >= 0 && <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Coming Up")}
         </div>
@@ -241,7 +248,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           </Glass>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {upcomingPlans.map(({ date, plan: p }) => {
+            {(weekOffset === 0 ? upcomingPlans : upcomingPlans.filter(up => days.includes(up.date))).map(({ date, plan: p }) => {
               const d = new Date(date + "T12:00:00");
               const mins = estimateMins(p);
               const isRest = !p || p.slot_type === "rest";
@@ -278,7 +285,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             })}
           </div>
         )}
-      </div>
+      </div>}
 
       {/* All history */}
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
@@ -418,6 +425,12 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           </div>
                         );
                       })()}
+                      {/* Session note */}
+                      {!isStravaCard && h.notes && (
+                        <div style={{ marginTop: 6, fontSize: 12, color: C.muted, fontStyle: "italic", lineHeight: 1.5, borderLeft: `2px solid ${C.border}`, paddingLeft: 8 }}>
+                          {h.notes}
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>

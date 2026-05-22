@@ -7,7 +7,7 @@ import {
   SESSIONS_PER_BLOCK,
   MIL_MARCH_KG,
   MIL_CLUSTER_RUN_PEAK,
-} from '../functions/api/_shared/military.js';
+} from '../../../functions/api/_shared/military.js';
 
 // ── getMilitaryGroup ──────────────────────────────────────────────────────────
 

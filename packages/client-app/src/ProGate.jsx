@@ -4,8 +4,8 @@ import { C, display } from "./tokens.js";
 import api from "./apiClient.js";
 
 const FEATURES = [
-  "Hardloopcoach (5km → 50km programma's)",
   "Fietscoach (FTP, TSS, PMC, gestructureerde workouts)",
+  "Power- & hartslagzones op basis van je FTP",
   "Strava synchronisatie + TSS import",
   "TCX / ZWO / ERG export",
   "PMC grafiek (vorm, vermoeidheid, conditie)",

@@ -75,6 +75,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
   const [showBreathingReminder, setShowBreathingReminder] = useState(false);
   const [rpeValue, setRpeValue] = useState(5);
+  const [sessionNotes, setSessionNotes] = useState("");
   const breathingTimerRef = useRef(null);
   const [showAlternatives, setShowAlternatives] = useState(false);
   const [altExercises, setAltExercises] = useState([]);
@@ -313,7 +314,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
   function handleFinishSession(perceivedExertion) {
     const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
-    onComplete(durationSec, perceivedExertion, stepsActualRef.current);
+    onComplete(durationSec, perceivedExertion, stepsActualRef.current, sessionNotes.trim() || null);
   }
 
   function handleAdjust(delta) {
@@ -742,7 +743,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               const emojiCount = (c.match(/^(💡\s*)+/)?.[0]?.match(/💡/g) ?? []).length;
               return { text: stripEmoji(c), level: emojiCount >= 2 ? 2 : 1 };
             })
-            .filter(cue => cue.level < 2 || expLevel !== 'beginner');
+            .filter(cue => cue.level < 2 || expLevel === 'advanced');
 
           // Prefer DB-seeded why (migration 0055); derive from category when absent or when cues exist
           const derivedWhy = (() => {
@@ -1259,6 +1260,18 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     </div>
                   );
                 })}
+              </div>
+
+              {/* Optional session note */}
+              <div style={{ width: "100%" }}>
+                <textarea
+                  value={sessionNotes}
+                  onChange={e => setSessionNotes(e.target.value)}
+                  placeholder={t("Add a note (optional)")}
+                  maxLength={500}
+                  rows={2}
+                  style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", outline: "none" }}
+                />
               </div>
 
               <button

@@ -1018,6 +1018,46 @@ async function handleGuestSignup(request, env, secret) {
   return Response.json({ ok: true, token, userId, guest: true });
 }
 
+// ─── GUEST → ACCOUNT CONVERSION ──────────────────────────────────────────────
+async function handleConvertGuest(body, request, env, secret) {
+  const { email, password } = body;
+  if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
+  if (password.length < 8) return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
+
+  const user_id = await getAuthUserId(request, env);
+  if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
+
+  // Verify caller is a guest account (no email on auth_users)
+  const existing = await env.DB.prepare(
+    `SELECT id, provider, email FROM auth_users WHERE user_id = ?`
+  ).bind(user_id).first();
+  if (!existing || existing.provider !== 'guest') {
+    return Response.json({ error: 'Account already has email' }, { status: 409 });
+  }
+
+  // Check email not already taken
+  const taken = await env.DB.prepare(
+    `SELECT id FROM auth_users WHERE email = ?`
+  ).bind(email.toLowerCase()).first();
+  if (taken) return Response.json({ error: 'Email already in use' }, { status: 409 });
+
+  const now  = Date.now();
+  const salt = crypto.randomUUID().replace(/-/g, '');
+  const hash = await hashPasswordPbkdf2(password, salt, 100000);
+
+  await env.DB.batch([
+    env.DB.prepare(
+      `UPDATE auth_users SET provider='email', email=?, password_hash=?, password_algo='pbkdf2+sha256', email_verified=0, updated_at_ms=? WHERE user_id=?`
+    ).bind(email.toLowerCase(), hash, now, user_id),
+    env.DB.prepare(
+      `UPDATE users SET primary_email=?, updated_at_ms=? WHERE id=?`
+    ).bind(email.toLowerCase(), now, user_id),
+  ]);
+
+  const token = await createJWT({ userId: user_id, email: email.toLowerCase() }, secret);
+  return Response.json({ ok: true, token });
+}
+
 // ─── EXPORTED HANDLERS ────────────────────────────────────────────────────────
 export async function onRequestPost({ request, env }) {
   try {
@@ -1036,6 +1076,7 @@ export async function onRequestPost({ request, env }) {
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
       case 'passkey_complete_auth':     return handlePasskeyCompleteAuth(body, env, secret);
       case 'guest_signup':              return handleGuestSignup(request, env, secret);
+      case 'convert_guest':             return handleConvertGuest(body, request, env, secret);
       case 'delete_account':            return handleDeleteAccount(request, env, secret);
       case 'resend_verification':       return handleResendVerification(request, env, secret);
       case 'verify_email_code':         return handleVerifyEmailCode(body, request, env, secret);

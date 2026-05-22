@@ -192,7 +192,7 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, day_plan_id, session_type, session_program, steps, perceived_exertion, duration_sec } = body;
+    const { date, day_plan_id, session_type, session_program, steps, perceived_exertion, duration_sec, notes } = body;
 
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
@@ -237,8 +237,8 @@ export async function onRequestPost({ request, env }) {
         (id, user_id, date, day_plan_id, execution_type, status,
          total_duration_sec, perceived_exertion,
          tss_planned, tss_actual, tss_source,
-         created_at_ms, updated_at_ms)
-      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?)
+         notes, created_at_ms, updated_at_ms)
+      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, user_id, date,
       day_plan_id ?? null,
@@ -248,6 +248,7 @@ export async function onRequestPost({ request, env }) {
       tss_planned_val,
       tss_actual_val,
       tss_source_val,
+      notes?.trim() ?? null,
       now, now
     ).run();
 
@@ -701,7 +702,7 @@ export async function onRequestGet({ request, env }) {
         `SELECT id, date, execution_type, status, total_duration_sec,
                 perceived_exertion, tss_planned, tss_actual, tss_source,
                 strava_activity_id, strava_metadata_json,
-                created_at_ms
+                notes, created_at_ms
          FROM executions
          WHERE user_id = ?
          ORDER BY created_at_ms DESC

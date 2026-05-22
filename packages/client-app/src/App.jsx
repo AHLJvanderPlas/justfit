@@ -1185,15 +1185,78 @@ function WhyNotModal({ onRegen, onRestDay, onClose }) {
   );
 }
 
+// ─── GUEST CONVERT MODAL ──────────────────────────────────────────────────────
+function GuestConvertModal({ onClose, onConverted }) {
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const handle = async () => {
+    if (!email || !password) return setError("Email and password required.");
+    if (password.length < 8) return setError("Password must be at least 8 characters.");
+    setSaving(true);
+    setError("");
+    try {
+      const res = await api.convertGuest(email.trim(), password);
+      if (res.ok && res.token) {
+        localStorage.setItem("jf_token", res.token);
+        onConverted(res.token);
+      } else {
+        setError(res.error ?? "Something went wrong — try again.");
+      }
+    } catch {
+      setError("Network error — check your connection.");
+    }
+    setSaving(false);
+  };
+
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.65)" }} onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
+        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 6 }}>Keep your data</div>
+        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>Add an email and password so you can log back in from any device.</p>
+
+        <input
+          type="email"
+          placeholder="Email address"
+          value={email}
+          onChange={e => setEmail(e.target.value)}
+          autoComplete="email"
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: 10, outline: "none" }}
+        />
+        <input
+          type="password"
+          placeholder="Password (min. 8 characters)"
+          value={password}
+          onChange={e => setPassword(e.target.value)}
+          autoComplete="new-password"
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: error ? 10 : 20, outline: "none" }}
+        />
+        {error && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 16 }}>{error}</div>}
+
+        <button
+          onClick={handle}
+          disabled={saving}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: saving ? "not-allowed" : "pointer", marginBottom: 10, opacity: saving ? 0.7 : 1 }}
+        >
+          {saving ? "Saving…" : "Save my account →"}
+        </button>
+        <button onClick={onClose} style={{ width: "100%", padding: "12px 0", borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
 // ─── DONE CARD ────────────────────────────────────────────────────────────────
 function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone }) {
   const sessionLabel = completedSession?.name ?? "Session";
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const scoreBump = score > prevScore;
   const beforeNight = new Date().getHours() < 23;
-  const [logOpen, setLogOpen] = useState(false);
   const [logType, setLogType] = useState(null);
   const [logDuration, setLogDuration] = useState(null);
+  const [logDone, setLogDone] = useState(false);
 
   const chipStyle = (active) => ({
     padding: "8px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer",
@@ -1230,44 +1293,36 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
 
       <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
 
-      {/* Inline log activity */}
-      {!logOpen ? (
-        <button onClick={() => setLogOpen(true)} style={{ width: "100%", padding: "13px 12px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, marginBottom: (!bonusDone && beforeNight) ? 12 : 0 }}>
-          + Log activity
-        </button>
-      ) : (
-        <div style={{ marginBottom: (!bonusDone && beforeNight) ? 12 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Activity type</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
-            {ACTIVITY_TYPES.map(t => (
-              <button key={t.label} onClick={() => setLogType(t)} style={chipStyle(logType?.label === t.label)}>{t.label}</button>
+      {/* Log extra activity — always expanded */}
+      {!logDone ? (
+        <div style={{ marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Log extra activity</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
+            {ACTIVITY_TYPES.map(a => (
+              <button key={a.label} onClick={() => setLogType(a)} style={chipStyle(logType?.label === a.label)}>{a.label}</button>
             ))}
           </div>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Duration</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 14 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
             {ACTIVITY_DURATIONS.map(d => (
               <button key={d} onClick={() => setLogDuration(d)} style={chipStyle(logDuration === d)}>{d}m</button>
             ))}
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
-            <button
-              disabled={!logType || !logDuration}
-              onClick={() => { onLogActivity(logType.value, logDuration); setLogOpen(false); setLogType(null); setLogDuration(null); }}
-              style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(255,255,255,0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
-            >
-              Log it →
-            </button>
-            <button onClick={() => { setLogOpen(false); setLogType(null); setLogDuration(null); }} style={{ padding: "12px 16px", borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.muted }}>
-              Cancel
-            </button>
-          </div>
+          <button
+            disabled={!logType || !logDuration}
+            onClick={() => { onLogActivity(logType.value, logDuration); setLogDone(true); }}
+            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(255,255,255,0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
+          >
+            Log it →
+          </button>
         </div>
+      ) : (
+        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>✓ Activity logged</div>
       )}
 
-      {/* Inline bonus session */}
+      {/* Bonus session */}
       {!bonusDone && beforeNight && (
         <div>
-          <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Bonus session — how many minutes?</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Bonus session — minutes?</div>
           <div style={{ display: "flex", gap: 8 }}>
             {[10, 15, 20, 30].map(m => (
               <button key={m} onClick={() => onBonusSession(m)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
@@ -3716,6 +3771,7 @@ export default function App() {
 
   // No-email banner: shown when user has no email set (guest or registered without email)
   const hasEmail = !!(getJwtPayload(token)?.email);
+  const [showGuestConvert, setShowGuestConvert] = useState(false);
   const [emailBannerDismissed, setEmailBannerDismissed] = useState(() => {
     const ts = parseInt(localStorage.getItem(uKey('jf_email_banner_dismissed')) || localStorage.getItem('jf_email_banner_dismissed') || '0');
     return ts > Date.now() - 24 * 60 * 60 * 1000;
@@ -4176,10 +4232,10 @@ export default function App() {
   }, [prefs.preferences, token]);
 
   const handleComplete = useCallback(
-    async (durationSec, perceivedExertion, stepsActual) => {
+    async (durationSec, perceivedExertion, stepsActual, notes) => {
       // Cooper test: pause and ask for distance before saving
       if (plan?.military_program?.session_type === 'cooper_test') {
-        setCooperPending({ durationSec, perceivedExertion, stepsActual });
+        setCooperPending({ durationSec, perceivedExertion, stepsActual, notes });
         setCooperDistance("");
         setShowCooperModal(true);
         setInWorkout(false);
@@ -4202,6 +4258,7 @@ export default function App() {
           perceivedExertion,
           sessionType,
           isMilSession ? "military" : null,
+          notes,
         );
         const [newScore, newHistory] = await Promise.all([
           api.getScore(),
@@ -4242,13 +4299,13 @@ export default function App() {
         }
         return;
       }
-      const { durationSec, perceivedExertion, stepsActual } = cooperPending;
+      const { durationSec, perceivedExertion, stepsActual, notes } = cooperPending;
       // Inject cooper_distance_m into the first step's actual_json
       const enriched = (stepsActual ?? plan?.steps ?? []).map((s, i) =>
         i === 0 ? { ...s, actual: { ...(s.actual ?? {}), cooper_distance_m: distanceM } } : s
       );
       try {
-        await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion, "workout", "military");
+        await api.saveExecution(userId, plan?.id, today, enriched, durationSec, perceivedExertion, "workout", "military", notes);
         const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]);
         setPrevScore(score);
         setScore(newScore);
@@ -4522,7 +4579,7 @@ export default function App() {
                       <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>Add your email to keep your data</div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Without email, you can't log back in when your session expires.</div>
                     </div>
-                    <button onClick={() => setView("settings")} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
+                    <button onClick={() => setShowGuestConvert(true)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
                       Add →
                     </button>
                     <button onClick={() => { setEmailBannerDismissed(true); localStorage.setItem(uKey('jf_email_banner_dismissed'), String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
@@ -4841,6 +4898,15 @@ export default function App() {
           onRegen={handleWhyNotRegen}
           onRestDay={handleRestDay}
           onClose={() => setShowWhyNot(false)}
+        />
+      )}
+      {showGuestConvert && (
+        <GuestConvertModal
+          onClose={() => setShowGuestConvert(false)}
+          onConverted={() => {
+            // Token already stored in localStorage by GuestConvertModal; reload to pick it up.
+            window.location.reload();
+          }}
         />
       )}
 

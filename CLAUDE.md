@@ -1017,7 +1017,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0074) |
+| D1 schema + migrations | ✅ Live (0002–0079) |
 | Exercise library (306 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
@@ -1100,7 +1100,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Resolved: duplicate `0019_*` renamed to `0027_taxonomy_fix.sql`; next number is `0031+` | Low | Enforce unique monotonic migration numbering; add pre-merge checklist item to verify no duplicate prefixes |
+| Operational drift (migration numbering/version hygiene) | Historical duplicates exist at prefixes 0059/0060/0061/0072/0074 (all applied manually via `--file`; D1 `_migrations` table is empty — no wrangler-managed tracking). Do not rename applied migrations. Next valid number is `0080+`. | Low | Enforce unique monotonic numbering for all new migrations (0080+); never reuse a number. |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
@@ -1279,7 +1279,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instru
 
 ### Adding a migration
 
-1. Choose the next monotonic number (`0057`, `0058`, …). Never reuse a number, never skip one.
+1. Choose the next monotonic number (`0080`, `0081`, …). Never reuse a number, never skip one.
 2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
 3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
 4. **Update the baseline** — this is mandatory:

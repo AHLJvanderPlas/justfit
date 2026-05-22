@@ -7,7 +7,7 @@ import {
   scaleCyclingIntervals,
   computeCyclingTsb,
   buildCyclingCoachNote,
-} from '../functions/api/_shared/cycling.js';
+} from '../../../functions/api/_shared/cycling.js';
 
 // ── CYCLING_PROFILES ──────────────────────────────────────────────────────────
 

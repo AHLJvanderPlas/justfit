@@ -3,7 +3,7 @@ import {
   RUN_PROGRAMS,
   RUN_WARMUP_TAG,
   buildRunProgramsFromTemplates,
-} from '../functions/api/_shared/running.js';
+} from '../../../functions/api/_shared/running.js';
 
 // ── RUN_PROGRAMS ──────────────────────────────────────────────────────────────
 

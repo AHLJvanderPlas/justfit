@@ -305,7 +305,7 @@ export async function onRequestPost({ request, env }) {
         user_id && isCrossTrainActive
           ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_cross_run' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
           : Promise.resolve(null),
-        // Trainer-assigned program session for today
+        // Trainer-assigned program session for today — scoped to gyms where user is a client
         user_id
           ? env.DB.prepare(`
               SELECT p.name AS program_name, ps.name AS session_name,
@@ -317,8 +317,9 @@ export async function onRequestPost({ request, env }) {
               JOIN program_sessions ps ON ps.id = asgn.session_template_id
               WHERE pa.client_user_id = ? AND pa.status = 'active' AND pa.start_date <= ?
                 AND asgn.scheduled_date = ? AND asgn.status = 'scheduled'
+                AND pa.gym_id IN (SELECT gym_id FROM gym_memberships WHERE user_id = ? AND role = 'client' AND status = 'active')
               LIMIT 1
-            `).bind(date, user_id, date, date).first()
+            `).bind(date, user_id, date, date, user_id).first()
           : Promise.resolve(null),
       ];
       const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult] = await Promise.all(fetches);
@@ -1324,6 +1325,16 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         : `BMI ${bmi.toFixed(0)}: Build gradually — no more than 10% more running per week. A run-walk plan works well at this stage. Strength training alongside running significantly reduces injury risk.`;
       addNote(note);
       trace.push(`R546 — BMI ${bmi.toFixed(1)} (moderate caution) — run-walk progression recommended, intensity capped at moderate`);
+    }
+  }
+
+  // R583 — Soft BMI pace note (28 < BMI < 30) — below the strict/moderate caution thresholds
+  // Does not filter pool or cap intensity; just adds a session note on cardio-leaning sessions.
+  if (bmi !== null && bmi > 28 && bmi < T.BMI_MODERATE && slot_type !== 'rest' && !isMilCoachActive) {
+    const poolHasCardioOrRun = pool.some(ex => ex.category === 'cardio' || isRunningEx(ex));
+    if (poolHasCardioOrRun) {
+      addNote(`Pace tip: at your current weight, keeping a conversational pace protects your joints and builds aerobic base faster than pushing hard. If you can't hold a sentence, slow down.`);
+      trace.push(`R583 — BMI ${bmi.toFixed(1)} (28–30 range) — soft pace guidance added for cardio session`);
     }
   }
 

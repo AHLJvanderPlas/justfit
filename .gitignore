@@ -26,3 +26,4 @@ dist-ssr
 
 # Claude Code local settings (contains secrets)
 .claude/settings.local.json
+.dev.vars

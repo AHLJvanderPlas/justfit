@@ -58,7 +58,7 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, lastPlanRow, usersRow] = await Promise.all([
+    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, lastPlanRow, usersRow, trainerMsgRow] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
@@ -96,6 +96,17 @@ export async function onRequestGet({ request, env }) {
       env.DB.prepare(
         `SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`
       ).bind(user.userId).first(),
+      env.DB.prepare(
+        `SELECT gm.trainer_message, gm.trainer_message_sent_at_ms,
+                g.name AS gym_name,
+                g.branding_json
+         FROM gym_memberships gm
+         JOIN gyms g ON g.id = gm.gym_id
+         WHERE gm.user_id = ? AND gm.role = 'client' AND gm.status = 'active'
+           AND gm.trainer_message IS NOT NULL
+         ORDER BY gm.trainer_message_sent_at_ms DESC
+         LIMIT 1`
+      ).bind(user.userId).first(),
     ]);
 
     if (!prefs) return Response.json({ exists: false });
@@ -131,6 +142,18 @@ export async function onRequestGet({ request, env }) {
     // Belt-and-suspenders: strip any legacy strava_byo.client_secret that may still be in JSON
     if (parsedPrefs.strava_byo) delete parsedPrefs.strava_byo;
 
+    // Trainer message — most recent non-null message from any connected gym
+    let trainerMessage = null;
+    if (trainerMsgRow?.trainer_message) {
+      const branding = trainerMsgRow.branding_json ? JSON.parse(trainerMsgRow.branding_json) : {};
+      trainerMessage = {
+        text: trainerMsgRow.trainer_message,
+        sent_at_ms: trainerMsgRow.trainer_message_sent_at_ms,
+        gym_name: trainerMsgRow.gym_name,
+        gym_logo_url: branding.logo_url ?? null,
+      };
+    }
+
     return Response.json({
       exists: true,
       needsTermsAcceptance,
@@ -148,6 +171,7 @@ export async function onRequestGet({ request, env }) {
       sex: profile?.sex ?? null,
       weight_kg: profile?.weight_kg ?? null,
       height_cm: profile?.height_cm ?? null,
+      trainer_message: trainerMessage,
       cycle: cycleRow ? {
         // Standard cycle
         tracking_mode: cycleRow.tracking_mode,

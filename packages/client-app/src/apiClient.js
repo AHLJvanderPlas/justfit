@@ -62,7 +62,7 @@ const api = {
     return data.score ?? 0;
   },
 
-  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null) {
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null) {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json", ...this._auth() },
@@ -73,6 +73,7 @@ const api = {
         session_program: sessionProgram ?? undefined,
         duration_sec: durationSec,
         perceived_exertion: perceivedExertion ?? null,
+        notes: notes ?? undefined,
         steps: steps.map((s) => ({
           exercise_id: s.exercise_id,
           prescribed: {
@@ -466,6 +467,15 @@ const api = {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify({ allow }),
+    });
+    return res.json();
+  },
+
+  async convertGuest(email, password) {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      body: JSON.stringify({ action: 'convert_guest', email, password }),
     });
     return res.json();
   },
