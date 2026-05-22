@@ -177,6 +177,11 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   const [subLoading, setSubLoading] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [canceling, setCanceling] = useState(false);
+  const [referralData, setReferralData] = useState(null);
+  const [referralLoading, setReferralLoading] = useState(false);
+  const [redeemCode, setRedeemCode] = useState("");
+  const [redeemState, setRedeemState] = useState("idle"); // idle | loading | done | error
+  const [redeemMsg, setRedeemMsg] = useState("");
   // Feedback
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackSending, setFeedbackSending] = useState(false);
@@ -2811,6 +2816,75 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             </div>
           );
         })()}
+
+        {/* ── Referral section ── */}
+        {!!prefs.email && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Geef een vriend een cadeau</div>
+            <Glass style={{ padding: 24 }}>
+              {(() => {
+                if (!referralData && !referralLoading) {
+                  setReferralLoading(true);
+                  api.getReferral().then(d => { setReferralData(d); setReferralLoading(false); }).catch(() => setReferralLoading(false));
+                }
+                if (referralLoading && !referralData) return <div style={{ fontSize: 13, color: C.muted }}>Laden…</div>;
+                const code = referralData?.code ?? '—';
+                const stats = referralData?.stats ?? {};
+                return (
+                  <>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text, marginBottom: 6 }}>Geef een vriend 14 dagen Pro gratis</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
+                      Deel je code. Als ze hem invullen, krijgen jullie allebei 14 dagen Pro cadeau.
+                    </div>
+                    {/* Referral code display */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
+                      <div style={{ flex: 1, background: "rgba(16,185,129,0.08)", border: `1px solid ${C.emeraldBorder}`, borderRadius: 10, padding: "10px 14px", fontFamily: "monospace", fontSize: 18, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald }}>{code}</div>
+                      <button
+                        onClick={() => { navigator.clipboard?.writeText(code); }}
+                        style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
+                      >Kopieer</button>
+                    </div>
+                    {stats.rewarded > 0 && (
+                      <div style={{ fontSize: 12, color: C.emerald, marginBottom: 16 }}>
+                        ✓ {stats.rewarded} vriend{stats.rewarded !== 1 ? 'en' : ''} beloond
+                      </div>
+                    )}
+                    {/* Redeem section */}
+                    <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 4 }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Code van een vriend invullen</div>
+                      {redeemState === "done" ? (
+                        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700 }}>✓ 14 dagen Pro toegevoegd!</div>
+                      ) : (
+                        <div style={{ display: "flex", gap: 8 }}>
+                          <input
+                            value={redeemCode}
+                            onChange={e => { setRedeemCode(e.target.value.toUpperCase()); setRedeemMsg(""); }}
+                            placeholder="JF…"
+                            maxLength={12}
+                            style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, fontFamily: "monospace", outline: "none" }}
+                          />
+                          <button
+                            disabled={redeemState === "loading" || !redeemCode.trim()}
+                            onClick={async () => {
+                              setRedeemState("loading"); setRedeemMsg("");
+                              const r = await api.redeemReferral(redeemCode.trim()).catch(() => null);
+                              if (r?.ok) { setRedeemState("done"); }
+                              else { setRedeemState("error"); setRedeemMsg(r?.error ?? "Ongeldige code"); setTimeout(() => setRedeemState("idle"), 4000); }
+                            }}
+                            style={{ padding: "10px 14px", borderRadius: 10, border: "none", background: C.emerald, color: "#020617", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: redeemState === "loading" ? 0.6 : 1 }}
+                          >{redeemState === "loading" ? "…" : "Inwisselen"}</button>
+                        </div>
+                      )}
+                      {redeemState === "error" && redeemMsg && (
+                        <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6 }}>{redeemMsg}</div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
+            </Glass>
+          </div>
+        )}
 
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Email & identity</div>

@@ -471,6 +471,20 @@ const api = {
     return res.json();
   },
 
+  async getReferral() {
+    const res = await fetch('/api/referral', { headers: this._auth() });
+    return res.json();
+  },
+
+  async redeemReferral(code) {
+    const res = await fetch('/api/referral', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      body: JSON.stringify({ action: 'redeem', code }),
+    });
+    return res.json();
+  },
+
   async convertGuest(email, password) {
     const res = await fetch('/api/auth', {
       method: 'POST',
