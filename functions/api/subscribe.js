@@ -22,6 +22,21 @@ export async function onRequestPost({ request, env }) {
     const user = await getUser(request, env);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    // Rate limit: 5 checkout initiations per IP per hour
+    const ip     = request.headers.get('CF-Connecting-IP') ?? request.headers.get('X-Forwarded-For') ?? 'unknown';
+    const bucket = `subscribe_checkout:${ip}`;
+    const now    = Date.now();
+    const cutoff = now - 3_600_000;
+    await env.DB.prepare(`
+      INSERT INTO auth_rate_limits (bucket, count, window_start_ms)
+      VALUES (?, 1, ?)
+      ON CONFLICT(bucket) DO UPDATE SET
+        count           = CASE WHEN window_start_ms <= ? THEN 1 ELSE count + 1 END,
+        window_start_ms = CASE WHEN window_start_ms <= ? THEN ? ELSE window_start_ms END
+    `).bind(bucket, now, cutoff, cutoff, now).run();
+    const rlRow = await env.DB.prepare(`SELECT count FROM auth_rate_limits WHERE bucket = ?`).bind(bucket).first();
+    if ((rlRow?.count ?? 1) > 5) return Response.json({ error: 'too_many_requests' }, { status: 429 });
+
     const body = await request.json().catch(() => ({}));
     const { plan } = body;
     if (!PLANS[plan]) return Response.json({ error: 'invalid_plan' }, { status: 400 });
@@ -80,7 +95,8 @@ export async function onRequestPost({ request, env }) {
 
     return Response.json({ checkout_url: payment._links.checkout.href });
   } catch (e) {
-    return Response.json({ error: 'internal', detail: e.message }, { status: 500 });
+    console.error('[subscribe POST]', e);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -112,7 +128,8 @@ export async function onRequestGet({ request, env }) {
       early_bird_remaining,
     });
   } catch (e) {
-    return Response.json({ error: 'internal', detail: e.message }, { status: 500 });
+    console.error('[subscribe GET]', e);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
 
@@ -148,6 +165,7 @@ export async function onRequestDelete({ request, env }) {
 
     return Response.json({ ok: true, access_until_ms: row.ends_at_ms });
   } catch (e) {
-    return Response.json({ error: 'internal', detail: e.message }, { status: 500 });
+    console.error('[subscribe DELETE]', e);
+    return Response.json({ error: 'Internal error' }, { status: 500 });
   }
 }
