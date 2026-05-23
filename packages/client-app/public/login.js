@@ -1,6 +1,6 @@
 // ─── STATE ───────────────────────────────────────────────────────────────
 let mode   = 'login';
-let method = 'password';
+let method = 'magic';
 let passkeyAvailable = false;
 
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
@@ -53,7 +53,9 @@ function setMode(m) {
   document.getElementById('tab-signup').classList.toggle('active', m === 'signup');
   document.getElementById('method-switcher').style.display = m === 'login' ? 'flex' : 'none';
   document.getElementById('passkey-section').style.display = m === 'login' && passkeyAvailable ? 'block' : 'none';
-  if (m === 'signup') { setMethod('password', false); }
+  document.getElementById('guest-section').style.display   = m === 'signup' ? 'block' : 'none';
+  if (m === 'signup') { setMethod('password'); }
+  if (m === 'login')  { setMethod('magic'); }
   const pwdField   = document.getElementById('password-field');
   const forgotLink = document.getElementById('forgot-link');
   const acceptRow  = document.getElementById('accept-row');
@@ -64,10 +66,10 @@ function setMode(m) {
     document.getElementById('submit-btn').textContent = 'Create Account';
     document.getElementById('password').autocomplete  = 'new-password';
   } else {
-    pwdField.style.display   = 'block';
+    pwdField.style.display   = method === 'password' ? 'block' : 'none';
     forgotLink.style.display = method === 'password' ? 'block' : 'none';
     acceptRow.style.display  = 'none';
-    document.getElementById('submit-btn').textContent = 'Login';
+    document.getElementById('submit-btn').textContent = 'Sign in';
     document.getElementById('password').autocomplete  = 'current-password';
   }
   hideAlert('main-alert');

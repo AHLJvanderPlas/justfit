@@ -344,6 +344,16 @@
       color: #94a3b8; text-decoration: none;
     }
     .back-cta a:hover { color: var(--accent); }
+
+    .btn-ghost-full {
+      width: 100%; background: none; border: none;
+      color: #475569; font-size: 13px; cursor: pointer;
+      text-decoration: underline; text-underline-offset: 3px;
+      padding: 10px 0; display: block; text-align: center;
+      font-family: inherit; margin-top: 2px;
+    }
+    .btn-ghost-full:hover { color: #94a3b8; }
+    .guest-note { color: #334155; font-size: 11px; margin-top: 6px; text-align: center; }
   </style>
 </head>
 <body>
@@ -385,21 +395,34 @@
 
       <!-- MAIN AUTH VIEW -->
       <div id="main-view">
+
+        <!-- Passkey (shown if platform authenticator available, sign-in tab only) -->
+        <div id="passkey-section" style="display:none;">
+          <button class="btn-passkey" id="passkey-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5"/>
+            </svg>
+            <span id="passkey-label">Use Face ID / Touch ID</span>
+          </button>
+          <div class="divider">or</div>
+        </div>
+
         <div class="mode-tabs">
-          <button class="mode-tab active" id="tab-login">Login</button>
-          <button class="mode-tab"        id="tab-signup">Sign Up</button>
+          <button class="mode-tab active" id="tab-login">Sign in</button>
+          <button class="mode-tab"        id="tab-signup">Create account</button>
         </div>
 
         <div id="main-alert" class="alert"></div>
 
-        <!-- Login method switcher (only shown in login mode) -->
+        <!-- Method switcher (sign-in tab only) -->
         <div id="method-switcher" class="method-tabs">
-          <button class="method-tab active" id="mt-password">Password</button>
-          <button class="method-tab"        id="mt-magic">Magic Link</button>
+          <button class="method-tab active" id="mt-magic">Magic Link</button>
+          <button class="method-tab"        id="mt-password">Password</button>
         </div>
 
         <!-- Password form -->
-        <div id="password-form">
+        <div id="password-form" style="display:none;">
           <div class="field">
             <label>Email</label>
             <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
@@ -424,7 +447,7 @@
         </div>
 
         <!-- Magic link form -->
-        <div id="magic-form" style="display:none;">
+        <div id="magic-form">
           <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
           <div class="field">
             <label>Email</label>
@@ -433,26 +456,12 @@
           <button class="btn-primary" id="magic-btn">Send Login Link</button>
         </div>
 
-        <!-- Passkey button (shown if platform authenticator available) -->
-        <div id="passkey-section" style="display:none;">
+        <!-- Guest access (create account tab only) -->
+        <div id="guest-section" style="display:none;">
           <div class="divider">or</div>
-          <button class="btn-passkey" id="passkey-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-              <circle cx="12" cy="9" r="2.5"/>
-            </svg>
-            <span id="passkey-label">Use Face ID / Touch ID</span>
-          </button>
+          <button id="guest-btn" class="btn-ghost-full">Continue without account →</button>
+          <p class="guest-note">Your data is saved locally. Add email later to keep access.</p>
         </div>
-      </div>
-
-      <p class="tagline">Privacy-first · No social feed · Just you vs yesterday.</p>
-
-      <div style="text-align:center;margin-top:20px;">
-        <button id="guest-btn" style="background:none;border:none;color:#475569;font-size:13px;cursor:pointer;text-decoration:underline;text-underline-offset:3px;padding:8px 0;">
-          Continue without account →
-        </button>
-        <p style="color:#334155;font-size:11px;margin-top:6px;">Your data is saved locally. Add email later to keep access.</p>
       </div>
 
       <p style="margin-top:16px;font-size:12px;text-align:center;">
@@ -461,96 +470,7 @@
       </p>
     </div><!-- /.card -->
 
-    <div class="scroll-cue" aria-hidden="true">
-      <span>What is this?</span>
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"
-           stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M6 9 L12 15 L18 9"/>
-      </svg>
-    </div>
   </div><!-- /.zone1 -->
-
-  <!-- ── ZONE 2 — product explainer below the fold ── -->
-  <section class="explainer" aria-labelledby="explainer-title">
-    <p class="expl-eyebrow">JustFit.cc</p>
-    <h2 id="explainer-title" class="section-title">What JustFit does.</h2>
-
-    <ul class="pillars" role="list">
-      <li class="pillar">
-        <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
-          </svg>
-        </span>
-        <div>
-          <h3>One session a day</h3>
-          <p>A coach picks one, adapted to who you are today.</p>
-        </div>
-      </li>
-      <li class="pillar">
-        <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="12" cy="12" r="9"/>
-            <path d="M15 9 L11 11 L9 15 L13 13 Z"/>
-          </svg>
-        </span>
-        <div>
-          <h3>Adapts to real life</h3>
-          <p>Sleep, energy, time, pain, travel, recovery — all signals.</p>
-        </div>
-      </li>
-      <li class="pillar">
-        <span class="pillar-icon" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-        </span>
-        <div>
-          <h3>Privacy is the product</h3>
-          <p>Your data stays on your device unless you choose to back up.</p>
-        </div>
-      </li>
-    </ul>
-
-    <figure class="proof">
-      <div class="proof-card">
-        <p class="proof-eyebrow">Monday 5 May · 5 day streak</p>
-        <div class="proof-coach-pill">
-          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          MILITARY · K3
-        </div>
-        <p class="proof-session-name">Cooper Test</p>
-        <p class="proof-meta">40 MIN · 7 MOVEMENTS · BLOCK 2</p>
-        <div class="proof-steps">
-          <div class="proof-step"><span class="proof-step-dot"></span>Easy Jog Warm-up · 7 min</div>
-          <div class="proof-step"><span class="proof-step-dot"></span>Cooper 12-min Test</div>
-          <div class="proof-step"><span class="proof-step-dot"></span>Military Press · 3 × 10</div>
-          <div class="proof-step" style="color:#475569;">
-            <span class="proof-step-dot" style="background:rgba(255,255,255,0.1);"></span>
-            + 4 more movements
-          </div>
-        </div>
-        <div class="proof-btn">Start session</div>
-      </div>
-      <figcaption>Today, on JustFit.</figcaption>
-    </figure>
-
-    <h3 class="section-sub">What we don't do.</h3>
-    <ul class="anti" role="list">
-      <li>No streaks designed to scare you.</li>
-      <li>No leaderboards.</li>
-      <li>No sharing, no social, no posts.</li>
-      <li>No nutrition tracking.</li>
-      <li>No data sold or shared. Ever.</li>
-    </ul>
-
-    <h3 class="section-sub">Pricing.</h3>
-    <p class="pricing"><strong>Free</strong> for the daily session. <strong>Pro · €4/month</strong> for plan regeneration and history beyond 12 weeks.</p>
-
-    <p class="back-cta"><a href="#top">Back to sign in →</a></p>
-  </section>
 
   <script>
   (function wavePoly() {
