@@ -48,23 +48,6 @@
       padding: 40px;
       box-shadow: 0 40px 100px rgba(0,0,0,0.4);
     }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      margin-bottom: 32px;
-    }
-    .logo-mark {
-      width: 42px; height: 42px;
-      background: #10b981;
-      border-radius: 12px;
-      display: flex; align-items: center; justify-content: center;
-      font-weight: 900; font-size: 15px; color: #fff;
-      box-shadow: 0 4px 20px rgba(16,185,129,0.3);
-    }
-    .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
-    .logo-text span { color: #f43f5e; }
-
     /* Outer tabs: Login | Sign Up */
     .mode-tabs {
       display: flex; gap: 4px;
@@ -362,10 +345,6 @@
   <!-- ── ZONE 1 — auth above the fold ── -->
   <div id="top" class="zone1">
     <div class="card">
-      <div class="logo">
-        <div class="logo-mark">JF</div>
-        <div class="logo-text">JustFit<span>.cc</span></div>
-      </div>
 
       <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
       <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
@@ -473,48 +452,87 @@
   </div><!-- /.zone1 -->
 
   <script>
-  (function wavePoly() {
+  (function () {
     'use strict';
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    if (window.innerWidth < 600) return;
     var cvs = document.getElementById('wave-bg');
     if (!cvs || !cvs.getContext) return;
     var ctx = cvs.getContext('2d');
-    var AR = 244, AG = 63, AB = 94;
-    var COLS = 14, ROWS = 9, AMP = 0.09, SPD = 0.007, W1 = COLS + 1;
-    var W = 0, H = 0, T = 0;
-    var pts = [];
-    (function build() {
-      for (var r = 0; r <= ROWS; r++) {
-        for (var c = 0; c <= COLS; c++) {
-          var edge = !r || r === ROWS || !c || c === COLS;
-          pts.push({ u: c/COLS+(edge?0:(Math.random()-.5)*.7/COLS), v: r/ROWS+(edge?0:(Math.random()-.5)*.7/ROWS), p1: Math.random()*Math.PI*2, p2: Math.random()*Math.PI*2 });
+
+    var SR = 244, SG = 63, SB = 94;
+    var sig = function(a) { return 'rgba('+SR+','+SG+','+SB+','+a+')'; };
+
+    var COUNT = 70, SPEED = 0.28, MAX_DIST = 175;
+    var DOT_MIN_R = 1.2, DOT_MAX_R = 2.8;
+    var LINE_ALPHA = 0.08, DOT_ALPHA = 0.45, GLOW_R = 6;
+    var MOUSE_RADIUS = 200, MOUSE_BOOST = 0.25;
+    var MAX_SQ = MAX_DIST * MAX_DIST, MOUSE_SQ = MOUSE_RADIUS * MOUSE_RADIUS;
+
+    var W = 0, H = 0, mouse = { x: -9999, y: -9999 }, particles = [];
+
+    function mkPt(initial) {
+      var vx, vy;
+      do { vx = (Math.random() - 0.5) * SPEED * 2; } while (Math.abs(vx) < 0.04);
+      do { vy = (Math.random() - 0.5) * SPEED * 2; } while (Math.abs(vy) < 0.04);
+      return { x: initial ? Math.random()*W : (Math.random()<0.5?-10:W+10),
+               y: initial ? Math.random()*H : Math.random()*H,
+               vx: vx, vy: vy, r: DOT_MIN_R+Math.random()*(DOT_MAX_R-DOT_MIN_R),
+               phase: Math.random()*Math.PI*2, freq: 0.018+Math.random()*0.018 };
+    }
+
+    function init() {
+      W = cvs.width = window.innerWidth; H = cvs.height = window.innerHeight;
+      particles = []; for (var i = 0; i < COUNT; i++) particles.push(mkPt(true));
+    }
+
+    function dSq(ax, ay, bx, by) { return (ax-bx)*(ax-bx)+(ay-by)*(ay-by); }
+
+    function draw() {
+      requestAnimationFrame(draw);
+      if (document.hidden) return;
+      ctx.clearRect(0, 0, W, H);
+      for (var k = 0; k < particles.length; k++) {
+        var p = particles[k]; p.x+=p.vx; p.y+=p.vy; p.phase+=p.freq;
+        if (p.x<-20) p.x=W+20; if (p.x>W+20) p.x=-20;
+        if (p.y<-20) p.y=H+20; if (p.y>H+20) p.y=-20;
+      }
+      ctx.lineWidth = 0.75;
+      for (var i = 0; i < particles.length; i++) {
+        var a = particles[i];
+        for (var j = i+1; j < particles.length; j++) {
+          var b = particles[j], sq = dSq(a.x,a.y,b.x,b.y);
+          if (sq > MAX_SQ) continue;
+          var alpha = (1-sq/MAX_SQ)*LINE_ALPHA;
+          var nm = Math.min(dSq(a.x,a.y,mouse.x,mouse.y), dSq(b.x,b.y,mouse.x,mouse.y));
+          if (nm < MOUSE_SQ) alpha += (1-nm/MOUSE_SQ)*MOUSE_BOOST;
+          ctx.beginPath(); ctx.strokeStyle = sig(Math.min(alpha,0.45));
+          ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.stroke();
+        }
+        var mSq = dSq(a.x,a.y,mouse.x,mouse.y);
+        if (mSq < MOUSE_SQ) {
+          ctx.beginPath(); ctx.strokeStyle = sig((1-mSq/MOUSE_SQ)*0.28);
+          ctx.lineWidth=0.9; ctx.moveTo(a.x,a.y); ctx.lineTo(mouse.x,mouse.y); ctx.stroke(); ctx.lineWidth=0.75;
         }
       }
-    })();
-    function pt(r, c) {
-      var p = pts[r*W1+c];
-      var z = Math.sin(p.u*9+T+p.p1)*.5+Math.sin(p.v*7+T*.7+p.p2)*.3+Math.sin((p.u+p.v)*4+T*.5)*.2;
-      return { x: p.u*W, y: p.v*H+z*AMP*H, z: z };
+      ctx.shadowColor = sig(0.6); ctx.shadowBlur = GLOW_R;
+      for (var n = 0; n < particles.length; n++) {
+        var pt = particles[n], r = pt.r*(0.88+Math.sin(pt.phase)*0.12);
+        ctx.beginPath(); ctx.arc(pt.x,pt.y,r,0,Math.PI*2); ctx.fillStyle=sig(DOT_ALPHA); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      if (mouse.x > 0 && mouse.y > 0) {
+        ctx.shadowColor=sig(0.9); ctx.shadowBlur=12;
+        ctx.beginPath(); ctx.arc(mouse.x,mouse.y,2.5,0,Math.PI*2); ctx.fillStyle=sig(0.75); ctx.fill();
+        ctx.shadowBlur=0;
+      }
     }
-    function tri(a, b, c) {
-      var z = (a.z+b.z+c.z)/3, alpha = .04+(z+1)*.5*.13;
-      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.lineTo(c.x,c.y); ctx.closePath();
-      ctx.fillStyle = 'rgba('+AR+','+AG+','+AB+','+alpha+')'; ctx.strokeStyle = 'rgba('+AR+','+AG+','+AB+',.07)'; ctx.lineWidth = .8; ctx.fill(); ctx.stroke();
-    }
-    function draw() {
-      ctx.clearRect(0,0,W,H);
-      for (var r=0;r<ROWS;r++) for (var c=0;c<COLS;c++) { var tl=pt(r,c),tr=pt(r,c+1),bl=pt(r+1,c),br=pt(r+1,c+1); tri(tl,tr,bl); tri(tr,br,bl); }
-      T+=SPD;
-    }
-    function resize() { W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
-    var last=0;
-    (function loop(ts) {
-      requestAnimationFrame(loop);
-      if (document.hidden || ts-last < 33) return;
-      last=ts; draw();
-    })(0);
-    window.addEventListener('resize', resize, { passive: true });
-    resize();
+
+    var rt;
+    window.addEventListener('resize', function() { clearTimeout(rt); rt=setTimeout(init,120); }, { passive:true });
+    window.addEventListener('mousemove',  function(e) { mouse.x=e.clientX; mouse.y=e.clientY; });
+    window.addEventListener('mouseleave', function()  { mouse.x=-9999; mouse.y=-9999; });
+    init(); draw();
   })();
   </script>
   <script src="/login.js" defer></script>
