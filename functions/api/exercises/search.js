@@ -15,8 +15,8 @@ export async function onRequest(context) {
   const gymId = url.searchParams.get('gymId') ?? request.headers.get('X-Gym-Id');
   const exclude_contraindications = url.searchParams.get('exclude_contraindications') ?? '';
 
-  // Global exercises
-  let whereGlobal = `e.is_active = 1`;
+  // Global exercises (gym_id IS NULL)
+  let whereGlobal = `e.gym_id IS NULL AND e.is_active = 1`;
   const bindGlobal = [];
   if (q) { whereGlobal += ` AND lower(e.name) LIKE ?`; bindGlobal.push(`%${q}%`); }
   if (muscle) { whereGlobal += ` AND e.tags_json LIKE ?`; bindGlobal.push(`%${muscle}%`); }
@@ -41,22 +41,22 @@ export async function onRequest(context) {
       `SELECT 1 FROM gym_memberships WHERE gym_id = ? AND user_id = ? AND status = 'active' LIMIT 1`
     ).bind(gymId, user.userId).first();
     if (mem) {
-      let whereCustom = `ce.gym_id = ? AND ce.is_active = 1`;
+      let whereCustom = `e.gym_id = ? AND e.is_active = 1`;
       const bindCustom = [gymId];
-      if (q) { whereCustom += ` AND lower(ce.name) LIKE ?`; bindCustom.push(`%${q}%`); }
-      if (muscle) { whereCustom += ` AND (ce.primary_muscles_json LIKE ? OR ce.secondary_muscles_json LIKE ?)`; bindCustom.push(`%${muscle}%`, `%${muscle}%`); }
-      if (type) { whereCustom += ` AND ce.exercise_type = ?`; bindCustom.push(type); }
+      if (q) { whereCustom += ` AND lower(e.name) LIKE ?`; bindCustom.push(`%${q}%`); }
+      if (muscle) { whereCustom += ` AND (e.primary_muscles_json LIKE ? OR e.secondary_muscles_json LIKE ?)`; bindCustom.push(`%${muscle}%`, `%${muscle}%`); }
+      if (type) { whereCustom += ` AND e.category = ?`; bindCustom.push(type); }
       if (exclude_contraindications) {
         const tags = exclude_contraindications.split(',').map(t => t.trim()).filter(Boolean);
-        for (const tag of tags) { whereCustom += ` AND ce.contraindications_json NOT LIKE ?`; bindCustom.push(`%${tag}%`); }
+        for (const tag of tags) { whereCustom += ` AND e.contraindications_json NOT LIKE ?`; bindCustom.push(`%${tag}%`); }
       }
       customRows = await env.DB.prepare(
-        `SELECT ce.id, ce.name AS slug, ce.name, ce.exercise_type AS category,
-                ce.primary_muscles_json AS tags_json, ce.equipment_required_json,
-                ce.instructions_markdown AS instructions_json,
-                NULL AS metrics_json, NULL AS alternatives_json, ce.image_r2_key AS gif_url,
-                ce.gym_id, 'custom' AS source
-         FROM custom_exercises ce WHERE ${whereCustom} LIMIT 50`
+        `SELECT e.id, e.id AS slug, e.name, e.category,
+                e.primary_muscles_json AS tags_json, e.equipment_required_json,
+                e.instructions_markdown AS instructions_json,
+                NULL AS metrics_json, NULL AS alternatives_json, e.image_r2_key AS gif_url,
+                e.gym_id, 'custom' AS source
+         FROM exercises e WHERE ${whereCustom} LIMIT 50`
       ).bind(...bindCustom).all();
     }
   }

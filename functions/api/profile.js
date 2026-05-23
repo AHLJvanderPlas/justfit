@@ -76,10 +76,10 @@ export async function onRequestGet({ request, env }) {
          FROM cycle_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT email, email_verified FROM auth_users WHERE user_id = ? AND provider = 'password' LIMIT 1`
+        `SELECT primary_email AS email, email_verified FROM users WHERE id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
-        `SELECT MAX(last_login_at_ms) as t FROM auth_users WHERE user_id = ?`
+        `SELECT last_login_at_ms as t FROM users WHERE id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
         `SELECT MAX(last_used_at_ms) as t FROM passkey_credentials WHERE user_id = ?`

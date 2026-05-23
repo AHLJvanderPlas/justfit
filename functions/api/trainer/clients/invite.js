@@ -122,8 +122,8 @@ export async function onRequest(context) {
   // Check if user is already an active member
   const existing = await env.DB.prepare(
     `SELECT gm.status FROM gym_memberships gm
-     JOIN auth_users au ON au.user_id = gm.user_id
-     WHERE gm.gym_id = ? AND LOWER(au.email) = ? AND gm.status = 'active'`
+     JOIN users u ON u.id = gm.user_id
+     WHERE gm.gym_id = ? AND LOWER(u.primary_email) = ? AND gm.status = 'active'`
   ).bind(gymId, emailLower).first();
   if (existing) return Response.json({ error: 'already_member' }, { status: 409 });
 
@@ -150,7 +150,7 @@ export async function onRequest(context) {
   if (env.RESEND_API_KEY) {
     // Check if the email belongs to an existing JustFit user
     const existingUser = await env.DB.prepare(
-      `SELECT 1 FROM auth_users WHERE LOWER(email) = ? LIMIT 1`
+      `SELECT 1 FROM users WHERE LOWER(primary_email) = ? LIMIT 1`
     ).bind(emailLower).first();
 
     const html = existingUser

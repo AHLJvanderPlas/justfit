@@ -202,10 +202,8 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
   const privacyVersion = accepted_privacy_version;
 
   await env.DB.batch([
-    env.DB.prepare(`INSERT INTO users (id, status, primary_email, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, ?, ?, ?, ?, ?, ?)`)
-      .bind(userId, emailLower, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
-    env.DB.prepare(`INSERT INTO auth_users (id, user_id, provider, email, email_verified, password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'password', ?, 0, ?, 'pbkdf2+sha256', ?, ?, ?)`)
-      .bind(crypto.randomUUID(), userId, emailLower, `${salt}:${pbkdfIterations}:${hash}`, now, now, now),
+    env.DB.prepare(`INSERT INTO users (id, status, primary_email, email_verified, password_hash, password_algo, last_login_at_ms, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms) VALUES (?, 'active', ?, 0, ?, 'pbkdf2+sha256', ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(userId, emailLower, `${salt}:${pbkdfIterations}:${hash}`, now, CURRENT_TERMS_VERSION, now, privacyVersion, now, now, now),
     env.DB.prepare(`INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, ends_at_ms, created_at_ms, updated_at_ms) VALUES (?, ?, 'pro_trial', 'trial', 'trialing', ?, ?, ?, ?)`)
       .bind(crypto.randomUUID(), userId, now, now + 14 * 86400000, now, now),
     env.DB.prepare(`INSERT INTO magic_link_tokens (token, user_id, email, purpose, code, expires_at_ms, created_at_ms) VALUES (?, ?, ?, 'verify_email', ?, ?, ?)`)
@@ -247,7 +245,7 @@ async function handleLogin({ email, password }, request, env, secret) {
   }
 
   const authUser = await env.DB.prepare(
-    `SELECT a.id, a.user_id, a.password_hash, a.password_algo FROM auth_users a WHERE a.email = ? AND a.provider = 'password' LIMIT 1`
+    `SELECT id, password_hash, password_algo FROM users WHERE primary_email = ? LIMIT 1`
   ).bind(emailLower).first();
   if (!authUser) {
     await Promise.all([recordAttempt(ipBucket, HOUR, env), recordAttempt(emailBucket, HOUR, env)]);
@@ -279,22 +277,22 @@ async function handleLogin({ email, password }, request, env, secret) {
     const iterations = 100000;
     const newHash = await hashPasswordPbkdf2(password, newSalt, iterations);
     await env.DB.prepare(
-      `UPDATE auth_users SET password_hash = ?, password_algo = 'pbkdf2+sha256', last_login_at_ms = ? WHERE id = ?`
-    ).bind(`${newSalt}:${iterations}:${newHash}`, now, authUser.id).run();
+      `UPDATE users SET password_hash = ?, password_algo = 'pbkdf2+sha256', last_login_at_ms = ?, updated_at_ms = ? WHERE id = ?`
+    ).bind(`${newSalt}:${iterations}:${newHash}`, now, now, authUser.id).run();
   } else {
-    await env.DB.prepare(`UPDATE auth_users SET last_login_at_ms = ? WHERE id = ?`)
-      .bind(now, authUser.id).run();
+    await env.DB.prepare(`UPDATE users SET last_login_at_ms = ?, updated_at_ms = ? WHERE id = ?`)
+      .bind(now, now, authUser.id).run();
   }
 
   const [token, acceptRow, memberships] = await Promise.all([
-    createJWT({ userId: authUser.user_id, email: emailLower }, secret),
-    env.DB.prepare(`SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.user_id).first(),
-    fetchMemberships(authUser.user_id, env),
+    createJWT({ userId: authUser.id, email: emailLower }, secret),
+    env.DB.prepare(`SELECT accepted_terms_version, accepted_privacy_version FROM users WHERE id = ? LIMIT 1`).bind(authUser.id).first(),
+    fetchMemberships(authUser.id, env),
   ]);
   const needsTermsAcceptance =
     (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
     (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
-  return Response.json({ ok: true, token, userId: authUser.user_id, needsTermsAcceptance, memberships });
+  return Response.json({ ok: true, token, userId: authUser.id, needsTermsAcceptance, memberships });
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
@@ -418,7 +416,7 @@ async function handleResetPassword({ reset_token, new_password }, request, env, 
 
   await env.DB.batch([
     // Update password with PBKDF2
-    env.DB.prepare(`UPDATE auth_users SET password_hash = ?, password_algo = 'pbkdf2+sha256', updated_at_ms = ? WHERE user_id = ? AND provider = 'password'`)
+    env.DB.prepare(`UPDATE users SET password_hash = ?, password_algo = 'pbkdf2+sha256', updated_at_ms = ? WHERE id = ?`)
       .bind(`${salt}:${iterations}:${hash}`, now, row.user_id),
     // Mark this token as used
     env.DB.prepare(`UPDATE password_reset_tokens SET used_at_ms = ? WHERE token = ?`)
@@ -492,8 +490,8 @@ async function handleMagicVerify(token, env, secret) {
   }
 
   // Magic link login proves inbox ownership — auto-mark email as verified + record last login
-  await env.DB.prepare(`UPDATE auth_users SET email_verified = 1, last_login_at_ms = ? WHERE user_id = ?`)
-    .bind(now, row.user_id).run();
+  await env.DB.prepare(`UPDATE users SET email_verified = 1, last_login_at_ms = ?, updated_at_ms = ? WHERE id = ?`)
+    .bind(now, now, row.user_id).run();
 
   const [sessionToken, memberships] = await Promise.all([
     createJWT({ userId: row.user_id, email: row.email }, secret),
@@ -660,15 +658,15 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
 
   if (!valid) return Response.json({ error: 'Invalid signature' }, { status: 401 });
 
-  // 7. Update counter + backed_up + last_used; also stamp last_login_at_ms on auth_users
+  // 7. Update counter + backed_up + last_used; also stamp last_login_at_ms on users
   const now = Date.now();
   await env.DB.batch([
     env.DB.prepare(
       `UPDATE passkey_credentials SET counter = ?, backed_up = ?, last_used_at_ms = ?, updated_at_ms = ? WHERE credential_id = ?`
     ).bind(newCounter, flags.backedUp ? 1 : 0, now, now, credentialId),
     env.DB.prepare(
-      `UPDATE auth_users SET last_login_at_ms = ? WHERE user_id = ?`
-    ).bind(now, cred.user_id),
+      `UPDATE users SET last_login_at_ms = ?, updated_at_ms = ? WHERE id = ?`
+    ).bind(now, now, cred.user_id),
   ]);
 
   // 8. Issue session token
@@ -748,13 +746,10 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM support_tokens WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM referral_codes WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM referrals WHERE referrer_user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM user_availability WHERE user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM user_contact WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM strava_byo_credentials WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM strava_connections WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_preferences WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_profile WHERE user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM auth_users WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid),
   ]);
 
@@ -768,7 +763,7 @@ async function handleResendVerification(request, env, secret) {
   if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   const authUser = await env.DB.prepare(
-    `SELECT email, email_verified FROM auth_users WHERE user_id = ? LIMIT 1`
+    `SELECT primary_email AS email, email_verified FROM users WHERE id = ? LIMIT 1`
   ).bind(user.userId).first();
   if (!authUser) return Response.json({ error: 'User not found' }, { status: 404 });
   if (authUser.email_verified) return Response.json({ ok: true, already_verified: true });
@@ -829,7 +824,7 @@ async function handleVerifyEmailCode({ code }, request, env, secret) {
 
   await env.DB.batch([
     env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, row.token),
-    env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(user.userId),
+    env.DB.prepare(`UPDATE users SET email_verified = 1, updated_at_ms = ? WHERE id = ?`).bind(now, user.userId),
   ]);
 
   return Response.json({ ok: true });
@@ -901,19 +896,18 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
 
   if (!row || !row.new_email) return Response.json({ error: 'Invalid or expired code' }, { status: 400 });
 
-  const oldAuthUser = await env.DB.prepare(
-    `SELECT email FROM auth_users WHERE user_id = ? LIMIT 1`
+  const oldUserRow = await env.DB.prepare(
+    `SELECT primary_email AS email FROM users WHERE id = ? LIMIT 1`
   ).bind(user.userId).first();
 
   await env.DB.batch([
     env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, row.token),
-    env.DB.prepare(`UPDATE auth_users SET email = ?, email_verified = 1, updated_at_ms = ? WHERE user_id = ?`).bind(row.new_email, now, user.userId),
-    env.DB.prepare(`UPDATE users SET primary_email = ?, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, user.userId),
+    env.DB.prepare(`UPDATE users SET primary_email = ?, email_verified = 1, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, user.userId),
   ]);
 
-  if (oldAuthUser?.email && env.RESEND_API_KEY) {
+  if (oldUserRow?.email && env.RESEND_API_KEY) {
     const accent = await getUserAccent(user.userId, env);
-    sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
+    sendEmail(oldUserRow.email, 'Your JustFit email address was changed', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
@@ -939,7 +933,7 @@ async function handleVerifyEmailLink(token, env) {
   const now = Date.now();
   await env.DB.batch([
     env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, tokenHash),
-    env.DB.prepare(`UPDATE auth_users SET email_verified = 1 WHERE user_id = ?`).bind(row.user_id),
+    env.DB.prepare(`UPDATE users SET email_verified = 1, updated_at_ms = ? WHERE id = ?`).bind(now, row.user_id),
   ]);
 
   return Response.redirect(`${APP_URL}/?email_verified=1`, 302);
@@ -956,19 +950,18 @@ async function handleChangeEmailLink(token, env) {
   }
 
   const now = Date.now();
-  const oldAuthUser = await env.DB.prepare(
-    `SELECT email FROM auth_users WHERE user_id = ? LIMIT 1`
+  const oldUserRow = await env.DB.prepare(
+    `SELECT primary_email AS email FROM users WHERE id = ? LIMIT 1`
   ).bind(row.user_id).first();
 
   await env.DB.batch([
     env.DB.prepare(`UPDATE magic_link_tokens SET used_at_ms = ? WHERE token = ?`).bind(now, tokenHash),
-    env.DB.prepare(`UPDATE auth_users SET email = ?, email_verified = 1, updated_at_ms = ? WHERE user_id = ?`).bind(row.new_email, now, row.user_id),
-    env.DB.prepare(`UPDATE users SET primary_email = ?, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, row.user_id),
+    env.DB.prepare(`UPDATE users SET primary_email = ?, email_verified = 1, updated_at_ms = ? WHERE id = ?`).bind(row.new_email, now, row.user_id),
   ]);
 
-  if (oldAuthUser?.email && env.RESEND_API_KEY) {
+  if (oldUserRow?.email && env.RESEND_API_KEY) {
     const accent = await getUserAccent(row.user_id, env);
-    sendEmail(oldAuthUser.email, 'Your JustFit email address was changed', emailShell(`
+    sendEmail(oldUserRow.email, 'Your JustFit email address was changed', emailShell(`
       <h1 style="font-size:24px;font-weight:900;margin:0 0 12px;">Email address changed</h1>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0 0 16px;">Your JustFit account email has been updated to <strong style="color:#f8fafc;">${row.new_email}</strong>.</p>
       <p style="color:#64748b;font-size:15px;line-height:1.7;margin:0;">If you didn't make this change, contact us immediately at support@justfit.cc.</p>
@@ -1000,14 +993,9 @@ async function handleGuestSignup(request, env, secret) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO users (id, status, primary_email, created_at_ms, updated_at_ms)
-       VALUES (?, 'active', NULL, ?, ?)`
+      `INSERT INTO users (id, status, primary_email, email_verified, created_at_ms, updated_at_ms)
+       VALUES (?, 'active', NULL, 0, ?, ?)`
     ).bind(userId, now, now),
-    env.DB.prepare(
-      `INSERT INTO auth_users (id, user_id, provider, email, email_verified,
-         password_hash, password_algo, last_login_at_ms, created_at_ms, updated_at_ms)
-       VALUES (?, ?, 'guest', NULL, 0, NULL, NULL, ?, ?, ?)`
-    ).bind(crypto.randomUUID(), userId, now, now, now),
     env.DB.prepare(
       `INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms)
        VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`
@@ -1027,17 +1015,17 @@ async function handleConvertGuest(body, request, env, secret) {
   const user_id = await getAuthUserId(request, env);
   if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-  // Verify caller is a guest account (no email on auth_users)
+  // Verify caller is a guest account (no email, no password)
   const existing = await env.DB.prepare(
-    `SELECT id, provider, email FROM auth_users WHERE user_id = ?`
+    `SELECT primary_email, password_hash FROM users WHERE id = ?`
   ).bind(user_id).first();
-  if (!existing || existing.provider !== 'guest') {
+  if (!existing || existing.primary_email !== null || existing.password_hash !== null) {
     return Response.json({ error: 'Account already has email' }, { status: 409 });
   }
 
   // Check email not already taken
   const taken = await env.DB.prepare(
-    `SELECT id FROM auth_users WHERE email = ?`
+    `SELECT id FROM users WHERE primary_email = ?`
   ).bind(email.toLowerCase()).first();
   if (taken) return Response.json({ error: 'Email already in use' }, { status: 409 });
 
@@ -1045,14 +1033,9 @@ async function handleConvertGuest(body, request, env, secret) {
   const salt = crypto.randomUUID().replace(/-/g, '');
   const hash = await hashPasswordPbkdf2(password, salt, 100000);
 
-  await env.DB.batch([
-    env.DB.prepare(
-      `UPDATE auth_users SET provider='email', email=?, password_hash=?, password_algo='pbkdf2+sha256', email_verified=0, updated_at_ms=? WHERE user_id=?`
-    ).bind(email.toLowerCase(), hash, now, user_id),
-    env.DB.prepare(
-      `UPDATE users SET primary_email=?, updated_at_ms=? WHERE id=?`
-    ).bind(email.toLowerCase(), now, user_id),
-  ]);
+  await env.DB.prepare(
+    `UPDATE users SET primary_email=?, password_hash=?, password_algo='pbkdf2+sha256', email_verified=0, updated_at_ms=? WHERE id=?`
+  ).bind(email.toLowerCase(), `${salt}:100000:${hash}`, now, user_id).run();
 
   const token = await createJWT({ userId: user_id, email: email.toLowerCase() }, secret);
   return Response.json({ ok: true, token });

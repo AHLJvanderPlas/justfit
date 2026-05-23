@@ -10,7 +10,7 @@ export async function onRequest(context) {
 
   if (request.method === 'GET') {
     const rows = await env.DB.prepare(
-      `SELECT * FROM custom_exercises WHERE gym_id = ? AND is_active = 1 ORDER BY name ASC`
+      `SELECT * FROM exercises WHERE gym_id = ? AND is_active = 1 ORDER BY name ASC`
     ).bind(gymId).all();
     return Response.json(rows.results ?? []);
   }
@@ -25,14 +25,16 @@ export async function onRequest(context) {
     const id = crypto.randomUUID();
     const now = Date.now();
     await env.DB.prepare(
-      `INSERT INTO custom_exercises (id, gym_id, created_by_user_id, name, instructions_markdown,
-       primary_muscles_json, secondary_muscles_json, equipment_required_json, contraindications_json,
-       exercise_type, difficulty, visibility, is_active, created_at_ms, updated_at_ms)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,'private_gym',1,?,?)`
-    ).bind(id, gymId, user.userId, name.trim(), instructions_markdown ?? null,
+      `INSERT INTO exercises (id, gym_id, created_by_user_id, slug, name, category,
+       instructions_markdown, primary_muscles_json, secondary_muscles_json,
+       equipment_required_json, contraindications_json, difficulty,
+       visibility, is_active, tags_json, equipment_advised_json, created_at_ms, updated_at_ms)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,'team',1,'[]',NULL,?,?)`
+    ).bind(id, gymId, user.userId, id, name.trim(), exercise_type ?? null,
+           instructions_markdown ?? null,
            JSON.stringify(primary_muscles ?? []), JSON.stringify(secondary_muscles ?? []),
            JSON.stringify(equipment_required ?? []), JSON.stringify(contraindications ?? []),
-           exercise_type ?? null, difficulty ?? null, now, now).run();
+           difficulty ?? null, now, now).run();
 
     await writeAudit({ gymId, actorUserId: user.userId, action: ACTIONS.EXERCISE_CREATED,
       targetType: 'exercise', targetId: id, request, env });
@@ -44,7 +46,7 @@ export async function onRequest(context) {
     const id = url.searchParams.get('id');
     if (!id) return Response.json({ error: 'id required' }, { status: 400 });
 
-    const existing = await env.DB.prepare(`SELECT gym_id FROM custom_exercises WHERE id = ?`).bind(id).first();
+    const existing = await env.DB.prepare(`SELECT gym_id FROM exercises WHERE id = ?`).bind(id).first();
     if (!existing || existing.gym_id !== gymId) return Response.json({ error: 'Not found' }, { status: 404 });
 
     let body;
@@ -52,10 +54,10 @@ export async function onRequest(context) {
 
     const now = Date.now();
     await env.DB.prepare(
-      `UPDATE custom_exercises SET name=COALESCE(?,name), instructions_markdown=COALESCE(?,instructions_markdown),
+      `UPDATE exercises SET name=COALESCE(?,name), instructions_markdown=COALESCE(?,instructions_markdown),
        primary_muscles_json=COALESCE(?,primary_muscles_json), secondary_muscles_json=COALESCE(?,secondary_muscles_json),
        equipment_required_json=COALESCE(?,equipment_required_json), contraindications_json=COALESCE(?,contraindications_json),
-       exercise_type=COALESCE(?,exercise_type), difficulty=COALESCE(?,difficulty), updated_at_ms=? WHERE id=?`
+       category=COALESCE(?,category), difficulty=COALESCE(?,difficulty), updated_at_ms=? WHERE id=?`
     ).bind(body.name ?? null, body.instructions_markdown ?? null,
            body.primary_muscles ? JSON.stringify(body.primary_muscles) : null,
            body.secondary_muscles ? JSON.stringify(body.secondary_muscles) : null,
@@ -73,10 +75,10 @@ export async function onRequest(context) {
     const id = url.searchParams.get('id');
     if (!id) return Response.json({ error: 'id required' }, { status: 400 });
 
-    const existing = await env.DB.prepare(`SELECT gym_id FROM custom_exercises WHERE id = ?`).bind(id).first();
+    const existing = await env.DB.prepare(`SELECT gym_id FROM exercises WHERE id = ?`).bind(id).first();
     if (!existing || existing.gym_id !== gymId) return Response.json({ error: 'Not found' }, { status: 404 });
 
-    await env.DB.prepare(`UPDATE custom_exercises SET is_active = 0, updated_at_ms = ? WHERE id = ?`)
+    await env.DB.prepare(`UPDATE exercises SET is_active = 0, updated_at_ms = ? WHERE id = ?`)
       .bind(Date.now(), id).run();
     await writeAudit({ gymId, actorUserId: user.userId, action: ACTIONS.EXERCISE_DELETED,
       targetType: 'exercise', targetId: id, request, env });

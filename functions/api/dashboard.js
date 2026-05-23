@@ -19,11 +19,10 @@ export async function onRequestGet({ request, env }) {
       ).all(),
 
       env.DB.prepare(
-        `SELECT u.id AS user_id, au.email AS user_email, au.last_login_at_ms
-           FROM auth_users au
-           JOIN users u ON u.id = au.user_id
-          WHERE au.last_login_at_ms IS NOT NULL
-          ORDER BY au.last_login_at_ms DESC
+        `SELECT u.id AS user_id, u.primary_email AS user_email, u.last_login_at_ms
+           FROM users u
+          WHERE u.last_login_at_ms IS NOT NULL
+          ORDER BY u.last_login_at_ms DESC
           LIMIT 100`
       ).all(),
 

@@ -133,12 +133,12 @@ export async function onRequestPost({ request, env }) {
       // Custom gym exercises with branding — scoped to user's active memberships
       user_id
         ? env.DB.prepare(
-            `SELECT ce.id, ce.name, ce.exercise_type, ce.equipment_required_json,
-                    ce.instructions_markdown, g.branding_json
-             FROM custom_exercises ce
-             JOIN gyms g ON g.id = ce.gym_id
-             JOIN gym_memberships gm ON gm.gym_id = ce.gym_id AND gm.user_id = ? AND gm.status = 'active'
-             WHERE ce.is_active = 1`
+            `SELECT e.id, e.name, e.category AS exercise_type, e.equipment_required_json,
+                    e.instructions_markdown, g.branding_json
+             FROM exercises e
+             JOIN gyms g ON g.id = e.gym_id
+             JOIN gym_memberships gm ON gm.gym_id = e.gym_id AND gm.user_id = ? AND gm.status = 'active'
+             WHERE e.gym_id IS NOT NULL AND e.is_active = 1`
           ).bind(user_id).all()
         : Promise.resolve(null),
     ]);
