@@ -18,6 +18,14 @@
       -webkit-font-smoothing: antialiased;
     }
 
+    /* ── Wave background canvas ── */
+    #wave-bg {
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none; z-index: 0;
+    }
+    .zone1, .explainer { position: relative; z-index: 1; }
+
     /* ── Zone 1 — auth above the fold ── */
     .zone1 {
       min-height: 100vh;
@@ -338,6 +346,7 @@
   </style>
 </head>
 <body>
+<canvas id="wave-bg" aria-hidden="true"></canvas>
 
   <!-- ── ZONE 1 — auth above the fold ── -->
   <div id="top" class="zone1">
@@ -542,6 +551,51 @@
     <p class="back-cta"><a href="#top">Back to sign in →</a></p>
   </section>
 
+  <script>
+  (function wavePoly() {
+    'use strict';
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    var cvs = document.getElementById('wave-bg');
+    if (!cvs || !cvs.getContext) return;
+    var ctx = cvs.getContext('2d');
+    var AR = 244, AG = 63, AB = 94;
+    var COLS = 14, ROWS = 9, AMP = 0.09, SPD = 0.007, W1 = COLS + 1;
+    var W = 0, H = 0, T = 0;
+    var pts = [];
+    (function build() {
+      for (var r = 0; r <= ROWS; r++) {
+        for (var c = 0; c <= COLS; c++) {
+          var edge = !r || r === ROWS || !c || c === COLS;
+          pts.push({ u: c/COLS+(edge?0:(Math.random()-.5)*.7/COLS), v: r/ROWS+(edge?0:(Math.random()-.5)*.7/ROWS), p1: Math.random()*Math.PI*2, p2: Math.random()*Math.PI*2 });
+        }
+      }
+    })();
+    function pt(r, c) {
+      var p = pts[r*W1+c];
+      var z = Math.sin(p.u*9+T+p.p1)*.5+Math.sin(p.v*7+T*.7+p.p2)*.3+Math.sin((p.u+p.v)*4+T*.5)*.2;
+      return { x: p.u*W, y: p.v*H+z*AMP*H, z: z };
+    }
+    function tri(a, b, c) {
+      var z = (a.z+b.z+c.z)/3, alpha = .04+(z+1)*.5*.13;
+      ctx.beginPath(); ctx.moveTo(a.x,a.y); ctx.lineTo(b.x,b.y); ctx.lineTo(c.x,c.y); ctx.closePath();
+      ctx.fillStyle = 'rgba('+AR+','+AG+','+AB+','+alpha+')'; ctx.strokeStyle = 'rgba('+AR+','+AG+','+AB+',.07)'; ctx.lineWidth = .8; ctx.fill(); ctx.stroke();
+    }
+    function draw() {
+      ctx.clearRect(0,0,W,H);
+      for (var r=0;r<ROWS;r++) for (var c=0;c<COLS;c++) { var tl=pt(r,c),tr=pt(r,c+1),bl=pt(r+1,c),br=pt(r+1,c+1); tri(tl,tr,bl); tri(tr,br,bl); }
+      T+=SPD;
+    }
+    function resize() { W=cvs.width=window.innerWidth; H=cvs.height=window.innerHeight; }
+    var last=0;
+    (function loop(ts) {
+      requestAnimationFrame(loop);
+      if (document.hidden || ts-last < 33) return;
+      last=ts; draw();
+    })(0);
+    window.addEventListener('resize', resize, { passive: true });
+    resize();
+  })();
+  </script>
   <script src="/login.js" defer></script>
 </body>
 </html>
