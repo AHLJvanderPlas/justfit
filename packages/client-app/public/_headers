@@ -1,10 +1,10 @@
 /*
-  Strict-Transport-Security: max-age=31536000; includeSubDomains
+  Strict-Transport-Security: max-age=63072000; includeSubDomains
   X-Frame-Options: DENY
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
-  Permissions-Policy: camera=(), microphone=(), geolocation=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://api.resend.com https://www.strava.com https://api.mollie.com; worker-src 'none'; object-src 'none'
+  Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://www.strava.com https://api.mollie.com https://app.justfit.cc; worker-src 'none'; object-src 'none'; frame-ancestors 'none'
 
 /dashboard
   Cache-Control: no-cache
@@ -14,4 +14,4 @@
 /api/*
   Access-Control-Allow-Origin: https://justfit.cc
   Access-Control-Allow-Methods: GET, POST, PATCH, DELETE, OPTIONS
-  Access-Control-Allow-Headers: Content-Type, Authorization, X-Admin-Key
+  Access-Control-Allow-Headers: Content-Type, Authorization
