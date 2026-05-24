@@ -11,7 +11,7 @@ import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messag
 import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
-import { cachePlan, getCachedPlan } from "./offlineCache.js";
+import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
 import {
   generateCyclingTcx,
   triggerFileDownload,
@@ -3760,6 +3760,7 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
   const [history, setHistory] = useState([]);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
@@ -4100,6 +4101,43 @@ export default function App() {
   // Persist plan to IndexedDB after every successful load/generate for offline fallback.
   useEffect(() => { if (plan) cachePlan(plan); }, [plan]);
 
+  // Flush offline mutation queue on mount and when network recovers.
+  // Replays execution saves that failed due to network issues.
+  useEffect(() => {
+    if (!onboardingReady || !userId) return;
+
+    async function flushQueue() {
+      await purgeExpiredMutations();
+      const pending = await getPendingMutations();
+      setPendingSyncCount(pending.length);
+      if (!navigator.onLine || pending.length === 0) return;
+      let remaining = pending.length;
+      for (const mut of pending) {
+        try {
+          if (mut.type === 'execution') {
+            const p = mut.payload;
+            await api.saveExecution(p.userId, p.planId, p.date, p.steps, p.durationSec, p.perceivedExertion, p.sessionType, p.sessionProgram, p.notes);
+          }
+          await removeMutation(mut.id);
+          remaining--;
+        } catch {
+          break; // still offline — stop and try again later
+        }
+      }
+      setPendingSyncCount(remaining);
+      if (remaining === 0) {
+        const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]).catch(() => [null, null]);
+        if (newScore !== null) { setPrevScore(score); setScore(newScore); }
+        if (newHistory !== null) setHistory(newHistory);
+      }
+    }
+
+    flushQueue();
+    window.addEventListener('online', flushQueue);
+    return () => window.removeEventListener('online', flushQueue);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingReady, userId]);
+
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
     if (!onboardingReady) return;
@@ -4275,6 +4313,24 @@ export default function App() {
         localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       } catch (e) {
         console.error("Failed to save execution:", e);
+        // Queue for replay when network recovers. Mark today complete optimistically.
+        const isMilSession = !!(plan?.military_program);
+        const sessionType = plan?.cross_training_run ? "cycling_cross_run"
+          : plan?.cycling_program ? "cycling_coach"
+          : plan?.run_program ? "run_coach"
+          : "workout";
+        await queueMutation('execution', {
+          userId, planId: plan?.id, date: today,
+          steps: stepsActual ?? plan?.steps ?? [],
+          durationSec, perceivedExertion,
+          sessionType, sessionProgram: isMilSession ? "military" : null, notes: null,
+        });
+        setPendingSyncCount(c => c + 1);
+        setTodayCompleted(true);
+        localStorage.setItem(`jf_completed_${today}`, "1");
+        const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
+        setCompletedSession(sessionInfo);
+        localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       }
       setInWorkout(false);
       setView("today");
@@ -4572,6 +4628,15 @@ export default function App() {
             {view === "today" && (
               <>
                 <PregnancyProgressBanner cycle={prefs.cycle} />
+                {pendingSyncCount > 0 && (
+                  <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
+                    <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>{t('pending_sync_title') || 'Workout saved locally'}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t('pending_sync_body') || 'Syncing when your connection returns…'}</div>
+                    </div>
+                  </div>
+                )}
                 {!hasEmail && !emailBannerDismissed && (
                   <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>⚠</span>
