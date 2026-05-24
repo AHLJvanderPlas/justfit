@@ -240,7 +240,7 @@ justfit/                             ← monorepo root (npm workspaces)
 │       ├── exercises.js ← GET exercises from D1 with tag filtering
 │       ├── execution.js ← POST save workout, GET fetch history
 │       ├── legal-email.js ← POST sends full legal docs by email (5 document IDs)
-│       ├── plan.js      ← POST generate plan (runs planner engine v1.8.0), GET fetch plan
+│       ├── plan.js      ← POST generate plan (runs planner engine v1.9.0, staged pipeline), GET fetch plan
 │       ├── profile.js   ← GET/POST user_preferences + cycle/pregnancy/postnatal context
 │       ├── progression.js ← GET/POST progression model + sport preferences
 │       ├── score.js     ← GET consistency score for user
@@ -1022,7 +1022,7 @@ Calculated server-side from executions table:
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
 | Pages Functions API | ✅ Live at /api/* |
-| Planner engine v1.9.0 (R510–R582 + R558–R559) | ✅ Live — template-based, profile-aware, pregnancy/postnatal/military rules; equipment defaults to bodyweight when null; chair always-available; exercise ordering (core→indoor cardio→outdoor); sport-aware bias layer (R560); injury-aware filtering R562–R565 (knee/shoulder/lower_back/ankle); Military Coach R570–R582 (Keuring/Opleiding tracks, three modes, two-phase target, RPE drift, Cooper test); R558 return-to-training re-ramp (≥14-day gap → volume ×0.75); R559 recovery mode (toggle in check-in → low intensity + mobility/recovery pool) |
+| Planner engine v1.9.0 (R510–R582 + R558–R559), staged pipeline (C-E13) | ✅ Live — `runPlanner` decomposed into 6 named stage functions (`_initPlannerContext` → `_applySafetyPolicies` → `_applyBodyModePolicies` → `_selectCoachBlueprint` → `_selectExercises` → `_assembleSession`) threaded by mutable `ctx`; all 73 rules preserved; file 2626 → 2405 lines; template-based, profile-aware, pregnancy/postnatal/military rules; sport-aware bias layer (R560); injury-aware filtering R562–R565; Military Coach R570–R582; R558 return-to-training; R559 recovery mode |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |
 | Frontend wired to API | ✅ Live |
 | Auth (login/signup) | ✅ Live — JWT, SHA-256, login.html, auth guard in App.jsx, JWT_SECRET from env |
