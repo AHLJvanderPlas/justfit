@@ -3,15 +3,22 @@
 
 const MOLLIE_BASE = 'https://api.mollie.com/v2';
 
-async function mollieReq(method, path, body, apiKey) {
+async function mollieReq(method, path, body, apiKey, idempotencyKey, _retries = 1) {
+  const headers = {
+    Authorization: `Bearer ${apiKey}`,
+    'Content-Type': 'application/json',
+  };
+  if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey;
   const res = await fetch(`${MOLLIE_BASE}${path}`, {
     method,
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
+    headers,
     body: body ? JSON.stringify(body) : undefined,
   });
+  if (res.status === 429 && _retries > 0) {
+    const retryAfter = res.headers.get('Retry-After');
+    await new Promise(r => setTimeout(r, Math.min((parseInt(retryAfter, 10) || 1) * 1000, 5000)));
+    return mollieReq(method, path, body, apiKey, idempotencyKey, _retries - 1);
+  }
   const json = await res.json();
   if (!res.ok) throw new Error(`Mollie ${method} ${path}: ${json?.detail ?? res.status}`);
   return json;
@@ -48,7 +55,7 @@ export async function createCustomer({ name, email, metadata }, apiKey) {
 /**
  * Create a recurring subscription for a Mollie customer.
  */
-export async function createSubscription({ customerId, amount, interval, description, startDate, webhookUrl, metadata }, apiKey) {
+export async function createSubscription({ customerId, amount, interval, description, startDate, webhookUrl, metadata }, apiKey, idempotencyKey) {
   return mollieReq('POST', `/customers/${customerId}/subscriptions`, {
     amount: { currency: 'EUR', value: Number(amount).toFixed(2) },
     interval,
@@ -56,7 +63,7 @@ export async function createSubscription({ customerId, amount, interval, descrip
     startDate,
     webhookUrl,
     metadata,
-  }, apiKey);
+  }, apiKey, idempotencyKey);
 }
 
 /**

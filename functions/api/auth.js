@@ -743,7 +743,6 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM passkey_credentials WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM magic_link_tokens WHERE user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM support_tokens WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM referral_codes WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM referrals WHERE referrer_user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM strava_byo_credentials WHERE user_id = ?').bind(uid),
@@ -1012,7 +1011,8 @@ async function handleConvertGuest(body, request, env, secret) {
   if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
   if (password.length < 8) return Response.json({ error: 'Password must be at least 8 characters' }, { status: 400 });
 
-  const user_id = await getAuthUserId(request, env);
+  const user = await getSessionUser(request, secret);
+  const user_id = user?.userId;
   if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
   // Verify caller is a guest account (no email, no password)

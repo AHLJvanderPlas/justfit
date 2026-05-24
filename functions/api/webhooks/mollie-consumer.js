@@ -32,11 +32,18 @@ export async function onRequest(context) {
 
   // ── First mandate payment paid → create recurring subscription + write entitlement ──
   if (status === 'paid' && seqType === 'first') {
+    // Guard against duplicate webhook fires: skip if subscription already created for this user.
+    const existingEnt = await env.DB.prepare(
+      `SELECT id FROM entitlements WHERE user_id = ? AND source = 'mollie_sub' AND mollie_sub_id IS NOT NULL LIMIT 1`
+    ).bind(userId).first();
+    if (existingEnt) return new Response('OK', { status: 200 });
+
     // Start date = tomorrow
     const startDate = new Date(now + 86400000).toISOString().split('T')[0];
 
     let subId = null;
     try {
+      // Use payment.id as idempotency key so Mollie deduplicates on its side too.
       const sub = await createSubscription({
         customerId,
         amount: payment.amount.value,
@@ -45,7 +52,7 @@ export async function onRequest(context) {
         startDate,
         webhookUrl: 'https://app.justfit.cc/api/webhooks/mollie-consumer',
         metadata: { userId, plan, customerId },
-      }, env.MOLLIE_API_KEY);
+      }, env.MOLLIE_API_KEY, payment.id);
       subId = sub.id;
     } catch (e) {
       console.error('[mollie-consumer] createSubscription failed:', e.message);
