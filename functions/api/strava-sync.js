@@ -17,6 +17,7 @@
  */
 
 import { getAuthUserId } from './_shared/auth.js';
+import { decryptByoSecret } from './_shared/strava.js';
 
 const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/api/v3/athlete/activities';
 const STRAVA_TOKEN_URL      = 'https://www.strava.com/oauth/token';
@@ -185,7 +186,8 @@ export async function onRequestPost(context) {
 
   // BYO credentials from dedicated table (never from preferences_json)
   if (byoRow?.client_id && byoRow?.client_secret) {
-    byoCreds = { clientId: byoRow.client_id, clientSecret: byoRow.client_secret };
+    const clientSecret = await decryptByoSecret(byoRow.client_secret, env.JWT_SECRET, userId);
+    byoCreds = { clientId: byoRow.client_id, clientSecret };
   }
 
   // Get valid access token (refreshes if needed)

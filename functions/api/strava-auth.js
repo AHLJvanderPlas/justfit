@@ -21,6 +21,7 @@
  */
 
 import { getAuthUserId } from './_shared/auth.js';
+import { encryptByoSecret, decryptByoSecret } from './_shared/strava.js';
 
 const STRAVA_AUTH_URL   = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
@@ -49,7 +50,8 @@ async function getByoCreds(userId, env) {
       `SELECT client_id, client_secret FROM strava_byo_credentials WHERE user_id = ? LIMIT 1`
     ).bind(userId).first();
     if (row?.client_id && row?.client_secret) {
-      return { clientId: row.client_id, clientSecret: row.client_secret, isByo: true, byoClientId: row.client_id };
+      const clientSecret = await decryptByoSecret(row.client_secret, env.JWT_SECRET, userId);
+      return { clientId: row.client_id, clientSecret, isByo: true, byoClientId: row.client_id };
     }
     return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null };
   } catch { return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null }; }
@@ -126,6 +128,7 @@ async function handlePost(request, env) {
     }
     try {
       const nowMs = Date.now();
+      const encryptedSecret = await encryptByoSecret(clientSecret, env.JWT_SECRET, userId);
       await env.DB.prepare(`
         INSERT INTO strava_byo_credentials (user_id, client_id, client_secret, created_at_ms, updated_at_ms)
         VALUES (?, ?, ?, ?, ?)
@@ -133,7 +136,7 @@ async function handlePost(request, env) {
           client_id     = excluded.client_id,
           client_secret = excluded.client_secret,
           updated_at_ms = excluded.updated_at_ms
-      `).bind(userId, clientId, clientSecret, nowMs, nowMs).run();
+      `).bind(userId, clientId, encryptedSecret, nowMs, nowMs).run();
       return Response.json({ ok: true }, { headers: corsHeaders() });
     } catch (e) {
       console.error('strava-auth save_byo:', e);
