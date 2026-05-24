@@ -978,32 +978,24 @@ const COACH_PRIORITY = [
 //
 // Principle 5: "One active training intent at a time." The hierarchy above is the enforcement.
 // ---------------------------------------------------------------------------
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile, cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false, cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0, crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null) {
-  // militaryTemplateItems: ordered exercise rows from program_template_items for the current
-  // strength session (kracht / kracht_marsen / circuit). null → falls back to pool path.
-  // Adaptation logic (check-in, injury, RPE drift) is unchanged regardless of source.
-  const trace = [];
-  const isProEnabled = !!isPro;
-  // Use plan date as reference for all time-relative rule decisions (keeps planner deterministic)
-  const planDateMs = new Date(date + 'T12:00:00Z').getTime();
-  const goal = prefs?.training_goal ?? 'health';
+function _addNote(ctx, note) {
+  ctx.sessionNotes = ctx.sessionNotes ? ctx.sessionNotes + ' ' + note : note;
+}
+
+// ── Stage 1: Initialize ───────────────────────────────────────────────────────
+function _initPlannerContext(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+  cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
+  cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7,
+  crossRunsLast7, militaryTemplateItems, runPrograms) {
+
+  const goal     = prefs?.training_goal ?? 'health';
   const expLevel = prefs?.experience_level ?? 'intermediate';
   const runCoach = prefs?.preferences?.run_coach;
 
-  // Starting intensity comes from the user's goal — rules below may override downward
   let intensity = GOAL_INTENSITY[goal] ?? 'moderate';
+  const trace = [];
   trace.push(`R500 — Goal: ${goal} → initial intensity: ${intensity}`);
 
-  // ------------------------------------------------------------------
-  // R500a: Intensity Preference — persistent user preference (1–10 scale)
-  // Stored as prefs.intensity_pref. Acts as a soft ceiling BEFORE check-in
-  // rules can override further downward. A user who consistently prefers
-  // gentler sessions should not be pushed high just because their goal is
-  // strength or muscle_gain. Philosophy: adjust the sport to your life.
-  //   pref 1–3 → cap at 'low'    (very gentle preference)
-  //   pref 4–5 → cap at 'moderate' (moderate preference, downgrade high→moderate)
-  //   pref 6–10 → no cap (goal-based intensity stands)
-  // ------------------------------------------------------------------
   const intensityPref = prefs?.intensity_pref ?? null;
   if (intensityPref !== null) {
     if (intensityPref <= 3 && (intensity === 'high' || intensity === 'moderate')) {
@@ -1015,274 +1007,245 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
-  let slot_type = 'main';
   let pool = [...exercises];
   pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
   pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('session_phase'));
 
-  // Filter out already-done exercises (bonus session deduplication)
   if (completedIds?.length) {
     const doneSet = new Set(completedIds);
     pool = pool.filter(e => !doneSet.has(e.id));
     trace.push(`Bonus dedup — excluded ${completedIds.length} completed exercise(s)`);
   }
 
-  // Default budget: from preferences or checkin or 30 min
-  // 999 is the sentinel for "120+ / no time limit" — treat as a large but finite value
   const prefBudget = prefs?.session_duration_min ?? 30;
   const rawBudget  = checkIn?.time_budget ?? prefBudget;
   const unlimited  = rawBudget >= 999;
-  const budget     = unlimited ? 120 : rawBudget; // normalise for count/threshold logic; run coach uses sessionDurSec separately
+  const budget     = unlimited ? 120 : rawBudget;
 
-  // ------------------------------------------------------------------
-  // R510: Time Budget Clamp
-  // ------------------------------------------------------------------
-  if (budget <= 10 || checkIn?.no_time) {
-    slot_type = 'micro';
-    trace.push('R510 — Time ≤10 min or no_time → micro session');
-  } else if (budget <= 20) {
-    trace.push('R510 — Short session (≤20 min)');
-  } else {
-    trace.push('R510 — Normal session (>20 min)');
-  }
-
-  // ------------------------------------------------------------------
-  // Bonus session overrides — keep it fresh and manageable
-  // ------------------------------------------------------------------
-  if (bonusSession) {
-    if (budget <= 15) {
-      slot_type = 'micro';
-      if (intensity === 'high') intensity = 'low';
-      else if (intensity === 'moderate') intensity = 'low';
-      trace.push('Bonus session (≤15 min) — micro slot, low intensity to protect recovery');
-    } else {
-      if (intensity === 'high') intensity = 'moderate';
-      trace.push('Bonus session (>15 min) — intensity capped at moderate');
-    }
-  }
-
-  // ── Intensity override stack ──────────────────────────────────────────────
-  // Rules below may ONLY REDUCE intensity, never increase it. Any future rule
-  // that needs to increase intensity MUST be placed before this block.
-  // Precedence (highest authority listed last — last write wins):
-  //   Goal baseline (R500)
-  //   < Sleep (R511)  < Stress (R513)  < Mood (R517)
-  //   < Period / late-luteal (R520, R523)
-  //   < Pregnancy T1/T2 (R530)  < Pregnancy T3 (R530)
-  // Volume boosters (R521 follicular) use volumeMultiplier, NOT intensity,
-  // so they cannot accidentally undo a safety cap.
-  // ─────────────────────────────────────────────────────────────────────────
-
-  let volumeMultiplier = 1.0;
-  let sessionNotes = null;
-  const addNote = (note) => { sessionNotes = (sessionNotes ? sessionNotes + ' ' : '') + note; };
-
-  // ------------------------------------------------------------------
-  // R511: Sleep Intensity + Volume Cap
-  // Poor sleep impairs muscle recovery, coordination, and injury resistance.
-  // Both intensity AND volume are reduced: doing 85% of normal reps at low
-  // intensity is the safest choice. The body needs more rest, not more reps.
-  // ------------------------------------------------------------------
-  if ((checkIn?.sleep_hours ?? 8) <= T.SLEEP_LOW) {
-    intensity = 'low';
-    volumeMultiplier = Math.min(volumeMultiplier, 0.85);
-    trace.push(`R511 — Poor sleep (≤${T.SLEEP_LOW}h) → intensity capped at low, volume ×0.85`);
-  }
-
-  // ------------------------------------------------------------------
-  // R513: Stress Recovery Bias
-  // ------------------------------------------------------------------
-  if ((checkIn?.stress ?? 0) >= T.STRESS_HIGH) {
-    intensity = 'low';
-    trace.push('R513 — High stress → recovery bias');
-  }
-
-  // ------------------------------------------------------------------
-  // R558: Return-to-Training Inactivity Re-Ramp
-  // If last workout was ≥14 days ago, cap volume at 0.75 to prevent
-  // post-break overload. Bypassed for military coach (has own periodisation)
-  // and pregnancy/postnatal (has own safety rules).
-  // ------------------------------------------------------------------
-  const lastWorkoutDate = progressionState?.last_workout_date ?? null;
-  const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active);
-  if (lastWorkoutDate && !isMilCoachActive && !pregnancyContext) {
-    const planDateMsLocal = new Date(date + 'T12:00:00Z').getTime();
-    const lastWorkoutMs = new Date(lastWorkoutDate + 'T12:00:00Z').getTime();
-    const gapDays = Math.floor((planDateMsLocal - lastWorkoutMs) / 86_400_000);
-    if (gapDays >= 14) {
-      volumeMultiplier = Math.min(volumeMultiplier, 0.75);
-      trace.push(`R558 — Back after ${gapDays}-day break → volume ×0.75 (return-to-training re-ramp)`);
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // R514: Pain Safety Override
-  // pain_level ≥ PAIN_REST AND (no scope OR scope='general') → rest day.
-  // pain_level ≥ 1 AND scope='specific' with named areas → handled by R562–R563.
-  // ------------------------------------------------------------------
-  const painLevel   = checkIn?.pain_level ?? 0;
-  const painScope   = checkIn?.pain_scope  ?? null;
-  const painAreas   = checkIn?.pain_areas  ?? [];
-  const isSpecificPain = painScope === 'specific' && painAreas.length > 0;
-
-  if (painLevel >= T.PAIN_REST && !isSpecificPain) {
-    slot_type = 'rest';
-    trace.push(`R514 — Pain ≥${T.PAIN_REST} (${painScope ?? 'unset'}) → rest session`);
-  }
-
-  // ------------------------------------------------------------------
-  // R562–R565: Injury-Aware Exercise Filtering
-  // Merge daily pain_areas with profile chronic_injury_areas.
-  // Remove exercises tagged with the corresponding contraindication tag.
-  // ------------------------------------------------------------------
-  const INJURY_TAG_MAP = {
-    knee:        'loads_knee',
-    shoulder:    'loads_shoulder',
-    lower_back:  'loads_lower_back',
-    ankle:       'loads_ankle',
-  };
-
-  const chronicAreas  = prefs?.preferences?.chronic_injury_areas ?? [];
-  const injuryAreas   = [...new Set([...(isSpecificPain ? painAreas : []), ...chronicAreas])];
-
-  if (injuryAreas.length > 0 && slot_type !== 'rest') {
-    const forbiddenTags = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
-    if (forbiddenTags.length > 0) {
-      const before = pool.length;
-      // R563: remove contraindicated exercises from pool
-      pool = pool.filter(ex => {
-        const tags = JSON.parse(ex.tags_json || '[]');
-        return !forbiddenTags.some(ft => tags.includes(ft));
-      });
-      trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${before} → ${pool.length} exercises`);
-    }
-
-    // R564: supplement with safe mobility/recovery if pool falls too small
-    if (pool.length < 3) {
-      const safePool = exercises.filter(ex => {
-        const tags = JSON.parse(ex.tags_json || '[]');
-        if (forbiddenTags.some(ft => tags.includes(ft))) return false;
-        return tags.includes('mobility') || tags.includes('recovery');
-      });
-      const toAdd = seededShuffle(safePool, date).slice(0, 3 - pool.length);
-      pool = [...pool, ...toAdd];
-      trace.push(`R564 — Pool < 3 after injury filter → added ${toAdd.length} safe mobility/recovery exercises`);
-    }
-
-    // R565: coaching note for injury-adapted session
-    const AREA_LABELS = { knee: 'knee', shoulder: 'shoulder', lower_back: 'lower back', ankle: 'ankle' };
-    const noteAreas = injuryAreas.map(a => AREA_LABELS[a] ?? a).join(' & ');
-    addNote(`Session adjusted for ${noteAreas} discomfort. Stop any exercise that causes sharp or worsening pain.`);
-    trace.push(`R565 — Session note added for injury areas: ${noteAreas}`);
-  }
-
-  // ------------------------------------------------------------------
-  // R559: User-Initiated Recovery Mode
-  // "Taking it easy today" toggle → low intensity, mobility/recovery pool.
-  // Bypassed for military/pregnancy modes (they own their session type).
-  // ------------------------------------------------------------------
-  const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
-  if (recoveryMode && !isMilCoachActive && !pregnancyContext) {
-    intensity = 'low';
-    pool = pool.filter(ex => {
-      const tags = JSON.parse(ex.tags_json || '[]');
-      return tags.includes('mobility') || tags.includes('recovery') || ex.category === 'mobility' || ex.category === 'recovery';
-    });
-    trace.push('R559 — Recovery mode → low intensity, mobility/recovery pool');
-  }
-
-  // ------------------------------------------------------------------
-  // R515: No Clothing Filter (stealth mode)
-  // ------------------------------------------------------------------
-  if (checkIn?.no_clothing) {
-    pool = pool.filter(ex => {
-      const tags = JSON.parse(ex.tags_json || '[]');
-      return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
-    });
-    trace.push(`R515 — No clothing → stealth filter (${pool.length} exercises remain)`);
-  }
-
-  // ------------------------------------------------------------------
-  // R516: No Gear / Travel (bodyweight only)
-  // ------------------------------------------------------------------
-  // 'chair' is treated as always-available (everyone has a chair)
-  const ALWAYS_AVAILABLE = new Set(['none', 'chair']);
   const userEquip = prefs?.preferences?.available_equipment ?? null;
-  // Default: if equipment is not configured, treat as bodyweight-only (safe default)
   const effectiveEquip = (userEquip && userEquip.length > 0) ? userEquip : ['none'];
   const forceBodyweight = checkIn?.no_gear || checkIn?.traveling;
   const profileBodyweightOnly = effectiveEquip.length === 1 && effectiveEquip[0] === 'none';
 
-  if (forceBodyweight || profileBodyweightOnly) {
-    pool = pool.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => ALWAYS_AVAILABLE.has(e));
-    });
-    const reason = forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
-    trace.push(`R516 — Bodyweight only (${reason}) → ${pool.length} exercises remain`);
-  } else {
-    pool = pool.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => ALWAYS_AVAILABLE.has(e) || effectiveEquip.includes(e));
-    });
-    trace.push(`R516 — Equipment filter from profile → ${pool.length} exercises remain`);
-  }
-
-  // ------------------------------------------------------------------
-  // R517: Mood adjustment
-  // ------------------------------------------------------------------
-  const mood = checkIn?.mood ?? null;
-  if (mood !== null) {
-    if (mood <= T.MOOD_LOW) {
-      // Low mood (UI score ≤2) — pull toward recovery
-      if (intensity === 'high') intensity = 'moderate';
-      else if (intensity === 'moderate') intensity = 'low';
-      trace.push(`R517 — Low mood (${mood}/10) → intensity reduced, recovery bias`);
-    } else if (mood <= T.MOOD_MODERATE) {
-      // Below-average mood (UI score ≤3) — soften one step if already high
-      if (intensity === 'high') intensity = 'moderate';
-      trace.push(`R517 — Below-average mood (${mood}/10) → intensity moderated`);
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // R518: Gym today — expand available equipment
-  // ------------------------------------------------------------------
-  if (checkIn?.gym_today) {
-    // Re-filter pool allowing all gym equipment on top of bodyweight
-    pool = exercises.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => GYM_EQUIPMENT.includes(e));
-    });
-    // Re-apply clothing/travel restrictions on top of gym pool
-    if (checkIn?.no_gear || checkIn?.traveling) {
-      pool = pool.filter(ex => {
-        const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-        return equip.includes('none');
-      });
-    }
-    // Re-apply no_clothing stealth filter — R518 rebuilds from full exercises so R515 must be reapplied
-    if (checkIn?.no_clothing) {
-      pool = pool.filter(ex => {
-        const tags = JSON.parse(ex.tags_json || '[]');
-        return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
-      });
-    }
-    trace.push(`R518 — Gym today → gym equipment unlocked (${pool.length} exercises available)`);
-  }
-
-  // ------------------------------------------------------------------
-  // BMI — calculated here so R545/R546 and cycle rules can both use it
   const weightKg = bodyProfile?.weight_kg ?? null;
   const heightCm = bodyProfile?.height_cm ?? null;
   const bmi = (weightKg && heightCm && heightCm > 0)
     ? weightKg / ((heightCm / 100) ** 2)
     : null;
+  const sex = bodyProfile?.sex ?? null;
+
+  const isStandardMode = !pregnancyContext || pregnancyContext.mode === undefined;
+  const inSpecialMode  = pregnancyContext?.mode === 'pregnant' || pregnancyContext?.mode === 'postnatal';
+
+  return {
+    date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+    cycleContext, pregnancyContext, bonusSession, progressionState,
+    cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7,
+    crossRunsLast7, militaryTemplateItems, runPrograms,
+
+    isProEnabled: !!isPro,
+    planDateMs: new Date(date + 'T12:00:00Z').getTime(),
+    goal, expLevel, runCoach,
+    weightKg, heightCm, bmi, sex,
+    effectiveEquip, forceBodyweight, profileBodyweightOnly,
+    rawBudget, budget, unlimited,
+    isStandardMode, inSpecialMode,
+
+    pool, intensity, slot_type: 'main',
+    volumeMultiplier: 1.0,
+    trace, sessionNotes: null,
+
+    injuryAreas: [],
+    hasRunningShoes: false,
+    bmiStrictForRun: false,
+    runProgramOverride: null,
+    cyclingProgramOverride: null,
+    crossTrainingOverride: null,
+    militaryProgramOverride: null,
+    militaryDbSelection: null,
+    militarySessionType: null,
+    militaryMarchKg: 0,
+    militaryMarchSec: 0,
+    milWeekComputed: 1,
+    r555PinnedEx: null,
+    selection: null,
+    shuffled: null,
+    targetCategory: null,
+  };
+}
+
+// ── Stage 2: Safety policies ──────────────────────────────────────────────────
+function _applySafetyPolicies(ctx) {
+  const { checkIn, exercises, prefs, date, pregnancyContext, bmi, expLevel } = ctx;
+  const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active);
+
+  // R510
+  if (ctx.budget <= 10 || checkIn?.no_time) {
+    ctx.slot_type = 'micro';
+    ctx.trace.push('R510 — Time ≤10 min or no_time → micro session');
+  } else if (ctx.budget <= 20) {
+    ctx.trace.push('R510 — Short session (≤20 min)');
+  } else {
+    ctx.trace.push('R510 — Normal session (>20 min)');
+  }
+
+  // Bonus session overrides
+  if (ctx.bonusSession) {
+    if (ctx.budget <= 15) {
+      ctx.slot_type = 'micro';
+      if (ctx.intensity === 'high') ctx.intensity = 'low';
+      else if (ctx.intensity === 'moderate') ctx.intensity = 'low';
+      ctx.trace.push('Bonus session (≤15 min) — micro slot, low intensity to protect recovery');
+    } else {
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+      ctx.trace.push('Bonus session (>15 min) — intensity capped at moderate');
+    }
+  }
+
+  // R511
+  if ((checkIn?.sleep_hours ?? 8) <= T.SLEEP_LOW) {
+    ctx.intensity = 'low';
+    ctx.volumeMultiplier = Math.min(ctx.volumeMultiplier, 0.85);
+    ctx.trace.push(`R511 — Poor sleep (≤${T.SLEEP_LOW}h) → intensity capped at low, volume ×0.85`);
+  }
+
+  // R513
+  if ((checkIn?.stress ?? 0) >= T.STRESS_HIGH) {
+    ctx.intensity = 'low';
+    ctx.trace.push('R513 — High stress → recovery bias');
+  }
+
+  // R558
+  const lastWorkoutDate = ctx.progressionState?.last_workout_date ?? null;
+  if (lastWorkoutDate && !isMilCoachActive && !pregnancyContext) {
+    const planDateMsLocal = new Date(date + 'T12:00:00Z').getTime();
+    const lastWorkoutMs = new Date(lastWorkoutDate + 'T12:00:00Z').getTime();
+    const gapDays = Math.floor((planDateMsLocal - lastWorkoutMs) / 86_400_000);
+    if (gapDays >= 14) {
+      ctx.volumeMultiplier = Math.min(ctx.volumeMultiplier, 0.75);
+      ctx.trace.push(`R558 — Back after ${gapDays}-day break → volume ×0.75 (return-to-training re-ramp)`);
+    }
+  }
+
+  // R514
+  const painLevel    = checkIn?.pain_level ?? 0;
+  const painScope    = checkIn?.pain_scope  ?? null;
+  const painAreas    = checkIn?.pain_areas  ?? [];
+  const isSpecificPain = painScope === 'specific' && painAreas.length > 0;
+
+  if (painLevel >= T.PAIN_REST && !isSpecificPain) {
+    ctx.slot_type = 'rest';
+    ctx.trace.push(`R514 — Pain ≥${T.PAIN_REST} (${painScope ?? 'unset'}) → rest session`);
+  }
+
+  // R562–R565
+  const INJURY_TAG_MAP = {
+    knee: 'loads_knee', shoulder: 'loads_shoulder',
+    lower_back: 'loads_lower_back', ankle: 'loads_ankle',
+  };
+  const chronicAreas = prefs?.preferences?.chronic_injury_areas ?? [];
+  const injuryAreas  = [...new Set([...(isSpecificPain ? painAreas : []), ...chronicAreas])];
+  ctx.injuryAreas = injuryAreas;
+
+  if (injuryAreas.length > 0 && ctx.slot_type !== 'rest') {
+    const forbiddenTags = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
+    if (forbiddenTags.length > 0) {
+      const before = ctx.pool.length;
+      ctx.pool = ctx.pool.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        return !forbiddenTags.some(ft => tags.includes(ft));
+      });
+      ctx.trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${before} → ${ctx.pool.length} exercises`);
+    }
+    if (ctx.pool.length < 3) {
+      const safePool = exercises.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        const forbiddenTags2 = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
+        if (forbiddenTags2.some(ft => tags.includes(ft))) return false;
+        return tags.includes('mobility') || tags.includes('recovery');
+      });
+      const toAdd = seededShuffle(safePool, date).slice(0, 3 - ctx.pool.length);
+      ctx.pool = [...ctx.pool, ...toAdd];
+      ctx.trace.push(`R564 — Pool < 3 after injury filter → added ${toAdd.length} safe mobility/recovery exercises`);
+    }
+    const AREA_LABELS = { knee: 'knee', shoulder: 'shoulder', lower_back: 'lower back', ankle: 'ankle' };
+    const noteAreas = injuryAreas.map(a => AREA_LABELS[a] ?? a).join(' & ');
+    _addNote(ctx, `Session adjusted for ${noteAreas} discomfort. Stop any exercise that causes sharp or worsening pain.`);
+    ctx.trace.push(`R565 — Session note added for injury areas: ${noteAreas}`);
+  }
+
+  // R559
+  const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
+  if (recoveryMode && !isMilCoachActive && !pregnancyContext) {
+    ctx.intensity = 'low';
+    ctx.pool = ctx.pool.filter(ex => {
+      const tags = JSON.parse(ex.tags_json || '[]');
+      return tags.includes('mobility') || tags.includes('recovery') || ex.category === 'mobility' || ex.category === 'recovery';
+    });
+    ctx.trace.push('R559 — Recovery mode → low intensity, mobility/recovery pool');
+  }
+
+  // R515
+  if (checkIn?.no_clothing) {
+    ctx.pool = ctx.pool.filter(ex => {
+      const tags = JSON.parse(ex.tags_json || '[]');
+      return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
+    });
+    ctx.trace.push(`R515 — No clothing → stealth filter (${ctx.pool.length} exercises remain)`);
+  }
+
+  // R516
+  const ALWAYS_AVAILABLE = new Set(['none', 'chair']);
+  if (ctx.forceBodyweight || ctx.profileBodyweightOnly) {
+    ctx.pool = ctx.pool.filter(ex => {
+      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+      return equip.every(e => ALWAYS_AVAILABLE.has(e));
+    });
+    const reason = ctx.forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
+    ctx.trace.push(`R516 — Bodyweight only (${reason}) → ${ctx.pool.length} exercises remain`);
+  } else {
+    ctx.pool = ctx.pool.filter(ex => {
+      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+      return equip.every(e => ALWAYS_AVAILABLE.has(e) || ctx.effectiveEquip.includes(e));
+    });
+    ctx.trace.push(`R516 — Equipment filter from profile → ${ctx.pool.length} exercises remain`);
+  }
+
+  // R517
+  const mood = checkIn?.mood ?? null;
+  if (mood !== null) {
+    if (mood <= T.MOOD_LOW) {
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+      else if (ctx.intensity === 'moderate') ctx.intensity = 'low';
+      ctx.trace.push(`R517 — Low mood (${mood}/10) → intensity reduced, recovery bias`);
+    } else if (mood <= T.MOOD_MODERATE) {
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+      ctx.trace.push(`R517 — Below-average mood (${mood}/10) → intensity moderated`);
+    }
+  }
+
+  // R518
+  if (checkIn?.gym_today) {
+    ctx.pool = exercises.filter(ex => {
+      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+      return equip.every(e => GYM_EQUIPMENT.includes(e));
+    });
+    if (checkIn?.no_gear || checkIn?.traveling) {
+      ctx.pool = ctx.pool.filter(ex => {
+        const equip = JSON.parse(ex.equipment_required_json || '["none"]');
+        return equip.includes('none');
+      });
+    }
+    if (checkIn?.no_clothing) {
+      ctx.pool = ctx.pool.filter(ex => {
+        const tags = JSON.parse(ex.tags_json || '[]');
+        return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
+      });
+    }
+    ctx.trace.push(`R518 — Gym today → gym equipment unlocked (${ctx.pool.length} exercises available)`);
+  }
 
   // R545/R546: BMI-aware running caution
-  // Running exercises identified by equipment_required containing 'running_shoes'
-  // or treadmill + high_impact tag (treadmill running).
-  // ------------------------------------------------------------------
   const isRunningEx = (ex) => {
     const equip = JSON.parse(ex.equipment_required_json || '["none"]');
     const tags  = JSON.parse(ex.tags_json || '[]');
@@ -1290,366 +1253,282 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       (equip.includes('treadmill') && tags.includes('high_impact'));
   };
 
-  if (bmi !== null && bmi >= T.BMI_MODERATE && slot_type !== 'rest' && !isMilCoachActive) {
+  if (bmi !== null && bmi >= T.BMI_MODERATE && ctx.slot_type !== 'rest' && !isMilCoachActive) {
     const hasPain     = (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR;
     const isNovice    = expLevel === 'beginner';
-    // Strict tier: BMI ≥ 35, OR BMI ≥ 30 with pain — running fully removed
     const strictMode  = bmi >= T.BMI_STRICT || (bmi >= T.BMI_MODERATE && hasPain);
-    // Moderate tier: BMI 30–35, no pain — running allowed but intensity capped
     const moderateMode = !strictMode && bmi >= T.BMI_MODERATE;
 
     if (strictMode) {
-      // R545 — Remove all running; fall back to low-impact cardio
-      const beforeCount = pool.length;
-      pool = pool.filter(ex => !isRunningEx(ex));
-      // If that left no cardio at all, add low-impact cardio back in
-      if (!pool.some(ex => ex.category === 'cardio')) {
+      const beforeCount = ctx.pool.length;
+      ctx.pool = ctx.pool.filter(ex => !isRunningEx(ex));
+      if (!ctx.pool.some(ex => ex.category === 'cardio')) {
         const lowImpact = exercises.filter(ex =>
           ex.category === 'cardio' &&
           JSON.parse(ex.tags_json || '[]').includes('low_impact') &&
           !isRunningEx(ex)
         );
-        pool = [...pool, ...lowImpact];
+        ctx.pool = [...ctx.pool, ...lowImpact];
       }
       const note = bmi >= T.BMI_STRICT
         ? `BMI ${bmi.toFixed(0)}+: Running is removed from today's plan. Cycling, rowing, and brisk walking deliver excellent cardio with far less joint load. Build leg and glute strength first — that's the real foundation for running.`
         : `BMI ${bmi.toFixed(0)} + current discomfort: Swapping running for low-impact cardio today. Listen to your body — pain that changes your gait is a signal to stop.`;
-      addNote(note);
-      if (intensity === 'high') intensity = 'moderate';
-      trace.push(`R545 — BMI ${bmi.toFixed(1)} (strict) — running filtered out (${beforeCount - pool.length} removed), low-impact cardio preferred`);
+      _addNote(ctx, note);
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+      ctx.trace.push(`R545 — BMI ${bmi.toFixed(1)} (strict) — running filtered out (${beforeCount - ctx.pool.length} removed), low-impact cardio preferred`);
     } else if (moderateMode) {
-      // R546 — Keep running but cap intensity + add gradual build-up note
-      if (intensity === 'high') intensity = 'moderate';
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
       const note = isNovice
         ? `BMI ${bmi.toFixed(0)}: Starting with walk-run intervals is the smart play. Aim to increase total running by no more than 10% per week. Strength work for your calves, quads, and glutes will make every run easier.`
         : `BMI ${bmi.toFixed(0)}: Build gradually — no more than 10% more running per week. A run-walk plan works well at this stage. Strength training alongside running significantly reduces injury risk.`;
-      addNote(note);
-      trace.push(`R546 — BMI ${bmi.toFixed(1)} (moderate caution) — run-walk progression recommended, intensity capped at moderate`);
+      _addNote(ctx, note);
+      ctx.trace.push(`R546 — BMI ${bmi.toFixed(1)} (moderate caution) — run-walk progression recommended, intensity capped at moderate`);
     }
   }
 
-  // R583 — Soft BMI pace note (28 < BMI < 30) — below the strict/moderate caution thresholds
-  // Does not filter pool or cap intensity; just adds a session note on cardio-leaning sessions.
-  if (bmi !== null && bmi > 28 && bmi < T.BMI_MODERATE && slot_type !== 'rest' && !isMilCoachActive) {
-    const poolHasCardioOrRun = pool.some(ex => ex.category === 'cardio' || isRunningEx(ex));
+  // R583
+  if (bmi !== null && bmi > 28 && bmi < T.BMI_MODERATE && ctx.slot_type !== 'rest' && !isMilCoachActive) {
+    const poolHasCardioOrRun = ctx.pool.some(ex => isRunningEx(ex) || ex.category === 'cardio');
     if (poolHasCardioOrRun) {
-      addNote(`Pace tip: at your current weight, keeping a conversational pace protects your joints and builds aerobic base faster than pushing hard. If you can't hold a sentence, slow down.`);
-      trace.push(`R583 — BMI ${bmi.toFixed(1)} (28–30 range) — soft pace guidance added for cardio session`);
+      _addNote(ctx, `Pace tip: at your current weight, keeping a conversational pace protects your joints and builds aerobic base faster than pushing hard. If you can't hold a sentence, slow down.`);
+      ctx.trace.push(`R583 — BMI ${bmi.toFixed(1)} (28–30 range) — soft pace guidance added for cardio session`);
     }
   }
+}
 
-  // ------------------------------------------------------------------
-  // Body-aware rules (R520–R525) — standard cycle only
-  // ------------------------------------------------------------------
-  const sex = bodyProfile?.sex ?? null;
-  if (bmi !== null) trace.push(`BMI: ${bmi.toFixed(1)}`);
-  const phase = cycleContext?.phase ?? null;
-  const cycleDay = cycleContext?.day ?? null;
+// ── Stage 3: Body mode policies ───────────────────────────────────────────────
+function _applyBodyModePolicies(ctx) {
+  const { checkIn, exercises, pregnancyContext, cycleContext, bmi } = ctx;
+
+  if (bmi !== null) ctx.trace.push(`BMI: ${bmi.toFixed(1)}`);
+
+  const phase           = cycleContext?.phase ?? null;
+  const cycleDay        = cycleContext?.day ?? null;
   const cycleLengthDays = cycleContext?.cycle_length_days ?? 28;
-  const periodToday = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
+  const periodToday     = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
+  const isMilCoachActive = !!(ctx.prefs?.preferences?.military_coach?.active);
 
-  // Only apply cycle rules when NOT in pregnancy/postnatal mode
-  const isStandardMode = !pregnancyContext || pregnancyContext.mode === undefined;
-
-  if (isStandardMode) {
-    // R520 — Period day override
+  // R520–R525 standard cycle
+  if (ctx.isStandardMode) {
     if (periodToday || phase === 'menstrual') {
-      intensity = 'low';
-      trace.push('R520 — Your body is asking for gentleness today');
+      ctx.intensity = 'low';
+      ctx.trace.push('R520 — Your body is asking for gentleness today');
     }
-
-    // R521 — Follicular energy boost (multiplicative — cannot override a safety reduction)
     if (phase === 'follicular' && (checkIn?.energy ?? 10) >= T.ENERGY_FOLLICULAR && (checkIn?.sleep_hours ?? 8) >= T.SLEEP_FOLLICULAR) {
-      volumeMultiplier *= 1.15;
-      trace.push('R521 — Your energy is building — time to be strong');
+      ctx.volumeMultiplier *= 1.15;
+      ctx.trace.push('R521 — Your energy is building — time to be strong');
     }
-
-    // R522 — Ovulation peak
     if (phase === 'ovulation') {
-      addNote('Take an extra minute to warm up today — your body is ready to perform.');
-      trace.push('R522 — You\'re at your peak — let\'s make the most of it');
+      _addNote(ctx, 'Take an extra minute to warm up today — your body is ready to perform.');
+      ctx.trace.push('R522 — You\'re at your peak — let\'s make the most of it');
     }
-
-    // R523 — Late luteal wind-down
     if (phase === 'luteal') {
       const isLateLuteal = cycleDay != null && cycleDay >= (cycleLengthDays - 5);
       if (isLateLuteal) {
-        if (intensity === 'high') intensity = 'moderate';
-        if (intensity === 'moderate' && (checkIn?.stress ?? 0) >= T.STRESS_LUTEAL) intensity = 'low';
-        trace.push('R523 — Winding down this week, staying consistent');
+        if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+        if (ctx.intensity === 'moderate' && (checkIn?.stress ?? 0) >= T.STRESS_LUTEAL) ctx.intensity = 'low';
+        ctx.trace.push('R523 — Winding down this week, staying consistent');
       }
     }
   }
 
-  // ------------------------------------------------------------------
-  // R526 — Perimenopause mode
-  // Standard cycle rules (R520–R525) are bypassed (isStandardMode = false).
-  // Perimenopause: hormonal volatility → cap at moderate, lower stress
-  // threshold from 7 to 5, inject mobility on high-stress days.
-  // Does NOT disable coaches (running/cycling/military still active).
-  // ------------------------------------------------------------------
+  // R526
   if (pregnancyContext?.mode === 'perimenopause') {
-    if (intensity === 'high') { intensity = 'moderate'; }
+    if (ctx.intensity === 'high') { ctx.intensity = 'moderate'; }
     const periStress = checkIn?.stress ?? 0;
     if (periStress >= 5) {
-      intensity = 'low';
-      trace.push('R526 — Perimenopause + elevated stress ≥5 → low intensity, mobility focus');
+      ctx.intensity = 'low';
+      ctx.trace.push('R526 — Perimenopause + elevated stress ≥5 → low intensity, mobility focus');
     } else {
-      trace.push('R526 — Perimenopause mode: intensity capped at moderate, cycle rules paused');
+      ctx.trace.push('R526 — Perimenopause mode: intensity capped at moderate, cycle rules paused');
     }
   }
 
-  // ==================================================================
-  // PREGNANCY RULES (R530–R537)
-  // ==================================================================
+  // R530–R537 Pregnancy
   if (pregnancyContext?.mode === 'pregnant') {
-    const week = pregnancyContext.week ?? 1;
-    const trimester = pregnancyContext.trimester ?? 1;
-    const nauseaToday = checkIn?.pregnancy_signals?.nausea ?? false;
+    const week          = pregnancyContext.week ?? 1;
+    const trimester     = pregnancyContext.trimester ?? 1;
+    const nauseaToday   = checkIn?.pregnancy_signals?.nausea ?? false;
     const breathlessToday = checkIn?.pregnancy_signals?.breathless ?? false;
 
-    // R530 — Intensity cap by trimester
     if (trimester === 3) {
-      if (intensity === 'high' || intensity === 'moderate') intensity = 'low';
-      trace.push('R530 — T3: intensity capped at low');
+      if (ctx.intensity === 'high' || ctx.intensity === 'moderate') ctx.intensity = 'low';
+      ctx.trace.push('R530 — T3: intensity capped at low');
     } else {
-      if (intensity === 'high') intensity = 'moderate';
-      trace.push(`R530 — T${trimester}: intensity capped at moderate`);
+      if (ctx.intensity === 'high') ctx.intensity = 'moderate';
+      ctx.trace.push(`R530 — T${trimester}: intensity capped at moderate`);
     }
-
-    // R531 — Supine filter after week 16
     if (week >= T.PREGNANCY_SUPINE_WEEK) {
-      pool = pool.filter(ex => !hasTags(ex, 'supine'));
-      trace.push(`R531 — Week ${week}: supine exercises filtered out`);
+      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'supine'));
+      ctx.trace.push(`R531 — Week ${week}: supine exercises filtered out`);
     }
-
-    // R532 — High impact excluded throughout pregnancy
-    pool = pool.filter(ex => !hasTags(ex, 'high_impact'));
-    trace.push('R532 — High-impact exercises excluded during pregnancy');
-
-    // R533 — Absolute exclusions
-    pool = pool.filter(ex => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
-    // Prone excluded from T2 onwards
+    ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'high_impact'));
+    ctx.trace.push('R532 — High-impact exercises excluded during pregnancy');
+    ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
     if (trimester >= 2) {
-      pool = pool.filter(ex => !hasTags(ex, 'prone'));
-      trace.push('R533 — T2+: prone exercises excluded');
+      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'prone'));
+      ctx.trace.push('R533 — T2+: prone exercises excluded');
     }
-    trace.push('R533 — Absolute exclusions: valsalva, inversion, crunch');
-
-    // R534 — Pelvic floor inclusion T2+
-    // Handled after step building
-
-    // R535 — Nausea override → recovery/breathing
+    ctx.trace.push('R533 — Absolute exclusions: valsalva, inversion, crunch');
     if (nauseaToday) {
-      slot_type = 'micro';
+      ctx.slot_type = 'micro';
       const nauseaPool = exercises.filter(ex => hasTags(ex, 'breathing', 'recovery') && !hasTags(ex, 'high_impact', 'supine'));
-      if (nauseaPool.length) pool = nauseaPool;
-      addNote('Gentle movement only today. Listen to your body — rest is always the right choice.');
-      trace.push('R535 — Nausea today → breathing/recovery focus');
+      if (nauseaPool.length) ctx.pool = nauseaPool;
+      _addNote(ctx, 'Gentle movement only today. Listen to your body — rest is always the right choice.');
+      ctx.trace.push('R535 — Nausea today → breathing/recovery focus');
     }
-
-    // R536 — T3 breathlessness adaptation
     if (trimester === 3 && breathlessToday) {
-      volumeMultiplier = 0.8;
-      addNote('Shorter intervals today — pause when you need to breathe.');
-      trace.push('R536 — T3 breathlessness → volume ×0.8');
+      ctx.volumeMultiplier = 0.8;
+      _addNote(ctx, 'Shorter intervals today — pause when you need to breathe.');
+      ctx.trace.push('R536 — T3 breathlessness → volume ×0.8');
     }
-
-    // R537 — Post-due-date flag
     if (pregnancyContext.past_due) {
-      addNote('When your baby arrives, switch to postnatal mode in Settings.');
-      trace.push('R537 — Past due date: postnatal transition prompt added');
+      _addNote(ctx, 'When your baby arrives, switch to postnatal mode in Settings.');
+      ctx.trace.push('R537 — Past due date: postnatal transition prompt added');
     }
   }
 
-  // ==================================================================
-  // POSTNATAL RULES (R540–R544)
-  // ==================================================================
+  // R539–R544 Postnatal
   if (pregnancyContext?.mode === 'postnatal') {
     const postnatalCleared = pregnancyContext.postnatal_cleared_for_exercise === 1;
     let postnatalPhase = pregnancyContext.postnatal_phase ?? 'immediate';
-    const birthType = pregnancyContext.postnatal_birth_type ?? null;
-    const isCaesarean = birthType === 'caesarean';
+    const birthType    = pregnancyContext.postnatal_birth_type ?? null;
+    const isCaesarean  = birthType === 'caesarean';
 
-    // ------------------------------------------------------------------
-    // R539 — Postnatal clearance gate: if user has not confirmed exercise
-    //        clearance with a healthcare provider, hold at immediate-phase
-    //        restrictions regardless of how many days have elapsed.
-    //        Prevents auto-phase-advancement before medical sign-off.
-    // ------------------------------------------------------------------
     if (!postnatalCleared && postnatalPhase !== 'immediate') {
       postnatalPhase = 'immediate';
-      // Propagate to pregnancyContext so downstream code (targetCategory, isGentleMode,
-      // session name) consistently sees the held phase and not the time-derived phase.
       pregnancyContext.postnatal_phase = 'immediate';
-      addNote('Your session is kept gentle until you confirm exercise clearance with your healthcare provider. When you\'re cleared, update your status in Settings.');
-      trace.push('R539 — Postnatal clearance not confirmed — holding at immediate-phase restrictions');
+      _addNote(ctx, 'Your session is kept gentle until you confirm exercise clearance with your healthcare provider. When you\'re cleared, update your status in Settings.');
+      ctx.trace.push('R539 — Postnatal clearance not confirmed — holding at immediate-phase restrictions');
     }
 
-    // R540 — Phase absolute rules: filter pool by allowed exercise tags
     if (postnatalPhase === 'immediate') {
-      // Only pelvic floor, breathing, and recovery
-      pool = exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'));
-      intensity = 'low';
-      slot_type = pool.length ? slot_type : 'rest';
-      trace.push('R540 — Immediate phase: pelvic floor, breathing, recovery only');
+      ctx.pool = exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'));
+      ctx.intensity = 'low';
+      ctx.slot_type = ctx.pool.length ? ctx.slot_type : 'rest';
+      ctx.trace.push('R540 — Immediate phase: pelvic floor, breathing, recovery only');
     } else if (postnatalPhase === 'early') {
-      // Pelvic floor + mobility (no strength, no high impact)
-      pool = exercises.filter(ex =>
+      ctx.pool = exercises.filter(ex =>
         hasTags(ex, 'pelvic_floor', 'breathing', 'recovery') ||
         (ex.category === 'mobility' && hasTags(ex, 'low_impact') && !hasTags(ex, 'high_impact'))
       );
-      intensity = 'low';
-      trace.push('R540 — Early phase: pelvic floor, breathing, light mobility');
+      ctx.intensity = 'low';
+      ctx.trace.push('R540 — Early phase: pelvic floor, breathing, light mobility');
     } else if (postnatalPhase === 'rebuilding') {
-      // Add bodyweight strength, exclude high impact, crunch, valsalva
-      pool = exercises.filter(ex => {
+      ctx.pool = exercises.filter(ex => {
         if (hasTags(ex, 'high_impact', 'crunch', 'valsalva')) return false;
-        if (hasTags(ex, 'dumbbell') && !hasTags(ex, 'pelvic_floor')) return false; // no dumbbells yet
+        if (hasTags(ex, 'dumbbell') && !hasTags(ex, 'pelvic_floor')) return false;
         return true;
       });
       if (isCaesarean) {
-        pool = pool.filter(ex => !hasTags(ex, 'prone'));
-        trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
+        ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'prone'));
+        ctx.trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
       }
-      addNote('Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.');
-      trace.push('R540 — Rebuilding phase: bodyweight only, no crunch/high-impact');
-      trace.push('R543 — Diastasis recti check reminder added');
+      _addNote(ctx, 'Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.');
+      ctx.trace.push('R540 — Rebuilding phase: bodyweight only, no crunch/high-impact');
+      ctx.trace.push('R543 — Diastasis recti check reminder added');
     } else if (postnatalPhase === 'strengthening') {
-      // Introduce dumbbells, still exclude high impact
-      pool = exercises.filter(ex => !hasTags(ex, 'high_impact', 'crunch', 'valsalva'));
-      trace.push('R540 — Strengthening phase: dumbbells introduced, high-impact excluded');
+      ctx.pool = exercises.filter(ex => !hasTags(ex, 'high_impact', 'crunch', 'valsalva'));
+      ctx.trace.push('R540 — Strengthening phase: dumbbells introduced, high-impact excluded');
     } else {
-      // returning — most exercises allowed, exclude valsalva
-      pool = exercises.filter(ex => !hasTags(ex, 'valsalva'));
+      ctx.pool = exercises.filter(ex => !hasTags(ex, 'valsalva'));
       const runningToday = checkIn?.postnatal_signals?.running_today ?? false;
       if (runningToday) {
-        addNote('Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.');
-        trace.push('R544 — Running clearance note added');
+        _addNote(ctx, 'Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.');
+        ctx.trace.push('R544 — Running clearance note added');
       }
-      trace.push('R540 — Returning phase: full programme, no valsalva');
+      ctx.trace.push('R540 — Returning phase: full programme, no valsalva');
     }
 
-    // Always exclude supine from postnatal if caesarean and early
     if (isCaesarean && (postnatalPhase === 'immediate' || postnatalPhase === 'early')) {
-      pool = pool.filter(ex => !hasTags(ex, 'supine'));
+      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'supine'));
     }
-
-    if (!pool.length) pool = [...exercises].filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
-
-    // R541 — Pelvic floor always included (immediate, early, rebuilding)
-    // Handled after step building
+    if (!ctx.pool.length) ctx.pool = [...exercises].filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
   }
+}
 
-  const inSpecialMode = pregnancyContext?.mode === 'pregnant' || pregnancyContext?.mode === 'postnatal';
+// ── Stage 4: Select coach blueprint ──────────────────────────────────────────
+function _selectCoachBlueprint(ctx) {
+  const { checkIn, exercises, prefs, date } = ctx;
+  const { bmi, expLevel, budget, unlimited, rawBudget, effectiveEquip, forceBodyweight, inSpecialMode, isProEnabled } = ctx;
 
-  // ------------------------------------------------------------------
-  // R555 — Safe running build-up: replace generic long runs with
-  //        a level-appropriate run/walk interval exercise.
-  //        Level is driven by conditioning.endurance progression score,
-  //        so decay from skipped sessions automatically reduces intensity.
-  //        Does NOT fire in pregnancy/postnatal mode or BMI strict mode.
-  // ------------------------------------------------------------------
+  // bmiStrictForRun must be computed after R514 (slot_type may now be 'rest')
   const bmiStrictForRun = bmi !== null && (bmi >= T.BMI_STRICT || (bmi >= T.BMI_MODERATE && (checkIn?.pain_level ?? 0) >= T.PAIN_BMI_COFACTOR));
-  const hasRunningShoes = (effectiveEquip.includes('running_shoes') || effectiveEquip.includes('treadmill'))
-    && !inSpecialMode && !bmiStrictForRun && slot_type !== 'rest' && !forceBodyweight;
+  ctx.bmiStrictForRun = bmiStrictForRun;
 
-  // WARN: if BMI is unknown and running would otherwise be assigned, R545/R546 are silently skipped.
-  // Users without height/weight in their profile receive no weight-aware safety guidance.
+  const hasRunningShoes = (effectiveEquip.includes('running_shoes') || effectiveEquip.includes('treadmill'))
+    && !inSpecialMode && !bmiStrictForRun && ctx.slot_type !== 'rest' && !forceBodyweight;
+  ctx.hasRunningShoes = hasRunningShoes;
+
+  const runCoach = ctx.runCoach;
   if (bmi === null && (hasRunningShoes || (runCoach?.enrolled && !runCoach?.completed && !inSpecialMode))) {
-    trace.push('WARN R545/R546 — BMI unknown (height or weight missing from profile): weight-aware running safety rules skipped');
+    ctx.trace.push('WARN R545/R546 — BMI unknown (height or weight missing from profile): weight-aware running safety rules skipped');
   }
 
-  let r555PinnedEx = null; // set inside R555 block; survives category filter below
+  // R555
   if (hasRunningShoes) {
-    // Remove continuous long-run exercises — replaced by progressive intervals
     const genericRunSlugs = new Set([
       'easy-run-outdoor', 'run-intervals-outdoor', 'tempo-run-outdoor', 'treadmill-run-steady',
     ]);
-    const before = pool.length;
-    pool = pool.filter(ex => !genericRunSlugs.has(ex.slug));
-
-    // Pick level from conditioning endurance score (defaults to 15 = Level 1 for new users)
-    const condScore = progressionState?.scores?.conditioning?.endurance ?? 15;
+    const before = ctx.pool.length;
+    ctx.pool = ctx.pool.filter(ex => !genericRunSlugs.has(ex.slug));
+    const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
     const runLevel = condScore < T.RUN_LEVEL_2 ? 1
       : condScore < T.RUN_LEVEL_3 ? 2
       : condScore < T.RUN_LEVEL_4 ? 3
       : condScore < T.RUN_LEVEL_5 ? 4
       : condScore < T.RUN_LEVEL_6 ? 5 : 6;
-
     const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
-    if (intervalEx && !pool.some(ex => ex.id === intervalEx.id)) {
-      pool = [intervalEx, ...pool];
+    if (intervalEx && !ctx.pool.some(ex => ex.id === intervalEx.id)) {
+      ctx.pool = [intervalEx, ...ctx.pool];
     }
-    if (intervalEx) r555PinnedEx = intervalEx;
-    trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${genericRunSlugs.size - (before - pool.length - (intervalEx ? 1 : 0))} generic runs replaced)`);
+    if (intervalEx) ctx.r555PinnedEx = intervalEx;
+    ctx.trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${genericRunSlugs.size - (before - ctx.pool.length - (intervalEx ? 1 : 0))} generic runs replaced)`);
   }
 
-  // ------------------------------------------------------------------
-  // R556 — Running Coach Program: prescribe run sessions on any
-  //        training day when enrolled, with time-aware level selection.
-  //        Fires on any non-rest, non-micro day — custom schedules work.
-  //        Session level never regresses due to time constraints.
-  // ------------------------------------------------------------------
-  let runProgramOverride = null;
+  // R556
+  const planDateMs = ctx.planDateMs;
   const runProgramActive = isProEnabled && runCoach?.enrolled && !runCoach?.completed
     && !inSpecialMode && !bmiStrictForRun && !forceBodyweight
-    && slot_type !== 'rest' && slot_type !== 'micro';
+    && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
 
   if (runProgramActive) {
     const sessionInWeek = runCoach.session_in_week ?? 0;
-    // Allow any training day: just need a different calendar day since last run
-    // and fewer than 3 sessions completed this week in the program
     const lastRunDate = runCoach.last_run_at_ms
       ? new Date(runCoach.last_run_at_ms).toISOString().slice(0, 10)
       : null;
-    const enoughRest = !lastRunDate || lastRunDate < date;
-    // Rolling 7-day window: up to 3 run sessions per week (fixed for standalone run coach)
-    const weekNotFull = runSessionsLast7 < 3;
+    const enoughRest  = !lastRunDate || lastRunDate < date;
+    const weekNotFull = ctx.runSessionsLast7 < 3;
 
     if (enoughRest && weekNotFull) {
-      // Prefer DB-backed programme schedule; fall back to embedded RUN_PROGRAMS constant
-      const programWeeks = (runPrograms?.[runCoach.target_km ?? 5]) ?? RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
-      // Mirror execution.js regression: if >7 days since last run, step back one week
+      const programWeeks = (ctx.runPrograms?.[runCoach.target_km ?? 5]) ?? RUN_PROGRAMS[runCoach.target_km ?? 5] ?? RUN_PROGRAMS[5];
       const daysSinceLastRun = runCoach.last_run_at_ms
         ? Math.floor((planDateMs - runCoach.last_run_at_ms) / 86_400_000)
         : 0;
-      const storedWeek = runCoach.week ?? 1;
+      const storedWeek    = runCoach.week ?? 1;
       const effectiveWeek = (daysSinceLastRun > 7 && storedWeek > 1) ? Math.max(1, storedWeek - 1) : storedWeek;
       if (effectiveWeek < storedWeek) {
-        trace.push(`R556 — Back after ${daysSinceLastRun}-day break — plan stepping back to Week ${effectiveWeek} to rebuild safely`);
-        addNote(`Back after a ${daysSinceLastRun}-day break — starting at Week ${effectiveWeek} to protect your body and set you up for a strong return.`);
+        ctx.trace.push(`R556 — Back after ${daysSinceLastRun}-day break — plan stepping back to Week ${effectiveWeek} to rebuild safely`);
+        _addNote(ctx, `Back after a ${daysSinceLastRun}-day break — starting at Week ${effectiveWeek} to protect your body and set you up for a strong return.`);
       }
-      const weekIdx = Math.min(effectiveWeek - 1, programWeeks.length - 1);
-      const weekConfig = programWeeks[weekIdx]; // { hiit: N, zone2: N }
-      // session_in_week 1 = Zone 2 (mid-week easy run); 0 and 2 = HIIT
-      const isZone2Session = sessionInWeek === 1;
+      const weekIdx    = Math.min(effectiveWeek - 1, programWeeks.length - 1);
+      const weekConfig = programWeeks[weekIdx];
+      const isZone2Session  = sessionInWeek === 1;
       const sessionTypeLabel = isZone2Session ? 'Zone 2' : 'Intervals';
 
-      // ── Experience-level offset ────────────────────────────────────
-      // Beginners get 2 levels lower (shorter/easier exercise) so their
-      // zone2 session stays at interval level rather than a 25-min continuous run.
-      // Advanced runners get +1 level to keep it appropriately challenging.
-      // This ensures the same program week feels right for every runner.
-      const runExpOffset = expLevel === 'beginner' ? -2 : expLevel === 'advanced' ? 1 : 0;
+      const runExpOffset   = expLevel === 'beginner' ? -2 : expLevel === 'advanced' ? 1 : 0;
       const basePrescribed = isZone2Session ? weekConfig.zone2 : weekConfig.hiit;
       const prescribedLevel = Math.max(1, basePrescribed + runExpOffset);
-      trace.push(`R556 — Experience offset: ${expLevel} → level ${basePrescribed}${runExpOffset !== 0 ? `+${runExpOffset}=${prescribedLevel}` : ''}`);
+      ctx.trace.push(`R556 — Experience offset: ${expLevel} → level ${basePrescribed}${runExpOffset !== 0 ? `+${runExpOffset}=${prescribedLevel}` : ''}`);
 
-      // ── Time-aware exercise selection ─────────────────────────────
-      // Total run time for an exercise: fixed_sets × (base_duration + rest) or just base_duration
       const getRunTotalSec = (ex) => {
         const m = JSON.parse(ex?.metrics_json || '{}');
         if (m.fixed_sets != null) return m.fixed_sets * ((m.base_duration_sec ?? 0) + (m.custom_rest_sec ?? 0));
         return m.base_duration_sec ?? 0;
       };
-      const sessionDurSec = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60; // 999 = no limit: pick highest appropriate level
-      const warmupOverheadSec = 4 * 45; // 4 warmup exercises × ~45s each
-      const availableRunSec = Math.max(600, sessionDurSec - warmupOverheadSec);
-
-      // Find the highest level of the prescribed type that fits available time.
-      // For beginners: allow zone2 sessions to use interval levels (1–6) if the
-      // offset pushed the prescribed level below 7 — this is intentional.
+      const sessionDurSec     = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60;
+      const warmupOverheadSec = 4 * 45;
+      const availableRunSec   = Math.max(600, sessionDurSec - warmupOverheadSec);
       const minLevel = (isZone2Session && prescribedLevel >= 7) ? 7 : 1;
       let effectiveLevel = minLevel;
       for (let lvl = minLevel; lvl <= prescribedLevel; lvl++) {
@@ -1657,96 +1536,74 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         const candidate = exercises.find(e => e.slug === slug);
         if (candidate && getRunTotalSec(candidate) <= availableRunSec) effectiveLevel = lvl;
       }
-
       const runSlug = effectiveLevel <= 6
         ? `run-interval-level-${effectiveLevel}`
         : `run-continuous-level-${effectiveLevel}`;
-      const runEx = exercises.find(ex => ex.slug === runSlug);
+      const runEx   = exercises.find(ex => ex.slug === runSlug);
       const warmUps = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
 
       if (runEx && warmUps.length) {
-        // Advisory note when session was shortened to fit available time (not shown for unlimited sessions)
         if (effectiveLevel < prescribedLevel && !unlimited) {
-          const shortMin = Math.round(getRunTotalSec(runEx) / 60);
+          const shortMin       = Math.round(getRunTotalSec(runEx) / 60);
           const prescribedSlug = prescribedLevel <= 6 ? `run-interval-level-${prescribedLevel}` : `run-continuous-level-${prescribedLevel}`;
-          const fullMin = Math.round(getRunTotalSec(exercises.find(e => e.slug === prescribedSlug) ?? {}) / 60);
-          const budgetMin = rawBudget;
-          const note = `Today's run was shortened to fit your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal.`;
-          addNote(note);
-          trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
+          const fullMin        = Math.round(getRunTotalSec(exercises.find(e => e.slug === prescribedSlug) ?? {}) / 60);
+          const budgetMin      = rawBudget;
+          _addNote(ctx, `Today's run was shortened to fit your ${budgetMin}-minute session — ${shortMin} min instead of the full ${fullMin} min. Your level stays exactly where it is. Consistency is the goal.`);
+          ctx.trace.push(`R556 — Time adjusted: Level ${prescribedLevel}→${effectiveLevel} (${shortMin}min fits ${budgetMin}min window)`);
         }
-
         const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
-        runProgramOverride = { warmUps, runEx, cooldownWalk, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
-        trace.push(`R556 — Running Coach: Week ${effectiveWeek}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
+        ctx.runProgramOverride = { warmUps, runEx, cooldownWalk, week: runCoach.week ?? 1, level: effectiveLevel, sessionType: sessionTypeLabel };
+        ctx.trace.push(`R556 — Running Coach: Week ${effectiveWeek}, ${sessionTypeLabel}, Level ${effectiveLevel} (${runEx.name})`);
       }
     }
   }
 
-  // ------------------------------------------------------------------
-  // R557 — Cycling Coach Program: prescribe structured cycling sessions
-  //        from unified workout_protocols + workout_protocol_steps;
-  //        falls back to cycling_workouts if protocol pool is empty.
-  //        Sub-goal rotation selects workout type per session (3-session
-  //        weekly cycle). 7-week block periodization: base → build → recovery.
-  //        Scalable interval workouts adjust repetition count to time budget.
-  // ------------------------------------------------------------------
-
-  let cyclingProgramOverride = null;
+  // R557
   const cycleCoach = prefs?.preferences?.cycling_coach;
   const hasCyclingEquipment = effectiveEquip.some(e => CYCLING_EQUIPMENT.includes(e));
   const cyclingProgramActive = isProEnabled && cycleCoach?.active && hasCyclingEquipment
-    && !inSpecialMode && !runProgramOverride
-    && slot_type !== 'rest' && slot_type !== 'micro';
+    && !inSpecialMode && !ctx.runProgramOverride
+    && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
 
   if (cyclingProgramActive) {
-    const ccSessionInWeek = cycleCoach.session_in_week ?? 0;
-    const ccSessionsTotal = cycleCoach.sessions_total ?? 0;
+    const ccSessionInWeek  = cycleCoach.session_in_week ?? 0;
+    const ccSessionsTotal  = cycleCoach.sessions_total ?? 0;
     const cyclingDaysPerWeek = cycleCoach.cycling_days_per_week ?? 3;
     const lastRideDate = cycleCoach.last_ride_at_ms
       ? new Date(cycleCoach.last_ride_at_ms).toISOString().slice(0, 10)
       : null;
-    const enoughRest = !lastRideDate || lastRideDate < date;
-    // Rolling 7-day window for cycling slots
-    const weekNotFull = cyclingSessionsLast7 < cyclingDaysPerWeek;
-    // Short time budget: prefer cross-training run over a short cycling session
+    const enoughRest     = !lastRideDate || lastRideDate < date;
+    const weekNotFull    = ctx.cyclingSessionsLast7 < cyclingDaysPerWeek;
     const crossTrainEnabled = !!(cycleCoach.run_cross_training && (cycleCoach.run_days_per_week ?? 0) > 0);
-    const shortTimeBudget = !!(checkIn?.time_budget && checkIn.time_budget < 40);
-    const crossRunsUsed = crossRunsLast7 >= (cycleCoach.run_days_per_week ?? 0);
+    const shortTimeBudget   = !!(checkIn?.time_budget && checkIn.time_budget < 40);
+    const crossRunsUsed     = ctx.crossRunsLast7 >= (cycleCoach.run_days_per_week ?? 0);
     const skipCyclingForRun = shortTimeBudget && crossTrainEnabled && !crossRunsUsed;
 
-    if (enoughRest && weekNotFull && !skipCyclingForRun && cyclingWorkouts.length > 0) {
-      const subGoal = cycleCoach.sub_goal ?? 'build_fitness';
-      const profile = CYCLING_PROFILES[subGoal] ?? CYCLING_PROFILES.build_fitness;
+    if (enoughRest && weekNotFull && !skipCyclingForRun && ctx.cyclingWorkouts.length > 0) {
+      const subGoal   = cycleCoach.sub_goal ?? 'build_fitness';
+      const profile   = CYCLING_PROFILES[subGoal] ?? CYCLING_PROFILES.build_fitness;
       const blockPhase = getCyclingBlockPhase(ccSessionsTotal);
-      // Recovery week: always endurance regardless of rotation position
-      let targetType = blockPhase === 'recovery' ? 'endurance' : profile[ccSessionInWeek % 3];
+      let targetType  = blockPhase === 'recovery' ? 'endurance' : profile[ccSessionInWeek % 3];
 
-      // ------------------------------------------------------------------
-      // R557b — TSB-aware autoregulation (requires cyclingTsb from DB)
-      //   TSB < -25: high fatigue → force easy endurance regardless of rotation
-      //   TSB > +5 in build phase: very fresh → promote quality session type
-      // ------------------------------------------------------------------
-      if (cyclingTsb !== null) {
-        if (cyclingTsb < -25) {
+      // R557b
+      if (ctx.cyclingTsb !== null) {
+        if (ctx.cyclingTsb < -25) {
           targetType = 'endurance';
-          trace.push(`R557b — TSB ${cyclingTsb} < -25: fatigue override → endurance`);
-        } else if (cyclingTsb > 5 && blockPhase === 'build') {
-          const qualityType = profile[1]; // middle slot = quality session per sub-goal
+          ctx.trace.push(`R557b — TSB ${ctx.cyclingTsb} < -25: fatigue override → endurance`);
+        } else if (ctx.cyclingTsb > 5 && blockPhase === 'build') {
+          const qualityType = profile[1];
           if (qualityType && qualityType !== 'endurance') {
             targetType = qualityType;
-            trace.push(`R557b — TSB ${cyclingTsb} > +5 + build phase: freshness → ${qualityType}`);
+            ctx.trace.push(`R557b — TSB ${ctx.cyclingTsb} > +5 + build phase: freshness → ${qualityType}`);
           }
         }
       }
 
-      // Pick from DB pool: prefer sub_goal + type match, broaden if empty
-      let cwPool = cyclingWorkouts.filter(w => w.sub_goal === subGoal && w.workout_type === targetType);
-      if (!cwPool.length) cwPool = cyclingWorkouts.filter(w => w.workout_type === targetType);
-      if (!cwPool.length) cwPool = cyclingWorkouts.filter(w => w.sub_goal === subGoal);
-      if (!cwPool.length) cwPool = cyclingWorkouts;
+      let cwPool = ctx.cyclingWorkouts.filter(w => w.sub_goal === subGoal && w.workout_type === targetType);
+      if (!cwPool.length) cwPool = ctx.cyclingWorkouts.filter(w => w.workout_type === targetType);
+      if (!cwPool.length) cwPool = ctx.cyclingWorkouts.filter(w => w.sub_goal === subGoal);
+      if (!cwPool.length) cwPool = ctx.cyclingWorkouts;
 
-      // Endurance: pick duration closest to budget. Intervals: rotate by date for variety.
       let selectedWorkout;
       if (targetType === 'endurance') {
         selectedWorkout = cwPool.reduce((best, w) =>
@@ -1757,18 +1614,18 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         selectedWorkout = cwPool[dateHash % cwPool.length];
       }
 
-      const rawIntervals = JSON.parse(selectedWorkout.intervals_json);
+      const rawIntervals    = JSON.parse(selectedWorkout.intervals_json);
       const scaledIntervals = scaleCyclingIntervals(rawIntervals, budget < 999 ? budget : null);
-      const tssPlanned = calcCyclingTSS(scaledIntervals);
+      const tssPlanned      = calcCyclingTSS(scaledIntervals);
       const totalDurationSec = scaledIntervals.reduce((s, iv) => s + iv.duration_sec * (iv.sets ?? 1), 0);
-      const sessionMin = Math.round(totalDurationSec / 60);
-      const coachNote = buildCyclingCoachNote(selectedWorkout, scaledIntervals, cycleCoach);
+      const sessionMin      = Math.round(totalDurationSec / 60);
+      const coachNote       = buildCyclingCoachNote(selectedWorkout, scaledIntervals, cycleCoach);
 
-      const sessionTagMap = { endurance: 'zone2', sweet_spot: 'sweet_spot', threshold: 'hiit', vo2max: 'hiit', anaerobic: 'hiit' };
-      const sessionTag = sessionTagMap[targetType] ?? 'hiit';
+      const sessionTagMap   = { endurance: 'zone2', sweet_spot: 'sweet_spot', threshold: 'hiit', vo2max: 'hiit', anaerobic: 'hiit' };
+      const sessionTag      = sessionTagMap[targetType] ?? 'hiit';
       const sessionTypeLabel = { endurance: 'Zone 2', sweet_spot: 'Sweet Spot', threshold: 'Threshold', vo2max: 'VO2max', anaerobic: 'Anaerobic' }[targetType] ?? 'Intervals';
-
       const cyclingEquipUsed = effectiveEquip.find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
+
       const cyclingStep = {
         exercise_id: `cycling_coach_${targetType}_${selectedWorkout.slug}`,
         exercise_slug: selectedWorkout.slug,
@@ -1788,7 +1645,7 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         intervals_json: JSON.stringify(scaledIntervals),
       };
 
-      cyclingProgramOverride = {
+      ctx.cyclingProgramOverride = {
         step: cyclingStep,
         week: cycleCoach.week ?? 1,
         sessionType: sessionTypeLabel,
@@ -1797,58 +1654,46 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         workout_id: selectedWorkout.id,
         tss_planned: tssPlanned,
       };
-      trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/${cyclingDaysPerWeek} · ${subGoal} · ${targetType} · ${selectedWorkout.name} · ${sessionMin}min · TSS≈${tssPlanned} (${blockPhase})`);
+      ctx.trace.push(`R557 — Cycling Coach: Week ${cycleCoach.week ?? 1} session ${ccSessionInWeek + 1}/${cyclingDaysPerWeek} · ${subGoal} · ${targetType} · ${selectedWorkout.name} · ${sessionMin}min · TSS≈${tssPlanned} (${blockPhase})`);
     }
   }
 
-  // ------------------------------------------------------------------
-  // R557c — Cycling Cross-Training Run: prescribe a run session on days
-  //   when the cycling slot is full (rest day) or time budget is too
-  //   short for productive cycling (<40 min). Uses shadow ramp-up level
-  //   stored in cycling_coach.run_level. Grows at same pace as running
-  //   coach but progresses more slowly (every 3 sessions).
-  //   Fires only when cross-training is enabled and slots remain.
-  // ------------------------------------------------------------------
-  let crossTrainingOverride = null;
+  // R557c
   const crossTrainCycleCoach = prefs?.preferences?.cycling_coach;
   const crossTrainActive = cyclingProgramActive
     && !!(crossTrainCycleCoach?.run_cross_training)
     && (crossTrainCycleCoach?.run_days_per_week ?? 0) > 0
-    && !cyclingProgramOverride; // no cross-train when cycling already prescribed
+    && !ctx.cyclingProgramOverride;
 
   if (crossTrainActive) {
-    const runDaysPerWeek = crossTrainCycleCoach.run_days_per_week ?? 1;
-    const crossRunSlotAvail = crossRunsLast7 < runDaysPerWeek;
+    const runDaysPerWeek     = crossTrainCycleCoach.run_days_per_week ?? 1;
+    const crossRunSlotAvail  = ctx.crossRunsLast7 < runDaysPerWeek;
     const cyclingDaysPerWeekCt = crossTrainCycleCoach.cycling_days_per_week ?? 3;
-    const cyclingSlotFull = cyclingSessionsLast7 >= cyclingDaysPerWeekCt;
-    const shortTimeCt = !!(checkIn?.time_budget && checkIn.time_budget < 40);
-    const lastCrossRunDate = crossTrainCycleCoach.last_cross_run_at_ms
+    const cyclingSlotFull    = ctx.cyclingSessionsLast7 >= cyclingDaysPerWeekCt;
+    const shortTimeCt        = !!(checkIn?.time_budget && checkIn.time_budget < 40);
+    const lastCrossRunDate   = crossTrainCycleCoach.last_cross_run_at_ms
       ? new Date(crossTrainCycleCoach.last_cross_run_at_ms).toISOString().slice(0, 10)
       : null;
-    const enoughRunRest = !lastCrossRunDate || lastCrossRunDate < date;
+    const enoughRunRest  = !lastCrossRunDate || lastCrossRunDate < date;
     const shouldCrossRun = crossRunSlotAvail && enoughRunRest && (cyclingSlotFull || shortTimeCt);
 
     if (shouldCrossRun) {
       const runLevel = crossTrainCycleCoach.run_level ?? 1;
-      // Step down level if time is very tight (< 25 min → skip; 25-39 min → step down 2)
       let effectiveLevel = runLevel;
       if (checkIn?.time_budget && checkIn.time_budget < 25) {
-        effectiveLevel = 0; // skip — too short for any useful run
+        effectiveLevel = 0;
       } else if (checkIn?.time_budget && checkIn.time_budget < 40) {
         effectiveLevel = Math.max(1, runLevel - 2);
       }
-
       if (effectiveLevel > 0) {
-        const runSlug = effectiveLevel <= 6
-          ? `run-interval-level-${effectiveLevel}`
-          : `run-level-${effectiveLevel}`;
-        const runEx = exercises.find(ex => ex.slug === runSlug);
+        const runSlug  = effectiveLevel <= 6 ? `run-interval-level-${effectiveLevel}` : `run-level-${effectiveLevel}`;
+        const runEx    = exercises.find(ex => ex.slug === runSlug);
         const warmUpEx = exercises.find(ex => ex.slug === 'easy-jog-warmup');
         const cooldownEx = exercises.find(ex => ex.slug === 'cooldown-walk');
         if (runEx) {
           const reason = cyclingSlotFull ? 'rest day fill' : 'short time — swapped from cycling';
-          trace.push(`R557c — Cross-training run: Level ${effectiveLevel} (${runEx.name}) · ${reason} · ${crossRunsLast7}/${runDaysPerWeek} runs this window`);
-          crossTrainingOverride = {
+          ctx.trace.push(`R557c — Cross-training run: Level ${effectiveLevel} (${runEx.name}) · ${reason} · ${ctx.crossRunsLast7}/${runDaysPerWeek} runs this window`);
+          ctx.crossTrainingOverride = {
             warmUps: warmUpEx ? [warmUpEx] : [],
             runEx,
             cooldownWalk: cooldownEx ?? null,
@@ -1859,102 +1704,62 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
-  // ------------------------------------------------------------------
-  // R568 — Polarised training: balance HIIT and Zone 2 in general
-  //        endurance sessions. Removes the opposing endurance type from
-  //        the pool so only the preferred type competes for selection.
-  //        Activates when sport_prefs.polarised_training is enabled.
-  //
-  //        Priority rule (Philosophy 2 > Philosophy 8):
-  //        If life rules (sleep, stress, mood, period) have already forced
-  //        intensity to 'low', the body is signalling recovery. HIIT is
-  //        inappropriate — override to Zone 2 regardless of last type.
-  //        This ensures "Adjust the Sport to Your Life" takes precedence
-  //        over polarised training preferences.
-  // ------------------------------------------------------------------
+  // R568
   const polarisedOn = isProEnabled && prefs?.preferences?.sport_prefs?.polarised_training;
-  if (polarisedOn && !runProgramOverride && !inSpecialMode && slot_type !== 'rest') {
+  if (polarisedOn && !ctx.runProgramOverride && !inSpecialMode && ctx.slot_type !== 'rest') {
     const lastType = prefs?.preferences?.sport_prefs?.last_endurance_type ?? null;
-    // Philosophy priority: if intensity was forced to low by a life rule, always prefer
-    // Zone 2 today — even if last session was Zone 2. Body recovery > training balance.
-    const lifeRuleReducedIntensity = intensity === 'low';
-    const nextType = lifeRuleReducedIntensity ? 'zone2' : (lastType === 'hiit' ? 'zone2' : 'hiit');
+    const lifeRuleReducedIntensity = ctx.intensity === 'low';
+    const nextType     = lifeRuleReducedIntensity ? 'zone2' : (lastType === 'hiit' ? 'zone2' : 'hiit');
     const opposingType = nextType === 'hiit' ? 'zone2' : 'hiit';
-    const poolWithTags = pool.map(ex => ({ ex, tags: JSON.parse(ex.tags_json || '[]') }));
+    const poolWithTags = ctx.pool.map(ex => ({ ex, tags: JSON.parse(ex.tags_json || '[]') }));
     const preferredCount = poolWithTags.filter(({ tags }) => tags.includes(nextType)).length;
     if (preferredCount > 0) {
-      pool = poolWithTags.filter(({ tags }) => !tags.includes(opposingType)).map(({ ex }) => ex);
+      ctx.pool = poolWithTags.filter(({ tags }) => !tags.includes(opposingType)).map(({ ex }) => ex);
       const reasonNote = lifeRuleReducedIntensity ? ' (life-rule override: intensity=low → zone2)' : '';
-      trace.push(`R568 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
+      ctx.trace.push(`R568 — Polarised: last=${lastType ?? 'none'}, promoting ${nextType}${reasonNote} (${preferredCount} exercises), removed ${opposingType}`);
     }
   }
 
-  // ==================================================================
-  // MILITARY COACH RULES (R570–R582)
-  // Active when military_coach.active is set in preferences.
-  // Not gated on isPro — available at Basic tier.
-  // Does NOT fire in pregnancy (special mode) or on rest/micro days.
-  // ==================================================================
-  let militaryProgramOverride = null; // type, steps/warmUps/runEx, week, sessionType
-  let militarySessionType = null;     // raw session type string, passed to return object
-  let militaryMarchKg  = 0;
-  let militaryMarchSec = 0;
-  let milWeekComputed  = 1;
-  // Ordered exercise list from program_template_items for strength sessions.
-  // Non-null → used as direct session content; null → pool path (fallback).
-  let militaryDbSelection = null;
-
+  // R570–R582 Military
   const milCoach = prefs?.preferences?.military_coach;
   const militaryActive = !!(milCoach?.active) && !inSpecialMode
-    && slot_type !== 'rest' && slot_type !== 'micro';
+    && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
 
   if (militaryActive) {
-    // R570 — computeMilitaryPhase() is the single source of truth for week/phase/session-type.
     const {
       milWeek, blockIdx, cyclePosn, milGroup, sessionType, milVol, checkInOverride,
     } = computeMilitaryPhase(milCoach, checkIn, date);
-    milWeekComputed = milWeek; // milWeek = blockNum for session label compatibility
-    militarySessionType = sessionType;
-
-    // R578 — Volume multiplier from 6-block periodization cycle.
-    volumeMultiplier = Math.min(volumeMultiplier, milVol);
-    trace.push(`R570 — Military Coach: ${milGroup} Block${milWeek}.${blockIdx + 1}/4 [cycle${cyclePosn}] → ${sessionType} (vol ×${milVol.toFixed(2)}${checkInOverride ? ` — check-in override: ${checkInOverride}` : ''})`);
+    ctx.milWeekComputed   = milWeek;
+    ctx.militarySessionType = sessionType;
+    ctx.volumeMultiplier  = Math.min(ctx.volumeMultiplier, milVol);
+    ctx.trace.push(`R570 — Military Coach: ${milGroup} Block${milWeek}.${blockIdx + 1}/4 [cycle${cyclePosn}] → ${sessionType} (vol ×${milVol.toFixed(2)}${checkInOverride ? ` — check-in override: ${checkInOverride}` : ''})`);
 
     if (sessionType === 'rust') {
-      // R570 — Military rest day
-      slot_type = 'rest';
-      trace.push('R570 — Military scheduled rest day');
+      ctx.slot_type = 'rest';
+      ctx.trace.push('R570 — Military scheduled rest day');
 
     } else if (sessionType === 'cooper_test') {
-      // R576 — Cooper test milestone session (W1 baseline, W4 mid, W6 taper)
-      const cooperEx    = exercises.find(ex => ex.slug === '12-minute-cooper-test');
-      const warmUps     = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
-      const warmupJog   = exercises.find(ex => ex.slug === 'easy-jog-warmup');
+      const cooperEx     = exercises.find(ex => ex.slug === '12-minute-cooper-test');
+      const warmUps      = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const warmupJog    = exercises.find(ex => ex.slug === 'easy-jog-warmup');
       const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (cooperEx) {
         const milWeekLabel = !milCoach.last_cooper_distance_m ? 'baseline'
           : cyclePosn === 6 ? 'assessment simulation' : 'progress check';
-        militaryProgramOverride = {
-          type: 'cooper_test',
-          warmUps,
-          warmupJog,
-          cooperEx,
-          cooldownWalk,
-          week: milWeek,
-          sessionType: 'Cooper Test',
-          label: milWeekLabel,
+        ctx.militaryProgramOverride = {
+          type: 'cooper_test', warmUps, warmupJog, cooperEx, cooldownWalk,
+          week: milWeek, sessionType: 'Cooper Test', label: milWeekLabel,
         };
-        trace.push(`R576 — Military Cooper test (${milWeekLabel})`);
+        ctx.trace.push(`R576 — Military Cooper test (${milWeekLabel})`);
       }
 
     } else if (sessionType === 'duurloop') {
-      // R571 — Zone 2 run: delegate to progressive continuous run levels
-      const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
-      const offset     = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
-      const targetLvl  = Math.max(7, peakLevels.zone2 + offset);
-      const sessionDurSec = unlimited ? Number.MAX_SAFE_INTEGER : budget * 60;
-      const availRunSec   = Math.max(600, sessionDurSec - 4 * 45); // warmup overhead
-      let effectiveLvl = 7;
+      const peakLevels   = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
+      const offset       = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
+      const targetLvl    = Math.max(7, peakLevels.zone2 + offset);
+      const sessionDurSec = ctx.unlimited ? Number.MAX_SAFE_INTEGER : budget * 60;
+      const availRunSec  = Math.max(600, sessionDurSec - 4 * 45);
+      let effectiveLvl   = 7;
       for (let lvl = 7; lvl <= targetLvl; lvl++) {
         const ex = exercises.find(e => e.slug === `run-continuous-level-${lvl}`);
         if (ex) {
@@ -1966,170 +1771,147 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
       const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (runEx && warmUps.length) {
-        militaryProgramOverride = { type: 'duurloop', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Zone 2 Run' };
-        trace.push(`R571 — Military duurloop: run-continuous-level-${effectiveLvl} (target ${targetLvl})`);
+        ctx.militaryProgramOverride = { type: 'duurloop', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Zone 2 Run' };
+        ctx.trace.push(`R571 — Military duurloop: run-continuous-level-${effectiveLvl} (target ${targetLvl})`);
       }
 
     } else if (sessionType === 'interval') {
-      // R572 — HIIT run intervals
       const peakLevels = MIL_CLUSTER_RUN_PEAK[milGroup] ?? { zone2: 9, hiit: 3 };
       const offset     = MIL_RUN_WEEK_OFFSET[cyclePosn - 1] ?? 0;
       const targetLvl  = Math.max(1, Math.min(6, peakLevels.hiit + (offset < 0 ? offset : 0)));
-      const runEx    = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
-      const warmUps  = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
+      const runEx      = exercises.find(ex => ex.slug === `run-interval-level-${targetLvl}`);
+      const warmUps    = exercises.filter(ex => JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
       const cooldownWalk = exercises.find(ex => ex.slug === 'cooldown-walk');
       if (runEx && warmUps.length) {
-        militaryProgramOverride = { type: 'interval', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Intervals' };
-        trace.push(`R572 — Military intervals: run-interval-level-${targetLvl}`);
+        ctx.militaryProgramOverride = { type: 'interval', warmUps, runEx, cooldownWalk, week: milWeek, sessionType: 'Intervals' };
+        ctx.trace.push(`R572 — Military intervals: run-interval-level-${targetLvl}`);
       }
 
     } else {
-      // R573–R575 — Strength / march / circuit
-      // Prefer DB-backed ordered exercise list from program_template_items.
-      // Fallback to military-tag pool when DB items unavailable (< 3 results).
-      if (militaryTemplateItems && militaryTemplateItems.length >= 3) {
-        // R573a — DB-backed: ordered content from program_template_items.
-        // For kracht_marsen: strip march exercises — R574 appends the march step with weight.
+      // R573–R575 strength / march / circuit
+      if (ctx.militaryTemplateItems && ctx.militaryTemplateItems.length >= 3) {
         let dbItems = sessionType === 'kracht_marsen'
-          ? militaryTemplateItems.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('march'))
-          : militaryTemplateItems;
-        // Injury safety: filter loads_* exercises. Keep full list if fewer than 3 survive.
-        if (injuryAreas.length > 0) {
+          ? ctx.militaryTemplateItems.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('march'))
+          : ctx.militaryTemplateItems;
+        if (ctx.injuryAreas.length > 0) {
           const safe = dbItems.filter(ex => {
             const tags = JSON.parse(ex.tags_json || '[]');
-            return !injuryAreas.some(a => tags.includes(`loads_${a}`));
+            return !ctx.injuryAreas.some(a => tags.includes(`loads_${a}`));
           });
           if (safe.length >= 3) dbItems = safe;
         }
-        militaryDbSelection = dbItems;
-        trace.push(`R573a — Military DB session: ${dbItems.length} exercises from program_templates`);
+        ctx.militaryDbSelection = dbItems;
+        ctx.trace.push(`R573a — Military DB session: ${dbItems.length} exercises from program_templates`);
       } else {
-        // Fallback: filter pool by military tag (legacy behavior; always safe if tables absent)
-        const milPool = pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
+        const milPool = ctx.pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
         if (milPool.length >= 3) {
-          pool = milPool;
-          trace.push(`R573 — Military pool${militaryTemplateItems !== null ? ' (DB items insufficient — fallback)' : ''}: ${milPool.length} military-tagged exercises`);
+          ctx.pool = milPool;
+          ctx.trace.push(`R573 — Military pool${ctx.militaryTemplateItems !== null ? ' (DB items insufficient — fallback)' : ''}: ${milPool.length} military-tagged exercises`);
         } else {
-          trace.push(`R573 — Military pool too small (${milPool.length}), using full pool`);
+          ctx.trace.push(`R573 — Military pool too small (${milPool.length}), using full pool`);
         }
-
         if (sessionType === 'circuit') {
-          // R575 — Circuit: prefer time-capable exercises for continuous effort
-          const circuitPool = pool.filter(ex => {
+          const circuitPool = ctx.pool.filter(ex => {
             const m = JSON.parse(ex.metrics_json || '{}');
             return m.supports?.includes('time') || m.supports?.includes('reps');
           });
-          if (circuitPool.length >= 3) pool = circuitPool;
-          trace.push(`R575 — Military circuit: ${pool.length} exercises in time/reps pool`);
+          if (circuitPool.length >= 3) ctx.pool = circuitPool;
+          ctx.trace.push(`R575 — Military circuit: ${ctx.pool.length} exercises in time/reps pool`);
         }
       }
 
       if (sessionType === 'kracht_marsen') {
-        // R574 — Kracht+Marsen: compute march parameters, march step added after steps are built
         const prescribedKg  = MIL_MARCH_KG[milGroup]?.[cyclePosn - 1] ?? 0;
         const prescribedSec = MIL_MARCH_SEC[milGroup]?.[cyclePosn - 1] ?? 0;
-
-        // Injury cap: lower_back → 15 kg max, knee → 0 (substitute)
-        const injuryCap  = injuryAreas.includes('lower_back') ? 15
-          : injuryAreas.includes('knee') ? 0 : 999;
-        const weightCap  = Math.min(prescribedKg, injuryCap);
-        // Snap to heaviest owned weight that fits within the cap
-        const ownedWeights = Array.isArray(milCoach.pack_weights_available_kg) && milCoach.pack_weights_available_kg.length > 0
+        const injuryCap     = ctx.injuryAreas.includes('lower_back') ? 15
+          : ctx.injuryAreas.includes('knee') ? 0 : 999;
+        const weightCap     = Math.min(prescribedKg, injuryCap);
+        const ownedWeights  = Array.isArray(milCoach.pack_weights_available_kg) && milCoach.pack_weights_available_kg.length > 0
           ? milCoach.pack_weights_available_kg
-          : milCoach.pack_weight_max_kg != null ? [milCoach.pack_weight_max_kg] : null; // backwards compat
+          : milCoach.pack_weight_max_kg != null ? [milCoach.pack_weight_max_kg] : null;
         if (ownedWeights) {
           const valid = ownedWeights.filter(w => w <= weightCap).sort((a, b) => b - a);
-          militaryMarchKg = valid.length > 0 ? valid[0] : 0;
+          ctx.militaryMarchKg = valid.length > 0 ? valid[0] : 0;
         } else {
-          militaryMarchKg = weightCap;
+          ctx.militaryMarchKg = weightCap;
         }
-        militaryMarchSec = prescribedSec;
+        ctx.militaryMarchSec = prescribedSec;
 
-        if (injuryAreas.includes('knee') && prescribedSec > 0) {
-          // R577 — Knee injury: replace march with walking lunge
-          trace.push('R577 — Knee injury: weighted march replaced with walking lunge');
+        if (ctx.injuryAreas.includes('knee') && prescribedSec > 0) {
+          ctx.trace.push('R577 — Knee injury: weighted march replaced with walking lunge');
           const lungeEx = exercises.find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
-          if (lungeEx) pool = [lungeEx, ...pool.filter(ex => ex.id !== lungeEx.id)];
+          if (lungeEx) ctx.pool = [lungeEx, ...ctx.pool.filter(ex => ex.id !== lungeEx.id)];
         } else if (prescribedSec > 0) {
-          trace.push(`R574 — March: ${militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg)`);
+          ctx.trace.push(`R574 — March: ${ctx.militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg)`);
         }
       }
     }
   }
+}
 
-  // ------------------------------------------------------------------
-  // Determine target category from goal + rules
-  // ------------------------------------------------------------------
+// ── Stage 5: Select exercises ─────────────────────────────────────────────────
+function _selectExercises(ctx) {
+  const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
+  const { goal, bonusSession, inSpecialMode } = ctx;
+  const periodToday = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
+  const phase       = ctx.cycleContext?.phase ?? null;
+
+  // Target category
   let targetCategory;
-
-  if (slot_type === 'rest') {
+  if (ctx.slot_type === 'rest') {
     targetCategory = 'mobility';
   } else if (inSpecialMode) {
-    // For pregnancy: prefer mobility; postnatal immediate/early: pelvic_floor tagged (category=mobility)
     const postnatalPhase = pregnancyContext?.postnatal_phase;
     if (postnatalPhase === 'immediate' || postnatalPhase === 'early') {
-      targetCategory = 'mobility'; // pelvic_floor exercises are in mobility category
+      targetCategory = 'mobility';
     } else {
       targetCategory = 'strength';
     }
   } else if ((checkIn?.stress ?? 0) >= 7 || periodToday || phase === 'menstrual') {
     targetCategory = 'mobility';
   } else {
-    const goal = prefs?.training_goal ?? 'health';
     targetCategory = GOAL_CATEGORY[goal] ?? 'strength';
   }
+  ctx.targetCategory = targetCategory;
 
-  // Filter + seed-shuffle for variety across days
-  // Safety fallback order:
-  //   1. Exercises in target category from the (already safety-filtered) pool
-  //   2. Any exercise from the safety-filtered pool (wrong category but still safe)
-  //   3. Emergency: if pool itself is empty, use a safe subset — NEVER the full unfiltered library
-  //      for pregnancy/postnatal users, to avoid bypassing R531–R533 / R540 filters.
-  let filtered = pool.filter(ex => ex.category === targetCategory);
-  if (!filtered.length) filtered = pool;
+  // Filter + seed-shuffle
+  let filtered = ctx.pool.filter(ex => ex.category === targetCategory);
+  if (!filtered.length) filtered = ctx.pool;
   if (!filtered.length) {
-    // Pool was emptied by safety filters — recover without discarding those filters.
     filtered = inSpecialMode
       ? exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'))
       : [...exercises];
-    trace.push(`WARN R561 — Pool empty after all filters (target: ${targetCategory}); safe fallback applied (inSpecialMode: ${inSpecialMode})`);
+    ctx.trace.push(`WARN R561 — Pool empty after all filters (target: ${targetCategory}); safe fallback applied (inSpecialMode: ${inSpecialMode})`);
   }
   let shuffled = seededShuffle(filtered, date);
 
-  // R555 pin: if the safe-run interval exercise was injected but category filtering
-  // removed it (e.g. goal=strength → targetCategory=strength), prepend it back so
-  // it always appears in the selection for running-shoe users.
-  if (r555PinnedEx && !shuffled.some(ex => ex.id === r555PinnedEx.id) && !runProgramOverride) {
-    shuffled = [r555PinnedEx, ...shuffled];
-    trace.push(`R555 — Interval pinned back after category filter (targetCategory: ${targetCategory})`);
+  // R555 pin: interval exercise pinned back if category filter removed it
+  if (ctx.r555PinnedEx && !shuffled.some(ex => ex.id === ctx.r555PinnedEx.id) && !ctx.runProgramOverride) {
+    shuffled = [ctx.r555PinnedEx, ...shuffled];
+    ctx.trace.push(`R555 — Interval pinned back after category filter (targetCategory: ${targetCategory})`);
   }
 
-  // Sport-bias enabled flag — shared by R560 (target nudge) and R561 (mobility injection)
   const sportBiasEnabled = prefs?.preferences?.sport_prefs?.bias_enabled !== false;
 
-  // ==================================================================
-  // PROGRESSION RULES (R550–R560) — only in standard non-bonus sessions
-  // ==================================================================
-  if (progressionState?.scores && !bonusSession && !inSpecialMode && slot_type !== 'rest') {
-    const progScores  = progressionState.scores;
-    const chartMode   = progressionState.chartMode ?? 'balanced';
+  // R550–R560 Progression
+  if (ctx.progressionState?.scores && !bonusSession && !inSpecialMode && ctx.slot_type !== 'rest') {
+    const progScores  = ctx.progressionState.scores;
+    const chartMode   = ctx.progressionState.chartMode ?? 'balanced';
     const baseTargets = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
     const _sportPrefs = prefs?.preferences?.sport_prefs;
-    const { targets, biasTrace } = (!runProgramOverride && !cyclingProgramOverride && sportBiasEnabled)
-      ? computeSportBiasedTargets(baseTargets, _sportPrefs, runSessionsLast7, cyclingSessionsLast7)
+    const { targets, biasTrace } = (!ctx.runProgramOverride && !ctx.cyclingProgramOverride && sportBiasEnabled)
+      ? computeSportBiasedTargets(baseTargets, _sportPrefs, ctx.runSessionsLast7, ctx.cyclingSessionsLast7)
       : { targets: baseTargets, biasTrace: null };
     if (biasTrace) {
       const adj = Object.entries(biasTrace.adjustments).filter(([, v]) => v !== 0).map(([ax, v]) => `${ax}${v > 0 ? '+' : ''}${v}`).join(', ');
       const guardrailNote = biasTrace.guardrailApplied
         ? ` [guardrail ×${biasTrace.guardrailFactor} — ${biasTrace.weeklyCount} sport sessions/wk]`
         : '';
-      trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${guardrailNote}`);
+      ctx.trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${guardrailNote}`);
     }
-    const axes        = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
+    const axes = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
+    ctx.trace.push('R550 — Progression profile loaded');
 
-    trace.push('R550 — Progression profile loaded');
-
-    // Compute gaps vs goal target
     const gaps = axes.map(axis => ({
       axis,
       current: progGetDisplayScore(progScores, axis, chartMode),
@@ -2139,17 +1921,14 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
 
     const topGap = gaps[0];
 
-    // R551 — Weak-axis compensation: reorder pool to surface exercises for the biggest gap axis.
-    // Within the gap axis pool, sport_support:{primary} tagged exercises are preferred (Phase 3).
     if (topGap && !inSpecialMode) {
-      const gapAxis = topGap.axis;
-      const gapCategory = PROG_AXIS_CATEGORY[gapAxis] ?? targetCategory;
+      const gapAxis       = topGap.axis;
+      const gapCategory   = PROG_AXIS_CATEGORY[gapAxis] ?? targetCategory;
       const primarySport  = prefs?.preferences?.sport_prefs?.primary;
       const sportSupportTag = primarySport ? `sport_support:${primarySport}` : null;
 
-      // If the gap axis maps to a different category than currently planned, augment filtered pool
       if (gapCategory !== targetCategory && targetCategory !== 'mobility') {
-        const gapPool = pool.filter(ex => ex.category === gapCategory);
+        const gapPool = ctx.pool.filter(ex => ex.category === gapCategory);
         if (gapPool.length >= 2) {
           let gapShuffled = seededShuffle(gapPool, date + gapAxis);
           if (sportSupportTag) {
@@ -2157,13 +1936,10 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
             const nonTagged   = gapShuffled.filter(ex => !hasTags(ex, sportSupportTag));
             gapShuffled = [...sportTagged, ...nonTagged];
           }
-          // Blend: take up to 2 gap-axis exercises, then fill with normal pool
           shuffled = [...gapShuffled.slice(0, 2), ...shuffled];
-          trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — added ${Math.min(2, gapShuffled.length)} ${gapCategory} exercise(s) to front of pool`);
+          ctx.trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — added ${Math.min(2, gapShuffled.length)} ${gapCategory} exercise(s) to front of pool`);
         }
       }
-
-      // Reorder within the filtered pool: exercises targeting the gap axis come first
       if (gapCategory === targetCategory) {
         const forGap   = shuffled.filter(ex => progGetExerciseAxis(ex) === gapAxis);
         const forOther = shuffled.filter(ex => progGetExerciseAxis(ex) !== gapAxis);
@@ -2176,95 +1952,90 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         shuffled = [...orderedGap, ...forOther];
         const sportNote = (sportSupportTag && forGap.some(ex => hasTags(ex, sportSupportTag)))
           ? ` (${primarySport}-specific preferred)` : '';
-        trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — prioritised ${forGap.length} exercise(s) in pool${sportNote}`);
+        ctx.trace.push(`R551 — Gap axis: ${gapAxis} (${topGap.current}→${topGap.target}) — prioritised ${forGap.length} exercise(s) in pool${sportNote}`);
       }
     }
 
-    // R552 — Mode-aware volume note (adds to session_notes)
-    if (chartMode === 'power' && intensity === 'low') {
-      trace.push('R552 — Chart mode is Power but intensity is low today — progression gain will be minimal');
+    if (chartMode === 'power' && ctx.intensity === 'low') {
+      ctx.trace.push('R552 — Chart mode is Power but intensity is low today — progression gain will be minimal');
     }
 
-    // R553 — Mobility decay maintenance
     const mob = progScores.mobility;
     const daysSinceMobility = mob?.last_mobility_stimulus_at_ms
-      ? Math.floor((planDateMs - mob.last_mobility_stimulus_at_ms) / 86_400_000)
+      ? Math.floor((ctx.planDateMs - mob.last_mobility_stimulus_at_ms) / 86_400_000)
       : 999;
-    if (daysSinceMobility >= T.MOBILITY_DECAY_DAYS && goal !== 'mobility' && slot_type !== 'rest') {
-      addNote('Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.');
-      trace.push(`R553 — Mobility score decaying (${daysSinceMobility} days) — maintenance note added`);
+    if (daysSinceMobility >= T.MOBILITY_DECAY_DAYS && goal !== 'mobility' && ctx.slot_type !== 'rest') {
+      _addNote(ctx, 'Your mobility hasn\'t been trained in over a week — today\'s session includes some movement quality work to keep it from fading.');
+      ctx.trace.push(`R553 — Mobility score decaying (${daysSinceMobility} days) — maintenance note added`);
     }
 
-    // R554 — Planner explainability: emit the top gap as a user-facing note
     if (topGap && topGap.gap >= T.PROG_GAP_NOTE) {
       const axisLabel = { push:'Push', pull:'Pull', legs:'Legs', core:'Core', conditioning:'Cardio', mobility:'Mobility' }[topGap.axis] ?? topGap.axis;
-      trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
+      ctx.trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
     }
   }
 
-  // How many exercises to include — base from budget, adjusted by goal + experience
+  // Exercise count
   const postnatalPhase = pregnancyContext?.postnatal_phase;
-  const isGentleMode = postnatalPhase === 'immediate' || postnatalPhase === 'early';
+  const isGentleMode   = postnatalPhase === 'immediate' || postnatalPhase === 'early';
   let count;
-  if (slot_type === 'micro' || isGentleMode) {
+  if (ctx.slot_type === 'micro' || isGentleMode) {
     count = 2;
   } else {
-    const baseCount = budget >= 90 ? 8
-      : budget >= 60 ? 7
-      : budget >= 45 ? 6
-      : budget > 35  ? 5
-      : budget > 20  ? 4
+    const baseCount = ctx.budget >= 90 ? 8
+      : ctx.budget >= 60 ? 7
+      : ctx.budget >= 45 ? 6
+      : ctx.budget > 35  ? 5
+      : ctx.budget > 20  ? 4
       : 3;
     const goalMod = GOAL_COUNT_MOD[goal] ?? 0;
-    const expMod = expLevel === 'advanced' ? 1 : expLevel === 'beginner' ? -1 : 0;
+    const expMod  = ctx.expLevel === 'advanced' ? 1 : ctx.expLevel === 'beginner' ? -1 : 0;
     count = Math.max(2, Math.min(10, baseCount + goalMod + expMod));
     if (goalMod !== 0 || expMod !== 0) {
-      trace.push(`R501 — Exercise count: ${baseCount} base + ${goalMod} goal + ${expMod} experience = ${count}`);
+      ctx.trace.push(`R501 — Exercise count: ${baseCount} base + ${goalMod} goal + ${expMod} experience = ${count}`);
     }
   }
-  const milIsRunSession = militaryProgramOverride?.type === 'duurloop' || militaryProgramOverride?.type === 'interval';
-  const milIsCooperTest = militaryProgramOverride?.type === 'cooper_test';
 
-  const baseSelection = runProgramOverride
+  const milIsRunSession = ctx.militaryProgramOverride?.type === 'duurloop' || ctx.militaryProgramOverride?.type === 'interval';
+  const milIsCooperTest = ctx.militaryProgramOverride?.type === 'cooper_test';
+
+  const baseSelection = ctx.runProgramOverride
     ? [
-        ...runProgramOverride.warmUps,
-        runProgramOverride.runEx,
-        ...(runProgramOverride.cooldownWalk ? [runProgramOverride.cooldownWalk] : []),
+        ...ctx.runProgramOverride.warmUps,
+        ctx.runProgramOverride.runEx,
+        ...(ctx.runProgramOverride.cooldownWalk ? [ctx.runProgramOverride.cooldownWalk] : []),
       ]
-    : crossTrainingOverride
+    : ctx.crossTrainingOverride
     ? [
-        ...crossTrainingOverride.warmUps,
-        crossTrainingOverride.runEx,
-        ...(crossTrainingOverride.cooldownWalk ? [crossTrainingOverride.cooldownWalk] : []),
+        ...ctx.crossTrainingOverride.warmUps,
+        ctx.crossTrainingOverride.runEx,
+        ...(ctx.crossTrainingOverride.cooldownWalk ? [ctx.crossTrainingOverride.cooldownWalk] : []),
       ]
-    : cyclingProgramOverride
-    ? [] // cycling uses synthetic step, no DB exercises needed
+    : ctx.cyclingProgramOverride
+    ? []
     : milIsCooperTest
     ? [
-        ...(militaryProgramOverride.warmUps ?? []),
-        ...(militaryProgramOverride.warmupJog ? [militaryProgramOverride.warmupJog] : []),
-        militaryProgramOverride.cooperEx,
-        ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
+        ...(ctx.militaryProgramOverride.warmUps ?? []),
+        ...(ctx.militaryProgramOverride.warmupJog ? [ctx.militaryProgramOverride.warmupJog] : []),
+        ctx.militaryProgramOverride.cooperEx,
+        ...(ctx.militaryProgramOverride.cooldownWalk ? [ctx.militaryProgramOverride.cooldownWalk] : []),
       ]
     : milIsRunSession
     ? [
-        ...militaryProgramOverride.warmUps,
-        militaryProgramOverride.runEx,
-        ...(militaryProgramOverride.cooldownWalk ? [militaryProgramOverride.cooldownWalk] : []),
+        ...ctx.militaryProgramOverride.warmUps,
+        ctx.militaryProgramOverride.runEx,
+        ...(ctx.militaryProgramOverride.cooldownWalk ? [ctx.militaryProgramOverride.cooldownWalk] : []),
       ]
-    // DB-backed military strength session — use template items in prescribed order
-    : militaryDbSelection
-    ? militaryDbSelection
+    : ctx.militaryDbSelection
+    ? ctx.militaryDbSelection
     : shuffled.slice(0, count);
 
-  // R561 — Sport-specific mobility injection
-  // Injects one sport_mobility:{primary} tagged exercise at the end of standard sessions
-  // when the selection doesn't already contain one. Bypassed for coach-specific sessions.
+  // R561 sport mobility injection
   let selection = baseSelection;
   if (
-    sportBiasEnabled && !inSpecialMode && !runProgramOverride && !crossTrainingOverride
-    && !cyclingProgramOverride && !militaryProgramOverride && !militaryDbSelection
-    && slot_type !== 'rest'
+    sportBiasEnabled && !inSpecialMode && !ctx.runProgramOverride && !ctx.crossTrainingOverride
+    && !ctx.cyclingProgramOverride && !ctx.militaryProgramOverride && !ctx.militaryDbSelection
+    && ctx.slot_type !== 'rest'
   ) {
     const primarySport = prefs?.preferences?.sport_prefs?.primary;
     if (primarySport) {
@@ -2277,36 +2048,39 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         if (injPool.length > 0) {
           const inj = seededShuffle(injPool, date + 'r561')[0];
           selection = [...baseSelection, inj];
-          trace.push(`R561 — Sport mobility injection: ${inj.name} added for ${primarySport}`);
+          ctx.trace.push(`R561 — Sport mobility injection: ${inj.name} added for ${primarySport}`);
         }
       }
     }
   }
 
-  // ------------------------------------------------------------------
-  // Build steps
-  // ------------------------------------------------------------------
-  // Experience → rep/duration scale and set modifier
-  const expRepScale   = { beginner: 0.8, intermediate: 1.0, advanced: 1.2 };
-  const expSetMod     = { beginner: -1,  intermediate: 0,   advanced:  1  };
-  const repScale  = expRepScale[expLevel]  ?? 1.0;
-  const setOffset = expSetMod[expLevel]    ?? 0;
+  ctx.selection = selection;
+  ctx.shuffled  = shuffled;
+}
 
-  // Goal → base sets (before experience offset)
+// ── Stage 6: Assemble session ─────────────────────────────────────────────────
+function _assembleSession(ctx) {
+  const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
+  const { goal, expLevel, budget, unlimited, rawBudget, selection, targetCategory } = ctx;
+
+  const expRepScale  = { beginner: 0.8, intermediate: 1.0, advanced: 1.2 };
+  const expSetMod    = { beginner: -1,  intermediate: 0,   advanced:  1  };
+  const repScale     = expRepScale[expLevel]  ?? 1.0;
+  const setOffset    = expSetMod[expLevel]    ?? 0;
   const goalSetsBase = GOAL_SETS_BASE[goal] ?? 3;
-  // Goal → rest multiplier
   const goalRestMult = GOAL_REST_MULT[goal] ?? 1.0;
 
-  const steps = slot_type === 'rest' ? [] : cyclingProgramOverride ? [cyclingProgramOverride.step] : selection.map(ex => {
-    const metrics = JSON.parse(ex.metrics_json || '{}');
-    const exTags = JSON.parse(ex.tags_json || '[]');
-    const isRunWarmup = exTags.includes('run_warmup');
-    const supportsReps = metrics.supports?.includes('reps');
-    // base_duration_sec lets conditioning exercises specify their own duration (e.g. 1200 = 20 min)
-    const baseDuration = metrics.base_duration_sec ?? 30;
+  const postnatalPhase = pregnancyContext?.postnatal_phase;
+  const isGentleMode   = postnatalPhase === 'immediate' || postnatalPhase === 'early';
+
+  const steps = ctx.slot_type === 'rest' ? [] : ctx.cyclingProgramOverride ? [ctx.cyclingProgramOverride.step] : selection.map(ex => {
+    const metrics   = JSON.parse(ex.metrics_json || '{}');
+    const exTags    = JSON.parse(ex.tags_json || '[]');
+    const isRunWarmup   = exTags.includes('run_warmup');
+    const supportsReps  = metrics.supports?.includes('reps');
+    const baseDuration  = metrics.base_duration_sec ?? 30;
     let reps = supportsReps ? (isRunWarmup ? 10 : (GOAL_REPS[goal] ?? 10)) : undefined;
 
-    // Determine if this is a weighted (non-bodyweight) exercise for coaching guidance
     const equipmentRequired = JSON.parse(ex.equipment_required_json || '["none"]');
     const isWeighted = supportsReps && equipmentRequired.some(e =>
       ['dumbbell', 'barbell', 'kettlebell', 'cable', 'machine', 'plate', 'resistance_band',
@@ -2316,27 +2090,24 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     const coachingNote = isWeighted ? (GOAL_COACHING_NOTE[goal] ?? null) : null;
     let duration = !supportsReps ? baseDuration : undefined;
 
-    // Long cardio blocks (>5 min) are a single continuous effort — 1 set regardless
-    const isLongCardio = !supportsReps && baseDuration > 300;
-    // Assessment and session-phase exercises have fixed durations — never scale them
+    const isLongCardio   = !supportsReps && baseDuration > 300;
     const isFixedDuration = ex.slug === '12-minute-cooper-test'
       || ex.slug === 'easy-jog-warmup'
       || ex.slug === 'cooldown-walk';
 
-    // Sets: fixed_sets from metrics (run intervals), or goal base + experience offset
     let sets;
-    if (slot_type === 'micro' || isGentleMode || isLongCardio) {
+    if (ctx.slot_type === 'micro' || isGentleMode || isLongCardio) {
       sets = 1;
     } else if (metrics.fixed_sets) {
-      sets = metrics.fixed_sets; // e.g. run intervals prescribe their own interval count
+      sets = metrics.fixed_sets;
     } else {
       sets = Math.max(1, Math.min(5, goalSetsBase + setOffset));
     }
 
-    // R512: Low energy → volume × 0.6 (assessment exercises exempt — duration is fixed by standard)
+    // R512: Low energy → volume × 0.6
     if ((checkIn?.energy ?? 10) <= T.ENERGY_LOW) {
-      if (reps)                      { reps     = Math.floor(reps     * 0.6); trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
-      if (duration && !isFixedDuration) { duration = Math.floor(duration * 0.6); trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
+      if (reps)                         { reps     = Math.floor(reps     * 0.6); ctx.trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
+      if (duration && !isFixedDuration) { duration = Math.floor(duration * 0.6); ctx.trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
     }
 
     // R502: Experience level scales reps AND duration
@@ -2345,75 +2116,69 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       if (duration && !isLongCardio && !isRunWarmup && !isFixedDuration) duration = Math.round(duration * repScale);
     }
 
-    // Apply volume multiplier (R521, R536) — assessment exercises exempt (fixed by standard)
-    if (volumeMultiplier !== 1.0) {
-      if (reps)                        reps     = Math.round(reps     * volumeMultiplier);
-      if (duration && !isFixedDuration) duration = Math.round(duration * volumeMultiplier);
+    // Apply volume multiplier (R521, R536)
+    if (ctx.volumeMultiplier !== 1.0) {
+      if (reps)                         reps     = Math.round(reps     * ctx.volumeMultiplier);
+      if (duration && !isFixedDuration) duration = Math.round(duration * ctx.volumeMultiplier);
     }
 
-    // Clamp reps to sensible range
     if (reps) reps = Math.max(3, Math.min(30, reps));
 
-    // Rest: base from exercise tags + goal multiplier (rounded to nearest 5s)
-    const baseRest = getDefaultRest(ex, slot_type);
+    const baseRest    = getDefaultRest(ex, ctx.slot_type);
     const adjustedRest = Math.round(baseRest * goalRestMult / 5) * 5;
 
     const media = ex.media_json ? JSON.parse(ex.media_json) : {};
     return {
-      exercise_id: ex.id,
+      exercise_id:   ex.id,
       exercise_slug: ex.slug,
-      name: ex.name,
-      category: ex.category,
-      tags_json: ex.tags_json ?? '[]',
+      name:          ex.name,
+      category:      ex.category,
+      tags_json:     ex.tags_json ?? '[]',
       equipment_required_json: ex.equipment_required_json ?? '["none"]',
-      target_reps: reps,
-      target_duration_sec: duration,
+      target_reps:          reps,
+      target_duration_sec:  duration,
       sets,
-      rest_sec: adjustedRest,
-      instructions_json: ex.instructions_json ?? null,
-      alternatives_json: ex.alternatives_json ?? null,
-      gif_url: media.gif_url ?? null,
-      coaching_note: coachingNote,
+      rest_sec:             adjustedRest,
+      instructions_json:    ex.instructions_json ?? null,
+      alternatives_json:    ex.alternatives_json ?? null,
+      gif_url:              media.gif_url ?? null,
+      coaching_note:        coachingNote,
       ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
     };
   });
 
-  // ------------------------------------------------------------------
-  // R574 — Military kracht+marsen: append weighted march step at end
-  // ------------------------------------------------------------------
-  if (militarySessionType === 'kracht_marsen' && militaryMarchSec > 0 && slot_type !== 'rest') {
+  // R574 — Military kracht+marsen: append weighted march step
+  if (ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0 && ctx.slot_type !== 'rest') {
     const marchEx = exercises.find(ex => ex.slug === 'weighted-march');
     if (marchEx) {
-      const kgLabel = militaryMarchKg > 0 ? `${militaryMarchKg} kg` : 'bodyweight';
+      const kgLabel = ctx.militaryMarchKg > 0 ? `${ctx.militaryMarchKg} kg` : 'bodyweight';
       const media   = marchEx.media_json ? JSON.parse(marchEx.media_json) : {};
       steps.push({
-        exercise_id:          marchEx.id,
-        exercise_slug:        marchEx.slug,
-        name:                 marchEx.name,
-        category:             marchEx.category,
-        tags_json:            marchEx.tags_json ?? '[]',
+        exercise_id:   marchEx.id,
+        exercise_slug: marchEx.slug,
+        name:          marchEx.name,
+        category:      marchEx.category,
+        tags_json:     marchEx.tags_json ?? '[]',
         equipment_required_json: marchEx.equipment_required_json ?? '["none"]',
         target_reps:          undefined,
-        target_duration_sec:  militaryMarchSec,
+        target_duration_sec:  ctx.militaryMarchSec,
         sets:                 1,
         rest_sec:             120,
         instructions_json:    marchEx.instructions_json ?? null,
         alternatives_json:    marchEx.alternatives_json ?? null,
         gif_url:              media.gif_url ?? null,
         coaching_note:        `March at 5.5 km/h with ${kgLabel}. Maintain upright posture throughout.`,
-        military_march_kg:    militaryMarchKg, // UI uses this to show pack weight
+        military_march_kg:    ctx.militaryMarchKg,
       });
-      trace.push(`R574 — March step added: ${kgLabel} × ${militaryMarchSec / 60} min`);
+      ctx.trace.push(`R574 — March step added: ${kgLabel} × ${ctx.militaryMarchSec / 60} min`);
     }
   }
 
-  // ------------------------------------------------------------------
-  // R524 — Weight-adjusted volume (bodyweight exercises only)
-  // ------------------------------------------------------------------
-  if (weightKg && steps.length) {
-    const weightRatio = weightKg / 70;
+  // R524 — Weight-adjusted volume (bodyweight exercises)
+  if (ctx.weightKg && steps.length) {
+    const weightRatio = ctx.weightKg / 70;
     for (const step of steps) {
-      const ex = exercises.find(e => e.id === step.exercise_id);
+      const ex   = exercises.find(e => e.id === step.exercise_id);
       const tags = JSON.parse(ex?.tags_json || '[]');
       if (tags.includes('bodyweight') && step.target_reps) {
         const wScale = Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(weightRatio)));
@@ -2422,10 +2187,8 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
-  // ------------------------------------------------------------------
-  // R525 — Sex baseline: ensure ≥1 mobility exercise in main sessions
-  // ------------------------------------------------------------------
-  if (sex === 'female' && slot_type === 'main' && steps.length && isStandardMode && !runProgramOverride) {
+  // R525 — Female mobility inclusion
+  if (ctx.sex === 'female' && ctx.slot_type === 'main' && steps.length && ctx.isStandardMode && !ctx.runProgramOverride) {
     const hasMobility = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
       return ex?.category === 'mobility';
@@ -2439,32 +2202,29 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       if (mobilityEx) {
         const media = mobilityEx.media_json ? JSON.parse(mobilityEx.media_json) : {};
         steps.push({
-          exercise_id: mobilityEx.id,
+          exercise_id:   mobilityEx.id,
           exercise_slug: mobilityEx.slug,
-          name: mobilityEx.name,
-          category: mobilityEx.category,
-          tags_json: mobilityEx.tags_json ?? '[]',
-          target_reps: undefined,
+          name:          mobilityEx.name,
+          category:      mobilityEx.category,
+          tags_json:     mobilityEx.tags_json ?? '[]',
+          target_reps:         undefined,
           target_duration_sec: 30,
-          sets: 1,
-          rest_sec: getDefaultRest(mobilityEx, slot_type),
-          instructions_json: mobilityEx.instructions_json ?? null,
-          alternatives_json: mobilityEx.alternatives_json ?? null,
-          gif_url: media.gif_url ?? null,
+          sets:                1,
+          rest_sec:            getDefaultRest(mobilityEx, ctx.slot_type),
+          instructions_json:   mobilityEx.instructions_json ?? null,
+          alternatives_json:   mobilityEx.alternatives_json ?? null,
+          gif_url:             media.gif_url ?? null,
         });
       }
     }
   }
 
-  // ------------------------------------------------------------------
-  // R534 — Pelvic floor inclusion T2+ (pregnancy)
-  // R541 — Pelvic floor always in immediate/early/rebuilding (postnatal)
-  // ------------------------------------------------------------------
+  // R534/R541 — Pelvic floor inclusion
   const needsPelvicFloor =
     (pregnancyContext?.mode === 'pregnant' && (pregnancyContext?.trimester ?? 1) >= 2) ||
     (pregnancyContext?.mode === 'postnatal' && ['immediate', 'early', 'rebuilding'].includes(pregnancyContext?.postnatal_phase));
 
-  if (needsPelvicFloor && slot_type !== 'rest') {
+  if (needsPelvicFloor && ctx.slot_type !== 'rest') {
     const hasPelvicFloor = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
       return JSON.parse(ex?.tags_json || '[]').includes('pelvic_floor');
@@ -2477,69 +2237,70 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
       if (pfEx) {
         const media = pfEx.media_json ? JSON.parse(pfEx.media_json) : {};
         steps.push({
-          exercise_id: pfEx.id,
+          exercise_id:   pfEx.id,
           exercise_slug: pfEx.slug,
-          name: pfEx.name,
-          category: pfEx.category,
-          tags_json: pfEx.tags_json ?? '[]',
-          target_reps: 10,
+          name:          pfEx.name,
+          category:      pfEx.category,
+          tags_json:     pfEx.tags_json ?? '[]',
+          target_reps:         10,
           target_duration_sec: undefined,
-          sets: 2,
-          rest_sec: getDefaultRest(pfEx, slot_type),
-          instructions_json: pfEx.instructions_json ?? null,
-          alternatives_json: pfEx.alternatives_json ?? null,
-          gif_url: media.gif_url ?? null,
+          sets:                2,
+          rest_sec:            getDefaultRest(pfEx, ctx.slot_type),
+          instructions_json:   pfEx.instructions_json ?? null,
+          alternatives_json:   pfEx.alternatives_json ?? null,
+          gif_url:             media.gif_url ?? null,
         });
         const ruleLabel = pregnancyContext.mode === 'pregnant' ? 'R534' : 'R541';
-        trace.push(`${ruleLabel} — Pelvic floor exercise added`);
+        ctx.trace.push(`${ruleLabel} — Pelvic floor exercise added`);
       }
     }
   }
 
-  // ------------------------------------------------------------------
-  // Pick a template for session naming + structure context
-  // ------------------------------------------------------------------
-  const template = templates?.length
-    ? pickTemplate(templates, slot_type, intensity, budget)
+  // Session naming
+  const template = ctx.templates?.length
+    ? pickTemplate(ctx.templates, ctx.slot_type, ctx.intensity, budget)
     : null;
 
-  // Pregnancy/postnatal vocabulary overrides
+  const milCoach      = prefs?.preferences?.military_coach;
+  const cycleCoach    = prefs?.preferences?.cycling_coach;
+  const militaryActive = !!(milCoach?.active) && !ctx.inSpecialMode
+    && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
+
   let session_name;
   if (pregnancyContext?.mode === 'pregnant') {
-    const trimester = pregnancyContext.trimester ?? 1;
+    const trimester   = pregnancyContext.trimester ?? 1;
     const nauseaToday = checkIn?.pregnancy_signals?.nausea ?? false;
-    if (nauseaToday) session_name = 'Five minutes for you';
+    if (nauseaToday)        session_name = 'Five minutes for you';
     else if (trimester === 3) session_name = 'Strong & supported';
-    else session_name = 'Today\'s movement';
+    else                    session_name = 'Today\'s movement';
   } else if (pregnancyContext?.mode === 'postnatal') {
-    const postnatalPhase = pregnancyContext.postnatal_phase;
-    if (postnatalPhase === 'immediate' || postnatalPhase === 'early') session_name = 'A gentle moment';
-    else if (postnatalPhase === 'rebuilding') session_name = 'Rebuilding your foundation';
-    else session_name = 'Today\'s recovery';
-  } else if (militaryProgramOverride?.type === 'cooper_test') {
-    session_name = `Cooper Test · Block ${militaryProgramOverride.week} · ${militaryProgramOverride.label ?? 'Assessment'}`;
-  } else if (militaryProgramOverride?.type === 'duurloop') {
-    session_name = `Military · Zone 2 Run · Block ${militaryProgramOverride.week}`;
-  } else if (militaryProgramOverride?.type === 'interval') {
-    session_name = `Military · Intervals · Block ${militaryProgramOverride.week}`;
-  } else if (militarySessionType === 'kracht_marsen') {
-    session_name = `Military · Strength & March · Block ${milWeekComputed}`;
-  } else if (militarySessionType === 'circuit') {
-    session_name = `Military · Circuit · Block ${milWeekComputed}`;
-  } else if (militarySessionType === 'kracht' && militaryActive) {
-    session_name = `Military · Strength · Block ${milWeekComputed}`;
-  } else if (runProgramOverride) {
-    session_name = `Running Day · Week ${runProgramOverride.week} · ${runProgramOverride.sessionType}`;
-  } else if (cyclingProgramOverride) {
-    session_name = `Cycling Day · Week ${cyclingProgramOverride.week} · ${cyclingProgramOverride.sessionType}`;
-  } else if (crossTrainingOverride) {
-    session_name = `Cross-Training Run · Level ${crossTrainingOverride.level}`;
-  } else if (slot_type === 'rest') {
+    const pPhase = pregnancyContext.postnatal_phase;
+    if (pPhase === 'immediate' || pPhase === 'early') session_name = 'A gentle moment';
+    else if (pPhase === 'rebuilding')                 session_name = 'Rebuilding your foundation';
+    else                                              session_name = 'Today\'s recovery';
+  } else if (ctx.militaryProgramOverride?.type === 'cooper_test') {
+    session_name = `Cooper Test · Block ${ctx.militaryProgramOverride.week} · ${ctx.militaryProgramOverride.label ?? 'Assessment'}`;
+  } else if (ctx.militaryProgramOverride?.type === 'duurloop') {
+    session_name = `Military · Zone 2 Run · Block ${ctx.militaryProgramOverride.week}`;
+  } else if (ctx.militaryProgramOverride?.type === 'interval') {
+    session_name = `Military · Intervals · Block ${ctx.militaryProgramOverride.week}`;
+  } else if (ctx.militarySessionType === 'kracht_marsen') {
+    session_name = `Military · Strength & March · Block ${ctx.milWeekComputed}`;
+  } else if (ctx.militarySessionType === 'circuit') {
+    session_name = `Military · Circuit · Block ${ctx.milWeekComputed}`;
+  } else if (ctx.militarySessionType === 'kracht' && militaryActive) {
+    session_name = `Military · Strength · Block ${ctx.milWeekComputed}`;
+  } else if (ctx.runProgramOverride) {
+    session_name = `Running Day · Week ${ctx.runProgramOverride.week} · ${ctx.runProgramOverride.sessionType}`;
+  } else if (ctx.cyclingProgramOverride) {
+    session_name = `Cycling Day · Week ${ctx.cyclingProgramOverride.week} · ${ctx.cyclingProgramOverride.sessionType}`;
+  } else if (ctx.crossTrainingOverride) {
+    session_name = `Cross-Training Run · Level ${ctx.crossTrainingOverride.level}`;
+  } else if (ctx.slot_type === 'rest') {
     session_name = 'Active Rest';
-  } else if (slot_type === 'micro') {
+  } else if (ctx.slot_type === 'micro') {
     session_name = 'Micro Session';
   } else {
-    // Use goal-specific name pool, seeded by date for daily variety
     const goalNames = GOAL_SESSION_NAMES[goal];
     if (goalNames?.length) {
       const idx = Math.abs([...date].reduce((h, c) => Math.imul(31, h) + c.charCodeAt(0) | 0, 0)) % goalNames.length;
@@ -2549,51 +2310,51 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
     }
   }
 
-  // ── Exercise ordering: outdoor always last, indoor cardio second-to-last ────
-  const isOutdoorStep = s => JSON.parse(s.tags_json || '[]').includes('outdoor');
+  // Exercise ordering: outdoor always last, indoor cardio second-to-last
+  const isOutdoorStep     = s => JSON.parse(s.tags_json || '[]').includes('outdoor');
   const isIndoorCardioStep = s => {
     const tags = JSON.parse(s.tags_json || '[]');
     return tags.includes('cardio') && !tags.includes('outdoor');
   };
-  const coreSteps        = steps.filter(s => !isOutdoorStep(s) && !isIndoorCardioStep(s));
+  const coreSteps         = steps.filter(s => !isOutdoorStep(s) && !isIndoorCardioStep(s));
   const indoorCardioSteps = steps.filter(s => isIndoorCardioStep(s));
-  const outdoorSteps     = steps.filter(s => isOutdoorStep(s));
+  const outdoorSteps      = steps.filter(s => isOutdoorStep(s));
   const orderedSteps = [...coreSteps, ...indoorCardioSteps, ...outdoorSteps];
   if (indoorCardioSteps.length || outdoorSteps.length) {
-    trace.push(`Ordering — core: ${coreSteps.length}, indoor cardio: ${indoorCardioSteps.length}, outdoor: ${outdoorSteps.length}`);
+    ctx.trace.push(`Ordering — core: ${coreSteps.length}, indoor cardio: ${indoorCardioSteps.length}, outdoor: ${outdoorSteps.length}`);
   }
 
   return {
     date,
-    slot_type,
-    intensity,
+    slot_type:        ctx.slot_type,
+    intensity:        ctx.intensity,
     session_name,
-    template_slug: template?.slug ?? null,
-    target_category: targetCategory,
-    session_notes: sessionNotes,
-    pregnancy_week: pregnancyContext?.week ?? null,
-    trimester: pregnancyContext?.trimester ?? null,
-    postnatal_phase: pregnancyContext?.postnatal_phase ?? null,
-    steps: orderedSteps,
-    experience_level: expLevel ?? 'intermediate',
-    coach_priority: COACH_PRIORITY,
-    rule_trace: trace,
-    run_program: runProgramOverride
-      ? { week: runProgramOverride.week, level: runProgramOverride.level, target_km: runCoach?.target_km ?? 5, session_type: runProgramOverride.sessionType }
+    template_slug:    template?.slug ?? null,
+    target_category:  targetCategory,
+    session_notes:    ctx.sessionNotes,
+    pregnancy_week:   pregnancyContext?.week ?? null,
+    trimester:        pregnancyContext?.trimester ?? null,
+    postnatal_phase:  pregnancyContext?.postnatal_phase ?? null,
+    steps:            orderedSteps,
+    experience_level: ctx.expLevel ?? 'intermediate',
+    coach_priority:   COACH_PRIORITY,
+    rule_trace:       ctx.trace,
+    run_program: ctx.runProgramOverride
+      ? { week: ctx.runProgramOverride.week, level: ctx.runProgramOverride.level, target_km: ctx.runCoach?.target_km ?? 5, session_type: ctx.runProgramOverride.sessionType }
       : null,
-    cycling_program: cyclingProgramOverride
+    cycling_program: ctx.cyclingProgramOverride
       ? {
-          week:        cyclingProgramOverride.week,
-          session_type: cyclingProgramOverride.sessionType,
-          unit:        cycleCoach?.unit ?? 'watts',
-          sub_goal:    cyclingProgramOverride.sub_goal,
-          block_phase: cyclingProgramOverride.block_phase,
-          tss_planned: cyclingProgramOverride.tss_planned,
-          workout_id:  cyclingProgramOverride.workout_id,
+          week:         ctx.cyclingProgramOverride.week,
+          session_type: ctx.cyclingProgramOverride.sessionType,
+          unit:         cycleCoach?.unit ?? 'watts',
+          sub_goal:     ctx.cyclingProgramOverride.sub_goal,
+          block_phase:  ctx.cyclingProgramOverride.block_phase,
+          tss_planned:  ctx.cyclingProgramOverride.tss_planned,
+          workout_id:   ctx.cyclingProgramOverride.workout_id,
         }
       : null,
-    cross_training_run: crossTrainingOverride
-      ? { level: crossTrainingOverride.level }
+    cross_training_run: ctx.crossTrainingOverride
+      ? { level: ctx.crossTrainingOverride.level }
       : null,
     military_program: militaryActive ? (() => {
       const {
@@ -2602,25 +2363,43 @@ function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bo
         clusterLive: retClusterLive, isPostAssessment: retIsPostAssess,
       } = computeMilitaryPhase(milCoach, checkIn, date);
       return {
-        week:                  retBlockNum,    // block number (not calendar week)
-        day:                   retBlockIdx,    // session index within block (0–3)
-        sessions_per_block:    SESSIONS_PER_BLOCK,
-        session_type:          militarySessionType,
-        track:                 milCoach.track ?? 'keuring',
-        cluster_target:        milCoach.cluster_target ?? 1,
-        cluster_current:       retClusterLive,
-        group:                 retGroup,
-        march_kg:              militaryMarchKg  || null,
-        march_sec:             militaryMarchSec || null,
-        target_date:           milCoach.target_date ?? null,
-        mode:                  milCoach.mode ?? 'target',
-        is_base_build:         retInBaseBuild,
-        is_calibration_week:   retCyclePosn === 1,
-        is_deload_week:        retCyclePosn === 5,
-        is_taper_week:         retCyclePosn === 6,
-        is_post_assessment:    retIsPostAssess || milCoach.mode === 'open',
+        week:                   retBlockNum,
+        day:                    retBlockIdx,
+        sessions_per_block:     SESSIONS_PER_BLOCK,
+        session_type:           ctx.militarySessionType,
+        track:                  milCoach.track ?? 'keuring',
+        cluster_target:         milCoach.cluster_target ?? 1,
+        cluster_current:        retClusterLive,
+        group:                  retGroup,
+        march_kg:               ctx.militaryMarchKg  || null,
+        march_sec:              ctx.militaryMarchSec || null,
+        target_date:            milCoach.target_date ?? null,
+        mode:                   milCoach.mode ?? 'target',
+        is_base_build:          retInBaseBuild,
+        is_calibration_week:    retCyclePosn === 1,
+        is_deload_week:         retCyclePosn === 5,
+        is_taper_week:          retCyclePosn === 6,
+        is_post_assessment:     retIsPostAssess || milCoach.mode === 'open',
         last_cooper_distance_m: milCoach.last_cooper_distance_m ?? null,
       };
     })() : null,
   };
+}
+
+// ── Orchestrator ──────────────────────────────────────────────────────────────
+function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+  cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false,
+  cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0,
+  crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null) {
+  const ctx = _initPlannerContext(
+    date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+    cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
+    cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7,
+    crossRunsLast7, militaryTemplateItems, runPrograms
+  );
+  _applySafetyPolicies(ctx);
+  _applyBodyModePolicies(ctx);
+  _selectCoachBlueprint(ctx);
+  _selectExercises(ctx);
+  return _assembleSession(ctx);
 }
