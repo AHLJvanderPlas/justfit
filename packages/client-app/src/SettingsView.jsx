@@ -2968,32 +2968,114 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       </>)}
 
       {/* ── Data export — privacy sub-view ───────────────────── */}
-      {subView === "privacy" && (
+      {subView === "privacy" && (<>
+        {/* ── Privacy Centre header ── */}
+        <div style={{ marginBottom: 24 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Privacy Centre</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
+            JustFit stores only what is needed to run your training. Your data is never sold and never used for advertising. Below is an honest account of what we hold and who can see it.
+          </div>
+        </div>
+
+        {/* ── What we store ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Data</div>
-          <Glass style={{ padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Data export</div>
-            <button disabled={exporting} onClick={async () => {
-              setExporting(true);
-              try {
-                const [progressionRes, historyRes] = await Promise.all([api.getProgression(token), api.getHistory()]);
-                const bundle = { exported_at: new Date().toISOString(), profile: prefs, progression: progressionRes, history: historyRes };
-                const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url; a.download = `justfit-data-${new Date().toISOString().slice(0, 10)}.json`;
-                document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
-                setExportMsg("Downloaded.");
-              } catch { setExportMsg("Export failed — please try again."); }
-              setExporting(false);
-            }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1, marginBottom: 8 }}>
-              {exporting ? "Preparing…" : "Download my data (JSON)"}
-            </button>
-            {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginBottom: 4 }}>{exportMsg}</div>}
-            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Your profile, settings, and workout history as a portable machine-readable file.</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>What we store</div>
+          <Glass style={{ padding: 0 }}>
+            {[
+              { label: "Identity", detail: "Email address, display name", purpose: "Account login and essential notifications", visible: "JustFit only" },
+              { label: "Training history", detail: "Completed workouts, duration, effort, exercise steps", purpose: "Consistency score, progression radar, planner adaptation", visible: "Visible to connected trainer if you are a gym member" },
+              { label: "Training plan", detail: "Daily plan and rule trace", purpose: "Explain every coaching decision — fully traceable", visible: "JustFit only, rule trace visible in 'Why this plan?'" },
+              { label: "Body context", detail: "Sex, weight, height, goal, injuries, cycle / pregnancy data", purpose: "Adapt training safely to your body and life stage", visible: "JustFit only — not shared with trainers" },
+              { label: "Daily check-ins", detail: "Mood, energy, sleep, pain signals, free text", purpose: "Generate today's plan — used once, not retained as a profile", visible: "JustFit only" },
+              { label: "Settings & preferences", detail: "Equipment, sports, coach enrollments, language, accent colour", purpose: "Personalise your daily plan and app experience", visible: "JustFit only" },
+            ].map((row, i, arr) => (
+              <div key={row.label} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.label}</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.visible.startsWith("Visible") ? "#f59e0b" : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
+                    {row.visible.startsWith("Visible") ? "Trainer visible" : "Private"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{row.detail}</div>
+                <div style={{ fontSize: 11, color: C.subtle, marginTop: 3, lineHeight: 1.4 }}>Used for: {row.purpose}</div>
+                {row.visible.startsWith("Visible") && (
+                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 3 }}>{row.visible}</div>
+                )}
+              </div>
+            ))}
           </Glass>
         </div>
-      )}
+
+        {/* ── Trainer visibility (only when connected to a gym) ── */}
+        {prefs.gym_name && (
+          <div style={{ marginBottom: 32 }}>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Trainer visibility</div>
+            <Glass style={{ padding: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>Connected: {prefs.gym_name}</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
+                Your trainer can see your <strong style={{ color: C.text }}>completed workout history</strong> and <strong style={{ color: C.text }}>progression scores</strong> so they can coach you effectively.
+              </div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
+                Your trainer <strong style={{ color: C.text }}>cannot</strong> see: daily check-in free text, body mode details (cycle / pregnancy), injury areas, or your email address.
+              </div>
+            </Glass>
+          </div>
+        )}
+
+        {/* ── Integration data (Strava) ── */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Integration data</div>
+          <Glass style={{ padding: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Strava</div>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.emerald : C.subtle, textTransform: "uppercase" }}>
+                {prefs.strava_connected ? "Connected" : "Not connected"}
+              </div>
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 8 }}>
+              When connected: we read <strong style={{ color: C.text }}>activity type, duration, distance, and heart rate</strong> to power your PMC chart and consistency score.
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+              We do <strong style={{ color: C.text }}>not</strong> store GPS routes, location history, or your Strava contacts. Disconnect at any time in Settings → Your Coach → Integrations.
+            </div>
+          </Glass>
+        </div>
+
+        {/* ── Data controls ── */}
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Your controls</div>
+          <Glass style={{ padding: 24 }}>
+            <div style={{ marginBottom: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>Export your data</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>Download your full profile, settings, and workout history as a portable JSON file.</div>
+              <button disabled={exporting} onClick={async () => {
+                setExporting(true);
+                try {
+                  const [progressionRes, historyRes] = await Promise.all([api.getProgression(token), api.getHistory()]);
+                  const bundle = { exported_at: new Date().toISOString(), profile: prefs, progression: progressionRes, history: historyRes };
+                  const blob = new Blob([JSON.stringify(bundle, null, 2)], { type: 'application/json' });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement('a');
+                  a.href = url; a.download = `justfit-data-${new Date().toISOString().slice(0, 10)}.json`;
+                  document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
+                  setExportMsg("Downloaded.");
+                } catch { setExportMsg("Export failed — please try again."); }
+                setExporting(false);
+              }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1 }}>
+                {exporting ? "Preparing…" : "Download my data (JSON)"}
+              </button>
+              {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginTop: 8 }}>{exportMsg}</div>}
+            </div>
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>Delete your account</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>Permanently removes your account and all associated data. This cannot be undone.</div>
+              <button onClick={() => setSubView("account")} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.06)", color: "#f43f5e" }}>
+                Go to Account settings →
+              </button>
+            </div>
+          </Glass>
+        </div>
+      </>)}
 
       {/* ── Integrations ──────────────────────────────────────────────────── */}
       {subView === "coach" && (
