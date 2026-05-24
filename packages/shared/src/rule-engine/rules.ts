@@ -138,10 +138,16 @@ export function validateWeeklyDistribution(
     }
   }
 
-  if (constraints.weekly_checks.push_pull_balance && pushCount > 0 && pullCount > 0) {
-    const ratio = pushCount / pullCount;
-    if (ratio > 1.5) warnings.push(`R527: Push/pull imbalance — ${pushCount} push vs ${pullCount} pull exercises. Consider adding more pulling work.`);
-    if (ratio < 0.67) warnings.push(`R527: Push/pull imbalance — ${pullCount} pull vs ${pushCount} push exercises. Consider adding more pushing work.`);
+  if (constraints.weekly_checks.push_pull_balance) {
+    if (pushCount > 0 && pullCount === 0) {
+      warnings.push(`R527: Push/pull imbalance — ${pushCount} push vs 0 pull exercises. Add pulling work this week.`);
+    } else if (pullCount > 0 && pushCount === 0) {
+      warnings.push(`R527: Push/pull imbalance — ${pullCount} pull vs 0 push exercises. Add pushing work this week.`);
+    } else if (pushCount > 0 && pullCount > 0) {
+      const ratio = pushCount / pullCount;
+      if (ratio > 1.5) warnings.push(`R527: Push/pull imbalance — ${pushCount} push vs ${pullCount} pull exercises. Consider adding more pulling work.`);
+      if (ratio < 0.67) warnings.push(`R527: Push/pull imbalance — ${pullCount} pull vs ${pushCount} push exercises. Consider adding more pushing work.`);
+    }
   }
 
   if (constraints.weekly_checks.compound_isolation_ratio) {

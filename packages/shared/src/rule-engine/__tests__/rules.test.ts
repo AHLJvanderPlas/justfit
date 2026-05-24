@@ -156,6 +156,22 @@ describe('R527 validateWeeklyDistribution', () => {
     expect(warnings[0]).toContain('R527');
   });
 
+  it('warns on all-push zero-pull week', () => {
+    const allPush: SessionStructure = {
+      blocks: [{ type: 'main', exercises: [
+        { exercise_id: 'bench', exercise_source: 'global', sets: 3, rest_sec: 60, lock_flag: 'open', primary_muscles: ['chest'] },
+        { exercise_id: 'ohp', exercise_source: 'global', sets: 3, rest_sec: 60, lock_flag: 'open', primary_muscles: ['front_delt'] },
+      ]}],
+    };
+    const { warnings } = validateWeeklyDistribution([allPush], {
+      substitution_policy: 'open', missed_session_policy: 'skip',
+      weekly_checks: { push_pull_balance: true },
+    });
+    expect(warnings.length).toBeGreaterThan(0);
+    expect(warnings[0]).toContain('R527');
+    expect(warnings[0]).toContain('0 pull');
+  });
+
   it('no warnings when balanced', () => {
     const balanced: SessionStructure = {
       blocks: [{ type: 'main', exercises: [

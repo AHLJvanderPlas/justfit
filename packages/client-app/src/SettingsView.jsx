@@ -266,7 +266,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   const [byoClientSecret, setByoClientSecret]         = useState(''); // never pre-filled (secret not returned from server)
   const [byoSaving, setByoSaving]                     = useState(false);
   // Pro entitlement — passed from App (entitlements table) or fallback to prefs flag
-  const effectiveIsPro = !!(isPro || effectiveIsPro);
+  const effectiveIsPro = !!(isPro || prefs.isPro);
   // Training Focus
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
