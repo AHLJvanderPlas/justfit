@@ -202,6 +202,19 @@ export async function onRequestPost({ request, env }) {
       isPro = !!isProRow;
     }
 
+    // C-G4: Free users get 1 plan per day — return cached plan if already exists
+    if (user_id && !isPro && !bonus_session) {
+      const existingPlan = await env.DB.prepare(
+        'SELECT plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
+      ).bind(user_id, date).first();
+      if (existingPlan) {
+        try {
+          const cached = JSON.parse(existingPlan.plan_json);
+          return Response.json({ ok: true, saved: true, plan: { ...cached, capped: true } });
+        } catch { /* malformed JSON — fall through and regenerate */ }
+      }
+    }
+
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
       sex:       user_profile?.sex       ?? userProfileRow?.sex       ?? null,
@@ -351,7 +364,9 @@ export async function onRequestPost({ request, env }) {
     // Falls back to null → runPlanner uses existing military pool path.
     // ------------------------------------------------------------------
     let militaryTemplateItems = null;
-    const isMilCoachActiveForFetch = !!(prefs?.preferences?.military_coach?.active);
+    const _pi = prefs?.preferences?.primary_intent ?? null;
+    const isMilCoachActiveForFetch = !!(prefs?.preferences?.military_coach?.active)
+      && (_pi === null || _pi === 'military');
     if (user_id && !bonus_session && isMilCoachActiveForFetch) {
       try {
         const milCoachPrefs = prefs.preferences.military_coach;
@@ -1077,7 +1092,9 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
 // ── Stage 2: Safety policies ──────────────────────────────────────────────────
 function _applySafetyPolicies(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext, bmi, expLevel } = ctx;
-  const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active);
+  const _primaryIntent0 = prefs?.preferences?.primary_intent ?? null;
+  const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active)
+    && (_primaryIntent0 === null || _primaryIntent0 === 'military');
 
   // R510
   if (ctx.budget <= 10 || checkIn?.no_time) {
@@ -1306,7 +1323,9 @@ function _applyBodyModePolicies(ctx) {
   const cycleDay        = cycleContext?.day ?? null;
   const cycleLengthDays = cycleContext?.cycle_length_days ?? 28;
   const periodToday     = checkIn?.checkin_json?.period_today ?? checkIn?.period_today ?? false;
-  const isMilCoachActive = !!(ctx.prefs?.preferences?.military_coach?.active);
+  const _primaryIntent1 = ctx.prefs?.preferences?.primary_intent ?? null;
+  const isMilCoachActive = !!(ctx.prefs?.preferences?.military_coach?.active)
+    && (_primaryIntent1 === null || _primaryIntent1 === 'military');
 
   // R520–R525 standard cycle
   if (ctx.isStandardMode) {
@@ -1722,7 +1741,9 @@ function _selectCoachBlueprint(ctx) {
 
   // R570–R582 Military
   const milCoach = prefs?.preferences?.military_coach;
+  const _primaryIntent2 = prefs?.preferences?.primary_intent ?? null;
   const militaryActive = !!(milCoach?.active) && !inSpecialMode
+    && (_primaryIntent2 === null || _primaryIntent2 === 'military')
     && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
 
   if (militaryActive) {
@@ -2263,7 +2284,9 @@ function _assembleSession(ctx) {
 
   const milCoach      = prefs?.preferences?.military_coach;
   const cycleCoach    = prefs?.preferences?.cycling_coach;
+  const _primaryIntent3 = prefs?.preferences?.primary_intent ?? null;
   const militaryActive = !!(milCoach?.active) && !ctx.inSpecialMode
+    && (_primaryIntent3 === null || _primaryIntent3 === 'military')
     && ctx.slot_type !== 'rest' && ctx.slot_type !== 'micro';
 
   let session_name;

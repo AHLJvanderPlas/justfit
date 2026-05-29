@@ -1749,7 +1749,7 @@ function splitTitle(name) {
   return [upper.slice(0, i), upper.slice(i + 1)];
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade }) {
   const intensityColor = {
     low: "#6ee7b7",
     moderate: C.emerald,
@@ -2056,6 +2056,13 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}>
                     Can't do this today?
                   </button>
+                )}
+                {planCapped && !todayCompleted && (
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
+                    Je dagelijkse plan staat klaar.{" "}
+                    <span onClick={onUpgrade} style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 700 }}>Pro</span>
+                    {" "}gebruikers kunnen opnieuw genereren.
+                  </div>
                 )}
               </>
             ) : (
@@ -4823,6 +4830,8 @@ export default function App() {
                   onNavigateProgress={() => setView('history')}
                   onNavigateCoach={() => setView("coach")}
                   cycle={prefs.cycle}
+                  planCapped={!!(plan?.capped)}
+                  onUpgrade={() => setView("upgrade")}
                 />
               </>
             )}
