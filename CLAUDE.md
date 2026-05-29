@@ -1169,6 +1169,190 @@ None currently. 🟢
 
 ---
 
+## Next Build Queue — Sprint 4 (2026-05-29)
+
+Work through these **sequentially, one deploy per item**. Run `npm run smoke` between each. Do not start C-F5 until C-G1–C-G4 are live.
+
+### isPro check pattern (use this in every new gate)
+
+```js
+// In any Pages Function handler, after resolving userId:
+const entRow = await env.DB.prepare(`
+  SELECT 1 FROM entitlements
+  WHERE user_id = ?
+    AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
+    AND status IN ('active', 'trialing')
+    AND ends_at_ms > ?
+  LIMIT 1
+`).bind(userId, Date.now()).first();
+const isPro = !!entRow;
+```
+
+Never trust `prefs.isPro` alone for gate enforcement — always re-check entitlements server-side.
+
+---
+
+### C-G1 — Strava sync → Pro gate
+
+**Principle:** Strava auto-import is automation at scale. Free users keep manual workout logging. The Strava card stays visible to all users (aspirational marketing); only the connect and sync actions are gated.
+
+**Files:** `functions/api/strava-auth.js`, `functions/api/strava-sync.js`, `packages/client-app/src/SettingsView.jsx`
+
+**Backend — `strava-auth.js` POST handler:**
+After `getAuthUserId`, resolve `isPro`. If `!isPro` return:
+```js
+return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
+```
+
+**Backend — `strava-sync.js` POST handler (`onRequestPost`):**
+Same check immediately after auth, before the connection query. Same 403 response.
+
+**Frontend — `SettingsView.jsx` Integrations section:**
+- When `!isPro`: disable the connect button; show a `"Pro"` badge pill next to the "Strava Import" header; show muted label "Verbind Strava automatisch met je trainingen — beschikbaar met Pro"; add a small upgrade CTA ("Upgrade naar Pro →") that opens `ProGate`.
+- When `isPro`: existing connect/disconnect/sync UI unchanged.
+- Do not hide the Strava card — keep it visible as an aspirational signal.
+
+---
+
+### C-G2 — Push notifications → Pro gate
+
+**Principle:** Daily nudges are automation; the app and plans are fully usable without them.
+
+**Files:** `functions/api/subscribe-push.js`, `packages/client-app/src/SettingsView.jsx`
+
+**Backend — `subscribe-push.js` POST handler:**
+After auth, resolve `isPro`. If `!isPro` return:
+```js
+return Response.json({ error: 'Push notificaties vereisen Pro', requiresUpgrade: true }, { status: 403 });
+```
+GET and DELETE remain ungated (free users should always be able to check and remove subscriptions).
+
+**Frontend — `SettingsView.jsx` Account section (push toggle):**
+- When `!isPro`: render toggle as disabled (`opacity: 0.4`, `pointerEvents: 'none'`); show `"Pro"` badge pill inline; below the toggle add: "Dagelijkse trainingsherinneringen — beschikbaar met Pro" with upgrade CTA.
+- When `isPro`: existing toggle behaviour unchanged.
+
+---
+
+### C-G3 — Execution history → 30-day free / unlimited Pro
+
+**Principle:** Recent data is fully visible. Depth beyond 30 days is a scale feature for athletes who've been consistent for months — exactly the users who will pay.
+
+**Files:** `functions/api/execution.js`, `packages/client-app/src/apiClient.js`, `packages/client-app/src/App.jsx`, `packages/client-app/src/HistoryView.jsx`
+
+**Backend — `execution.js` GET handler:**
+After auth, resolve `isPro`. Build the executions SELECT:
+```js
+const cutoff = isPro ? 0 : Date.now() - 30 * 24 * 60 * 60 * 1000;
+const rows = await env.DB.prepare(`
+  SELECT ... FROM executions
+  WHERE user_id = ?
+    ${isPro ? '' : 'AND created_at_ms >= ?'}
+  ORDER BY created_at_ms DESC
+`).bind(...isPro ? [userId] : [userId, cutoff]).all();
+
+return Response.json({ results: rows.results ?? [], truncated: !isPro });
+```
+
+**Frontend — `apiClient.js`:**
+Update `getHistory()` to return `{ results, truncated }` instead of the raw array. Handle both shapes gracefully during the transition.
+
+**Frontend — `App.jsx`:**
+Update the history state and all consumers to use `history.results` (array) and store `history.truncated` separately.
+
+**Frontend — `HistoryView.jsx`:**
+Accept `historyTruncated` prop. When `true`, render at the bottom of the list:
+```
+┌─────────────────────────────────────────────────┐
+│ Bekijk je volledige trainingsgeschiedenis        │
+│ met Pro →                              [Upgrade] │
+└─────────────────────────────────────────────────┘
+```
+Style: `rgba(255,255,255,0.04)` card, muted text, accent upgrade CTA. Do not hide any existing history entries.
+
+---
+
+### C-G4 — Plan regeneration → 1/day free / unlimited Pro
+
+**Principle:** Every user gets a daily plan. Re-rolling for a different session is a depth/control feature.
+
+**Files:** `functions/api/plan.js`, `packages/client-app/src/App.jsx`
+
+**Backend — `plan.js` `onRequestPost`:**
+After auth and `isPro` check, when `!isPro`:
+```js
+const existing = await env.DB.prepare(
+  'SELECT plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
+).bind(userId, today).first();
+if (existing) {
+  const plan = JSON.parse(existing.plan_json);
+  return Response.json({ ...plan, capped: true });
+}
+```
+Pro users skip this block entirely — always regenerate.
+
+**Frontend — `App.jsx`:**
+- When `plan?.capped === true`: suppress the regenerate button/icon; below the session card show a single muted line: "Je dagelijkse plan staat klaar — Pro gebruikers kunnen opnieuw genereren" with a small inline upgrade link.
+- When `plan?.capped` is absent or `false`: existing regenerate behaviour unchanged.
+- Set `plan.capped` to `false` on first load if undefined (defensive default).
+
+---
+
+### C-F5 — Defensie readiness pathway (in-app, free, target-mode military users)
+
+**Strategic note:** Military Coach is free permanently. This feature packages the existing coach data into a purpose-built readiness screen — it is the acquisition hook, not a monetisation surface. Pro monetisation for this audience flows through C-G1 (Strava), C-G2 (nudges), and C-G3 (full history).
+
+**Files:** `packages/client-app/src/App.jsx` (CoachView section only)
+
+**No migrations needed.** All data is already in `prefs.military_coach` and `progression` — both already passed as props to CoachView.
+
+**Target-mode users** (`milActive && prefs.military_coach?.mode === 'target' && prefs.military_coach?.target_date`):
+
+Add a `KeuringReadinessCard` above the level ladder in CoachView:
+
+```
+┌──────────────────────────────────────────────┐
+│  KEURING  •  over 34 dagen                   │  ← accent chip + countdown
+├──────────────────────────────────────────────┤
+│  ✓  1500m loop         K4: ≤ 6:05            │
+│  ○  Push-ups           K4: ≥ 28              │  ← 4 Defensie test items
+│  ○  Pull-ups           K4: ≥ 4               │    derived from cluster_current
+│  ○  Mars 5km + 10kg    K4: ≤ 35:00           │
+├──────────────────────────────────────────────┤
+│  Zwakste as: Cardio — focus hierop deze week │  ← from progression.scores
+└──────────────────────────────────────────────┘
+│  JustFit is niet gelieerd aan Defensie of    │
+│  het Ministerie van Defensie.                │  ← disclaimer, muted 11px
+```
+
+Test norms per cluster level live as a `KEURING_NORMS` constant in `App.jsx` (plain object, no DB):
+```js
+const KEURING_NORMS = {
+  // cluster: { run_sec, pushups, pullups, march_label }
+  0: { run_sec: 420, pushups: 20, pullups: 2,  march: '40:00' }, // Basis
+  1: { run_sec: 390, pushups: 23, pullups: 3,  march: '37:00' }, // K1
+  2: { run_sec: 375, pushups: 25, pullups: 4,  march: '35:00' }, // K2
+  3: { run_sec: 365, pushups: 27, pullups: 5,  march: '33:00' }, // K3
+  4: { run_sec: 365, pushups: 28, pullups: 4,  march: '35:00' }, // K4
+  5: { run_sec: 350, pushups: 30, pullups: 6,  march: '32:00' }, // K5
+  6: { run_sec: 330, pushups: 35, pullups: 8,  march: '30:00' }, // K6
+};
+```
+Show norms for `cluster_target` (what they're aiming for), not `cluster_current`. Mark each item ✓ (emerald) or ○ (muted) based on last Cooper distance vs norm and current cluster.
+
+**Open/fit-mode users** (`milActive && mode !== 'target'`):
+
+Simpler card — no countdown, no checklist. Show:
+- Current K/O level label + pip strip (existing level ladder, already implemented)
+- Cooper gap: "Cooper test: laatste {dist}m — {gap}m tot K{next}" (from `last_cooper_distance_m` + norms)
+- Weakest axis sentence (same pattern as target mode)
+
+**Disclaimer** — always rendered below whichever card is shown, in 11px muted text:
+> "JustFit is niet gelieerd aan Defensie of het Ministerie van Defensie. De normen zijn gebaseerd op openbaar beschikbare informatie."
+
+**Marketing site (M-F5):** separate deliverable in the `justfit-site` repo. Do not implement it here.
+
+---
+
 ## Product TODO List
 
 All items are on the v2 backlog. Risk / impact / complexity assessed for each.
