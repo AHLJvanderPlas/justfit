@@ -429,6 +429,14 @@ const api = {
     return res.json();
   },
 
+  async signConsent(token) {
+    const res = await fetch('/api/client/consent', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async submitSupportRequest(token, message, broadcast = false) {
     const res = await fetch('/api/client/support-request', {
       method: 'POST',

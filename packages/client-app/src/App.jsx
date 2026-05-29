@@ -2440,6 +2440,8 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const [cancellingSwitch, setCancellingSwitch] = useState(false);
 
   const [profileSheet, setProfileSheet] = useState(null); // trainer object or null
+  const [consentSigning, setConsentSigning] = useState(false);
+  const [consentError, setConsentError] = useState(null);
 
   const td = trainerData; // shorthand
   const trainer = td?.assigned_trainer ?? null;
@@ -2447,6 +2449,7 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const pendingSwitch = td?.pending_switch_request ?? null;
   const activeSupport = td?.active_support_request ?? null;
   const gymModel = td?.gym_model ?? 'staff';
+  const consentRequired = !!(trainer && !td?.consent_signed);
 
   function availDot(status) {
     const col = status === 'available' ? '#22c55e' : status === 'busy' ? '#f59e0b' : C.subtle;
@@ -2497,6 +2500,21 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
     } catch { /* ignore */ }
     setCancellingSwitch(false);
   }
+
+  async function handleSignConsent() {
+    setConsentSigning(true);
+    setConsentError(null);
+    try {
+      const res = await api.signConsent(token);
+      if (res.ok) {
+        const fresh = await api.getTrainerData(token);
+        if (fresh && !fresh.error) onTrainerDataChange(fresh);
+      } else {
+        setConsentError(res.error ?? 'Fout — probeer opnieuw');
+      }
+    } catch { setConsentError('Netwerk fout'); }
+    setConsentSigning(false);
+  }
   const pref = prefs.preferences ?? {};
   const milA = !!(pref.military_coach?.active);
   const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
@@ -2537,6 +2555,50 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const cc  = pref.cycling_coach ?? {};
   const RADAR_AXES_CC = ["push", "pull", "legs", "core", "conditioning", "mobility"];
   const RADAR_LABELS_CC = { push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cardio", mobility: "Mobility" };
+
+  if (consentRequired) {
+    return (
+      <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "32px 20px" }}>
+        <button
+          onClick={() => setView("today")}
+          style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", padding: "0 0 24px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
+        >
+          ← Terug
+        </button>
+        <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 24, padding: "28px 24px" }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 14 }}>Gegevensdeling</div>
+          <div style={{ ...display(26, 900), color: C.text, lineHeight: 1.1, marginBottom: 16 }}>
+            Je trainer wil je begeleiden
+          </div>
+          <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, marginBottom: 8 }}>
+            <strong style={{ color: C.text }}>{trainer?.display_name ?? "Je trainer"}</strong>
+            {td?.gym_name ? ` van ${td.gym_name}` : ""} krijgt toegang tot je trainingsgeschiedenis, doelen en gezondheidsgegevens om je zo goed mogelijk te begeleiden.
+          </div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 24 }}>
+            Je gegevens worden alleen gedeeld met je trainer. Je kunt je toestemming altijd intrekken via Instellingen → Jouw coach.
+          </div>
+          {consentError && (
+            <div style={{ fontSize: 12, color: "#f43f5e", marginBottom: 14 }}>{consentError}</div>
+          )}
+          <button
+            onClick={handleSignConsent}
+            disabled={consentSigning}
+            style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: "none", background: "var(--accent)", color: "#020617", fontFamily: "inherit", fontWeight: 900, fontSize: 15, cursor: consentSigning ? "wait" : "pointer", opacity: consentSigning ? 0.7 : 1 }}
+          >
+            {consentSigning ? "Bezig…" : "Akkoord en doorgaan →"}
+          </button>
+          <div style={{ marginTop: 12, textAlign: "center" }}>
+            <span
+              onClick={() => setView("today")}
+              style={{ fontSize: 12, color: C.muted, cursor: "pointer", textDecoration: "underline" }}
+            >
+              Nog niet
+            </span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
