@@ -3249,11 +3249,21 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
           <div style={{ marginBottom: 32 }}>
             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
             <Glass style={{ padding: 20 }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Dagelijkse trainingsherinnering</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Dagelijkse trainingsherinnering</div>
+                {!effectiveIsPro && (
+                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
+                )}
+              </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>Ontvang een melding als je je training voor vandaag nog niet hebt gedaan.</div>
               {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.emerald : "#f87171", marginBottom: 12 }}>{pushMsg}</div>}
               {pushState === "denied" && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 12 }}>Notificaties geblokkeerd. Sta ze toe via je browserinstellingen.</div>}
-              {pushState !== "subscribed" && Notification.permission !== "granted" ? (
+              {!effectiveIsPro ? (
+                <button onClick={onUpgrade}
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
+                  Upgrade naar Pro →
+                </button>
+              ) : pushState !== "subscribed" && Notification.permission !== "granted" ? (
                 <button onClick={handleEnablePush} disabled={pushState === "requesting" || pushState === "denied"}
                   style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: pushState === "denied" ? 0.4 : 1 }}>
                   {pushState === "requesting" ? "Bezig…" : "Inschakelen"}

@@ -33,6 +33,16 @@ export async function onRequestPost(ctx) {
     const user = await getUser(ctx.request, ctx.env);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+    const _entRow = await ctx.env.DB.prepare(`
+      SELECT 1 FROM entitlements
+      WHERE user_id = ?
+        AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
+        AND status IN ('active', 'trialing')
+        AND ends_at_ms > ?
+      LIMIT 1
+    `).bind(user.userId, Date.now()).first();
+    if (!_entRow) return Response.json({ error: 'Push notificaties vereisen Pro', requiresUpgrade: true }, { status: 403 });
+
     const body = await ctx.request.json();
     if (body.action !== 'subscribe' || !body.subscription?.endpoint) {
       return Response.json({ error: 'Invalid request' }, { status: 400 });
