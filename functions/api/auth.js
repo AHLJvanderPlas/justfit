@@ -585,7 +585,9 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
   }
 
   const extra = env.WEBAUTHN_EXTRA_ORIGINS ? env.WEBAUTHN_EXTRA_ORIGINS.split(',') : [];
-  const allowedOrigins = [`https://${rpId}`, ...extra];
+  // Include the app subdomain — rpId is the root domain (justfit.cc) shared across subdomains,
+  // so the authenticating origin (https://app.justfit.cc) must be explicitly allowed.
+  const allowedOrigins = [`https://${rpId}`, `https://app.${rpId}`, ...extra];
   if (!allowedOrigins.includes(clientData.origin)) {
     return Response.json({ error: 'Invalid origin' }, { status: 400 });
   }
@@ -747,6 +749,8 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM referrals WHERE referrer_user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM strava_byo_credentials WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM strava_connections WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM gym_memberships WHERE user_id = ?').bind(uid),
+    env.DB.prepare('DELETE FROM trainer_switch_requests WHERE client_user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_preferences WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_profile WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid),

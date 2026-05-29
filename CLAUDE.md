@@ -1169,9 +1169,9 @@ None currently. 🟢
 
 ---
 
-## Next Build Queue — Sprint 4 (2026-05-29)
+## Sprint 4 — Complete (2026-05-29)
 
-Work through these **sequentially, one deploy per item**. Run `npm run smoke` between each. Do not start C-F5 until C-G1–C-G4 are live.
+All five items shipped: C-G1 (Strava Pro gate), C-G2 (Push notifications Pro gate), C-G3 (History 30-day/unlimited), C-G4 (Plan regen 1/day/unlimited), C-F5 (Defensie readiness pathway, free). See FUNCTIONAL_DOCS.md for details.
 
 ### isPro check pattern (use this in every new gate)
 
@@ -1192,31 +1192,17 @@ Never trust `prefs.isPro` alone for gate enforcement — always re-check entitle
 
 ---
 
-### C-G1 — Strava sync → Pro gate
+### ~~C-G1 — Strava sync → Pro gate~~ ✅ LIVE (2026-05-29)
 
-**Principle:** Strava auto-import is automation at scale. Free users keep manual workout logging. The Strava card stays visible to all users (aspirational marketing); only the connect and sync actions are gated.
-
-**Files:** `functions/api/strava-auth.js`, `functions/api/strava-sync.js`, `packages/client-app/src/SettingsView.jsx`
-
-**Backend — `strava-auth.js` POST handler:**
-After `getAuthUserId`, resolve `isPro`. If `!isPro` return:
-```js
-return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
-```
-
-**Backend — `strava-sync.js` POST handler (`onRequestPost`):**
-Same check immediately after auth, before the connection query. Same 403 response.
-
-**Frontend — `SettingsView.jsx` Integrations section:**
-- When `!isPro`: disable the connect button; show a `"Pro"` badge pill next to the "Strava Import" header; show muted label "Verbind Strava automatisch met je trainingen — beschikbaar met Pro"; add a small upgrade CTA ("Upgrade naar Pro →") that opens `ProGate`.
-- When `isPro`: existing connect/disconnect/sync UI unchanged.
-- Do not hide the Strava card — keep it visible as an aspirational signal.
+`POST /api/strava-auth` and `POST /api/strava-sync` return 403 `{ error: 'Strava import vereist Pro', requiresUpgrade: true }` for free users. GET and DELETE remain ungated. SettingsView shows Pro badge + Upgrade CTA when free; card always visible.
 
 ---
 
-### C-G2 — Push notifications → Pro gate
+### ~~C-G2 — Push notifications → Pro gate~~ ✅ LIVE (2026-05-29)
 
-**Principle:** Daily nudges are automation; the app and plans are fully usable without them.
+`POST /api/subscribe-push` returns 403 `{ error: 'Push notificaties vereisen Pro', requiresUpgrade: true }` for free users. GET and DELETE remain ungated. SettingsView shows Pro badge + Upgrade CTA on push toggle for free users.
+
+---
 
 **Files:** `functions/api/subscribe-push.js`, `packages/client-app/src/SettingsView.jsx`
 
@@ -1297,59 +1283,11 @@ Pro users skip this block entirely — always regenerate.
 
 ---
 
-### C-F5 — Defensie readiness pathway (in-app, free, target-mode military users)
+### ~~C-F5 — Defensie readiness pathway~~ ✅ LIVE (2026-05-29)
 
-**Strategic note:** Military Coach is free permanently. This feature packages the existing coach data into a purpose-built readiness screen — it is the acquisition hook, not a monetisation surface. Pro monetisation for this audience flows through C-G1 (Strava), C-G2 (nudges), and C-G3 (full history).
+Free permanently — no isPro gate. `KeuringReadinessCard` in CoachView above the level ladder. Target-mode keuring users: countdown chip, 4-item test checklist (1500m/push-ups/pull-ups/5km march) vs `KEURING_NORMS[clusterTarget]`, weakest-axis focus note. Open/fit-mode keuring users: Cooper benchmark + gap to next level + weakest axis. Disclaimer always shown. No migrations. `KEURING_NORMS` constant in `App.jsx`.
 
-**Files:** `packages/client-app/src/App.jsx` (CoachView section only)
-
-**No migrations needed.** All data is already in `prefs.military_coach` and `progression` — both already passed as props to CoachView.
-
-**Target-mode users** (`milActive && prefs.military_coach?.mode === 'target' && prefs.military_coach?.target_date`):
-
-Add a `KeuringReadinessCard` above the level ladder in CoachView:
-
-```
-┌──────────────────────────────────────────────┐
-│  KEURING  •  over 34 dagen                   │  ← accent chip + countdown
-├──────────────────────────────────────────────┤
-│  ✓  1500m loop         K4: ≤ 6:05            │
-│  ○  Push-ups           K4: ≥ 28              │  ← 4 Defensie test items
-│  ○  Pull-ups           K4: ≥ 4               │    derived from cluster_current
-│  ○  Mars 5km + 10kg    K4: ≤ 35:00           │
-├──────────────────────────────────────────────┤
-│  Zwakste as: Cardio — focus hierop deze week │  ← from progression.scores
-└──────────────────────────────────────────────┘
-│  JustFit is niet gelieerd aan Defensie of    │
-│  het Ministerie van Defensie.                │  ← disclaimer, muted 11px
-```
-
-Test norms per cluster level live as a `KEURING_NORMS` constant in `App.jsx` (plain object, no DB):
-```js
-const KEURING_NORMS = {
-  // cluster: { run_sec, pushups, pullups, march_label }
-  0: { run_sec: 420, pushups: 20, pullups: 2,  march: '40:00' }, // Basis
-  1: { run_sec: 390, pushups: 23, pullups: 3,  march: '37:00' }, // K1
-  2: { run_sec: 375, pushups: 25, pullups: 4,  march: '35:00' }, // K2
-  3: { run_sec: 365, pushups: 27, pullups: 5,  march: '33:00' }, // K3
-  4: { run_sec: 365, pushups: 28, pullups: 4,  march: '35:00' }, // K4
-  5: { run_sec: 350, pushups: 30, pullups: 6,  march: '32:00' }, // K5
-  6: { run_sec: 330, pushups: 35, pullups: 8,  march: '30:00' }, // K6
-};
-```
-Show norms for `cluster_target` (what they're aiming for), not `cluster_current`. Mark each item ✓ (emerald) or ○ (muted) based on last Cooper distance vs norm and current cluster.
-
-**Open/fit-mode users** (`milActive && mode !== 'target'`):
-
-Simpler card — no countdown, no checklist. Show:
-- Current K/O level label + pip strip (existing level ladder, already implemented)
-- Cooper gap: "Cooper test: laatste {dist}m — {gap}m tot K{next}" (from `last_cooper_distance_m` + norms)
-- Weakest axis sentence (same pattern as target mode)
-
-**Disclaimer** — always rendered below whichever card is shown, in 11px muted text:
-> "JustFit is niet gelieerd aan Defensie of het Ministerie van Defensie. De normen zijn gebaseerd op openbaar beschikbare informatie."
-
-**Marketing site (M-F5):** separate deliverable in the `justfit-site` repo. Do not implement it here.
+**Marketing site (M-F5):** separate deliverable in the `justfit-site` repo.
 
 ---
 
