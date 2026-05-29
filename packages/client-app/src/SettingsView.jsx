@@ -3095,6 +3095,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Strava Import Beta</div>
+                {!effectiveIsPro && (
+                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
+                )}
                 {stravaIsByo && (
                   <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(252,76,2,0.12)", color: "#FC4C02", textTransform: "uppercase" }}>BYO App</span>
                 )}
@@ -3104,7 +3107,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                   ? 'Checking connection…'
                   : stravaConnection
                   ? `Connected${stravaConnection.athlete_name ? ` · ${stravaConnection.athlete_name}` : ''}${stravaConnection.athlete_city ? ` · ${stravaConnection.athlete_city}` : ''}`
-                  : 'Import rides and runs to power your PMC chart and cycling coach'}
+                  : effectiveIsPro
+                  ? 'Import rides and runs to power your PMC chart and cycling coach'
+                  : 'Upgrade to Pro to import Strava activities'}
               </div>
             </div>
             {stravaConnection === null ? null : stravaConnection ? (
@@ -3124,13 +3129,20 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
                   {stravaDisconnecting ? '…' : 'Disconnect'}
                 </button>
               </div>
-            ) : (
+            ) : effectiveIsPro ? (
               <button
                 onClick={handleStravaConnect}
                 disabled={stravaConnecting}
                 style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", whiteSpace: "nowrap" }}
               >
                 {stravaConnecting ? 'Redirecting…' : 'Connect Strava'}
+              </button>
+            ) : (
+              <button
+                onClick={onUpgrade}
+                style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 900, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)", whiteSpace: "nowrap" }}
+              >
+                Upgrade →
               </button>
             )}
           </div>

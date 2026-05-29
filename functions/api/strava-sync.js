@@ -161,6 +161,16 @@ export async function onRequestPost(context) {
   const userId = await getAuthUserId(request, env);
   if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
+  const _entRow = await env.DB.prepare(`
+    SELECT 1 FROM entitlements
+    WHERE user_id = ?
+      AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
+      AND status IN ('active', 'trialing')
+      AND ends_at_ms > ?
+    LIMIT 1
+  `).bind(userId, Date.now()).first();
+  if (!_entRow) return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
+
   // Load connection, user preferences, and BYO credentials in parallel
   const [conn, prefsRow, byoRow] = await Promise.all([
     env.DB.prepare(`

@@ -109,6 +109,16 @@ async function handlePost(request, env) {
   const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
+  const _entRow = await env.DB.prepare(`
+    SELECT 1 FROM entitlements
+    WHERE user_id = ?
+      AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
+      AND status IN ('active', 'trialing')
+      AND ends_at_ms > ?
+    LIMIT 1
+  `).bind(userId, Date.now()).first();
+  if (!_entRow) return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
+
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: 'Bad request' }, { status: 400 }); }
 
