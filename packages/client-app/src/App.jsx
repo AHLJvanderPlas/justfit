@@ -2420,7 +2420,7 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions }) {
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
@@ -3296,6 +3296,42 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         </Glass>
       )}
 
+      {/* ── Geplande sessies ── */}
+      {trainer && clientSessions && clientSessions.length > 0 && (() => {
+        function fmtSessionTime(ms) {
+          const d = new Date(ms);
+          const days = ['zo','ma','di','wo','do','vr','za'];
+          const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+          return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+        return (
+          <Glass style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>GEPLANDE SESSIES</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              {clientSessions.map(s => {
+                const isPast = s.starts_at_ms < nowMs;
+                const isGroup = s.type === 'group';
+                return (
+                  <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                    <div style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 5,
+                      background: s.rsvp === 'waitlist' ? '#f59e0b' : isPast ? C.subtle : 'var(--accent)' }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: isPast ? C.muted : C.text, marginBottom: 2 }}>{s.title}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>
+                        {fmtSessionTime(s.starts_at_ms)}
+                        {s.location ? ` · ${s.location}` : ''}
+                        {isGroup ? ' · Groep' : ''}
+                        {s.rsvp === 'waitlist' ? ' · Wachtlijst' : ''}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </Glass>
+        );
+      })()}
+
       {/* ── Your Programme (trainer-assigned) ── */}
       {trainer && assignments.length > 0 && (() => {
         const todayStr = new Date().toISOString().slice(0, 10);
@@ -4024,6 +4060,7 @@ export default function App() {
   const [cyclingPmc, setCyclingPmc] = useState(null);
   const [trainerData, setTrainerData] = useState(null);
   const [assignments, setAssignments] = useState([]);
+  const [clientSessions, setClientSessions] = useState([]);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() =>
     parseInt(localStorage.getItem(uKey('jf_ftp_snooze_until')) || localStorage.getItem('jf_ftp_snooze_until') || '0')
   );
@@ -4274,6 +4311,10 @@ export default function App() {
     api
       .getTrainerData(token)
       .then((data) => { if (data && !data.error) setTrainerData(data); })
+      .catch(() => {});
+    api
+      .getSessions(token)
+      .then((data) => { if (Array.isArray(data?.sessions)) setClientSessions(data.sessions); })
       .catch(() => {});
     api
       .getAssignments(token)
@@ -4996,6 +5037,7 @@ export default function App() {
                 trainerData={trainerData}
                 onTrainerDataChange={setTrainerData}
                 assignments={assignments}
+                clientSessions={clientSessions}
               />
             )}
             {view === "plan" && (
