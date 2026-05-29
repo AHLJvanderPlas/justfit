@@ -92,7 +92,7 @@ const api = {
   async getHistory() {
     const res = await fetch(`/api/execution?limit=30`, { headers: this._auth() });
     const data = await res.json();
-    return data.executions ?? [];
+    return { results: data.executions ?? [], truncated: !!data.truncated };
   },
 
   async getExercisesBySlugs(slugs) {
@@ -415,6 +415,13 @@ const api = {
   },
 
   // ─── MULTI-TRAINER ─────────────────────────────────────────────────────────
+  async getAssignments(token) {
+    const res = await fetch('/api/client/assignments', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async getTrainerData(token) {
     const res = await fetch('/api/client/trainer', {
       headers: { Authorization: `Bearer ${token}` },

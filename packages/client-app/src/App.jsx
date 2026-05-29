@@ -2401,7 +2401,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments }) {
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
@@ -2484,8 +2484,12 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const ccA  = !!(pref.cycling_coach?.active && !pref.cycling_coach?.completed);
   const primary = pref.primary_intent ?? (milA ? "military" : rcA ? "running" : ccA ? "cycling" : "general");
 
-  const coachLabel = milA
+  const coachLabel = primary === 'military' && milA
     ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
+    : primary === 'running' && rcA ? `RUNNING · ${pref.run_coach.target_km}km`
+    : primary === 'cycling' && ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
+    : primary === 'general' ? "GENERAL HEALTH"
+    : milA ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
     : rcA ? `RUNNING · ${pref.run_coach.target_km}km`
     : ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
     : "GENERAL HEALTH";
@@ -2519,6 +2523,12 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
     <div>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
+        <button
+          onClick={() => setView("today")}
+          style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", padding: "0 0 10px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}
+        >
+          ← Today
+        </button>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>COACH</div>
@@ -2534,17 +2544,17 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
             Settings
           </button>
         </div>
-        {milA && mp && (
+        {primary === 'military' && milA && mp && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
             Block {((mp.block_number ?? 1) - 1) % 6 + 1} of 6 · Session {mp.block_session_index ?? 0} of 4
           </div>
         )}
-        {rcA && (
+        {primary === 'running' && rcA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
             Week {rc.week ?? 1} of {({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8} · Session {rc.session_in_week ?? 0} of 3
           </div>
         )}
-        {ccA && (
+        {primary === 'cycling' && ccA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
             Week {cc.week ?? 1} · Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3}
           </div>
@@ -3135,6 +3145,82 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         </Glass>
       )}
 
+      {/* ── Your Programme (trainer-assigned) ── */}
+      {trainer && assignments.length > 0 && (() => {
+        const todayStr = new Date().toISOString().slice(0, 10);
+        return (
+          <Glass style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>YOUR PROGRAMME</div>
+            {assignments.map(a => {
+              const sessions = a.sessions ?? [];
+              const completed = sessions.filter(s => s.status === 'completed').length;
+              const total = sessions.length;
+              const pct = total > 0 ? Math.round(completed / total * 100) : 0;
+              const todayIdx = sessions.findIndex(s => s.scheduled_date === todayStr);
+              const firstFutureIdx = sessions.findIndex(s => s.scheduled_date > todayStr);
+              const pivotIdx = todayIdx >= 0 ? todayIdx : firstFutureIdx >= 0 ? firstFutureIdx : sessions.length;
+              const startIdx = Math.max(0, pivotIdx - 1);
+              const visible = sessions.slice(startIdx, startIdx + 5);
+              return (
+                <div key={a.id} style={{ marginBottom: 4 }}>
+                  <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{a.program_name}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
+                        {a.gym_name} · {a.sessions_per_week}x/week · {a.duration_weeks} weeks
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', flexShrink: 0, marginLeft: 12 }}>
+                      {completed}/{total}
+                    </div>
+                  </div>
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginBottom: 12 }}>
+                    <div style={{ height: '100%', borderRadius: 2, background: 'var(--accent)', width: `${pct}%` }} />
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+                    {visible.map(s => {
+                      const isToday = s.scheduled_date === todayStr;
+                      const isPast = s.scheduled_date < todayStr;
+                      const done = s.status === 'completed';
+                      const missed = s.status === 'missed';
+                      const statusColor = done ? '#22c55e' : missed ? '#ef4444' : isToday ? 'var(--accent)' : C.muted;
+                      const statusIcon = done ? '✓' : missed ? '✕' : isToday ? '→' : '·';
+                      const d = new Date(s.scheduled_date + 'T12:00:00');
+                      const dateLabel = isToday ? 'Today' : d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
+                      return (
+                        <div key={s.id} style={{
+                          display: 'flex', alignItems: 'center', gap: 10,
+                          padding: isToday ? '10px 12px' : '7px 12px',
+                          borderRadius: 10,
+                          background: isToday ? 'rgba(var(--accent-rgb),0.08)' : 'rgba(255,255,255,0.02)',
+                          border: `1px solid ${isToday ? 'var(--accent-border)' : C.border}`,
+                        }}>
+                          <span style={{ fontSize: 13, fontWeight: 900, color: statusColor, width: 14, textAlign: 'center', flexShrink: 0 }}>{statusIcon}</span>
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.text : isPast ? C.subtle : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                              {s.session_name ?? 'Session'}
+                            </div>
+                            <div style={{ fontSize: 11, color: C.subtle }}>{dateLabel}</div>
+                          </div>
+                          {isToday && s.status === 'scheduled' && (
+                            <button
+                              onClick={() => setView('today')}
+                              style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, flexShrink: 0 }}
+                            >
+                              Start →
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </Glass>
+        );
+      })()}
+
       {/* ── Ons team ── */}
       {gymTeam && gymTeam.length > 1 && (
         <Glass style={{ padding: 20, marginBottom: 16 }}>
@@ -3347,6 +3433,22 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
 
 // ─── WORKOUT VIEW ─────────────────────────────────────────────────────────────
 
+const COACH_NAV_ITEM = {
+  id: "coach",
+  label: "Coach",
+  icon: (a, dot) => (
+    <div style={{ position: "relative" }}>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
+        <circle cx="9" cy="7" r="4" />
+        <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
+        <path d="M16 3.13a4 4 0 0 1 0 7.75" />
+      </svg>
+      {dot && <span style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", border: "1.5px solid #020617" }} />}
+    </div>
+  ),
+};
+
 const NAV_ITEMS = [
   {
     id: "today",
@@ -3407,7 +3509,10 @@ const NAV_ITEMS = [
   },
 ];
 
-function Nav({ view, setView }) {
+function Nav({ view, setView, hasTrainer, coachDot }) {
+  const items = hasTrainer
+    ? [...NAV_ITEMS.slice(0, 3), COACH_NAV_ITEM, NAV_ITEMS[3]]
+    : NAV_ITEMS;
   return (
     <nav
       style={{
@@ -3432,7 +3537,7 @@ function Nav({ view, setView }) {
           margin: "0 auto",
         }}
       >
-        {NAV_ITEMS.map((item) => {
+        {items.map((item) => {
           const active = view === item.id;
           return (
             <button
@@ -3449,7 +3554,7 @@ function Nav({ view, setView }) {
                 cursor: "pointer",
               }}
             >
-              {item.icon(active)}
+              {item.id === "coach" ? item.icon(active, coachDot) : item.icon(active)}
               <span
                 style={{
                   fontSize: 9,
@@ -3760,12 +3865,14 @@ export default function App() {
   const [score, setScore] = useState(0);
   const [prevScore, setPrevScore] = useState(0);
   const [history, setHistory] = useState([]);
+  const [historyTruncated, setHistoryTruncated] = useState(false);
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isGenerating, setIsGenerating] = useState(false);
   const [progression, setProgression] = useState(null);
   const [isLoadingProgression, setIsLoadingProgression] = useState(false);
   const [cyclingPmc, setCyclingPmc] = useState(null);
   const [trainerData, setTrainerData] = useState(null);
+  const [assignments, setAssignments] = useState([]);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() =>
     parseInt(localStorage.getItem(uKey('jf_ftp_snooze_until')) || localStorage.getItem('jf_ftp_snooze_until') || '0')
   );
@@ -4018,9 +4125,14 @@ export default function App() {
       .then((data) => { if (data && !data.error) setTrainerData(data); })
       .catch(() => {});
     api
+      .getAssignments(token)
+      .then((data) => { if (Array.isArray(data)) setAssignments(data); })
+      .catch(() => {});
+    api
       .getHistory(userId)
-      .then((h) => {
+      .then(({ results: h, truncated }) => {
         setHistory(h);
+        setHistoryTruncated(!!truncated);
         // Reconcile completed state against server history (handles cross-device sync)
         const todayExecutions = h.filter((ex) => ex.date === today);
         const hasToday = todayExecutions.length > 0;
@@ -4128,7 +4240,7 @@ export default function App() {
       if (remaining === 0) {
         const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]).catch(() => [null, null]);
         if (newScore !== null) { setPrevScore(score); setScore(newScore); }
-        if (newHistory !== null) setHistory(newHistory);
+        if (newHistory !== null) { setHistory(newHistory.results); setHistoryTruncated(!!newHistory.truncated); }
       }
     }
 
@@ -4304,7 +4416,8 @@ export default function App() {
         ]);
         setPrevScore(score);
         setScore(newScore);
-        setHistory(newHistory);
+        setHistory(newHistory.results);
+        setHistoryTruncated(!!newHistory.truncated);
         // Mark today as completed
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
@@ -4365,7 +4478,8 @@ export default function App() {
         const [newScore, newHistory] = await Promise.all([api.getScore(), api.getHistory()]);
         setPrevScore(score);
         setScore(newScore);
-        setHistory(newHistory);
+        setHistory(newHistory.results);
+        setHistoryTruncated(!!newHistory.truncated);
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
         const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
@@ -4388,7 +4502,8 @@ export default function App() {
           api.getHistory(),
         ]);
         setScore(newScore);
-        setHistory(newHistory);
+        setHistory(newHistory.results);
+        setHistoryTruncated(!!newHistory.truncated);
         setBonusDone(true);
         localStorage.setItem(`jf_bonus_${today}`, "1");
         setActivityToast("Double session — great work.");
@@ -4453,7 +4568,8 @@ export default function App() {
           api.getHistory(),
         ]);
         setScore(newScore);
-        setHistory(newHistory);
+        setHistory(newHistory.results);
+        setHistoryTruncated(!!newHistory.truncated);
         setActivityToast("Activity logged ✓");
         setTimeout(() => setActivityToast(""), 3000);
       } catch (e) {
@@ -4489,7 +4605,8 @@ export default function App() {
         api.getHistory(),
       ]);
       setScore(newScore);
-      setHistory(newHistory);
+      setHistory(newHistory.results);
+      setHistoryTruncated(!!newHistory.truncated);
       setTodayCompleted(true);
       localStorage.setItem(`jf_completed_${today}`, "1");
       setCompletedSession({ name: "Rest Day", duration_sec: 0 });
@@ -4725,6 +4842,7 @@ export default function App() {
                 setView={setView}
                 trainerData={trainerData}
                 onTrainerDataChange={setTrainerData}
+                assignments={assignments}
               />
             )}
             {view === "plan" && (
@@ -4739,6 +4857,8 @@ export default function App() {
                 prefs={prefs}
                 onProgressionUpdate={(updated) => setProgression(updated)}
                 history={history}
+                historyTruncated={historyTruncated}
+                onUpgrade={() => setView("upgrade")}
                 setView={setView}
               />
             )}
@@ -4805,7 +4925,14 @@ export default function App() {
         )}
       </div>
 
-      {!inWorkout && <Nav view={view} setView={setView} />}
+      {!inWorkout && (() => {
+        const hasTrainer = !!(trainerData?.assigned_trainer);
+        const todayStr = new Date().toISOString().slice(0, 10);
+        const coachDot = hasTrainer && assignments.some(a =>
+          (a.sessions ?? []).some(s => s.scheduled_date === todayStr && s.status === 'scheduled')
+        );
+        return <Nav view={view} setView={setView} hasTrainer={hasTrainer} coachDot={coachDot} />;
+      })()}
 
       {showSignOutConfirm && (
         <div

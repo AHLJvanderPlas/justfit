@@ -697,6 +697,18 @@ export async function onRequestGet({ request, env }) {
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
+    const _entRow = await env.DB.prepare(`
+      SELECT 1 FROM entitlements
+      WHERE user_id = ?
+        AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
+        AND status IN ('active', 'trialing')
+        AND ends_at_ms > ?
+      LIMIT 1
+    `).bind(user_id, Date.now()).first();
+    const isPro = !!_entRow;
+    const effectiveLimit = isPro ? 1000 : limit;
+    const cutoffMs = isPro ? 0 : Date.now() - 30 * 24 * 60 * 60 * 1000;
+
     const [result, stepsResult, plansResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, date, execution_type, status, total_duration_sec,
@@ -705,28 +717,33 @@ export async function onRequestGet({ request, env }) {
                 notes, created_at_ms
          FROM executions
          WHERE user_id = ?
+           ${isPro ? '' : 'AND created_at_ms >= ?'}
          ORDER BY created_at_ms DESC
          LIMIT ?`
-      ).bind(user_id, limit).all(),
+      ).bind(...isPro ? [user_id, effectiveLimit] : [user_id, cutoffMs, effectiveLimit]).all(),
       env.DB.prepare(
         `SELECT es.execution_id, ex.name AS exercise_name, es.step_index,
                 es.prescribed_json, es.actual_json
          FROM execution_steps es
          LEFT JOIN exercises ex ON es.exercise_id = ex.id
          WHERE es.execution_id IN (
-           SELECT id FROM executions WHERE user_id = ? ORDER BY created_at_ms DESC LIMIT ?
+           SELECT id FROM executions WHERE user_id = ?
+             ${isPro ? '' : 'AND created_at_ms >= ?'}
+           ORDER BY created_at_ms DESC LIMIT ?
          )
          ORDER BY es.execution_id, es.step_index`
-      ).bind(user_id, limit).all(),
+      ).bind(...isPro ? [user_id, effectiveLimit] : [user_id, cutoffMs, effectiveLimit]).all(),
       // Fetch rule_trace from day_plans for the same date window (adaptation memory)
       env.DB.prepare(
         `SELECT date, JSON_EXTRACT(plan_json, '$.rule_trace') AS rule_trace_json
          FROM day_plans
          WHERE user_id = ?
            AND date IN (
-             SELECT DISTINCT date FROM executions WHERE user_id = ? ORDER BY created_at_ms DESC LIMIT ?
+             SELECT DISTINCT date FROM executions WHERE user_id = ?
+               ${isPro ? '' : 'AND created_at_ms >= ?'}
+             ORDER BY created_at_ms DESC LIMIT ?
            )`
-      ).bind(user_id, user_id, limit).all(),
+      ).bind(...isPro ? [user_id, user_id, effectiveLimit] : [user_id, user_id, cutoffMs, effectiveLimit]).all(),
     ]);
 
     const stepsByExec = {};
@@ -752,7 +769,7 @@ export async function onRequestGet({ request, env }) {
       rule_trace: ruleTraceByDate[e.date] ?? null,
     }));
 
-    return Response.json({ executions });
+    return Response.json({ executions, truncated: !isPro });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }

@@ -381,7 +381,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], setView }) {
+export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView }) {
   useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
@@ -1043,6 +1043,20 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               </div>
             );
           })()}
+
+          {/* ── History truncation upgrade card ── */}
+          {historyTruncated && (
+            <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 16, background: "rgba(var(--accent-rgb),0.06)", border: "1px solid rgba(var(--accent-rgb),0.2)" }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 6 }}>Pro — Onbeperkte geschiedenis</div>
+              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 12, lineHeight: 1.6 }}>Je ziet de laatste 30 dagen. Upgrade naar Pro voor je volledige trainingshistorie.</div>
+              <button
+                onClick={onUpgrade}
+                style={{ padding: "9px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 12, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}
+              >
+                Bekijk je volledige geschiedenis met Pro →
+              </button>
+            </div>
+          )}
 
           {/* ── Advanced (hidden by default) ── */}
           <div style={{ marginTop: 32, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
