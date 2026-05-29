@@ -21,7 +21,7 @@ export async function onRequestGet(ctx) {
     const membership = await env.DB.prepare(`
       SELECT gm.gym_id, gm.assigned_trainer_user_id, gm.allow_trainer_switch,
              gm.availability_status, gm.availability_updated_at_ms,
-             gm.consent_json,
+             gm.consent_json, gm.conv_unread_client,
              g.model AS gym_model, g.switch_auto_approve, g.name AS gym_name
       FROM gym_memberships gm
       JOIN gyms g ON g.id = gm.gym_id
@@ -118,6 +118,7 @@ export async function onRequestGet(ctx) {
       gym_model: membership.gym_model ?? 'staff',
       consent_signed: consentSigned,
       consent_at_ms: consentData?.dpa_signed_at_ms ?? null,
+      conv_unread_client: membership.conv_unread_client ?? 0,
       assigned_trainer: formatTrainer(assignedTrainer),
       gym_team: team.length > 0 ? team : null,
       pending_switch_request: pendingSwitch ? {

@@ -451,6 +451,30 @@ const api = {
     return res.json();
   },
 
+  async getMessages(token) {
+    const res = await fetch('/api/client/messages', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async sendMessage(token, body) {
+    const res = await fetch('/api/client/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ body }),
+    });
+    return res.json();
+  },
+
+  async markMessagesRead(token) {
+    const res = await fetch('/api/client/messages', {
+      method: 'PATCH',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async submitSupportRequest(token, message, broadcast = false) {
     const res = await fetch('/api/client/support-request', {
       method: 'POST',

@@ -2443,6 +2443,14 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const [consentSigning, setConsentSigning] = useState(false);
   const [consentError, setConsentError] = useState(null);
 
+  // ── Messaging state ──
+  const [msgSheet, setMsgSheet] = useState(false);
+  const [messages, setMessages] = useState([]);
+  const [msgInput, setMsgInput] = useState("");
+  const [msgSending, setMsgSending] = useState(false);
+  const [msgError, setMsgError] = useState(null);
+  const [msgLoading, setMsgLoading] = useState(false);
+
   const td = trainerData; // shorthand
   const trainer = td?.assigned_trainer ?? null;
   const gymTeam = td?.gym_team ?? null;
@@ -2450,6 +2458,7 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const activeSupport = td?.active_support_request ?? null;
   const gymModel = td?.gym_model ?? 'staff';
   const consentRequired = !!(trainer && !td?.consent_signed);
+  const unreadCount = td?.conv_unread_client ?? 0;
 
   function availDot(status) {
     const col = status === 'available' ? '#22c55e' : status === 'busy' ? '#f59e0b' : C.subtle;
@@ -2514,6 +2523,38 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
       }
     } catch { setConsentError('Netwerk fout'); }
     setConsentSigning(false);
+  }
+
+  async function handleOpenMessages() {
+    setMsgSheet(true);
+    setMsgLoading(true);
+    setMsgError(null);
+    try {
+      const data = await api.getMessages(token);
+      if (Array.isArray(data.messages)) setMessages(data.messages);
+      // Mark read and refresh unread count
+      api.markMessagesRead(token).then(() => {
+        api.getTrainerData(token).then(fresh => { if (fresh && !fresh.error) onTrainerDataChange(fresh); }).catch(() => {});
+      }).catch(() => {});
+    } catch { setMsgError('Kon berichten niet laden'); }
+    setMsgLoading(false);
+  }
+
+  async function handleSendMessage() {
+    const trimmed = msgInput.trim();
+    if (!trimmed || msgSending) return;
+    setMsgSending(true);
+    setMsgError(null);
+    try {
+      const res = await api.sendMessage(token, trimmed);
+      if (res.ok && res.message) {
+        setMessages(prev => [...prev, res.message]);
+        setMsgInput("");
+      } else {
+        setMsgError(res.error ?? 'Fout — probeer opnieuw');
+      }
+    } catch { setMsgError('Netwerk fout'); }
+    setMsgSending(false);
   }
   const pref = prefs.preferences ?? {};
   const milA = !!(pref.military_coach?.active);
@@ -3274,6 +3315,16 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                 Vraag om hulp
               </button>
             )}
+            {/* Berichten button */}
+            <button
+              onClick={handleOpenMessages}
+              style={{ position: "relative", flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${unreadCount > 0 ? 'rgba(var(--accent-rgb),0.4)' : C.border}`, background: unreadCount > 0 ? 'rgba(var(--accent-rgb),0.06)' : "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : C.muted }}
+            >
+              Berichten
+              {unreadCount > 0 && (
+                <span style={{ position: "absolute", top: 6, right: 8, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: '#020617', fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{unreadCount}</span>
+              )}
+            </button>
             {/* Wissel van trainer button — hide if only 1 trainer or pending switch */}
             {gymTeam && gymTeam.filter(t => !t.is_assigned).length > 0 && !pendingSwitch && (
               <button
@@ -3644,6 +3695,55 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
       >
         Weekly plan →
       </button>
+
+      {/* ── Berichten bottom sheet ── */}
+      {msgSheet && (
+        <>
+          <div onClick={() => setMsgSheet(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40 }} />
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "0 0 env(safe-area-inset-bottom)", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 12px" }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
+                {trainer?.display_name ?? "Trainer"} — Berichten
+              </div>
+              <button onClick={() => setMsgSheet(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>
+            </div>
+            <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
+              {msgLoading && <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 24 }}>Laden…</div>}
+              {!msgLoading && messages.length === 0 && (
+                <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 24 }}>Nog geen berichten. Stuur je trainer een bericht!</div>
+              )}
+              {messages.map(m => (
+                <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.is_mine ? "flex-end" : "flex-start" }}>
+                  <div style={{ maxWidth: "78%", padding: "10px 13px", borderRadius: m.is_mine ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.is_mine ? 'var(--accent)' : C.bgCard, border: m.is_mine ? "none" : `1px solid ${C.border}`, fontSize: 13, color: m.is_mine ? "#020617" : C.text, lineHeight: 1.5 }}>
+                    {m.body}
+                  </div>
+                  <div style={{ fontSize: 10, color: C.muted, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
+                    {(() => { const d = new Date(m.sent_at_ms); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()}
+                  </div>
+                </div>
+              ))}
+            </div>
+            {msgError && <div style={{ fontSize: 11, color: "#f43f5e", padding: "0 20px 8px" }}>{msgError}</div>}
+            <div style={{ display: "flex", gap: 8, padding: "8px 16px 16px", borderTop: `1px solid ${C.border}` }}>
+              <input
+                value={msgInput}
+                onChange={e => setMsgInput(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
+                placeholder="Stuur een bericht…"
+                maxLength={1000}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontSize: 13, fontFamily: "inherit", outline: "none" }}
+              />
+              <button
+                onClick={handleSendMessage}
+                disabled={msgSending || !msgInput.trim()}
+                style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: 'var(--accent)', color: "#020617", fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: (msgSending || !msgInput.trim()) ? "not-allowed" : "pointer", opacity: (msgSending || !msgInput.trim()) ? 0.5 : 1 }}
+              >
+                {msgSending ? "…" : "→"}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -5159,8 +5259,9 @@ export default function App() {
       {!inWorkout && (() => {
         const hasTrainer = !!(trainerData?.assigned_trainer);
         const todayStr = new Date().toISOString().slice(0, 10);
-        const coachDot = hasTrainer && assignments.some(a =>
-          (a.sessions ?? []).some(s => s.scheduled_date === todayStr && s.status === 'scheduled')
+        const coachDot = hasTrainer && (
+          assignments.some(a => (a.sessions ?? []).some(s => s.scheduled_date === todayStr && s.status === 'scheduled')) ||
+          (trainerData?.conv_unread_client ?? 0) > 0
         );
         return <Nav view={view} setView={setView} hasTrainer={hasTrainer} coachDot={coachDot} />;
       })()}
