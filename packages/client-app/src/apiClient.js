@@ -444,6 +444,13 @@ const api = {
     return res.json();
   },
 
+  async getClientPackages(token) {
+    const res = await fetch('/api/client/packages', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async submitSupportRequest(token, message, broadcast = false) {
     const res = await fetch('/api/client/support-request', {
       method: 'POST',

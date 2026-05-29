@@ -2420,7 +2420,7 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, clientPackages }) {
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
@@ -3332,6 +3332,36 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         );
       })()}
 
+      {/* ── Sessie credits ── */}
+      {trainer && clientPackages && clientPackages.length > 0 && (() => {
+        const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
+        return (
+          <Glass style={{ padding: 16, marginBottom: 16 }}>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              {clientPackages.map(p => {
+                const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
+                const barCol = pct > 0.4 ? 'var(--accent)' : pct > 0.15 ? '#f59e0b' : '#f43f5e';
+                return (
+                  <div key={p.id}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.package_name}</div>
+                      <div style={{ fontSize: 12, color: C.muted }}>{p.sessions_remaining} / {p.sessions_total}</div>
+                    </div>
+                    <div style={{ height: 4, borderRadius: 2, background: C.border }}>
+                      <div style={{ height: 4, borderRadius: 2, background: barCol, width: `${Math.max(0, Math.min(100, pct * 100))}%`, transition: "width 0.4s" }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {totalRemaining === 0 && (
+              <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 10 }}>Geen sessies meer over — vraag je trainer om een nieuw pakket</div>
+            )}
+          </Glass>
+        );
+      })()}
+
       {/* ── Your Programme (trainer-assigned) ── */}
       {trainer && assignments.length > 0 && (() => {
         const todayStr = new Date().toISOString().slice(0, 10);
@@ -4061,6 +4091,7 @@ export default function App() {
   const [trainerData, setTrainerData] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [clientSessions, setClientSessions] = useState([]);
+  const [clientPackages, setClientPackages] = useState([]);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() =>
     parseInt(localStorage.getItem(uKey('jf_ftp_snooze_until')) || localStorage.getItem('jf_ftp_snooze_until') || '0')
   );
@@ -4315,6 +4346,10 @@ export default function App() {
     api
       .getSessions(token)
       .then((data) => { if (Array.isArray(data?.sessions)) setClientSessions(data.sessions); })
+      .catch(() => {});
+    api
+      .getClientPackages(token)
+      .then((data) => { if (Array.isArray(data?.packages)) setClientPackages(data.packages); })
       .catch(() => {});
     api
       .getAssignments(token)
@@ -5038,6 +5073,7 @@ export default function App() {
                 onTrainerDataChange={setTrainerData}
                 assignments={assignments}
                 clientSessions={clientSessions}
+                clientPackages={clientPackages}
               />
             )}
             {view === "plan" && (
