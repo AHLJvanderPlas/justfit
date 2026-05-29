@@ -1173,6 +1173,26 @@ None currently. 🟢
 
 All five items shipped: C-G1 (Strava Pro gate), C-G2 (Push notifications Pro gate), C-G3 (History 30-day/unlimited), C-G4 (Plan regen 1/day/unlimited), C-F5 (Defensie readiness pathway, free). See FUNCTIONAL_DOCS.md for details.
 
+## Sprint 5 — Trainer-client features (C-H)
+
+| Item | Status |
+|---|---|
+| C-H1 — DPA consent flow | ✅ LIVE (2026-05-29) |
+| C-H2 — Sessions view | ✅ LIVE (2026-05-29) |
+| C-H3 — Credit balance | ✅ LIVE (2026-05-29) |
+| C-H4 — Messaging | ✅ LIVE (2026-05-29) |
+
+**New files:**
+- `functions/api/client/consent.js` — GET/POST DPA consent
+- `functions/api/client/sessions.js` — GET upcoming appointments
+- `functions/api/client/packages.js` — GET session credit balances
+- `functions/api/client/messages.js` — GET/POST/PATCH trainer-client messages
+
+**Extended files:**
+- `functions/api/client/trainer.js` — added `consent_json`, `gym_name`, `conv_unread_client` to response
+- `packages/client-app/src/apiClient.js` — `signConsent`, `getSessions`, `getClientPackages`, `getMessages`, `sendMessage`, `markMessagesRead`
+- `packages/client-app/src/App.jsx` — CoachView: consent modal gate, sessions strip, credits card, Berichten button + bottom-sheet chat thread, unread nav dot
+
 ### isPro check pattern (use this in every new gate)
 
 ```js
