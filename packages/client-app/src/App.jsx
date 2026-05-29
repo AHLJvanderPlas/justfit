@@ -2406,6 +2406,18 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
   );
 }
 
+// ─── KEURING NORMS (Defensie KB–K6, openbaar beschikbaar) ────────────────────
+// run_sec = max 1500m time; pushups/pullups = minimum reps; march = max 5km+10kg time
+const KEURING_NORMS = {
+  0: { run_sec: 420, pushups: 20, pullups: 2, march: '40:00' },
+  1: { run_sec: 390, pushups: 23, pullups: 3, march: '37:00' },
+  2: { run_sec: 375, pushups: 25, pullups: 4, march: '35:00' },
+  3: { run_sec: 365, pushups: 27, pullups: 5, march: '33:00' },
+  4: { run_sec: 365, pushups: 28, pullups: 4, march: '35:00' },
+  5: { run_sec: 350, pushups: 30, pullups: 6, march: '32:00' },
+  6: { run_sec: 330, pushups: 35, pullups: 8, march: '30:00' },
+};
+
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
 function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments }) {
@@ -2970,8 +2982,74 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
         const sortedAxes = RADAR_AXES_CC.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
         const weakest = sortedAxes[0];
+        const fmtSec = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+        const COOPER_THRESHOLDS_CF5 = [0, 1800, 2000, 2200, 2400, 2600, 2800];
+
         return (
           <>
+            {/* KeuringReadinessCard — target mode keuring */}
+            {mode === 'target' && track === 'keuring' && mil.target_date && (() => {
+              const norms = KEURING_NORMS[clusterTarget] ?? KEURING_NORMS[0];
+              const runOk = lastCooper != null && lastCooper >= (COOPER_THRESHOLDS_CF5[clusterTarget] ?? Infinity);
+              const strengthOk = clusterCurrent >= clusterTarget;
+              const kLabel = milClL(track, clusterTarget);
+              const checkItems = [
+                { label: '1500m loop',        norm: `≤ ${fmtSec(norms.run_sec)}`,  ok: runOk },
+                { label: 'Push-ups',          norm: `≥ ${norms.pushups}`,           ok: strengthOk },
+                { label: 'Pull-ups',          norm: `≥ ${norms.pullups}`,           ok: strengthOk },
+                { label: 'Mars 5km + 10kg',   norm: `≤ ${norms.march}`,             ok: strengthOk },
+              ];
+              return (
+                <Glass style={{ padding: 20, marginBottom: 12 }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+                    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase' }}>
+                      KEURING · {kLabel}
+                    </div>
+                    {daysToAssessment != null && (
+                      <div style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 99, background: daysToAssessment <= 14 ? 'rgba(245,158,11,0.12)' : 'var(--accent-dim)', border: `1px solid ${daysToAssessment <= 14 ? 'rgba(245,158,11,0.3)' : 'var(--accent-border)'}`, color: daysToAssessment <= 14 ? '#f59e0b' : 'var(--accent)' }}>
+                        over {daysToAssessment} dag{daysToAssessment !== 1 ? 'en' : ''}
+                      </div>
+                    )}
+                  </div>
+                  {checkItems.map((item, i) => (
+                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < checkItems.length - 1 ? `1px solid ${C.border}` : 'none' }}>
+                      <span style={{ fontSize: 14, flexShrink: 0, color: item.ok ? C.emerald : C.muted, fontWeight: 900 }}>{item.ok ? '✓' : '○'}</span>
+                      <span style={{ flex: 1, fontSize: 13, color: C.text }}>{item.label}</span>
+                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700, flexShrink: 0 }}>{kLabel}: {item.norm}</span>
+                    </div>
+                  ))}
+                  {weakest && (
+                    <div style={{ marginTop: 12, fontSize: 12, color: C.muted, padding: '9px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                      Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
+                    </div>
+                  )}
+                </Glass>
+              );
+            })()}
+
+            {/* KeuringReadinessCard — open/fit mode */}
+            {mode !== 'target' && track === 'keuring' && (lastCooper || weakest) && (
+              <Glass style={{ padding: 16, marginBottom: 12 }}>
+                <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>Cooper Referentie</div>
+                {lastCooper ? (
+                  <div style={{ fontSize: 13, color: C.text, marginBottom: weakest ? 10 : 0 }}>
+                    Laatste Cooper: <strong>{lastCooper}m</strong>
+                    {cooperLevel != null && cooperLevel > 0 && <span style={{ color: C.muted, marginLeft: 6 }}>· {milClL(track, cooperLevel)}</span>}
+                    {cooperGap != null && clusterCurrent < maxLevel && (
+                      <span style={{ fontSize: 11, color: C.muted, display: 'block', marginTop: 3 }}>
+                        {cooperGap}m tot {milClL(track, nextLevel)} ({COOPER_THRESHOLDS_CF5[nextLevel]}m)
+                      </span>
+                    )}
+                  </div>
+                ) : null}
+                {weakest && (
+                  <div style={{ fontSize: 12, color: C.muted }}>
+                    Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
+                  </div>
+                )}
+              </Glass>
+            )}
+
             {/* Level ladder */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
@@ -3080,6 +3158,10 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                   </div>
                 ))}
               </Glass>
+            </div>
+            {/* Defensie disclaimer */}
+            <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5, marginBottom: 12 }}>
+              JustFit is niet gelieerd aan Defensie of het Ministerie van Defensie. De normen zijn gebaseerd op openbaar beschikbare informatie.
             </div>
           </>
         );
