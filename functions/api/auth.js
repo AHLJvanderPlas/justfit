@@ -584,10 +584,12 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
     return Response.json({ error: 'Invalid WebAuthn type' }, { status: 400 });
   }
 
-  const extra = env.WEBAUTHN_EXTRA_ORIGINS ? env.WEBAUTHN_EXTRA_ORIGINS.split(',') : [];
-  // Include the app subdomain — rpId is the root domain (justfit.cc) shared across subdomains,
-  // so the authenticating origin (https://app.justfit.cc) must be explicitly allowed.
-  const allowedOrigins = [`https://${rpId}`, `https://app.${rpId}`, ...extra];
+  // Production: only accept the real app origin. WEBAUTHN_EXTRA_ORIGINS can add dev origins
+  // (e.g. http://localhost:5173) — never add justfit.pages.dev in production env.
+  const extra = env.WEBAUTHN_EXTRA_ORIGINS
+    ? env.WEBAUTHN_EXTRA_ORIGINS.split(',').map(s => s.trim()).filter(Boolean)
+    : [];
+  const allowedOrigins = [`https://app.${rpId}`, ...extra];
   if (!allowedOrigins.includes(clientData.origin)) {
     return Response.json({ error: 'Invalid origin' }, { status: 400 });
   }
