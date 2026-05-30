@@ -209,6 +209,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
     return saved ?? { mon: d, tue: d, wed: d, thu: d, fri: d, sat: 0, sun: 0 };
   });
 
+  const [blockedWeekdays, setBlockedWeekdays] = useState(() => prefs.preferences?.blocked_weekdays ?? []);
   const [equipEditMode, setEquipEditMode] = useState(false);
   const [equipDragItem, setEquipDragItem] = useState(null);
   const [equipDropZone, setEquipDropZone] = useState(null);
@@ -383,9 +384,9 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
           experience_level: prefs.experience_level ?? "beginner",
           session_duration_min: planDuration,
           days_per_week_target: prefs.days_per_week_target ?? 3,
-          preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule },
+          preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule, blocked_weekdays: blockedWeekdays },
         });
-        onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule } }));
+        onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule, blocked_weekdays: blockedWeekdays } }));
         clearPlanCache();
         setSaveStatus("saved");
         setTimeout(() => setSaveStatus(""), 2000);
@@ -395,7 +396,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
   // token, prefs, onUpdate, and api are session-stable (not React state); excluding them prevents
   // the debounce from firing on every parent re-render. .join/.stringify used to stabilise arrays.
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [planDuration, planEquipment.join(","), JSON.stringify(weeklySchedule), checkinMode, JSON.stringify(timeOverhead), showAdvancedSchedule]);
+  }, [planDuration, planEquipment.join(","), JSON.stringify(weeklySchedule), checkinMode, JSON.stringify(timeOverhead), showAdvancedSchedule, blockedWeekdays.join(",")]);
 
   // ── Auto-save: profile ──
   useEffect(() => {
@@ -2203,6 +2204,46 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
             >
               {effectiveIsPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
             </button>
+          </div>
+
+          {/* Rustdagen */}
+          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginTop: 4, marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+              Rustdagen
+            </div>
+            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+              Gemarkeerde dagen worden automatisch rustdagen. Je kunt altijd handmatig een sessie starten.
+            </div>
+            <div style={{ display: "flex", gap: 6 }}>
+              {[
+                { dow: 1, label: "Ma" },
+                { dow: 2, label: "Di" },
+                { dow: 3, label: "Wo" },
+                { dow: 4, label: "Do" },
+                { dow: 5, label: "Vr" },
+                { dow: 6, label: "Za" },
+                { dow: 0, label: "Zo" },
+              ].map(({ dow, label }) => {
+                const blocked = blockedWeekdays.includes(dow);
+                return (
+                  <button
+                    key={dow}
+                    onClick={() => setBlockedWeekdays(prev =>
+                      prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow]
+                    )}
+                    style={{
+                      flex: 1, padding: "8px 2px", borderRadius: 10, cursor: "pointer",
+                      border: `1px solid ${blocked ? "rgba(244,63,94,0.4)" : C.border}`,
+                      background: blocked ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.03)",
+                      color: blocked ? "#f43f5e" : C.muted,
+                      fontSize: 11, fontWeight: 900,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}

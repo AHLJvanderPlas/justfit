@@ -308,6 +308,15 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // Validate blocked_weekdays: array of 0-6 ints, max 7 items, no duplicates
+    if (preferences?.blocked_weekdays !== undefined) {
+      const bw = preferences.blocked_weekdays;
+      if (!Array.isArray(bw) || bw.some(d => !Number.isInteger(d) || d < 0 || d > 6) || bw.length > 7) {
+        return Response.json({ error: 'Invalid blocked_weekdays' }, { status: 400 });
+      }
+      preferences.blocked_weekdays = [...new Set(bw)]; // deduplicate
+    }
+
     // ── user_preferences ──────────────────────────────────────────────────────
     if (existingRow) {
       await env.DB.prepare(`

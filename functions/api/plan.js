@@ -1066,6 +1066,8 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     rawBudget, budget, unlimited,
     isStandardMode, inSpecialMode,
 
+    blockedWeekdays: new Set(prefs?.preferences?.blocked_weekdays ?? []),
+
     pool, intensity, slot_type: 'main',
     volumeMultiplier: 1.0,
     trace, sessionNotes: null,
@@ -1092,6 +1094,15 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
 // ── Stage 2: Safety policies ──────────────────────────────────────────────────
 function _applySafetyPolicies(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext, bmi, expLevel } = ctx;
+
+  // R999 — Preferred rest day (blocked_weekdays)
+  if (!ctx.bonusSession && ctx.blockedWeekdays.size > 0) {
+    const dow = new Date(date + 'T12:00:00Z').getDay(); // 0=Sun…6=Sat
+    if (ctx.blockedWeekdays.has(dow)) {
+      ctx.slot_type = 'rest';
+      ctx.trace.push(`R999 — Preferred rest day (weekday ${dow} blocked) → rest session`);
+    }
+  }
   const _primaryIntent0 = prefs?.preferences?.primary_intent ?? null;
   const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active)
     && (_primaryIntent0 === null || _primaryIntent0 === 'military');
