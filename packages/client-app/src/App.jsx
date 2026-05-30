@@ -3982,6 +3982,7 @@ function TrainerInviteScreen({ token, inviteToken }) {
     try {
       const res = await api.acceptTrainerInvite(token, inviteToken, action);
       if (res.ok) setDone(action === 'accept' ? 'accepted' : 'declined');
+      else if (res.error === 'gym_client_limit_reached') setErr('Deze trainer zit vol. Vraag de trainer om je toe te voegen via het portaal.');
       else setErr(res.error ?? 'Something went wrong');
     } catch { setErr('Request failed — try again'); }
     finally { setActing(false); }
@@ -4099,6 +4100,7 @@ function ConnectScreen({ token, connectToken }) {
     try {
       const res = await api.connectToTrainer(token, connectToken);
       if (res.ok || res.error === 'already_connected') setDone(true);
+      else if (res.error === 'gym_client_limit_reached') setErr('Deze trainer zit vol. Vraag de trainer om je toe te voegen via het portaal.');
       else setErr(res.error ?? 'Request failed');
     } catch { setErr('Request failed — try again'); }
     finally { setActing(false); }

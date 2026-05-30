@@ -49,7 +49,7 @@ export async function onRequest(context) {
     const token = normaliseToken(rawToken).toLowerCase();
 
     const gym = await env.DB.prepare(
-      `SELECT id, name, sub_status, sub_ends_at_ms FROM gyms WHERE LOWER(trainer_token) LIKE ? || '%' LIMIT 1`
+      `SELECT id, name, sub_status, sub_ends_at_ms, sub_tier, free_tier_client_limit FROM gyms WHERE LOWER(trainer_token) LIKE ? || '%' LIMIT 1`
     ).bind(token).first();
     if (!gym) return Response.json({ error: 'Trainer code not found' }, { status: 404 });
 
@@ -60,6 +60,21 @@ export async function onRequest(context) {
 
     if (existing?.status === 'active') {
       return Response.json({ error: 'already_connected', gym_id: gym.id, gym_name: gym.name }, { status: 409 });
+    }
+
+    // T-E11: enforce client limit for starter tier gyms
+    if (gym.sub_tier === 'starter') {
+      const countRow = await env.DB.prepare(
+        `SELECT COUNT(*) AS cnt FROM gym_memberships WHERE gym_id = ? AND role = 'client' AND status = 'active'`
+      ).bind(gym.id).first();
+      const limit = gym.free_tier_client_limit ?? 3;
+      if ((countRow?.cnt ?? 0) >= limit) {
+        return Response.json({
+          error: 'gym_client_limit_reached',
+          limit,
+          message: 'Deze trainer heeft het maximale aantal klanten bereikt voor dit abonnement.',
+        }, { status: 409 });
+      }
     }
 
     if (existing) {

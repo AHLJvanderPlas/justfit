@@ -17,7 +17,7 @@ export async function onRequest(context) {
 
   const now = Date.now();
   const invite = await env.DB.prepare(
-    `SELECT ti.*, g.name AS gym_name
+    `SELECT ti.*, g.name AS gym_name, g.sub_tier, g.free_tier_client_limit
      FROM trainer_invites ti
      JOIN gyms g ON g.id = ti.gym_id
      WHERE ti.invite_token = ? AND ti.status = 'pending' AND ti.expires_at > ?`
@@ -29,6 +29,21 @@ export async function onRequest(context) {
       `UPDATE trainer_invites SET status='declined', user_id=? WHERE invite_token=?`
     ).bind(user.userId, token).run();
     return Response.json({ ok: true, declined: true });
+  }
+
+  // T-E11: enforce client limit for starter tier gyms before accepting
+  if (invite.sub_tier === 'starter') {
+    const countRow = await env.DB.prepare(
+      `SELECT COUNT(*) AS cnt FROM gym_memberships WHERE gym_id = ? AND role = 'client' AND status = 'active'`
+    ).bind(invite.gym_id).first();
+    const limit = invite.free_tier_client_limit ?? 3;
+    if ((countRow?.cnt ?? 0) >= limit) {
+      return Response.json({
+        error: 'gym_client_limit_reached',
+        limit,
+        message: 'Deze trainer heeft het maximale aantal klanten bereikt voor dit abonnement.',
+      }, { status: 409 });
+    }
   }
 
   // Accept: upsert gym_memberships to active
