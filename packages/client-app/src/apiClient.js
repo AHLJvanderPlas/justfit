@@ -444,6 +444,29 @@ const api = {
     return res.json();
   },
 
+  async getAvailableSessions(token) {
+    const res = await fetch('/api/client/sessions/available', {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async enrollSession(token, id) {
+    const res = await fetch(`/api/client/sessions/${id}/enroll`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async cancelSessionEnrollment(token, id) {
+    const res = await fetch(`/api/client/sessions/${id}/enroll`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
   async getClientPackages(token) {
     const res = await fetch('/api/client/packages', {
       headers: { Authorization: `Bearer ${token}` },

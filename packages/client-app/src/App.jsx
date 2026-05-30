@@ -2420,7 +2420,7 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, clientPackages }) {
+function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages }) {
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
@@ -2442,6 +2442,7 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
   const [profileSheet, setProfileSheet] = useState(null); // trainer object or null
   const [consentSigning, setConsentSigning] = useState(false);
   const [consentError, setConsentError] = useState(null);
+  const [enrollingId, setEnrollingId] = useState(null);
 
   // ── Messaging state ──
   const [msgSheet, setMsgSheet] = useState(false);
@@ -2523,6 +2524,23 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
       }
     } catch { setConsentError('Netwerk fout'); }
     setConsentSigning(false);
+  }
+
+  async function handleEnroll(sessionId) {
+    setEnrollingId(sessionId);
+    try {
+      const res = await api.enrollSession(token, sessionId);
+      if (res.ok) {
+        // Move from available to enrolled — re-fetch both lists
+        const [fresh, freshAvail] = await Promise.all([
+          api.getSessions(token),
+          api.getAvailableSessions(token),
+        ]);
+        if (Array.isArray(fresh?.sessions)) onClientSessionsChange(fresh.sessions);
+        if (Array.isArray(freshAvail?.sessions)) onAvailableSessionsChange(freshAvail.sessions);
+      }
+    } catch { /* ignore — user can retry */ }
+    setEnrollingId(null);
   }
 
   async function handleOpenMessages() {
@@ -3383,6 +3401,57 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
         );
       })()}
 
+      {/* ── Open groepslessen ── */}
+      {trainer && availableSessions && availableSessions.length > 0 && (() => {
+        function fmtAvailTime(ms) {
+          const d = new Date(ms);
+          const days = ['zo','ma','di','wo','do','vr','za'];
+          const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+          return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+        }
+        return (
+          <Glass style={{ padding: 20, marginBottom: 16 }}>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>OPEN GROEPSLESSEN</div>
+            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+              {availableSessions.map(s => {
+                const isFull = s.max_capacity !== null && s.enrolled_count >= s.max_capacity;
+                const pct = s.max_capacity ? Math.min(1, s.enrolled_count / s.max_capacity) : 0;
+                const isEnrolling = enrollingId === s.id;
+                return (
+                  <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{s.title}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          {fmtAvailTime(s.starts_at_ms)}
+                          {s.location ? ` · ${s.location}` : ''}
+                          {s.trainer_name ? ` · ${s.trainer_name}` : ''}
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => !isFull && !isEnrolling && handleEnroll(s.id)}
+                        disabled={isFull || isEnrolling}
+                        style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 10, border: "none", background: isFull ? C.border : 'rgba(var(--accent-rgb),0.12)', color: isFull ? C.muted : 'var(--accent)', fontFamily: "inherit", fontWeight: 900, fontSize: 11, cursor: (isFull || isEnrolling) ? "not-allowed" : "pointer", opacity: isEnrolling ? 0.6 : 1 }}
+                      >
+                        {isEnrolling ? "…" : isFull ? "Vol" : "Inschrijven"}
+                      </button>
+                    </div>
+                    {s.max_capacity !== null && (
+                      <div style={{ height: 3, borderRadius: 2, background: C.border }}>
+                        <div style={{ height: 3, borderRadius: 2, background: isFull ? '#f59e0b' : 'var(--accent)', width: `${pct * 100}%`, transition: "width 0.3s" }} />
+                      </div>
+                    )}
+                    {s.max_capacity !== null && (
+                      <div style={{ fontSize: 10, color: C.muted }}>{s.enrolled_count} / {s.max_capacity} ingeschreven</div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </Glass>
+        );
+      })()}
+
       {/* ── Sessie credits ── */}
       {trainer && clientPackages && clientPackages.length > 0 && (() => {
         const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
@@ -4191,6 +4260,7 @@ export default function App() {
   const [trainerData, setTrainerData] = useState(null);
   const [assignments, setAssignments] = useState([]);
   const [clientSessions, setClientSessions] = useState([]);
+  const [availableSessions, setAvailableSessions] = useState([]);
   const [clientPackages, setClientPackages] = useState([]);
   const [ftpSnoozedUntil, setFtpSnoozedUntil] = useState(() =>
     parseInt(localStorage.getItem(uKey('jf_ftp_snooze_until')) || localStorage.getItem('jf_ftp_snooze_until') || '0')
@@ -4446,6 +4516,10 @@ export default function App() {
     api
       .getSessions(token)
       .then((data) => { if (Array.isArray(data?.sessions)) setClientSessions(data.sessions); })
+      .catch(() => {});
+    api
+      .getAvailableSessions(token)
+      .then((data) => { if (Array.isArray(data?.sessions)) setAvailableSessions(data.sessions); })
       .catch(() => {});
     api
       .getClientPackages(token)
@@ -5173,6 +5247,9 @@ export default function App() {
                 onTrainerDataChange={setTrainerData}
                 assignments={assignments}
                 clientSessions={clientSessions}
+                availableSessions={availableSessions}
+                onAvailableSessionsChange={setAvailableSessions}
+                onClientSessionsChange={setClientSessions}
                 clientPackages={clientPackages}
               />
             )}
