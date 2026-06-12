@@ -15,8 +15,10 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
       workspaces if listed; regenerate package-lock; verify `npm test && npm run smoke`.
 - [x] 1.4 Verify no live route depends on consumer-repo trainer API remnants, then close
       C-B14 in ROADMAP.md (functions/api/trainer/ already absent — confirm only).
-- [ ] 1.5 Lazy-load CoachView via React.lazy + Suspense (copy SettingsView pattern).
+- [x] 1.5 Lazy-load CoachView via React.lazy + Suspense (copy SettingsView pattern).
       Target: main chunk under 500 KB. Verify Coach tab renders + consent gate still blocks.
+      Result: main chunk 591.68 kB → 531.02 kB (CoachView now its own 61 kB chunk);
+      close to but not fully under 500 KB — further splitting deferred to Phase 4 (C-E11).
 
 ## Phase 2 — UX coherence
 
