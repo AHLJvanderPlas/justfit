@@ -3198,6 +3198,20 @@ export default function App() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady]);
 
+  // Refresh trainer data (unread message badge) when tab becomes visible again.
+  useEffect(() => {
+    if (!onboardingReady) return;
+    const trySync = () => {
+      if (document.visibilityState !== 'visible') return;
+      api.getTrainerData(token)
+        .then((data) => { if (data && !data.error) setTrainerData(data); })
+        .catch(() => {});
+    };
+    document.addEventListener('visibilitychange', trySync);
+    return () => document.removeEventListener('visibilitychange', trySync);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [onboardingReady]);
+
   // Persist plan to IndexedDB after every successful load/generate for offline fallback.
   useEffect(() => { if (plan) cachePlan(plan); }, [plan]);
 

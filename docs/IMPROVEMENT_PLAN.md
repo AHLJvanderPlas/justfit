@@ -28,7 +28,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 - [x] 2.2 CoachView hierarchy: merge GEPLANDE SESSIES + OPEN GROEPSLESSEN + SESSIE CREDITS
       into one "Trainer" card with internal sections. Max 4 top-level cards on first paint.
       No data/API changes — JSX restructure only.
-- [ ] 2.3 Refresh unread badge on `visibilitychange`: re-fetch getTrainerData when tab
+- [x] 2.3 Refresh unread badge on `visibilitychange`: re-fetch getTrainerData when tab
       becomes visible (copy the existing Strava visibility-sync pattern in App.jsx).
 
 ## Phase 3 — Test keystone (C-B10)
