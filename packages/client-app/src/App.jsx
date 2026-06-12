@@ -5,7 +5,7 @@ import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
-import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload } from "./planUtils.js";
+import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload, fmtDateNL } from "./planUtils.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
@@ -3367,12 +3367,6 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
 
       {/* ── Geplande sessies ── */}
       {trainer && clientSessions && clientSessions.length > 0 && (() => {
-        function fmtSessionTime(ms) {
-          const d = new Date(ms);
-          const days = ['zo','ma','di','wo','do','vr','za'];
-          const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-          return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }
         return (
           <Glass style={{ padding: 20, marginBottom: 16 }}>
             <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>GEPLANDE SESSIES</div>
@@ -3387,7 +3381,7 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                     <div style={{ flex: 1, minWidth: 0 }}>
                       <div style={{ fontSize: 13, fontWeight: 700, color: isPast ? C.muted : C.text, marginBottom: 2 }}>{s.title}</div>
                       <div style={{ fontSize: 11, color: C.muted }}>
-                        {fmtSessionTime(s.starts_at_ms)}
+                        {fmtDateNL(s.starts_at_ms)}
                         {s.location ? ` · ${s.location}` : ''}
                         {isGroup ? ' · Groep' : ''}
                         {s.rsvp === 'waitlist' ? ' · Wachtlijst' : ''}
@@ -3403,12 +3397,6 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
 
       {/* ── Open groepslessen ── */}
       {trainer && availableSessions && availableSessions.length > 0 && (() => {
-        function fmtAvailTime(ms) {
-          const d = new Date(ms);
-          const days = ['zo','ma','di','wo','do','vr','za'];
-          const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
-          return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-        }
         return (
           <Glass style={{ padding: 20, marginBottom: 16 }}>
             <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>OPEN GROEPSLESSEN</div>
@@ -3423,7 +3411,7 @@ function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyP
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{s.title}</div>
                         <div style={{ fontSize: 11, color: C.muted }}>
-                          {fmtAvailTime(s.starts_at_ms)}
+                          {fmtDateNL(s.starts_at_ms)}
                           {s.location ? ` · ${s.location}` : ''}
                           {s.trainer_name ? ` · ${s.trainer_name}` : ''}
                         </div>

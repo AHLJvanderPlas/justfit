@@ -23,6 +23,14 @@ export function milClL(track, cluster) {
   return `O${cluster}`;
 }
 
+// Format a timestamp (ms) as "do 12 jun · 18:30"
+export function fmtDateNL(ms) {
+  const d = new Date(ms);
+  const days = ['zo','ma','di','wo','do','vr','za'];
+  const months = ['jan','feb','mrt','apr','mei','jun','jul','aug','sep','okt','nov','dec'];
+  return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+}
+
 // Format a duration in seconds to a compact human-readable string
 export function formatExDuration(sec) {
   if (!sec) return null;
