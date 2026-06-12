@@ -273,6 +273,46 @@ const api = {
     return res.json();
   },
 
+  async getStravaStatus(token) {
+    const res = await fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } });
+    return res.json();
+  },
+
+  async disconnectStrava(token) {
+    const res = await fetch('/api/strava-auth', {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return res.json();
+  },
+
+  async exchangeStravaCode(token, code, state) {
+    const res = await fetch('/api/strava-auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ code, state }),
+    });
+    return res.json();
+  },
+
+  async passkeyBeginRegister(token) {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'passkey_begin_register' }),
+    });
+    return res.json();
+  },
+
+  async passkeyCompleteRegister(token, payload) {
+    const res = await fetch('/api/auth', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ action: 'passkey_complete_register', ...payload }),
+    });
+    return res.json();
+  },
+
   async saveStravaByo(token, clientId, clientSecret) {
     const res = await fetch('/api/strava-auth', {
       method: 'POST',

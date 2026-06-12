@@ -9,7 +9,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 
 - [x] 1.1 Extract duplicated NL date formatter (`fmtSessionTime`/`fmtAvailTime` in CoachView)
       into `fmtDateNL(ms)` in `packages/client-app/src/planUtils.js`; replace both call sites.
-- [ ] 1.2 Route the ~8 stray `fetch('/api…')` calls in App.jsx + SettingsView through
+- [x] 1.2 Route the ~8 stray `fetch('/api…')` calls in App.jsx + SettingsView through
       `apiClient.js` methods (add methods where missing, keep response shapes identical).
 - [ ] 1.3 Delete orphan `packages/trainer-app/` workspace; remove from root package.json
       workspaces if listed; regenerate package-lock; verify `npm test && npm run smoke`.

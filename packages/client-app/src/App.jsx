@@ -4398,12 +4398,7 @@ export default function App() {
       window.history.replaceState({}, "", "/");
       const t = getToken();
       if (t) {
-        fetch("/api/strava-auth", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${t}` },
-          body: JSON.stringify({ code, state }),
-        })
-          .then(r => r.json())
+        api.exchangeStravaCode(t, code, state)
           .then(d => {
             if (d.ok) {
               const name = d.athlete_name ? ` · ${d.athlete_name}` : "";
@@ -4565,12 +4560,11 @@ export default function App() {
     const lastSync = parseInt(localStorage.getItem(uKey('jf_strava_auto_sync')) || localStorage.getItem('jf_strava_auto_sync') || '0');
     if (Date.now() - lastSync < COOLDOWN_MS) return;
     // Fire-and-forget — check if connected first, then sync
-    fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.ok ? r.json() : null)
+    api.getStravaStatus(token)
       .then(d => {
         if (!d?.connection) return;
         localStorage.setItem(uKey('jf_strava_auto_sync'), String(Date.now()));
-        return fetch('/api/strava-sync', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+        return api.stravaSync(token);
       })
       .catch(() => {});
   // token and uKey are session-stable (derived from localStorage, not React state);
@@ -4587,12 +4581,11 @@ export default function App() {
       if (document.visibilityState !== 'visible') return;
       const lastSync = parseInt(localStorage.getItem(uKey('jf_strava_auto_sync')) || '0');
       if (Date.now() - lastSync < VISIBILITY_COOLDOWN_MS) return;
-      fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.ok ? r.json() : null)
+      api.getStravaStatus(token)
         .then(d => {
           if (!d?.connection) return;
           localStorage.setItem(uKey('jf_strava_auto_sync'), String(Date.now()));
-          return fetch('/api/strava-sync', { method: 'POST', headers: { Authorization: `Bearer ${token}` } });
+          return api.stravaSync(token);
         })
         .catch(() => {});
     };

@@ -472,8 +472,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
 
   // Load Strava connection status on mount
   useEffect(() => {
-    fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
-      .then(r => r.json())
+    api.getStravaStatus(token)
       .then(d => {
         setStravaConnection(d.connection ?? false);
         setStravaIsByo(!!(d.is_byo));
@@ -493,9 +492,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
     setStravaConnecting(true);
     setStravaMsg('');
     try {
-      const data = await fetch('/api/strava-auth', {
-        headers: { Authorization: `Bearer ${token}` },
-      }).then(r => r.json());
+      const data = await api.getStravaStatus(token);
       if (data.auth_url) {
         window.location.href = data.auth_url;
       } else {
@@ -512,10 +509,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
     setStravaDisconnecting(true);
     setStravaMsg('');
     try {
-      await fetch('/api/strava-auth', {
-        method: 'DELETE',
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      await api.disconnectStrava(token);
       setStravaConnection(false);
       setStravaSyncResult(null);
       setStravaMsg('Disconnected from Strava.');
@@ -541,8 +535,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       setStravaMsg('App credentials saved. Click Connect Strava to link your account.');
       setShowStravaSetup(false);
       // Reload connection status to pick up new is_byo flag
-      fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } })
-        .then(r => r.json())
+      api.getStravaStatus(token)
         .then(d => {
           setStravaConnection(d.connection ?? false);
           setStravaIsByo(!!(d.is_byo));
@@ -579,11 +572,7 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
     setAddingPasskey(true);
     setPasskeyMsg("");
     try {
-      const beginRes = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ action: "passkey_begin_register" }),
-      }).then((r) => r.json());
+      const beginRes = await api.passkeyBeginRegister(token);
 
       if (!beginRes.challengeToken) throw new Error(beginRes.error || "Failed to begin");
 
@@ -611,17 +600,12 @@ function SettingsView({ prefs, onUpdate, userId, token, onRedoOnboarding, onRese
       const pubKey   = credential.response.getPublicKey();
       const pubKeyB64 = btoa(String.fromCharCode(...new Uint8Array(pubKey)));
 
-      const completeRes = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({
-          action: "passkey_complete_register",
-          challengeToken: beginRes.challengeToken,
-          credentialId: b64url(credential.rawId),
-          publicKey: pubKeyB64,
-          algorithm: credential.response.getPublicKeyAlgorithm(),
-        }),
-      }).then((r) => r.json());
+      const completeRes = await api.passkeyCompleteRegister(token, {
+        challengeToken: beginRes.challengeToken,
+        credentialId: b64url(credential.rawId),
+        publicKey: pubKeyB64,
+        algorithm: credential.response.getPublicKeyAlgorithm(),
+      });
 
       if (!completeRes.ok) throw new Error(completeRes.error || "Registration failed");
       setPasskeyMsg("✓ Passkey registered — you can now use Face ID / Touch ID to log in.");
