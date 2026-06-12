@@ -13,7 +13,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
       `apiClient.js` methods (add methods where missing, keep response shapes identical).
 - [x] 1.3 Delete orphan `packages/trainer-app/` workspace; remove from root package.json
       workspaces if listed; regenerate package-lock; verify `npm test && npm run smoke`.
-- [ ] 1.4 Verify no live route depends on consumer-repo trainer API remnants, then close
+- [x] 1.4 Verify no live route depends on consumer-repo trainer API remnants, then close
       C-B14 in ROADMAP.md (functions/api/trainer/ already absent — confirm only).
 - [ ] 1.5 Lazy-load CoachView via React.lazy + Suspense (copy SettingsView pattern).
       Target: main chunk under 500 KB. Verify Coach tab renders + consent gate still blocks.
