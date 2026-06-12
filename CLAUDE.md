@@ -1,5 +1,6 @@
 # justfit-app — Claude Code Instructions
 > For ecosystem-level process rules (build workflow, Foundation validation, doc updates) see `/justfit/CLAUDE.md`.
+> ⚠️ **Cloudflare auth is pre-configured.** `XDG_CONFIG_HOME` is set via `.claude/settings.local.json` — wrangler authenticates as `ahljvanderplas@gmail.com` automatically. **Never** run `wrangler login` or ask the user to authenticate in the browser.
 
 ---
 
@@ -198,6 +199,7 @@ justfit/                             ← monorepo root (npm workspaces)
 │   ├── client-app/                  ← JustFit PWA (app.justfit.cc)
 │   │   ├── src/
 │   │   │   ├── App.jsx          ← app shell, view orchestration, primary workout/dashboard logic
+│   │   │   ├── CoachView.jsx    ← Coach tab: primary intent, programmes, trainer card + sessions/groepslessen/credits, messaging (lazy-loaded)
 │   │   │   ├── WorkoutView.jsx  ← full-screen workout execution overlay (phase state machine, rep counting, rest timer)
 │   │   │   ├── PlanWeekView.jsx ← 7-day plan view with session strips and completed sessions (lazy-loaded)
 │   │   │   ├── HistoryView.jsx  ← Progress tab: trajectory chart, radar, awards entry, cycling PMC (lazy-loaded)
@@ -1193,6 +1195,21 @@ All five items shipped: C-G1 (Strava Pro gate), C-G2 (Push notifications Pro gat
 - `functions/api/client/trainer.js` — added `consent_json`, `gym_name`, `conv_unread_client` to response
 - `packages/client-app/src/apiClient.js` — `signConsent`, `getSessions`, `getClientPackages`, `getMessages`, `sendMessage`, `markMessagesRead`
 - `packages/client-app/src/App.jsx` — CoachView: consent modal gate, sessions strip, credits card, Berichten button + bottom-sheet chat thread, unread nav dot
+
+## Lean & Clean Improvement Plan — Phases 1-2 (2026-06-12)
+
+See `docs/IMPROVEMENT_PLAN.md` for the full checklist (Phases 3-4 pending, gated as described there).
+
+| Item | Status |
+|---|---|
+| 1.1 — `fmtDateNL` shared formatter in planUtils.js | ✅ LIVE |
+| 1.2 — Stray `fetch('/api…')` calls routed through apiClient.js | ✅ LIVE |
+| 1.3 — Orphan `packages/trainer-app/` workspace removed | ✅ done (no deploy needed) |
+| 1.4 — C-B14/C-B15 confirmed resolved, removed from ROADMAP.md | ✅ done (no deploy needed) |
+| 1.5 — CoachView extracted to `CoachView.jsx`, lazy-loaded | ✅ LIVE — main chunk 591.68 kB → 531.02 kB (CoachView own 61 kB chunk) |
+| 2.1 — CoachView headers/buttons NL-first via `t()` | ✅ LIVE — new i18n.js section "COACH VIEW — section headers & buttons" |
+| 2.2 — Trainer sessions/groepslessen/credits merged into one card | ✅ LIVE |
+| 2.3 — Trainer unread badge refresh on `visibilitychange` | ✅ LIVE |
 
 ### isPro check pattern (use this in every new gate)
 
