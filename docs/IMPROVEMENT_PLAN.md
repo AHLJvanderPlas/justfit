@@ -22,7 +22,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 
 ## Phase 2 — UX coherence
 
-- [ ] 2.1 Language unification in CoachView: replace hardcoded English section headers
+- [x] 2.1 Language unification in CoachView: replace hardcoded English section headers
       ("YOUR PROGRAMME", "Weekly plan →") with `t()` NL-first strings so one screen is
       one language. Scope: headers + button labels only, ~15 strings. Add i18n.js entries.
 - [ ] 2.2 CoachView hierarchy: merge GEPLANDE SESSIES + OPEN GROEPSLESSEN + SESSIE CREDITS

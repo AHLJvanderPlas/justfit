@@ -5,6 +5,7 @@ import { GOALS, EXPERIENCE } from "./appConstants.js";
 import { Icons, GoalIcon, MilitaryIcon } from "./icons.jsx";
 import { milClL, fmtDateNL, getUserId } from "./planUtils.js";
 import api from "./apiClient.js";
+import { t, useLang } from "./i18n.js";
 
 // ─── KEURING NORMS (Defensie KB–K6, openbaar beschikbaar) ────────────────────
 // run_sec = max 1500m time; pushups/pullups = minimum reps; march = max 5km+10kg time
@@ -21,6 +22,7 @@ const KEURING_NORMS = {
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
 export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages }) {
+  useLang();
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 
@@ -184,11 +186,11 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
     ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
     : primary === 'running' && rcA ? `RUNNING · ${pref.run_coach.target_km}km`
     : primary === 'cycling' && ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
-    : primary === 'general' ? "GENERAL HEALTH"
+    : primary === 'general' ? t("GENERAL HEALTH")
     : milA ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
     : rcA ? `RUNNING · ${pref.run_coach.target_km}km`
     : ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
-    : "GENERAL HEALTH";
+    : t("GENERAL HEALTH");
 
   const activeCoaches = [milA && "military", rcA && "running", ccA && "cycling"].filter(Boolean);
   const multiCoach = activeCoaches.length > 1;
@@ -203,9 +205,9 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
   };
 
   const intents = [
-    { id: "military", label: "Military", headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : "Not enrolled", available: milA },
-    { id: "running",  label: "Running",  headline: rcA ? `${pref.run_coach.target_km}km goal` : "Not enrolled", available: rcA },
-    { id: "cycling",  label: "Cycling",  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? "Active"}` : "Not enrolled", available: ccA },
+    { id: "military", label: "Military", headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : t("Not enrolled"), available: milA },
+    { id: "running",  label: "Running",  headline: rcA ? `${pref.run_coach.target_km}km goal` : t("Not enrolled"), available: rcA },
+    { id: "cycling",  label: "Cycling",  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? "Active"}` : t("Not enrolled"), available: ccA },
     { id: "general",  label: "General health", headline: "Consistent daily training", available: true },
   ];
 
@@ -267,11 +269,11 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
           onClick={() => setView("today")}
           style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", padding: "0 0 10px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}
         >
-          ← Today
+          {t("← Today")}
         </button>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>COACH</div>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("COACH")}</div>
             <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</div>
           </div>
           <button
@@ -281,7 +283,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
-            Settings
+            {t("Settings")}
           </button>
         </div>
         {primary === 'military' && milA && mp && (
@@ -303,7 +305,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
 
       {/* ── Primary intent ── */}
       <div style={{ marginBottom: 28 }}>
-        <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>PRIMARY INTENT</div>
+        <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>{t("PRIMARY INTENT")}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {intents.map(({ id, label, headline, available }) => {
             const active = primary === id;
@@ -329,14 +331,14 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
           })}
         </div>
         {intentSaved && (
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 10, textAlign: "center" }}>Active from your next check-in.</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 10, textAlign: "center" }}>{t("Active from your next check-in.")}</div>
         )}
       </div>
 
       {/* ── Conflict resolution ── */}
       {multiCoach && (
         <Glass style={{ padding: "16px 20px", marginBottom: 28 }}>
-          <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>CONFLICT RESOLUTION</div>
+          <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("CONFLICT RESOLUTION")}</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
             {primary === "military" ? "Military drives Today. Other coaches adapt."
              : primary === "running" ? "Running drives Today. Other coaches fill rest days."
@@ -344,7 +346,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
              : "General training runs when no coach claims today."}
           </div>
           <button onClick={() => onNavigateSettings()} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit", padding: 0, marginTop: 8 }}>
-            Change primary →
+            {t("Change primary →")}
           </button>
         </Glass>
       )}
@@ -365,7 +367,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
                 {exp.label}
               </span>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>Change in Settings →</div>
+            <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>{t("Change in Settings →")}</div>
           </Glass>
         );
       })()}
@@ -612,7 +614,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
             )}
             {ftpSparkN >= 2 && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>FTP PROGRESS</div>
+                <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</div>
                 <svg viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
                   <polyline points={ftpPts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   {ftpHistory.map((h, i) => {
@@ -638,7 +640,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
               ];
               return (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 8 }}>POWER ZONES</div>
+                  <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 8 }}>{t("POWER ZONES")}</div>
                   {ZONES.map(z => (
                     <div key={z.n} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
                       <div style={{ fontSize: 11, color: C.muted }}>Z{z.n} · {z.name}</div>
@@ -854,7 +856,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
                             {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
                           </div>
                         )}
-                        {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>Set weights in Settings →</div>}
+                        {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>{t("Set weights in Settings →")}</div>}
                       </div>
                     </div>
                     <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
@@ -1075,7 +1077,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
         const todayStr = new Date().toISOString().slice(0, 10);
         return (
           <Glass style={{ padding: 20, marginBottom: 16 }}>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>YOUR PROGRAMME</div>
+            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>{t("YOUR PROGRAMME")}</div>
             {assignments.map(a => {
               const sessions = a.sessions ?? [];
               const completed = sessions.filter(s => s.status === 'completed').length;
@@ -1350,7 +1352,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
         onClick={() => onWeeklyPlan()}
         style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}
       >
-        Weekly plan →
+        {t("Weekly plan →")}
       </button>
 
       {/* ── Berichten bottom sheet ── */}

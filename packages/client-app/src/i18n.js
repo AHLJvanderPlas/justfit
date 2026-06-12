@@ -521,4 +521,20 @@ const NL = {
   // body-mode prefixes prepended by deriveCoachSentence
   'Adapted for pregnancy \u2014 ': 'Aangepast voor zwangerschap \u2014 ',
   'Postnatal-safe \u2014 ': 'Postnataal veilig \u2014 ',
+
+  // === COACH VIEW \u2014 section headers & buttons ===
+  '\u2190 Today': '\u2190 Vandaag',
+  'COACH': 'COACH',
+  'GENERAL HEALTH': 'ALGEMENE GEZONDHEID',
+  'PRIMARY INTENT': 'PRIMAIRE FOCUS',
+  'CONFLICT RESOLUTION': 'PRIORITEIT BIJ CONFLICT',
+  'FTP PROGRESS': 'FTP VOORTGANG',
+  'POWER ZONES': 'VERMOGENSZONES',
+  'YOUR PROGRAMME': 'JOUW PROGRAMMA',
+  'Not enrolled': 'Niet actief',
+  'Change primary \u2192': 'Wijzig primaire focus \u2192',
+  'Change in Settings \u2192': 'Wijzig in Instellingen \u2192',
+  'Weekly plan \u2192': 'Weekplan \u2192',
+  'Set weights in Settings \u2192': 'Stel gewichten in via Instellingen \u2192',
+  'Active from your next check-in.': 'Actief vanaf je volgende check-in.',
 };
