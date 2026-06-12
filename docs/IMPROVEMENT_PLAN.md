@@ -11,7 +11,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
       into `fmtDateNL(ms)` in `packages/client-app/src/planUtils.js`; replace both call sites.
 - [x] 1.2 Route the ~8 stray `fetch('/api…')` calls in App.jsx + SettingsView through
       `apiClient.js` methods (add methods where missing, keep response shapes identical).
-- [ ] 1.3 Delete orphan `packages/trainer-app/` workspace; remove from root package.json
+- [x] 1.3 Delete orphan `packages/trainer-app/` workspace; remove from root package.json
       workspaces if listed; regenerate package-lock; verify `npm test && npm run smoke`.
 - [ ] 1.4 Verify no live route depends on consumer-repo trainer API remnants, then close
       C-B14 in ROADMAP.md (functions/api/trainer/ already absent — confirm only).
