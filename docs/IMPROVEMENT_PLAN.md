@@ -25,7 +25,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 - [x] 2.1 Language unification in CoachView: replace hardcoded English section headers
       ("YOUR PROGRAMME", "Weekly plan →") with `t()` NL-first strings so one screen is
       one language. Scope: headers + button labels only, ~15 strings. Add i18n.js entries.
-- [ ] 2.2 CoachView hierarchy: merge GEPLANDE SESSIES + OPEN GROEPSLESSEN + SESSIE CREDITS
+- [x] 2.2 CoachView hierarchy: merge GEPLANDE SESSIES + OPEN GROEPSLESSEN + SESSIE CREDITS
       into one "Trainer" card with internal sections. Max 4 top-level cards on first paint.
       No data/API changes — JSX restructure only.
 - [ ] 2.3 Refresh unread badge on `visibilitychange`: re-fetch getTrainerData when tab

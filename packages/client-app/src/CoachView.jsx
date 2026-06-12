@@ -890,7 +890,7 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
         );
       })()}
 
-      {/* ── Jouw trainer card ── */}
+      {/* ── Jouw trainer card (profile + sessions + groepslessen + credits) ── */}
       {trainer && (
         <Glass style={{ padding: 20, marginBottom: 16 }}>
           <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>JOUW TRAINER</div>
@@ -964,113 +964,109 @@ export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSett
               </div>
             )}
           </div>
-        </Glass>
-      )}
 
-      {/* ── Geplande sessies ── */}
-      {trainer && clientSessions && clientSessions.length > 0 && (() => {
-        return (
-          <Glass style={{ padding: 20, marginBottom: 16 }}>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>GEPLANDE SESSIES</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-              {clientSessions.map(s => {
-                const isPast = s.starts_at_ms < nowMs;
-                const isGroup = s.type === 'group';
-                return (
-                  <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                    <div style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 5,
-                      background: s.rsvp === 'waitlist' ? '#f59e0b' : isPast ? C.subtle : 'var(--accent)' }} />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: isPast ? C.muted : C.text, marginBottom: 2 }}>{s.title}</div>
-                      <div style={{ fontSize: 11, color: C.muted }}>
-                        {fmtDateNL(s.starts_at_ms)}
-                        {s.location ? ` · ${s.location}` : ''}
-                        {isGroup ? ' · Groep' : ''}
-                        {s.rsvp === 'waitlist' ? ' · Wachtlijst' : ''}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Glass>
-        );
-      })()}
-
-      {/* ── Open groepslessen ── */}
-      {trainer && availableSessions && availableSessions.length > 0 && (() => {
-        return (
-          <Glass style={{ padding: 20, marginBottom: 16 }}>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>OPEN GROEPSLESSEN</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              {availableSessions.map(s => {
-                const isFull = s.max_capacity !== null && s.enrolled_count >= s.max_capacity;
-                const pct = s.max_capacity ? Math.min(1, s.enrolled_count / s.max_capacity) : 0;
-                const isEnrolling = enrollingId === s.id;
-                return (
-                  <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+          {/* ── Geplande sessies ── */}
+          {clientSessions && clientSessions.length > 0 && (
+            <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 12 }}>GEPLANDE SESSIES</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                {clientSessions.map(s => {
+                  const isPast = s.starts_at_ms < nowMs;
+                  const isGroup = s.type === 'group';
+                  return (
+                    <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
+                      <div style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 5,
+                        background: s.rsvp === 'waitlist' ? '#f59e0b' : isPast ? C.subtle : 'var(--accent)' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{s.title}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: isPast ? C.muted : C.text, marginBottom: 2 }}>{s.title}</div>
                         <div style={{ fontSize: 11, color: C.muted }}>
                           {fmtDateNL(s.starts_at_ms)}
                           {s.location ? ` · ${s.location}` : ''}
-                          {s.trainer_name ? ` · ${s.trainer_name}` : ''}
+                          {isGroup ? ' · Groep' : ''}
+                          {s.rsvp === 'waitlist' ? ' · Wachtlijst' : ''}
                         </div>
                       </div>
-                      <button
-                        onClick={() => !isFull && !isEnrolling && handleEnroll(s.id)}
-                        disabled={isFull || isEnrolling}
-                        style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 10, border: "none", background: isFull ? C.border : 'rgba(var(--accent-rgb),0.12)', color: isFull ? C.muted : 'var(--accent)', fontFamily: "inherit", fontWeight: 900, fontSize: 11, cursor: (isFull || isEnrolling) ? "not-allowed" : "pointer", opacity: isEnrolling ? 0.6 : 1 }}
-                      >
-                        {isEnrolling ? "…" : isFull ? "Vol" : "Inschrijven"}
-                      </button>
                     </div>
-                    {s.max_capacity !== null && (
-                      <div style={{ height: 3, borderRadius: 2, background: C.border }}>
-                        <div style={{ height: 3, borderRadius: 2, background: isFull ? '#f59e0b' : 'var(--accent)', width: `${pct * 100}%`, transition: "width 0.3s" }} />
-                      </div>
-                    )}
-                    {s.max_capacity !== null && (
-                      <div style={{ fontSize: 10, color: C.muted }}>{s.enrolled_count} / {s.max_capacity} ingeschreven</div>
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-          </Glass>
-        );
-      })()}
+          )}
 
-      {/* ── Sessie credits ── */}
-      {trainer && clientPackages && clientPackages.length > 0 && (() => {
-        const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
-        return (
-          <Glass style={{ padding: 16, marginBottom: 16 }}>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {clientPackages.map(p => {
-                const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
-                const barCol = pct > 0.4 ? 'var(--accent)' : pct > 0.15 ? '#f59e0b' : '#f43f5e';
-                return (
-                  <div key={p.id}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.package_name}</div>
-                      <div style={{ fontSize: 12, color: C.muted }}>{p.sessions_remaining} / {p.sessions_total}</div>
+          {/* ── Open groepslessen ── */}
+          {availableSessions && availableSessions.length > 0 && (
+            <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 12 }}>OPEN GROEPSLESSEN</div>
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                {availableSessions.map(s => {
+                  const isFull = s.max_capacity !== null && s.enrolled_count >= s.max_capacity;
+                  const pct = s.max_capacity ? Math.min(1, s.enrolled_count / s.max_capacity) : 0;
+                  const isEnrolling = enrollingId === s.id;
+                  return (
+                    <div key={s.id} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>{s.title}</div>
+                          <div style={{ fontSize: 11, color: C.muted }}>
+                            {fmtDateNL(s.starts_at_ms)}
+                            {s.location ? ` · ${s.location}` : ''}
+                            {s.trainer_name ? ` · ${s.trainer_name}` : ''}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => !isFull && !isEnrolling && handleEnroll(s.id)}
+                          disabled={isFull || isEnrolling}
+                          style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 10, border: "none", background: isFull ? C.border : 'rgba(var(--accent-rgb),0.12)', color: isFull ? C.muted : 'var(--accent)', fontFamily: "inherit", fontWeight: 900, fontSize: 11, cursor: (isFull || isEnrolling) ? "not-allowed" : "pointer", opacity: isEnrolling ? 0.6 : 1 }}
+                        >
+                          {isEnrolling ? "…" : isFull ? "Vol" : "Inschrijven"}
+                        </button>
+                      </div>
+                      {s.max_capacity !== null && (
+                        <div style={{ height: 3, borderRadius: 2, background: C.border }}>
+                          <div style={{ height: 3, borderRadius: 2, background: isFull ? '#f59e0b' : 'var(--accent)', width: `${pct * 100}%`, transition: "width 0.3s" }} />
+                        </div>
+                      )}
+                      {s.max_capacity !== null && (
+                        <div style={{ fontSize: 10, color: C.muted }}>{s.enrolled_count} / {s.max_capacity} ingeschreven</div>
+                      )}
                     </div>
-                    <div style={{ height: 4, borderRadius: 2, background: C.border }}>
-                      <div style={{ height: 4, borderRadius: 2, background: barCol, width: `${Math.max(0, Math.min(100, pct * 100))}%`, transition: "width 0.4s" }} />
-                    </div>
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
-            {totalRemaining === 0 && (
-              <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 10 }}>Geen sessies meer over — vraag je trainer om een nieuw pakket</div>
-            )}
-          </Glass>
-        );
-      })()}
+          )}
+
+          {/* ── Sessie credits ── */}
+          {clientPackages && clientPackages.length > 0 && (() => {
+            const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
+            return (
+              <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
+                <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {clientPackages.map(p => {
+                    const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
+                    const barCol = pct > 0.4 ? 'var(--accent)' : pct > 0.15 ? '#f59e0b' : '#f43f5e';
+                    return (
+                      <div key={p.id}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                          <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>{p.package_name}</div>
+                          <div style={{ fontSize: 12, color: C.muted }}>{p.sessions_remaining} / {p.sessions_total}</div>
+                        </div>
+                        <div style={{ height: 4, borderRadius: 2, background: C.border }}>
+                          <div style={{ height: 4, borderRadius: 2, background: barCol, width: `${Math.max(0, Math.min(100, pct * 100))}%`, transition: "width 0.4s" }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                {totalRemaining === 0 && (
+                  <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 10 }}>Geen sessies meer over — vraag je trainer om een nieuw pakket</div>
+                )}
+              </div>
+            );
+          })()}
+        </Glass>
+      )}
 
       {/* ── Your Programme (trainer-assigned) ── */}
       {trainer && assignments.length > 0 && (() => {
