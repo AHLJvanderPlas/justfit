@@ -3,6 +3,9 @@
 // because Vite will emit it as a common chunk referenced by both.
 
 export function logout() {
+  // Clear HttpOnly session cookie server-side, then clear localStorage.
+  fetch('/api/auth', { method: 'POST', body: JSON.stringify({ action: 'logout' }),
+    headers: { 'Content-Type': 'application/json' } }).catch(() => {});
   ["jf_token", "jf_user_id", "jf_prefs", "jf_accent", "jf_checkin_date"].forEach(k => localStorage.removeItem(k));
   Object.keys(localStorage).filter(k => k.startsWith("jf_completed_") || k.startsWith("jf_bonus_")).forEach(k => localStorage.removeItem(k));
   sessionStorage.clear();

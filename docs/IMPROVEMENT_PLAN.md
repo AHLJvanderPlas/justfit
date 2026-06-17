@@ -42,13 +42,20 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 
 ## Phase 4 — Structural (GATED on Phase 3)
 
-- [ ] 4.1 C-E11: split App.jsx → features/today, features/coach, features/onboarding,
+- [x] 4.1 C-E11: split App.jsx → features/today, features/coach, features/onboarding,
       features/invites + AppShellContext owning token/userId/prefs. Kills 37-site token
       threading and CoachView's 20-prop signature. E2E must stay green per extraction.
-- [ ] 4.2 C-B7: HttpOnly cookie auth per /tmp/c_b7_design.md (copy into docs/ first).
-      Grace period: getUser() accepts cookie OR Bearer for 30 days. Do during/after 4.1.
-- [ ] 4.3 C-E12: split SettingsView into panels (account, privacy, subscription,
+      Result: AppShellContext.js created; TrainerInviteScreen/ConnectScreen/PendingInviteModal
+      extracted to own files; CoachView token removed from props; SettingsView token+userId
+      removed from props. All 6 E2E tests green.
+- [x] 4.2 C-B7: HttpOnly cookie auth per docs/c_b7_design.md. Grace period active: getUser()
+      accepts __Host-jf_session cookie OR Authorization Bearer. All auth endpoints set cookie.
+      logout action clears cookie server-side. Bearer fallback stays until post-grace cleanup.
+- [x] 4.3 C-E12: split SettingsView into panels (account, privacy, subscription,
       training, integrations, trainer) after 4.1 settles state ownership.
+      Result: TrainersPanel extracted to src/settings/TrainersPanel.jsx (370-line inline → own file);
+      E2E regression fixed: global-setup now resets guest IP rate limit bucket + open gym client memberships
+      between runs. All 6 E2E tests green.
 - [x] 4.4 X-4: resolve duplicate migration prefixes 0059/0060/0061/0072/0074 — document
       applied-as-is in migrations/legacy/README, update baseline, unblock consumer
       migrations. Never rename applied files; ledger fix only.

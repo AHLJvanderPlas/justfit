@@ -79,6 +79,15 @@ export default async function globalSetup() {
     ALTER TABLE gym_memberships ADD COLUMN conv_last_msg_at_ms INTEGER;
   `, 'gm-cols');
 
+  // ── 1b. Cleanup accumulated test state ───────────────────────────────────
+  // Each run of Journey 6 inserts an ACTIVE gym_membership in e2e-gym-open (unique per user).
+  // After free_tier_client_limit runs the open gym appears full to Journeys 3 and 5.
+  // Journey 2 (guest_signup) hits isRateLimited after 5 runs via the 'guest:ip:unknown' bucket.
+  localSql(`
+    DELETE FROM gym_memberships WHERE gym_id IN ('e2e-gym-open', 'e2e-gym-full') AND role = 'client';
+    DELETE FROM auth_rate_limits WHERE bucket LIKE 'guest:ip:%';
+  `, 'cleanup-test-state');
+
   // ── 2. Seed fixture data ─────────────────────────────────────────────────
   localSql(`
     -- Fixture trainer user

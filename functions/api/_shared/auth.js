@@ -26,7 +26,14 @@ const JWT_EXPIRY_SEC = 60 * 60 * 24 * 7; // must match auth.js JWT_EXPIRY
 /** Returns full JWT payload { userId, email, exp } or null if invalid / missing. */
 export async function getUser(request, env) {
   const auth = request.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
+  let token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
+  // Grace period: also accept __Host-jf_session cookie (HttpOnly, set by auth.js on login).
+  // Bearer header fallback allows existing localStorage-stored tokens to keep working.
+  if (!token) {
+    const cookie = request.headers.get('Cookie') ?? '';
+    const m = cookie.match(/(?:^|;\s*)__Host-jf_session=([^;]+)/);
+    if (m) token = decodeURIComponent(m[1]);
+  }
   if (!token || !env.JWT_SECRET) return null;
   const payload = await verifyJWT(token, env.JWT_SECRET);
   if (!payload) return null;

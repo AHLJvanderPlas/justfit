@@ -6,6 +6,7 @@ import { Icons, GoalIcon, MilitaryIcon } from "./icons.jsx";
 import { milClL, fmtDateNL, getUserId } from "./planUtils.js";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+import { useAppShell } from "./AppShellContext.js";
 
 // ─── KEURING NORMS (Defensie KB–K6, openbaar beschikbaar) ────────────────────
 // run_sec = max 1500m time; pushups/pullups = minimum reps; march = max 5km+10kg time
@@ -21,8 +22,9 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-export default function CoachView({ prefs, plan, token, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages }) {
+export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages }) {
   useLang();
+  const { token } = useAppShell();
   const [intentSaved, setIntentSaved] = useState(false);
   const [nowMs] = useState(() => Date.now());
 

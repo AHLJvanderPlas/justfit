@@ -10,6 +10,21 @@ const WEBAUTHN_EXPIRY = 120;              // 2 min   — challenge JWT (sec)
 const FROM_ADDRESS    = 'JustFit.cc <noreply@justfit.cc>';
 const APP_URL         = 'https://app.justfit.cc';
 
+// ─── COOKIE HELPERS ───────────────────────────────────────────────────────────
+// Wraps Response.json() and adds __Host-jf_session cookie (HttpOnly, Secure, SameSite=Strict).
+// Keeps `token` in the JSON body during the grace period so existing clients still work.
+function sessionJson(body, jwtToken) {
+  const cookie = `__Host-jf_session=${encodeURIComponent(jwtToken)}; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=${JWT_EXPIRY}`;
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Set-Cookie': cookie },
+  });
+}
+
+function clearSessionCookie() {
+  return `__Host-jf_session=deleted; Path=/; Secure; HttpOnly; SameSite=Strict; Max-Age=0`;
+}
+
 // ─── BASE64URL HELPERS ────────────────────────────────────────────────────────
 function b64url(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
@@ -228,7 +243,7 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
     createJWT({ userId, email: emailLower }, secret),
     fetchMemberships(userId, env),
   ]);
-  return Response.json({ ok: true, token, userId, memberships });
+  return sessionJson({ ok: true, token, userId, memberships }, token);
 }
 
 async function handleLogin({ email, password }, request, env, secret) {
@@ -292,7 +307,7 @@ async function handleLogin({ email, password }, request, env, secret) {
   const needsTermsAcceptance =
     (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
     (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
-  return Response.json({ ok: true, token, userId: authUser.id, needsTermsAcceptance, memberships });
+  return sessionJson({ ok: true, token, userId: authUser.id, needsTermsAcceptance, memberships }, token);
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
@@ -497,7 +512,7 @@ async function handleMagicVerify(token, env, secret) {
     createJWT({ userId: row.user_id, email: row.email }, secret),
     fetchMemberships(row.user_id, env),
   ]);
-  return Response.json({ ok: true, token: sessionToken, userId: row.user_id, memberships });
+  return sessionJson({ ok: true, token: sessionToken, userId: row.user_id, memberships }, sessionToken);
 }
 
 // ─── PASSKEY: BEGIN REGISTRATION ─────────────────────────────────────────────
@@ -678,7 +693,7 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
     createJWT({ userId: cred.user_id, email: cred.email }, secret),
     fetchMemberships(cred.user_id, env),
   ]);
-  return Response.json({ ok: true, token, userId: cred.user_id, memberships });
+  return sessionJson({ ok: true, token, userId: cred.user_id, memberships }, token);
 }
 
 // ─── DELETE ACCOUNT ───────────────────────────────────────────────────────────
@@ -920,7 +935,7 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
   }
 
   const newSessionToken = await createJWT({ userId: user.userId, email: row.new_email }, secret);
-  return Response.json({ ok: true, token: newSessionToken, new_email: row.new_email });
+  return sessionJson({ ok: true, token: newSessionToken, new_email: row.new_email }, newSessionToken);
 }
 
 // ─── EMAIL VERIFY / CHANGE LINK HANDLERS (GET) ────────────────────────────────
@@ -1008,7 +1023,7 @@ async function handleGuestSignup(request, env, secret) {
   ]);
 
   const token = await createJWT({ userId, email: null, guest: true }, secret);
-  return Response.json({ ok: true, token, userId, guest: true });
+  return sessionJson({ ok: true, token, userId, guest: true }, token);
 }
 
 // ─── GUEST → ACCOUNT CONVERSION ──────────────────────────────────────────────
@@ -1044,7 +1059,15 @@ async function handleConvertGuest(body, request, env, secret) {
   ).bind(email.toLowerCase(), `${salt}:100000:${hash}`, now, user_id).run();
 
   const token = await createJWT({ userId: user_id, email: email.toLowerCase() }, secret);
-  return Response.json({ ok: true, token });
+  return sessionJson({ ok: true, token }, token);
+}
+
+// ─── LOGOUT ───────────────────────────────────────────────────────────────────
+function handleLogout() {
+  return new Response(JSON.stringify({ ok: true }), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Set-Cookie': clearSessionCookie() },
+  });
 }
 
 // ─── EXPORTED HANDLERS ────────────────────────────────────────────────────────
@@ -1071,6 +1094,7 @@ export async function onRequestPost({ request, env }) {
       case 'verify_email_code':         return handleVerifyEmailCode(body, request, env, secret);
       case 'request_email_change':      return handleRequestEmailChange(body, request, env, secret);
       case 'verify_change_code':        return handleVerifyChangeCode(body, request, env, secret);
+      case 'logout':                    return handleLogout();
       default: return Response.json({ error: 'Invalid action' }, { status: 400 });
     }
   } catch (e) {
