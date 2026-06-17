@@ -13,12 +13,12 @@ export async function onRequest(context) {
   const invite = await env.DB.prepare(
     `SELECT ti.id, ti.gym_id, ti.email, ti.status, ti.expires_at,
             g.name AS gym_name,
-            u.display_name AS trainer_name,
-            u.photo_r2_key AS trainer_photo_r2_key
+            tp.display_name AS trainer_name,
+            tp.photo_r2_key AS trainer_photo_r2_key
      FROM trainer_invites ti
      JOIN gyms g ON g.id = ti.gym_id
      JOIN gym_memberships gm ON gm.gym_id = ti.gym_id AND gm.role = 'owner' AND gm.status = 'active'
-     JOIN users u ON u.id = gm.user_id
+     LEFT JOIN trainer_profiles tp ON tp.user_id = gm.user_id
      WHERE ti.invite_token = ? AND ti.status = 'pending' AND ti.expires_at > ?
      LIMIT 1`
   ).bind(token, now).first();

@@ -16,6 +16,13 @@ These rules apply to EVERY task in EVERY session, without exception.
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
+## E2E release gate (Phase 4+ structural PRs)
+`npm run e2e` runs the Playwright journey suite (6 journeys, local D1, wrangler pages dev).
+**Must be green before any Phase 4 structural change** (App.jsx split, SettingsView split, auth migration).
+Run: `npm run e2e` — requires the local dev server to be up or will spin one up automatically.
+Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open + 409), trainer-invite accept, consent gate block/sign.
+Do NOT skip this gate for C-E11/C-E12/C-B7 work.
+
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
 - Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`

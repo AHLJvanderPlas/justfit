@@ -29,6 +29,10 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
   await page.getByRole('button', { name: 'Good' }).click();
   await page.getByRole('button', { name: 'Apply →' }).click();
 
+  // PathChoiceModal appears after onboarding when primary_intent is unset — pick General
+  await expect(page.getByRole('button', { name: /GENERAL/i })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: /GENERAL/i }).click();
+
   // ── Today's plan ──────────────────────────────────────────────────────
   const startSession = page.getByRole('button', { name: /START SESSION/ });
   await expect(startSession).toBeVisible({ timeout: 30_000 });

@@ -35,9 +35,9 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 
 - [x] 3.1 Add Playwright; journeys: signup/login → onboarding → check-in → plan →
       complete workout → history. Run against local `wrangler pages dev` or preview deploy.
-- [ ] 3.2 Add journeys: guest mode, connect (FIT-code), trainer-invite accept,
+- [x] 3.2 Add journeys: guest mode, connect (FIT-code), trainer-invite accept,
       consent gate block/sign, 409 client-limit error message.
-- [ ] 3.3 Wire into npm script (`npm run e2e`); document in CLAUDE.md as release gate
+- [x] 3.3 Wire into npm script (`npm run e2e`); document in CLAUDE.md as release gate
       for structural PRs. Close C-B10 in ROADMAP.md.
 
 ## Phase 4 — Structural (GATED on Phase 3)
