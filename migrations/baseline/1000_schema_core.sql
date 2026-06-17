@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS day_plans (
   CHECK (json_valid(plan_json))
 ) STRICT;
 
-CREATE INDEX IF NOT EXISTS idx_day_plans_user_date ON day_plans(user_id, date);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_day_plans_user_date ON day_plans(user_id, date);
 
 -- ---------------------------------------------------------------------------
 -- Execution
@@ -412,7 +412,7 @@ CREATE TABLE IF NOT EXISTS entitlements (
   user_id      TEXT    NOT NULL,
   product_code TEXT    NOT NULL,
   source       TEXT    NOT NULL DEFAULT 'manual'
-                 CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other')),
+                 CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other','trial')),
   status       TEXT    NOT NULL DEFAULT 'active'
                  CHECK (status IN ('active','trialing','grace','canceled','expired')),
   starts_at_ms INTEGER NOT NULL,
@@ -420,6 +420,8 @@ CREATE TABLE IF NOT EXISTS entitlements (
   renews_at_ms INTEGER,
   external_ref TEXT,
   meta_json    TEXT,
+  mollie_customer_id TEXT,
+  mollie_sub_id      TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
 
@@ -429,6 +431,68 @@ CREATE TABLE IF NOT EXISTS entitlements (
   CHECK (external_ref IS NULL OR length(external_ref) <= 256),
   CHECK (meta_json IS NULL OR json_valid(meta_json))
 ) STRICT;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_entitlements_user_source_product
+  ON entitlements (user_id, source, product_code);
+
+-- ---------------------------------------------------------------------------
+-- gyms / gym_memberships (migration 0060 schema; backfill not part of baseline)
+-- Every trainer is a 1:1 gym (type='solo') or a multi-trainer Gym tier (type='studio'/'gym').
+-- exercises.gym_id (1010_schema_training.sql) references gyms(id) for gym-owned custom exercises.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS gyms (
+  id                  TEXT PRIMARY KEY,
+  slug                TEXT NOT NULL UNIQUE,
+  name                TEXT NOT NULL,
+  type                TEXT NOT NULL DEFAULT 'solo' CHECK (type IN ('solo','studio','gym')),
+  owner_user_id       TEXT NOT NULL REFERENCES users(id),
+  subscription_tier   TEXT NOT NULL DEFAULT 'starter' CHECK (subscription_tier IN ('starter','pro','studio')),
+  subscription_status TEXT NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active','trialing','suspended','cancelled')),
+  kvk_number          TEXT,
+  vat_number          TEXT,
+  iban                TEXT,
+  address_json        TEXT,
+  branding_json       TEXT,
+  encryption_key_enc  TEXT NOT NULL,
+  kor_active          INTEGER NOT NULL DEFAULT 0,
+  dpa_acknowledged_at_ms INTEGER,
+  dpa_version         TEXT,
+  model               TEXT,
+  switch_auto_approve INTEGER,
+  trainer_tab_config_json TEXT,
+  free_tier_client_limit INTEGER,
+  sub_billing_period  TEXT,
+  created_at_ms       INTEGER NOT NULL,
+  updated_at_ms       INTEGER NOT NULL
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_gyms_owner ON gyms(owner_user_id);
+CREATE INDEX IF NOT EXISTS idx_gyms_slug  ON gyms(slug);
+
+CREATE TABLE IF NOT EXISTS gym_memberships (
+  id                TEXT PRIMARY KEY,
+  gym_id            TEXT NOT NULL REFERENCES gyms(id),
+  user_id           TEXT NOT NULL REFERENCES users(id),
+  role              TEXT NOT NULL DEFAULT 'client' CHECK (role IN ('owner','trainer','client')),
+  status            TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('pending','active','suspended','removed')),
+  invited_by_user_id TEXT,
+  invited_at_ms     INTEGER,
+  joined_at_ms      INTEGER,
+  permissions_json  TEXT,
+  assigned_trainer_user_id TEXT,
+  show_in_client_app INTEGER,
+  team_view_opt_in   INTEGER,
+  allow_trainer_switch INTEGER,
+  availability_status TEXT,
+  availability_updated_at_ms INTEGER,
+  created_at_ms     INTEGER NOT NULL,
+  updated_at_ms     INTEGER NOT NULL,
+  UNIQUE(gym_id, user_id)
+) STRICT;
+
+CREATE INDEX IF NOT EXISTS idx_gm_gym    ON gym_memberships(gym_id, status);
+CREATE INDEX IF NOT EXISTS idx_gm_user   ON gym_memberships(user_id, status);
 
 CREATE TABLE IF NOT EXISTS awards (
   id            TEXT    PRIMARY KEY,

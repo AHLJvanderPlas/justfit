@@ -33,7 +33,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
 
 ## Phase 3 — Test keystone (C-B10)
 
-- [ ] 3.1 Add Playwright; journeys: signup/login → onboarding → check-in → plan →
+- [x] 3.1 Add Playwright; journeys: signup/login → onboarding → check-in → plan →
       complete workout → history. Run against local `wrangler pages dev` or preview deploy.
 - [ ] 3.2 Add journeys: guest mode, connect (FIT-code), trainer-invite accept,
       consent gate block/sign, 409 client-limit error message.

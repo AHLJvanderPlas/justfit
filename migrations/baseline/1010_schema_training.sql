@@ -38,6 +38,9 @@ CREATE TABLE IF NOT EXISTS exercises (
   metrics_json            TEXT,   -- {supports:["reps","sets","time",...]}
   alternatives_json       TEXT,   -- {substitutions:["slug1","slug2"]}
   is_active               INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
+  gym_id                  TEXT REFERENCES gyms(id),  -- NULL = global exercise; set = gym-owned custom exercise (migration 0087)
+  instructions_markdown    TEXT,  -- gym-authored custom instructions, EN (migration 0087)
+  instructions_markdown_nl TEXT,  -- gym-authored custom instructions, NL (migration 0087)
   created_at_ms           INTEGER NOT NULL,
   updated_at_ms           INTEGER NOT NULL,
 

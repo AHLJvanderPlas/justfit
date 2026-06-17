@@ -14,5 +14,8 @@
     "smoke": "bash scripts/smoke.sh",
     "smoke:ratelimit": "bash scripts/smoke-ratelimit.sh",
     "test": "npm run test --workspace=client-app && npm run test --workspace=@justfit/shared"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }
