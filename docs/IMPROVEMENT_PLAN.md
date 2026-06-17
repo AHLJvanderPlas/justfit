@@ -49,7 +49,7 @@ HARD GATE: Phase 4 must not start until Phase 3 E2E suite is green in CI/local.
       Grace period: getUser() accepts cookie OR Bearer for 30 days. Do during/after 4.1.
 - [ ] 4.3 C-E12: split SettingsView into panels (account, privacy, subscription,
       training, integrations, trainer) after 4.1 settles state ownership.
-- [ ] 4.4 X-4: resolve duplicate migration prefixes 0059/0060/0061/0072/0074 — document
+- [x] 4.4 X-4: resolve duplicate migration prefixes 0059/0060/0061/0072/0074 — document
       applied-as-is in migrations/legacy/README, update baseline, unblock consumer
       migrations. Never rename applied files; ledger fix only.
 
