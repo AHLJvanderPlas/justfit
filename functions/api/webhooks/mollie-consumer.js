@@ -111,6 +111,24 @@ export async function onRequest(context) {
           `INSERT INTO billing_events (id, user_id, event_type, product_code, mollie_id, payload_json, created_at_ms) VALUES (?,?,?,?,?,?,?)`
         ).bind(crypto.randomUUID(), userId, 'payment_failed', ent.product_code, payment.id, null, now),
       ]);
+      // Fire-and-forget grace alert email
+      if (env.RESEND_API_KEY) {
+        const authUser = await env.DB.prepare(
+          `SELECT email FROM auth_users WHERE user_id = ? AND provider = 'email' LIMIT 1`
+        ).bind(userId).first().catch(() => null);
+        if (authUser?.email) {
+          fetch('https://api.resend.com/emails', {
+            method: 'POST',
+            headers: { 'Authorization': `Bearer ${env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              from: 'JustFit.cc <noreply@justfit.cc>',
+              to: authUser.email,
+              subject: 'Betaling mislukt — je Pro-abonnement loopt nog 7 dagen',
+              html: `<p>Hoi,</p><p>Je betaling voor JustFit Pro is niet gelukt. Je hebt nog 7 dagen toegang terwijl we het opnieuw proberen.</p><p>Controleer je betaalgegevens in de app (Instellingen → Account → Abonnement) om je abonnement te behouden.</p><p>— JustFit</p>`,
+            }),
+          }).catch(() => {});
+        }
+      }
     }
   }
 
