@@ -15,18 +15,16 @@
  * All three actions require a valid Bearer JWT.
  *
  * Environment variables required:
- *   STRAVA_CLIENT_ID      — from strava.com/settings/api
- *   STRAVA_CLIENT_SECRET  — from strava.com/settings/api
+ *   STRAVA_CLIENT_ID      — from strava.com/settings/api (JustFit platform app)
+ *   STRAVA_CLIENT_SECRET  — from strava.com/settings/api (JustFit platform app)
  *   JWT_SECRET            — shared app secret for token verification
  */
 
 import { getAuthUserId } from './_shared/auth.js';
-import { encryptByoSecret, decryptByoSecret } from './_shared/strava.js';
 
-const STRAVA_AUTH_URL   = 'https://www.strava.com/oauth/authorize';
-const STRAVA_TOKEN_URL  = 'https://www.strava.com/oauth/token';
-const STRAVA_ATHLETE_URL = 'https://www.strava.com/api/v3/athlete';
-const SCOPE             = 'activity:read_all';
+const STRAVA_AUTH_URL  = 'https://www.strava.com/oauth/authorize';
+const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
+const SCOPE            = 'activity:read_all';
 
 function authError(msg, status = 401) {
   return Response.json({ error: msg }, { status });
@@ -42,27 +40,18 @@ function corsHeaders() {
   };
 }
 
-// ── Handlers ─────────────────────────────────────────────────────────────────
-
-async function getByoCreds(userId, env) {
-  try {
-    const row = await env.DB.prepare(
-      `SELECT client_id, client_secret FROM strava_byo_credentials WHERE user_id = ? LIMIT 1`
-    ).bind(userId).first();
-    if (row?.client_id && row?.client_secret) {
-      const clientSecret = await decryptByoSecret(row.client_secret, env.JWT_SECRET, userId);
-      return { clientId: row.client_id, clientSecret, isByo: true, byoClientId: row.client_id };
-    }
-    return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null };
-  } catch { return { clientId: env.STRAVA_CLIENT_ID ?? null, clientSecret: env.STRAVA_CLIENT_SECRET ?? null, isByo: false, byoClientId: null }; }
+function getPlatformCreds(env) {
+  return {
+    clientId:     env.STRAVA_CLIENT_ID     ?? null,
+    clientSecret: env.STRAVA_CLIENT_SECRET ?? null,
+  };
 }
 
 async function handleGet(request, env) {
   const userId = await getAuthUserId(request, env);
   if (!userId) return authError('Unauthorized');
 
-  const byoCreds = await getByoCreds(userId, env);
-  const { clientId, isByo } = byoCreds;
+  const { clientId } = getPlatformCreds(env);
   if (!clientId) return Response.json({ error: 'Strava not configured' }, { status: 503 });
 
   // Fetch existing connection status
@@ -100,8 +89,6 @@ async function handleGet(request, env) {
   return Response.json({
     auth_url: `${STRAVA_AUTH_URL}?${params}`,
     connection,
-    is_byo: isByo,
-    client_id: byoCreds.byoClientId ?? null,
   }, { headers: corsHeaders() });
 }
 
@@ -122,38 +109,6 @@ async function handlePost(request, env) {
   let body;
   try { body = await request.json(); } catch { return Response.json({ error: 'Bad request' }, { status: 400 }); }
 
-  // ── Save BYO app credentials (targeted json_patch, no profile.js pipeline) ──
-  if (body.action === 'save_byo') {
-    const clientId     = (body.client_id     ?? '').trim();
-    const clientSecret = (body.client_secret ?? '').trim();
-    if (!clientId || !clientSecret) {
-      return Response.json({ error: 'client_id and client_secret are required' }, { status: 400 });
-    }
-    // Validate: client_id should be numeric, client_secret should be a hex string
-    if (!/^\d+$/.test(clientId)) {
-      return Response.json({ error: 'client_id must be a numeric Strava App ID' }, { status: 400 });
-    }
-    if (clientSecret.length < 20) {
-      return Response.json({ error: 'client_secret appears too short' }, { status: 400 });
-    }
-    try {
-      const nowMs = Date.now();
-      const encryptedSecret = await encryptByoSecret(clientSecret, env.JWT_SECRET, userId);
-      await env.DB.prepare(`
-        INSERT INTO strava_byo_credentials (user_id, client_id, client_secret, created_at_ms, updated_at_ms)
-        VALUES (?, ?, ?, ?, ?)
-        ON CONFLICT(user_id) DO UPDATE SET
-          client_id     = excluded.client_id,
-          client_secret = excluded.client_secret,
-          updated_at_ms = excluded.updated_at_ms
-      `).bind(userId, clientId, encryptedSecret, nowMs, nowMs).run();
-      return Response.json({ ok: true }, { headers: corsHeaders() });
-    } catch (e) {
-      console.error('strava-auth save_byo:', e);
-      return Response.json({ error: 'Internal error' }, { status: 500 });
-    }
-  }
-
   const { code, state } = body;
   if (!code) return Response.json({ error: 'Missing code' }, { status: 400 });
 
@@ -163,12 +118,11 @@ async function handlePost(request, env) {
       const decoded = JSON.parse(atob(state));
       if (decoded.uid !== userId) return authError('State mismatch');
     } catch {
-      // State decode failure is non-fatal — log and continue
       console.warn('strava-auth: could not decode state param');
     }
   }
 
-  const { clientId, clientSecret } = await getByoCreds(userId, env);
+  const { clientId, clientSecret } = getPlatformCreds(env);
   if (!clientId || !clientSecret) return Response.json({ error: 'Strava not configured' }, { status: 503 });
 
   // Exchange code for tokens
@@ -255,10 +209,7 @@ async function handleDelete(request, env) {
   if (!userId) return authError('Unauthorized');
 
   try {
-    await env.DB.batch([
-      env.DB.prepare(`DELETE FROM strava_connections WHERE user_id = ?`).bind(userId),
-      env.DB.prepare(`DELETE FROM strava_byo_credentials WHERE user_id = ?`).bind(userId),
-    ]);
+    await env.DB.prepare(`DELETE FROM strava_connections WHERE user_id = ?`).bind(userId).run();
   } catch (e) {
     console.error('strava-auth DELETE:', e);
     return Response.json({ error: 'Internal error' }, { status: 500 });

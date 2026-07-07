@@ -2680,6 +2680,7 @@ export default function App() {
   const [isPro, setIsPro] = useState(() => !!(prefs.isPro ?? false));
   const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(null);
   const [lastCheckin, setLastCheckin] = useState(null);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
 
   useEffect(() => {
     try {
@@ -3005,6 +3006,18 @@ export default function App() {
     return () => window.removeEventListener('online', flushQueue);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady, userId]);
+
+  // Track network connectivity for offline banner
+  useEffect(() => {
+    const goOnline  = () => setIsOffline(false);
+    const goOffline = () => setIsOffline(true);
+    window.addEventListener('online',  goOnline);
+    window.addEventListener('offline', goOffline);
+    return () => {
+      window.removeEventListener('online',  goOnline);
+      window.removeEventListener('offline', goOffline);
+    };
+  }, []);
 
   // Show check-in based on mode; if check-in won't be shown, load or generate today's plan
   useEffect(() => {
@@ -3507,6 +3520,14 @@ export default function App() {
           />
         ) : (
           <>
+            {isOffline && (
+              <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 10 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                  <line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
+                </svg>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>Je bent offline — wijzigingen worden gesynchroniseerd zodra de verbinding hersteld is</div>
+              </div>
+            )}
             {view === "today" && (
               <>
                 <PregnancyProgressBanner cycle={prefs.cycle} />

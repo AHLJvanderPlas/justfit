@@ -259,16 +259,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [sportDropZone, setSportDropZone] = useState(null);
   // Strava integration state
   const [stravaConnection, setStravaConnection]       = useState(null); // null=loading, false=not connected, object=connected
-  const [stravaIsByo, setStravaIsByo]                 = useState(false);
   const [stravaConnecting, setStravaConnecting]       = useState(false);
   const [stravaDisconnecting, setStravaDisconnecting] = useState(false);
   const [stravaSyncing, setStravaSyncing]             = useState(false);
   const [stravaSyncResult, setStravaSyncResult]       = useState(null); // { imported, by_type }
   const [stravaMsg, setStravaMsg]                     = useState('');
-  const [showStravaSetup, setShowStravaSetup]         = useState(false);
-  const [byoClientId, setByoClientId]                 = useState(''); // populated from GET /api/strava-auth
-  const [byoClientSecret, setByoClientSecret]         = useState(''); // never pre-filled (secret not returned from server)
-  const [byoSaving, setByoSaving]                     = useState(false);
   // Pro entitlement — passed from App (entitlements table) or fallback to prefs flag
   const effectiveIsPro = !!(isPro || prefs.isPro);
   // Training Focus
@@ -478,8 +473,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     api.getStravaStatus(token)
       .then(d => {
         setStravaConnection(d.connection ?? false);
-        setStravaIsByo(!!(d.is_byo));
-        if (d.client_id) setByoClientId(d.client_id);
       })
       .catch(() => setStravaConnection(false));
   }, [token]);
@@ -499,8 +492,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       if (data.auth_url) {
         window.location.href = data.auth_url;
       } else {
-        setStravaMsg('Enter your Client ID and Client Secret below, then click Save credentials.');
-        setShowStravaSetup(true);
+        setStravaMsg('Strava is not configured. Contact support.');
       }
     } catch {
       setStravaMsg('Could not reach Strava. Try again.');
@@ -520,35 +512,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       setStravaMsg('Could not disconnect. Try again.');
     }
     setStravaDisconnecting(false);
-  };
-
-  const handleByoSave = async () => {
-    if (!byoClientId.trim()) { setStravaMsg('Client ID is required.'); return; }
-    if (!byoClientSecret.trim()) { setStravaMsg('Client Secret is required.'); return; }
-    setByoSaving(true);
-    setStravaMsg('');
-    try {
-      const data = await api.saveStravaByo(token, byoClientId.trim(), byoClientSecret.trim());
-      if (!data.ok) {
-        setStravaMsg(data.error || 'Could not save credentials. Try again.');
-        setByoSaving(false);
-        return;
-      }
-      setByoClientSecret(''); // clear after save — never keep secret in local state
-      setStravaMsg('App credentials saved. Click Connect Strava to link your account.');
-      setShowStravaSetup(false);
-      // Reload connection status to pick up new is_byo flag
-      api.getStravaStatus(token)
-        .then(d => {
-          setStravaConnection(d.connection ?? false);
-          setStravaIsByo(!!(d.is_byo));
-          if (d.client_id) setByoClientId(d.client_id);
-        })
-        .catch(() => {});
-    } catch {
-      setStravaMsg('Could not save credentials. Try again.');
-    }
-    setByoSaving(false);
   };
 
   const handleStravaSync = async () => {
@@ -3122,12 +3085,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Strava Import Beta</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Strava</div>
                 {!effectiveIsPro && (
                   <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
-                )}
-                {stravaIsByo && (
-                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(252,76,2,0.12)", color: "#FC4C02", textTransform: "uppercase" }}>BYO App</span>
                 )}
               </div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
@@ -3219,52 +3179,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
           )}
 
-          {/* Advanced setup toggle */}
-          <button
-            onClick={() => setShowStravaSetup(s => !s)}
-            style={{ marginTop: 14, background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, color: C.muted, display: "flex", alignItems: "center", gap: 4 }}
-          >
-            <span style={{ display: "inline-block", transform: showStravaSetup ? "rotate(90deg)" : "rotate(0deg)", transition: "transform 0.15s" }}>▶</span>
-            Advanced setup — use your own Strava app
-          </button>
-
-          {showStravaSetup && (
-            <div style={{ marginTop: 12, padding: "16px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: C.text, marginBottom: 10 }}>How to set up your own Strava app</div>
-              <ol style={{ margin: 0, paddingLeft: 18, fontSize: 11, color: C.muted, lineHeight: 1.8 }}>
-                <li>Go to <span style={{ color: C.text, fontFamily: "monospace" }}>strava.com/settings/api</span></li>
-                <li>Create a new application</li>
-                <li>Set <strong style={{ color: C.text }}>Authorization Callback Domain</strong> to <span style={{ color: C.text, fontFamily: "monospace" }}>justfit.cc</span></li>
-                <li>Copy your <strong style={{ color: C.text }}>Client ID</strong> and <strong style={{ color: C.text }}>Client Secret</strong></li>
-                <li>Paste them below, then save</li>
-                <li>Click Connect Strava above</li>
-              </ol>
-              <div style={{ marginTop: 14, display: "flex", flexDirection: "column", gap: 8 }}>
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  placeholder="Client ID"
-                  value={byoClientId}
-                  onChange={e => setByoClientId(e.target.value)}
-                  style={{ padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box" }}
-                />
-                <input
-                  type="password"
-                  placeholder="Client Secret (write-only)"
-                  value={byoClientSecret}
-                  onChange={e => setByoClientSecret(e.target.value)}
-                  style={{ padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 13, outline: "none", width: "100%", boxSizing: "border-box" }}
-                />
-                <button
-                  onClick={handleByoSave}
-                  disabled={byoSaving || !byoClientId.trim() || !byoClientSecret.trim()}
-                  style={{ padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: byoSaving || !byoClientId.trim() || !byoClientSecret.trim() ? "not-allowed" : "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", opacity: byoSaving || !byoClientId.trim() || !byoClientSecret.trim() ? 0.5 : 1 }}
-                >
-                  {byoSaving ? 'Saving…' : 'Save credentials'}
-                </button>
-              </div>
-            </div>
-          )}
         </Glass>
       </div>
       )}  {/* closes subView === "coach" for Integrations */}
