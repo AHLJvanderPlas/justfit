@@ -6,8 +6,9 @@
 -- (execution_steps.exercise_id references exercises, which lives in 1010)
 --
 -- Covers (merged final state — no ALTER TABLE needed):
---   Identity & Auth   : users, auth_users, user_profile, user_contact,
+--   Identity & Auth   : users, auth_users, user_contact,
 --                       user_preferences, user_availability
+--                       (user_profile merged into user_preferences 0096/0097)
 --   Auth credentials  : passkey_credentials, password_reset_tokens,
 --                       magic_link_tokens, auth_rate_limits
 --   Check-in/Planning : daily_checkins, context_overrides, day_plans
@@ -17,11 +18,14 @@
 --   Audit & Ops       : deleted_users, app_events, feedback_items
 --   Body & Cycle      : user_progression, user_progression_events,
 --                       cycle_profile, period_log, pregnancy_weekly_log
---   Integrations      : strava_connections, strava_byo_credentials
+--   Integrations      : strava_connections
 --   Indexes           : all non-PK indexes
 --
 -- Derives from migrations: 0001 (initial), 0006–0009, 0013–0014, 0017–0019,
---   0022–0026, 0028, 0036, 0038–0042
+--   0022–0026, 0028, 0036, 0038–0042, 0093–0098 (cleanup pass 2026-07)
+-- NOTE: consolidation migrations 0082–0092 are NOT yet fully merged into this
+--   baseline (auth_users/user_contact/user_availability blocks are stale) —
+--   tracked in ROADMAP.md.
 -- =============================================================================
 
 -- ---------------------------------------------------------------------------
@@ -70,27 +74,8 @@ CREATE TABLE IF NOT EXISTS auth_users (
   CHECK (provider_subject IS NULL OR length(provider_subject) <= 512)
 ) STRICT;
 
--- Merged: 0008 added sex/weight_kg; 0013 added height_cm.
-CREATE TABLE IF NOT EXISTS user_profile (
-  user_id       TEXT    PRIMARY KEY,
-  display_name  TEXT,
-  given_name    TEXT,
-  family_name   TEXT,
-  birth_date    TEXT,                       -- ISO8601 'YYYY-MM-DD'
-  sex           TEXT    CHECK (sex IN ('male','female','intersex','unspecified')),
-  height_cm     REAL    CHECK (height_cm IS NULL OR (height_cm >= 50  AND height_cm <= 260)),
-  weight_kg     REAL    CHECK (weight_kg IS NULL OR (weight_kg >= 20  AND weight_kg <= 400)),
-  baseline_json TEXT,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL,
-
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
-
-  CHECK (display_name IS NULL OR length(display_name) <= 128),
-  CHECK (given_name   IS NULL OR length(given_name)   <= 128),
-  CHECK (family_name  IS NULL OR length(family_name)  <= 128),
-  CHECK (baseline_json IS NULL OR json_valid(baseline_json))
-) STRICT;
+-- user_profile dropped in 0097 — body columns (sex, height_cm, weight_kg) merged
+-- into user_preferences (0096); display_name lives in preferences_json.
 
 CREATE TABLE IF NOT EXISTS user_contact (
   user_id        TEXT    PRIMARY KEY,
@@ -124,6 +109,10 @@ CREATE TABLE IF NOT EXISTS user_preferences (
   session_duration_min INTEGER CHECK (session_duration_min IS NULL OR (session_duration_min >= 5 AND session_duration_min <= 180)),
   days_per_week_target INTEGER CHECK (days_per_week_target IS NULL OR (days_per_week_target >= 1 AND days_per_week_target <= 7)),
   preferences_json     TEXT,
+  -- Body fields merged from user_profile (migration 0096; user_profile dropped in 0097)
+  sex                  TEXT,
+  height_cm            REAL,
+  weight_kg            REAL,
   created_at_ms        INTEGER NOT NULL,
   updated_at_ms        INTEGER NOT NULL,
 
@@ -445,10 +434,9 @@ CREATE TABLE IF NOT EXISTS gyms (
   id                  TEXT PRIMARY KEY,
   slug                TEXT NOT NULL UNIQUE,
   name                TEXT NOT NULL,
-  type                TEXT NOT NULL DEFAULT 'solo' CHECK (type IN ('solo','studio','gym')),
+  -- type / subscription_tier / subscription_status dropped in 0095 — replaced by
+  -- sub_tier / sub_status (added by trainer-portal migrations)
   owner_user_id       TEXT NOT NULL REFERENCES users(id),
-  subscription_tier   TEXT NOT NULL DEFAULT 'starter' CHECK (subscription_tier IN ('starter','pro','studio')),
-  subscription_status TEXT NOT NULL DEFAULT 'active' CHECK (subscription_status IN ('active','trialing','suspended','cancelled')),
   kvk_number          TEXT,
   vat_number          TEXT,
   iban                TEXT,
@@ -610,6 +598,9 @@ CREATE TABLE IF NOT EXISTS user_progression_events (
   CHECK (stimulus_json      IS NULL OR json_valid(stimulus_json))
 ) STRICT;
 
+CREATE INDEX IF NOT EXISTS idx_upe_user
+  ON user_progression_events(user_id, created_at_ms);  -- migration 0098
+
 -- Merged: 0008 created table; 0009 added mode, pregnancy, postnatal columns; 0056 added perimenopause.
 CREATE TABLE IF NOT EXISTS cycle_profile (
   user_id                       TEXT    PRIMARY KEY
@@ -687,15 +678,7 @@ CREATE TABLE IF NOT EXISTS strava_connections (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_strava_connections_user
   ON strava_connections(user_id);
 
--- BYO Strava credentials kept separate from user_preferences to prevent
--- accidental exposure via profile/export endpoints (migration 0042).
-CREATE TABLE IF NOT EXISTS strava_byo_credentials (
-  user_id       TEXT    NOT NULL PRIMARY KEY,
-  client_id     TEXT    NOT NULL,
-  client_secret TEXT    NOT NULL,
-  created_at_ms INTEGER NOT NULL,
-  updated_at_ms INTEGER NOT NULL
-) STRICT;
+-- strava_byo_credentials dropped in 0093 (BYO Strava app feature retired).
 
 -- support_tokens — time-limited support access tokens (legacy table, no STRICT, no _at_ms suffix)
 CREATE TABLE IF NOT EXISTS support_tokens (

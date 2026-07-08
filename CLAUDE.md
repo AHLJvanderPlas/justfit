@@ -298,7 +298,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0098`; never reuse a number. Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0099`; never reuse a number. Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See also: **Database Migration Policy** section below.
 
 ---
 
