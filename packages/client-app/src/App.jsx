@@ -25,8 +25,14 @@ import {
 } from "./exportUtils.js";
 
 // ─── VIEW COMPONENTS ──────────────────────────────────────────────────────────
-// WorkoutView: active workout path — eager loaded (no async boundary on critical path)
-import WorkoutView from "./WorkoutView.jsx";
+// WorkoutView: active workout path — split into its own chunk, but the import()
+// starts at module scope so the fetch runs in parallel with first render. Same
+// network timing as an eager import (chunk is always loaded long before a workout
+// can start — check-in comes first), while keeping its parse cost out of the
+// critical main chunk. Do NOT change this to a plain lazy(() => import(...)):
+// that would defer the fetch to workout start and break offline sessions.
+const workoutViewPromise = import("./WorkoutView.jsx");
+const WorkoutView = lazy(() => workoutViewPromise);
 // HistoryView and PlanWeekView: secondary tabs — lazy loaded for bundle reduction
 const HistoryView   = lazy(() => import("./HistoryView.jsx"));
 const PlanWeekView  = lazy(() => import("./PlanWeekView.jsx"));
@@ -2579,14 +2585,8 @@ export default function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (document.getElementById("jf-fonts")) return;
-    const l = document.createElement("link");
-    l.id = "jf-fonts";
-    l.rel = "stylesheet";
-    l.href = "https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Inter+Tight:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap";
-    document.head.appendChild(l);
-  }, []);
+  // Fonts are loaded from index.html <head> (id="jf-fonts") so the CSS fetch
+  // starts in parallel with the JS bundle — do not re-inject them here.
 
   const today = new Date().toISOString().split("T")[0];
 
@@ -3503,21 +3503,25 @@ export default function App() {
         )}
 
         {inBonusWorkout && bonusPlan ? (
-          <WorkoutView
-            plan={bonusPlan ? { ...bonusPlan, experience_level: prefs.experience_level ?? bonusPlan.experience_level } : bonusPlan}
-            onComplete={handleBonusComplete}
-            onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
-            cycle={prefs.cycle}
-            prefs={prefs}
-          />
+          <Suspense fallback={null}>
+            <WorkoutView
+              plan={bonusPlan ? { ...bonusPlan, experience_level: prefs.experience_level ?? bonusPlan.experience_level } : bonusPlan}
+              onComplete={handleBonusComplete}
+              onBack={() => { setInBonusWorkout(false); setBonusPlan(null); }}
+              cycle={prefs.cycle}
+              prefs={prefs}
+            />
+          </Suspense>
         ) : inWorkout ? (
-          <WorkoutView
-            plan={plan ? { ...plan, experience_level: prefs.experience_level ?? plan.experience_level } : plan}
-            onComplete={handleComplete}
-            onBack={() => setInWorkout(false)}
-            cycle={prefs.cycle}
-            prefs={prefs}
-          />
+          <Suspense fallback={null}>
+            <WorkoutView
+              plan={plan ? { ...plan, experience_level: prefs.experience_level ?? plan.experience_level } : plan}
+              onComplete={handleComplete}
+              onBack={() => setInWorkout(false)}
+              cycle={prefs.cycle}
+              prefs={prefs}
+            />
+          </Suspense>
         ) : (
           <>
             {isOffline && (
