@@ -58,15 +58,13 @@ export async function onRequestGet({ request, env }) {
 
     const today = new Date().toISOString().split('T')[0];
 
-    const [prefs, profile, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, lastPlanRow, usersRow, trainerMsgRow] = await Promise.all([
+    const [prefs, cycleRow, authUser, lastLoginRow, lastPasskeyRow, lastExecRow, lastCheckinRow, lastPlanRow, usersRow, trainerMsgRow] = await Promise.all([
       env.DB.prepare(
         `SELECT units, training_goal, experience_level, intensity_pref,
                 session_duration_min, days_per_week_target, preferences_json,
+                sex, height_cm, weight_kg,
                 created_at_ms, updated_at_ms
          FROM user_preferences WHERE user_id = ? LIMIT 1`
-      ).bind(user.userId).first(),
-      env.DB.prepare(
-        `SELECT sex, weight_kg, height_cm FROM user_profile WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
       env.DB.prepare(
         `SELECT tracking_mode, cycle_length_days, last_period_start,
@@ -168,9 +166,9 @@ export async function onRequestGet({ request, env }) {
       days_per_week_target: prefs.days_per_week_target,
       preferences: parsedPrefs,
       // Body-aware fields
-      sex: profile?.sex ?? null,
-      weight_kg: profile?.weight_kg ?? null,
-      height_cm: profile?.height_cm ?? null,
+      sex: prefs?.sex ?? null,
+      weight_kg: prefs?.weight_kg ?? null,
+      height_cm: prefs?.height_cm ?? null,
       trainer_message: trainerMessage,
       cycle: cycleRow ? {
         // Standard cycle
@@ -317,56 +315,39 @@ export async function onRequestPost({ request, env }) {
       preferences.blocked_weekdays = [...new Set(bw)]; // deduplicate
     }
 
-    // ── user_preferences ──────────────────────────────────────────────────────
+    // ── user_preferences (training + body fields) ─────────────────────────────
+    const bodyUpdates = [];
+    const bodyVals = [];
+    if (sex !== undefined)       { bodyUpdates.push('sex = ?');       bodyVals.push(sex ?? null); }
+    if (weight_kg !== undefined) { bodyUpdates.push('weight_kg = ?'); bodyVals.push(weight_kg ?? null); }
+    if (height_cm !== undefined) { bodyUpdates.push('height_cm = ?'); bodyVals.push(height_cm ?? null); }
+    const extraBodyCols = bodyUpdates.length ? `, ${bodyUpdates.join(', ')}` : '';
+
     if (existingRow) {
       await env.DB.prepare(`
         UPDATE user_preferences SET
           units = ?, training_goal = ?, experience_level = ?,
           intensity_pref = ?, session_duration_min = ?, days_per_week_target = ?,
-          preferences_json = ?, updated_at_ms = ?
+          preferences_json = ?${extraBodyCols}, updated_at_ms = ?
         WHERE user_id = ?
       `).bind(
         units_f, training_goal_f, experience_level_f,
         intensity_pref_f, session_duration_min_f, days_per_week_target_f,
-        JSON.stringify(preferences), now, user.userId
+        JSON.stringify(preferences), ...bodyVals, now, user.userId
       ).run();
     } else {
       await env.DB.prepare(`
         INSERT INTO user_preferences
           (user_id, units, training_goal, experience_level, intensity_pref,
            session_duration_min, days_per_week_target, preferences_json,
+           sex, weight_kg, height_cm,
            created_at_ms, updated_at_ms)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `).bind(
         user.userId, units_f, training_goal_f, experience_level_f,
         intensity_pref_f, session_duration_min_f, days_per_week_target_f,
-        JSON.stringify(preferences), now, now
+        JSON.stringify(preferences), sex ?? null, weight_kg ?? null, height_cm ?? null, now, now
       ).run();
-    }
-
-    // ── user_profile (sex + weight + height) ─────────────────────────────────
-    if (sex !== undefined || weight_kg !== undefined || height_cm !== undefined) {
-      const profileExists = await env.DB.prepare(
-        `SELECT user_id FROM user_profile WHERE user_id = ? LIMIT 1`
-      ).bind(user.userId).first();
-
-      if (profileExists) {
-        const updates = [];
-        const vals = [];
-        if (sex !== undefined)       { updates.push('sex = ?');       vals.push(sex); }
-        if (weight_kg !== undefined) { updates.push('weight_kg = ?'); vals.push(weight_kg); }
-        if (height_cm !== undefined) { updates.push('height_cm = ?'); vals.push(height_cm); }
-        updates.push('updated_at_ms = ?');
-        vals.push(now, user.userId);
-        await env.DB.prepare(
-          `UPDATE user_profile SET ${updates.join(', ')} WHERE user_id = ?`
-        ).bind(...vals).run();
-      } else {
-        await env.DB.prepare(`
-          INSERT INTO user_profile (user_id, sex, weight_kg, height_cm, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, ?, ?, ?)
-        `).bind(user.userId, sex ?? null, weight_kg ?? null, height_cm ?? null, now, now).run();
-      }
     }
 
     // ── cycle_profile ─────────────────────────────────────────────────────────

@@ -105,7 +105,7 @@ export async function onRequestPost({ request, env }) {
       ).all(),
       user_id
         ? env.DB.prepare(
-            `SELECT sex, weight_kg, height_cm FROM user_profile WHERE user_id = ? LIMIT 1`
+            `SELECT sex, weight_kg, height_cm FROM user_preferences WHERE user_id = ? LIMIT 1`
           ).bind(user_id).first()
         : Promise.resolve(null),
       env.DB.prepare(

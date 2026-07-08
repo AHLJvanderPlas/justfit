@@ -769,7 +769,6 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM gym_memberships WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM trainer_switch_requests WHERE client_user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM user_preferences WHERE user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM user_profile WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM users WHERE id = ?').bind(uid),
   ]);
 
