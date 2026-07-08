@@ -24,9 +24,9 @@ export async function requireGymContext(request, env, allowedRoles = ['owner', '
   }
 
   const membership = await env.DB.prepare(
-    `SELECT gm.role, gm.status, g.id, g.slug, g.name, g.type, g.owner_user_id,
+    `SELECT gm.role, gm.status, g.id, g.slug, g.name, g.owner_user_id,
             g.kvk_number, g.vat_number, g.iban, g.address_json, g.encryption_key_enc,
-            g.kor_active, g.subscription_tier, g.dpa_acknowledged_at_ms, g.dpa_version
+            g.kor_active, g.dpa_acknowledged_at_ms, g.dpa_version
      FROM gym_memberships gm
      JOIN gyms g ON g.id = gm.gym_id
      WHERE gm.gym_id = ? AND gm.user_id = ? AND gm.status = 'active'
@@ -48,7 +48,6 @@ export async function requireGymContext(request, env, allowedRoles = ['owner', '
     id: membership.id,
     slug: membership.slug,
     name: membership.name,
-    type: membership.type,
     owner_user_id: membership.owner_user_id,
     kvk_number: membership.kvk_number,
     vat_number: membership.vat_number,
@@ -56,7 +55,6 @@ export async function requireGymContext(request, env, allowedRoles = ['owner', '
     address_json: membership.address_json,
     encryption_key_enc: membership.encryption_key_enc,
     kor_active: membership.kor_active,
-    subscription_tier: membership.subscription_tier,
     dpa_acknowledged_at_ms: membership.dpa_acknowledged_at_ms,
     dpa_version: membership.dpa_version,
   };
