@@ -493,11 +493,12 @@ started_on TEXT, noted_at_ms INT, source TEXT ('manual','auto')
 JWT implementation uses Web Crypto API only (no npm). Located in `functions/api/auth.js`.
 
 ```javascript
-// Token stored in localStorage as 'jf_token'
-// User ID stored in localStorage as 'jf_user_id'
-// On app load: if no token → redirect to /login.html
-// JWT payload: { userId, email, exp }
-// JWT_EXPIRY = 7 days
+// Session: HttpOnly __Host-jf_session cookie (Secure, SameSite=Strict, 7 days) — C-B7 + C-B17
+// The JWT is never returned in response bodies or stored client-side.
+// User ID stored in localStorage as 'jf_user_id' (identifier only, not a credential)
+// On app load: if no jf_user_id → /login.html; else GET /api/auth verifies the cookie
+//   (401 → clear + redirect; network error → stay, offline mode)
+// JWT payload: { userId, email, exp }; JWT_EXPIRY = 7 days
 // JWT secret: env var JWT_SECRET (required in production)
 ```
 
@@ -1115,7 +1116,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Historical duplicates at 0059/0060/0061/0072/0074/0080 documented in `migrations/legacy/README.md` (X-4 resolved 2026-06-18). Next valid number is `0093`. | Low | Enforce unique monotonic numbering for all new migrations (0093+); never reuse a number. |
+| Operational drift (migration numbering/version hygiene) | Historical duplicates at 0059/0060/0061/0072/0074/0080 documented in `migrations/legacy/README.md` (X-4 resolved 2026-06-18). Next valid number is `0099`. | Low | Enforce unique monotonic numbering for all new migrations (0099+); never reuse a number. |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
@@ -1182,6 +1183,21 @@ Calculated server-side from executions table:
 ## Known Bugs to Fix
 
 None currently. 🟢
+
+## Built 2026-08-10 — deploy pending wrangler OAuth refresh
+
+| Item | Commit | Status |
+|---|---|---|
+| C-B17 cookie-only session auth (Bearer/localStorage fallback removed) | b4c3dcc | ⏳ built + tested (unit/e2e/smoke green), Pages deploy pending |
+| GDPR deletion confirmation email (request + cancel, Resend) | db152d2 | ⏳ built, deploy pending |
+| Switch-trainer sheet real availability status (was hardcoded "Gemiddeld") | 30fba92 | ⏳ built, deploy pending |
+| Account deletion 500 fix (strava_byo_credentials table doesn't exist in prod) | f944afd | ⏳ built, deploy pending — **production account deletion is broken until deployed** |
+| X-27 baseline schema regenerated from production | (chore) | ✅ complete (repo-only) |
+| justfit-ops worker: weekly D1 backup → R2 EU + daily push dispatch cron (X-29 + C-E18) | (feat) | ⏳ scaffolded in `workers/justfit-ops/`; needs R2 bucket + secrets + `wrangler deploy` |
+
+Unblock: `XDG_CONFIG_HOME=/Users/alexander/.cloudflare/justfit-wrangler npx wrangler login`
+then deploy Pages (`npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`),
+then deploy the ops worker + secrets (commands in the secrets vault justfit.md entry).
 
 ---
 
@@ -1454,7 +1470,7 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instru
 
 ### Adding a migration
 
-1. Choose the next monotonic number (`0093`, `0094`, …). Never reuse a number, never skip one.
+1. Choose the next monotonic number (`0099`, `0100`, …). Never reuse a number, never skip one.
 2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
 3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
 4. **Update the baseline** — this is mandatory:
@@ -1499,5 +1515,5 @@ Four checks to enforce before merging any PR that touches the relevant area. Eac
 
 - **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0093`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0099`; never reuse a number. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.
