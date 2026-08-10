@@ -1263,7 +1263,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>WISSEL VAN TRAINER</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                   {(gymTeam ?? []).filter(t => !t.is_assigned).map(t => {
-                    const clientLoad = "Gemiddeld"; // TODO: use real bucket when available
+                    const availLabel = t.availability_status === 'available' ? "Beschikbaar" : t.availability_status === 'busy' ? "Bezig" : "Offline";
                     return (
                       <button
                         key={t.user_id}
@@ -1276,7 +1276,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{t.display_name}</div>
                           {t.specialties?.length > 0 && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.specialties.slice(0, 2).join(" · ")}</div>}
-                          <div style={{ fontSize: 11, color: C.subtle, marginTop: 2 }}>Beschikbaarheid: {clientLoad}</div>
+                          <div style={{ fontSize: 11, color: C.subtle, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{availDot(t.availability_status)}{availLabel}</div>
                         </div>
                       </button>
                     );
