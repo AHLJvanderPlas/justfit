@@ -756,11 +756,11 @@ These are documented limitations, not test failures.
 
 | Gap | Status | Risk |
 |---|---|---|
-| Offline writes (check-in, workout save) not queued | By design — fails gracefully with error message | Low for beta |
-| Auth token in localStorage (not HttpOnly cookie) | Known security trade-off for Pages Functions hosting | Low for beta; plan for post-beta |
-| Strava BYO credentials stored as plaintext prefs in D1 | User-owned credentials; noted risk | Low for beta |
-| No Playwright/E2E test suite | Manual UAT substitutes for now | Medium |
-| No load test | Only 5 real users; D1 at 2 MB | Low until launch |
+| ~~Offline writes not queued~~ | ✅ Resolved — IndexedDB mutation outbox (offlineCache.js DB_VERSION=3) queues offline saves | — |
+| ~~Auth token in localStorage~~ | ✅ Resolved — HttpOnly `__Host-jf_session` cookie only (C-B7 + C-B17, 2026-08) | — |
+| ~~Strava BYO credentials~~ | ✅ Resolved — BYO path removed 2026-07; platform OAuth only | — |
+| ~~No Playwright/E2E suite~~ | ✅ Resolved — 10 journeys green (`npm run e2e`), incl. workout state machine, billing gates, settings nav | — |
+| No load test | Only a handful of real users; D1 at ~3 MB | Low until launch |
 
 ---
 
