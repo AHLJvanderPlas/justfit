@@ -1,0 +1,24 @@
+name = "justfit-ops"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+# 0 2 * * 0 — weekly D1 backup (Sunday 02:00 UTC)
+# 0 7 * * * — daily push-notification dispatch (07:00 UTC)
+[triggers]
+crons = ["0 2 * * 0", "0 7 * * *"]
+
+[[r2_buckets]]
+binding = "BACKUPS"
+bucket_name = "justfit-db-backups-eu"
+jurisdiction = "eu"
+
+[vars]
+CF_ACCOUNT_ID = "ce96b957f7de20cc5d388eba856fa8dc"
+D1_DATABASE_ID = "4c6fedf0-b9e2-4441-aa98-71c1420136c1"
+APP_ORIGIN = "https://app.justfit.cc"
+ALERT_EMAIL = "alexander@justfit.cc"
+
+# Secrets (set via `wrangler secret put`):
+#   D1_EXPORT_API_TOKEN  — CF API token with D1:Edit on the JustFit account (export endpoint)
+#   PUSH_DISPATCH_SECRET — must match the justfit-app Pages env value
+#   RESEND_API_KEY       — failure alerts to ALERT_EMAIL
