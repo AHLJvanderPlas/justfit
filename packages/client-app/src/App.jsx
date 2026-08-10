@@ -1211,9 +1211,8 @@ function GuestConvertModal({ onClose, onConverted }) {
     setError("");
     try {
       const res = await api.convertGuest(email.trim(), password);
-      if (res.ok && res.token) {
-        localStorage.setItem("jf_token", res.token);
-        onConverted(res.token);
+      if (res.ok) {
+        onConverted();
       } else {
         setError(res.error ?? "Something went wrong — try again.");
       }
@@ -2572,16 +2571,28 @@ export default function App() {
   const shellValue = { token, userId };
 
   useEffect(() => {
-    if (!userId || !token) {
+    const toLogin = (reason) => {
       // Preserve any trainer invite token across the login redirect
       const _p = new URLSearchParams(window.location.search);
       const _inviteParam = _p.get('t') || _p.get('invite');
       if (_inviteParam) sessionStorage.setItem('jf_pending_invite', _inviteParam);
-      reportError('auth_failure', 'missing session on app load');
+      reportError('auth_failure', reason);
       window.location.href = "/login.html";
-    }
-    // userId and token are read from localStorage at render time (not React state).
-    // They are session-stable; the page reloads on logout so this is safe as mount-only.
+    };
+    if (!userId) { toLogin('missing session on app load'); return; }
+    // Session lives in the HttpOnly cookie (C-B17) — verify it server-side.
+    // Network errors keep the app open: offline mode must survive a failed verify.
+    fetch('/api/auth').then(async (res) => {
+      if (res.status === 401) {
+        ["jf_token", "jf_user_id"].forEach(k => localStorage.removeItem(k));
+        toLogin('invalid session on app load');
+      } else if (res.ok) {
+        const d = await res.json().catch(() => null);
+        if (d && d.valid) setHasEmail(!!d.email);
+      }
+    }).catch(() => {});
+    // userId is read from localStorage at render time (not React state).
+    // It is session-stable; the page reloads on logout so this is safe as mount-only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -2615,7 +2626,13 @@ export default function App() {
   );
 
   // No-email banner: shown when user has no email set (guest or registered without email)
-  const hasEmail = !!(getJwtPayload(token)?.email);
+  // Assume email exists until the session verify responds — avoids flashing the
+  // "add your email" banner for registered users. Legacy localStorage tokens (pre-C-B17)
+  // still carry the payload and give the right answer synchronously.
+  const [hasEmail, setHasEmail] = useState(() => {
+    const legacy = getJwtPayload(token);
+    return legacy ? !!legacy.email : true;
+  });
   const [showGuestConvert, setShowGuestConvert] = useState(false);
   const [emailBannerDismissed, setEmailBannerDismissed] = useState(() => {
     const ts = parseInt(localStorage.getItem(uKey('jf_email_banner_dismissed')) || localStorage.getItem('jf_email_banner_dismissed') || '0');
@@ -2716,10 +2733,10 @@ export default function App() {
     setOnboardingReady(true);
   }
 
-  // Cross-tab session sync: if another tab clears jf_token (logout), follow immediately
+  // Cross-tab session sync: if another tab clears the session keys (logout), follow immediately
   useEffect(() => {
     const handleStorage = (e) => {
-      if (e.key === 'jf_token' && !e.newValue) logout();
+      if ((e.key === 'jf_token' || e.key === 'jf_user_id') && !e.newValue) logout();
     };
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
@@ -2777,7 +2794,7 @@ export default function App() {
 
   // On mount: load profile → decide full onboarding vs daily flow
   useEffect(() => {
-    if (!userId || !token) return;
+    if (!userId) return;
     api.getProfile(token).then((data) => {
       if (!data.exists) {
         // First-time user
@@ -3893,7 +3910,7 @@ export default function App() {
         <GuestConvertModal
           onClose={() => setShowGuestConvert(false)}
           onConverted={() => {
-            // Token already stored in localStorage by GuestConvertModal; reload to pick it up.
+            // Session cookie already refreshed server-side; reload to pick it up.
             window.location.reload();
           }}
         />

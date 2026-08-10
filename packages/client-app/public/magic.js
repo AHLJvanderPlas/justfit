@@ -19,7 +19,6 @@
     const data = await res.json();
 
     if (data.ok) {
-      localStorage.setItem('jf_token',   data.token);
       localStorage.setItem('jf_user_id', data.userId);
       show('success-view');
       setTimeout(() => { window.location.href = '/'; }, 800);

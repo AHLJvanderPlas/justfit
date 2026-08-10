@@ -4,7 +4,7 @@ import api from "./apiClient.js";
 import { useAppShell } from "./AppShellContext.js";
 
 export default function ConnectScreen({ connectToken }) {
-  const { token } = useAppShell();
+  const { token, userId } = useAppShell();
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
@@ -19,7 +19,7 @@ export default function ConnectScreen({ connectToken }) {
   }, [connectToken]);
 
   async function handleConnect() {
-    if (!token) { window.location.href = '/login.html'; return; }
+    if (!userId) { window.location.href = '/login.html'; return; }
     setActing(true); setErr('');
     try {
       const res = await api.connectToTrainer(token, connectToken);

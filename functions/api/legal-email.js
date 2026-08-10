@@ -1,22 +1,8 @@
 // POST /api/legal-email
 // Sends a legal/info document to the authenticated user's own email.
-// Requires Authorization: Bearer <jwt>. Rate-limited 5/hr per user.
+// Session via __Host-jf_session cookie. Rate-limited 5/hr per user.
 
-async function verifyJWT(token, secret) {
-  try {
-    const [headerB64, payloadB64, sigB64] = token.split('.');
-    const key = await crypto.subtle.importKey(
-      'raw', new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' }, false, ['verify']
-    );
-    const sig = Uint8Array.from(atob(sigB64.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0));
-    const valid = await crypto.subtle.verify('HMAC', key, sig, new TextEncoder().encode(`${headerB64}.${payloadB64}`));
-    if (!valid) return null;
-    const payload = JSON.parse(atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/')));
-    if (payload.exp && payload.exp < Math.floor(Date.now() / 1000)) return null;
-    return payload;
-  } catch { return null; }
-}
+import { getUser } from './_shared/auth.js';
 
 async function isRateLimited(userId, env) {
   const bucket = `legal_email:user:${userId}`;
@@ -180,11 +166,7 @@ const VALID_DOCS = ['privacy', 'terms', 'mission', 'how_it_works', 'disclaimer']
 
 export async function onRequestPost({ request, env }) {
   try {
-    const authHeader = request.headers.get('Authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return Response.json({ error: 'Sign in to email this document to yourself.' }, { status: 401 });
-    }
-    const payload = await verifyJWT(authHeader.slice(7), env.JWT_SECRET);
+    const payload = await getUser(request, env);
     if (!payload) {
       return Response.json({ error: 'Invalid or expired session — please sign in again.' }, { status: 401 });
     }

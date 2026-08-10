@@ -8,7 +8,7 @@ const LEVEL_LABELS = { L0: 'None', L1: 'Basic', L2: 'Standard', L3: 'Full (billa
 const LEVEL_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4'];
 
 export default function TrainersPanel() {
-  const { token } = useAppShell();
+  const { token, userId } = useAppShell();
   const [disclosures, setDisclosures] = useState([]);
   const [intake, setIntake] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +32,7 @@ export default function TrainersPanel() {
   const [connectError, setConnectError] = useState('');
 
   useEffect(() => {
-    if (!token) return;
+    if (!userId) return;
     Promise.all([api.getDisclosures(token), api.getIntake(token), api.getTrainerData(token)])
       .then(([d, i, td]) => {
         setDisclosures(d.disclosures ?? []);
@@ -53,7 +53,7 @@ export default function TrainersPanel() {
       })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, [token]);
+  }, [userId, token]);
 
   async function handleSwitchConsentToggle(newVal) {
     setAllowSwitch(newVal);
@@ -65,7 +65,7 @@ export default function TrainersPanel() {
   }
 
   async function handleLevelChange(gymId, newLevel) {
-    if (!token) return;
+    if (!userId) return;
     setLevelChanging(gymId); setError('');
     try {
       await api.upsertDisclosure(token, gymId, newLevel);
@@ -76,7 +76,7 @@ export default function TrainersPanel() {
   }
 
   async function handleUpgradeResponse(gymId, requestId, response) {
-    if (!token) return;
+    if (!userId) return;
     setResponding(true); setError('');
     try {
       await api.respondUpgradeRequest(token, gymId, requestId, response);
@@ -91,7 +91,7 @@ export default function TrainersPanel() {
 
   async function handleSaveIntake(e) {
     e.preventDefault();
-    if (!token) return;
+    if (!userId) return;
     setSavingIntake(true); setError('');
     try {
       await api.saveIntake(token, intakeForm);

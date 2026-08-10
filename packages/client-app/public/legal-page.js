@@ -24,16 +24,13 @@
   }
 
   // ── Helpers ───────────────────────────────────────────────────────────────
-  function getJWT() {
-    try { return localStorage.getItem('jf_token'); } catch { return null; }
-  }
-
-  function decodeEmail(token) {
+  // Session lives in the HttpOnly cookie — the server tells us who is signed in.
+  async function getSession() {
     try {
-      var parts = token.split('.');
-      if (parts.length !== 3) return null;
-      var payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return payload.email || null;
+      var res = await fetch('/api/auth');
+      if (!res.ok) return null;
+      var d = await res.json();
+      return d && d.valid ? d : null;
     } catch { return null; }
   }
 
@@ -44,19 +41,18 @@
   var sendBtn = document.getElementById('send-btn');
 
   if (emailBtn && emailForm) {
-    emailBtn.addEventListener('click', function () {
+    emailBtn.addEventListener('click', async function () {
       var isOpen = emailForm.classList.toggle('open');
       if (!isOpen) return;
 
-      var token = getJWT();
-      if (!token) {
+      var session = await getSession();
+      if (!session) {
         if (emailConfirm) emailConfirm.textContent = 'Sign in to email this to yourself.';
         if (sendBtn) sendBtn.style.display = 'none';
         return;
       }
-      var email = decodeEmail(token);
       if (emailConfirm) {
-        emailConfirm.textContent = 'Send to ' + (email || 'your account email') + '?';
+        emailConfirm.textContent = 'Send to ' + (session.email || 'your account email') + '?';
       }
       if (sendBtn) sendBtn.style.display = '';
     });
@@ -65,21 +61,12 @@
   // ── Send button ──────────────────────────────────────────────────────────
   if (sendBtn && emailBtn && emailForm) {
     sendBtn.addEventListener('click', async function () {
-      var token = getJWT();
-      if (!token) {
-        if (emailConfirm) emailConfirm.textContent = 'Sign in to email this to yourself.';
-        return;
-      }
-
       sendBtn.disabled = true;
       sendBtn.textContent = 'Sending\u2026';
       try {
         var res = await fetch('/api/legal-email', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ' + token,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ document: DOCUMENT }),
         });
         var data = await res.json();

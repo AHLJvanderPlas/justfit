@@ -3828,7 +3828,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       if (res.ok) {
                         setEmailStep(null); setEmailCode("");
                         onUpdate({ ...prefs, email: emailInput, email_verified: true });
-                        if (res.token) localStorage.setItem("jf_token", res.token);
                       } else { setEmailError(res.error ?? "Invalid code"); }
                     }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>

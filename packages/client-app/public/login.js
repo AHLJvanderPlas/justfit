@@ -141,7 +141,6 @@ async function handleSubmit() {
       return;
     }
 
-    localStorage.setItem('jf_token',   data.token);
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
@@ -246,7 +245,6 @@ async function handlePasskeyLogin() {
 
     if (!completeRes.ok) throw new Error(completeRes.error || 'Passkey authentication failed');
 
-    localStorage.setItem('jf_token',   completeRes.token);
     localStorage.setItem('jf_user_id', completeRes.userId);
     redirectAfterAuth();
   } catch (e) {
@@ -279,7 +277,6 @@ async function handleGuestSignup() {
       btn.textContent = 'Continue without account →';
       return;
     }
-    localStorage.setItem('jf_token',   data.token);
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
@@ -300,7 +297,6 @@ async function verifyMagicLink(token) {
 
     if (!data.ok) throw new Error(data.error || 'Invalid or expired link');
 
-    localStorage.setItem('jf_token',   data.token);
     localStorage.setItem('jf_user_id', data.userId);
     document.getElementById('magic-title').textContent = 'Signed in!';
     document.getElementById('magic-sub').textContent   = 'Redirecting…';
@@ -314,8 +310,11 @@ async function verifyMagicLink(token) {
 
 // ─── INIT ─────────────────────────────────────────────────────────────────
 (async () => {
-  // Already logged in?
-  if (localStorage.getItem('jf_token')) { redirectAfterAuth(); return; }
+  // Already logged in? Session lives in the HttpOnly cookie — verify server-side.
+  try {
+    const s = await fetch('/api/auth');
+    if (s.ok) { redirectAfterAuth(); return; }
+  } catch { /* offline or API down — show the login form */ }
 
   // Magic link in URL?
   const params = new URLSearchParams(window.location.search);

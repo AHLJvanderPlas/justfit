@@ -1,19 +1,15 @@
 // ─── API CLIENT ───────────────────────────────────────────────────────────────
 // Pure fetch wrappers. No React, no side effects.
-// Auth token read from localStorage on each call so it's always current.
+// Auth: HttpOnly __Host-jf_session cookie, sent automatically on same-origin fetch (C-B17).
+// Legacy `token` params are accepted but unused — kept to avoid churning every call site.
 
 const api = {
-  _auth() {
-    const t = localStorage.getItem("jf_token") ?? "";
-    return t ? { Authorization: `Bearer ${t}` } : {};
-  },
-
   async generatePlan(userId, date, checkin, coachSim, isPro) {
     let res, data;
     try {
       res = await fetch("/api/plan", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...this._auth() },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
       });
       data = await res.json();
@@ -33,7 +29,7 @@ const api = {
   async saveCheckin(userId, date, data) {
     await fetch("/api/checkin", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date,
         energy: data.energy != null ? Math.round(data.energy) : null,
@@ -48,7 +44,7 @@ const api = {
   async adaptPlan(userId, date, checkin, basePlan) {
     const res = await fetch("/api/plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ user_id: userId, date, checkin, adapt_mode: true, base_plan: basePlan }),
     });
     const data = await res.json();
@@ -57,7 +53,7 @@ const api = {
   },
 
   async getScore() {
-    const res = await fetch(`/api/score`, { headers: this._auth() });
+    const res = await fetch(`/api/score`);
     const data = await res.json();
     return data.score ?? 0;
   },
@@ -65,7 +61,7 @@ const api = {
   async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null) {
     const res = await fetch("/api/execution", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date,
         day_plan_id: planId ?? null,
@@ -90,7 +86,7 @@ const api = {
   },
 
   async getHistory() {
-    const res = await fetch(`/api/execution?limit=30`, { headers: this._auth() });
+    const res = await fetch(`/api/execution?limit=30`);
     const data = await res.json();
     return { results: data.executions ?? [], truncated: !!data.truncated };
   },
@@ -105,7 +101,7 @@ const api = {
   async saveActivity(userId, date, executionType, durationSec) {
     const res = await fetch("/api/execution", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date,
         execution_type: executionType,
@@ -118,7 +114,7 @@ const api = {
   async logPeriod(userId, startedOn) {
     const res = await fetch("/api/cycle", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ started_on: startedOn }),
     });
     return res.json();
@@ -127,7 +123,7 @@ const api = {
   async generateBonusPlan(userId, date, minutes, completedIds) {
     const res = await fetch("/api/plan", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         user_id: userId,
         date,
@@ -142,7 +138,7 @@ const api = {
   },
 
   async getTodayPlan(userId, date) {
-    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`, { headers: this._auth() });
+    const res = await fetch(`/api/plan?user_id=${userId}&date=${date}`);
     const data = await res.json();
     if (!data.plan) return null;
     const planObj = typeof data.plan.plan_json === "string" ? JSON.parse(data.plan.plan_json) : data.plan.plan_json;
@@ -150,31 +146,27 @@ const api = {
   },
 
   async getLastCheckin(userId) {
-    const res = await fetch(`/api/checkin?user_id=${userId}`, { headers: this._auth() });
+    const res = await fetch(`/api/checkin?user_id=${userId}`);
     const data = await res.json();
     return (data.checkins ?? [])[0] ?? null;
   },
 
   async getCheckins(userId, limit = 30) {
-    const res = await fetch(`/api/checkin?user_id=${userId}&limit=${limit}`, { headers: this._auth() });
+    const res = await fetch(`/api/checkin?user_id=${userId}&limit=${limit}`);
     const data = await res.json();
     return data.checkins ?? [];
   },
 
-  async getProfile(token) {
+  async getProfile(_token) {
     const res = await fetch("/api/profile", {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async saveProfile(token, profile) {
+  async saveProfile(_token, profile) {
     const res = await fetch("/api/profile", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(profile),
     });
     return res.json();
@@ -183,7 +175,6 @@ const api = {
   async deleteExecution(executionId) {
     const res = await fetch(`/api/execution?execution_id=${executionId}`, {
       method: "DELETE",
-      headers: this._auth(),
     });
     return res.json();
   },
@@ -191,39 +182,36 @@ const api = {
   async deleteAccount() {
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "delete_account" }),
     });
     return res.json();
   },
 
-  async getProgression(token) {
+  async getProgression(_token) {
     const res = await fetch("/api/progression", {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getCyclingPmc(token) {
+  async getCyclingPmc(_token) {
     const res = await fetch("/api/cycling-pmc", {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async saveProgressionPrefs(token, prefs) {
+  async saveProgressionPrefs(_token, prefs) {
     const res = await fetch("/api/progression", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(prefs),
     });
     return res.json();
   },
 
-  async recomputeProgression(token) {
+  async recomputeProgression(_token) {
     const res = await fetch("/api/progression?action=recompute", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
@@ -231,7 +219,7 @@ const api = {
   async resendVerification() {
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "resend_verification" }),
     });
     return res.json();
@@ -240,7 +228,7 @@ const api = {
   async verifyEmailCode(code) {
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "verify_email_code", code }),
     });
     return res.json();
@@ -249,7 +237,7 @@ const api = {
   async requestEmailChange(newEmail) {
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "request_email_change", new_email: newEmail }),
     });
     return res.json();
@@ -258,135 +246,129 @@ const api = {
   async verifyChangeCode(code) {
     const res = await fetch("/api/auth", {
       method: "POST",
-      headers: { "Content-Type": "application/json", ...this._auth() },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "verify_change_code", code }),
     });
     return res.json();
   },
 
-  async sendFeedback(token, text) {
+  async sendFeedback(_token, text) {
     const res = await fetch("/api/feedback", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
     return res.json();
   },
 
-  async getStravaStatus(token) {
-    const res = await fetch('/api/strava-auth', { headers: { Authorization: `Bearer ${token}` } });
+  async getStravaStatus(_token) {
+    const res = await fetch('/api/strava-auth');
     return res.json();
   },
 
-  async disconnectStrava(token) {
+  async disconnectStrava(_token) {
     const res = await fetch('/api/strava-auth', {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async exchangeStravaCode(token, code, state) {
+  async exchangeStravaCode(_token, code, state) {
     const res = await fetch('/api/strava-auth', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, state }),
     });
     return res.json();
   },
 
-  async passkeyBeginRegister(token) {
+  async passkeyBeginRegister(_token) {
     const res = await fetch('/api/auth', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'passkey_begin_register' }),
     });
     return res.json();
   },
 
-  async passkeyCompleteRegister(token, payload) {
+  async passkeyCompleteRegister(_token, payload) {
     const res = await fetch('/api/auth', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'passkey_complete_register', ...payload }),
     });
     return res.json();
   },
 
-  async stravaSync(token) {
+  async stravaSync(_token) {
     const res = await fetch('/api/strava-sync', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async acceptTerms(token, termsVersion, privacyVersion) {
+  async acceptTerms(_token, termsVersion, privacyVersion) {
     const res = await fetch("/api/accept-terms", {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ termsVersion, privacyVersion }),
     });
     return res.json();
   },
 
   // Trainer disclosures (P1B)
-  async getDisclosures(token) {
+  async getDisclosures(_token) {
     const res = await fetch("/api/client/disclosures", {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async upsertDisclosure(token, gymId, level, data = {}) {
+  async upsertDisclosure(_token, gymId, level, data = {}) {
     const res = await fetch("/api/client/disclosures", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}`, "X-Gym-Id": gymId },
+      headers: { "Content-Type": "application/json", "X-Gym-Id": gymId },
       body: JSON.stringify({ level, ...data }),
     });
     return res.json();
   },
 
-  async respondUpgradeRequest(token, gymId, requestId, response) {
+  async respondUpgradeRequest(_token, gymId, requestId, response) {
     const res = await fetch(`/api/client/disclosures/${gymId}/upgrade-response`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ request_id: requestId, response }),
     });
     return res.json();
   },
 
   // Client intake (P1C)
-  async getIntake(token) {
+  async getIntake(_token) {
     const res = await fetch("/api/client/intake", {
-      headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
     return data.intake ?? null;
   },
 
-  async saveIntake(token, intake) {
+  async saveIntake(_token, intake) {
     const res = await fetch("/api/client/intake", {
       method: "PUT",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify(intake),
     });
     return res.json();
   },
 
   // GDPR (P1I)
-  async gdprExport(token) {
+  async gdprExport(_token) {
     const res = await fetch("/api/client/gdpr/export", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async gdprRequestDelete(token) {
+  async gdprRequestDelete(_token) {
     const res = await fetch("/api/client/gdpr/delete", {
       method: "POST",
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
@@ -394,15 +376,14 @@ const api = {
   // Trainer invite (Sub-flow A + B)
   async lookupTrainerInvite(inviteToken) {
     const res = await fetch(`/api/trainer-invite?t=${encodeURIComponent(inviteToken)}`, {
-      headers: this._auth(),
     });
     return res.json();
   },
 
-  async acceptTrainerInvite(token, inviteToken, action = 'accept') {
+  async acceptTrainerInvite(_token, inviteToken, action = 'accept') {
     const res = await fetch('/api/trainer-invite/accept', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ token: inviteToken, action }),
     });
     return res.json();
@@ -411,15 +392,14 @@ const api = {
   // Connect to trainer via QR/code (Sub-flow C)
   async lookupConnect(trainerToken) {
     const res = await fetch(`/api/connect?t=${encodeURIComponent(trainerToken)}`, {
-      headers: this._auth(),
     });
     return res.json();
   },
 
-  async connectToTrainer(token, trainerToken) {
+  async connectToTrainer(_token, trainerToken) {
     const res = await fetch('/api/connect', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ trainer_token: trainerToken }),
     });
     return res.json();
@@ -427,166 +407,153 @@ const api = {
 
   // ─── BILLING ──────────────────────────────────────────────────────────────
   async getSubscription() {
-    const res = await fetch('/api/subscribe', { headers: this._auth() });
+    const res = await fetch('/api/subscribe');
     return res.json();
   },
 
   async startSubscription(plan) {
     const res = await fetch('/api/subscribe', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ plan }),
     });
     return res.json();
   },
 
   async cancelSubscription() {
-    const res = await fetch('/api/subscribe', { method: 'DELETE', headers: this._auth() });
+    const res = await fetch('/api/subscribe', { method: 'DELETE' });
     return res.json();
   },
 
   // ─── MULTI-TRAINER ─────────────────────────────────────────────────────────
-  async getAssignments(token) {
+  async getAssignments(_token) {
     const res = await fetch('/api/client/assignments', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getTrainerData(token) {
+  async getTrainerData(_token) {
     const res = await fetch('/api/client/trainer', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async signConsent(token) {
+  async signConsent(_token) {
     const res = await fetch('/api/client/consent', {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getSessions(token) {
+  async getSessions(_token) {
     const res = await fetch('/api/client/sessions', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getAvailableSessions(token) {
+  async getAvailableSessions(_token) {
     const res = await fetch('/api/client/sessions/available', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async enrollSession(token, id) {
+  async enrollSession(_token, id) {
     const res = await fetch(`/api/client/sessions/${id}/enroll`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async cancelSessionEnrollment(token, id) {
+  async cancelSessionEnrollment(_token, id) {
     const res = await fetch(`/api/client/sessions/${id}/enroll`, {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getClientPackages(token) {
+  async getClientPackages(_token) {
     const res = await fetch('/api/client/packages', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getMessages(token) {
+  async getMessages(_token) {
     const res = await fetch('/api/client/messages', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async sendMessage(token, body) {
+  async sendMessage(_token, body) {
     const res = await fetch('/api/client/messages', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ body }),
     });
     return res.json();
   },
 
-  async markMessagesRead(token) {
+  async markMessagesRead(_token) {
     const res = await fetch('/api/client/messages', {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async submitSupportRequest(token, message, broadcast = false) {
+  async submitSupportRequest(_token, message, broadcast = false) {
     const res = await fetch('/api/client/support-request', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ message, broadcast }),
     });
     return res.json();
   },
 
-  async getActiveSupportRequest(token) {
+  async getActiveSupportRequest(_token) {
     const res = await fetch('/api/client/support-request/active', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async submitSwitchRequest(token, toTrainerUserId, message) {
+  async submitSwitchRequest(_token, toTrainerUserId, message) {
     const res = await fetch('/api/client/switch-request', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ to_trainer_user_id: toTrainerUserId, message }),
     });
     return res.json();
   },
 
-  async cancelSwitchRequest(token, requestId) {
+  async cancelSwitchRequest(_token, requestId) {
     const res = await fetch(`/api/client/switch-request/${requestId}/cancel`, {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async getSwitchRequests(token) {
+  async getSwitchRequests(_token) {
     const res = await fetch('/api/client/switch-requests', {
-      headers: { Authorization: `Bearer ${token}` },
     });
     return res.json();
   },
 
-  async setTrainerSwitchConsent(token, allow) {
+  async setTrainerSwitchConsent(_token, allow) {
     const res = await fetch('/api/client/trainer-switch-consent', {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ allow }),
     });
     return res.json();
   },
 
   async getPushStatus() {
-    const res = await fetch('/api/subscribe-push', { headers: this._auth() });
+    const res = await fetch('/api/subscribe-push');
     return res.json();
   },
 
   async subscribePush(subscription) {
     const res = await fetch('/api/subscribe-push', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'subscribe', subscription }),
     });
     return res.json();
@@ -595,21 +562,21 @@ const api = {
   async unsubscribePush(endpoint) {
     const res = await fetch('/api/subscribe-push', {
       method: 'DELETE',
-      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ endpoint }),
     });
     return res.json();
   },
 
   async getReferral() {
-    const res = await fetch('/api/referral', { headers: this._auth() });
+    const res = await fetch('/api/referral');
     return res.json();
   },
 
   async redeemReferral(code) {
     const res = await fetch('/api/referral', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'redeem', code }),
     });
     return res.json();
@@ -618,7 +585,7 @@ const api = {
   async convertGuest(email, password) {
     const res = await fetch('/api/auth', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', ...this._auth() },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'convert_guest', email, password }),
     });
     return res.json();

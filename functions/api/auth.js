@@ -243,7 +243,7 @@ async function handleSignup({ email, password, accepted_terms_version, accepted_
     createJWT({ userId, email: emailLower }, secret),
     fetchMemberships(userId, env),
   ]);
-  return sessionJson({ ok: true, token, userId, memberships }, token);
+  return sessionJson({ ok: true, userId, memberships }, token);
 }
 
 async function handleLogin({ email, password }, request, env, secret) {
@@ -307,7 +307,7 @@ async function handleLogin({ email, password }, request, env, secret) {
   const needsTermsAcceptance =
     (acceptRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
     (acceptRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
-  return sessionJson({ ok: true, token, userId: authUser.id, needsTermsAcceptance, memberships }, token);
+  return sessionJson({ ok: true, userId: authUser.id, needsTermsAcceptance, memberships }, token);
 }
 
 // ─── RATE LIMIT HELPERS ───────────────────────────────────────────────────────
@@ -512,7 +512,7 @@ async function handleMagicVerify(token, env, secret) {
     createJWT({ userId: row.user_id, email: row.email }, secret),
     fetchMemberships(row.user_id, env),
   ]);
-  return sessionJson({ ok: true, token: sessionToken, userId: row.user_id, memberships }, sessionToken);
+  return sessionJson({ ok: true, userId: row.user_id, memberships }, sessionToken);
 }
 
 // ─── PASSKEY: BEGIN REGISTRATION ─────────────────────────────────────────────
@@ -693,7 +693,7 @@ async function handlePasskeyCompleteAuth({ challengeToken, credentialId, clientD
     createJWT({ userId: cred.user_id, email: cred.email }, secret),
     fetchMemberships(cred.user_id, env),
   ]);
-  return sessionJson({ ok: true, token, userId: cred.user_id, memberships }, token);
+  return sessionJson({ ok: true, userId: cred.user_id, memberships }, token);
 }
 
 // ─── DELETE ACCOUNT ───────────────────────────────────────────────────────────
@@ -934,7 +934,7 @@ async function handleVerifyChangeCode({ code }, request, env, secret) {
   }
 
   const newSessionToken = await createJWT({ userId: user.userId, email: row.new_email }, secret);
-  return sessionJson({ ok: true, token: newSessionToken, new_email: row.new_email }, newSessionToken);
+  return sessionJson({ ok: true, new_email: row.new_email }, newSessionToken);
 }
 
 // ─── EMAIL VERIFY / CHANGE LINK HANDLERS (GET) ────────────────────────────────
@@ -993,8 +993,10 @@ async function handleChangeEmailLink(token, env) {
 
 // ─── HELPERS ──────────────────────────────────────────────────────────────────
 async function getSessionUser(request, secret) {
-  const auth  = request.headers.get('Authorization') ?? '';
-  const token = auth.replace('Bearer ', '');
+  // Cookie-only session (C-B17) — Bearer header no longer accepted.
+  const cookie = request.headers.get('Cookie') ?? '';
+  const m = cookie.match(/(?:^|;\s*)__Host-jf_session=([^;]+)/);
+  const token = m ? decodeURIComponent(m[1]) : null;
   if (!token) return null;
   return verifyJWT(token, secret);
 }
@@ -1022,7 +1024,7 @@ async function handleGuestSignup(request, env, secret) {
   ]);
 
   const token = await createJWT({ userId, email: null, guest: true }, secret);
-  return sessionJson({ ok: true, token, userId, guest: true }, token);
+  return sessionJson({ ok: true, userId, guest: true }, token);
 }
 
 // ─── GUEST → ACCOUNT CONVERSION ──────────────────────────────────────────────
@@ -1058,7 +1060,7 @@ async function handleConvertGuest(body, request, env, secret) {
   ).bind(email.toLowerCase(), `${salt}:100000:${hash}`, now, user_id).run();
 
   const token = await createJWT({ userId: user_id, email: email.toLowerCase() }, secret);
-  return sessionJson({ ok: true, token }, token);
+  return sessionJson({ ok: true }, token);
 }
 
 // ─── LOGOUT ───────────────────────────────────────────────────────────────────

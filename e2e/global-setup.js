@@ -36,6 +36,13 @@ export default async function globalSetup() {
     ALTER TABLE gyms ADD COLUMN sub_ends_at_ms INTEGER;
   `, 'gyms-cols');
 
+  // Migration 0096 (user_profile → user_preferences merge) — plan.js reads these directly
+  localSql(`
+    ALTER TABLE user_preferences ADD COLUMN sex       TEXT;
+    ALTER TABLE user_preferences ADD COLUMN height_cm REAL;
+    ALTER TABLE user_preferences ADD COLUMN weight_kg REAL;
+  `, 'user-preferences-body-cols');
+
   localSql(`
     CREATE TABLE IF NOT EXISTS trainer_switch_requests (
       id                   TEXT PRIMARY KEY,
