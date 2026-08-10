@@ -196,6 +196,12 @@ wrangler.toml is configured with the D1 binding. Always use `--remote` flag when
 npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 ```
 
+**Secrets — actual values:** `JWT_SECRET`, `RESEND_API_KEY`, `MOLLIE_API_KEY`, `STRAVA_CLIENT_ID`,
+`STRAVA_CLIENT_SECRET`, `DASHBOARD_PASSWORD`, `ADMIN_KEY`, `GYM_MASTER_KEK`, and the CF API token in
+`.claude/settings.local.json` are catalogued in
+`/Users/alexander/Documents/Projects/Notes/.secrets/justfit.md` — never paste secret values into
+this file. Check that file before asking the user for a key.
+
 ---
 
 ## Project Structure
