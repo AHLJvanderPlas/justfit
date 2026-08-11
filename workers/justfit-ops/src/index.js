@@ -8,8 +8,28 @@ const KEEP_BACKUPS = 12;
 
 export default {
   async scheduled(event, env, ctx) {
-    if (event.cron === '0 2 * * 0') ctx.waitUntil(runBackup(env));
+    if (event.cron === '0 2 * * SUN') ctx.waitUntil(runBackup(env));
     if (event.cron === '0 7 * * *') ctx.waitUntil(runPushDispatch(env));
+  },
+
+  // Manual triggers for ops testing: POST /run-backup or /run-push,
+  // guarded by the same Bearer secret as the push dispatch endpoint.
+  async fetch(request, env) {
+    const auth = request.headers.get('Authorization') ?? '';
+    if (!env.PUSH_DISPATCH_SECRET || auth !== `Bearer ${env.PUSH_DISPATCH_SECRET}`) {
+      return new Response('Unauthorized', { status: 401 });
+    }
+    const path = new URL(request.url).pathname;
+    if (request.method === 'POST' && path === '/run-backup') {
+      await runBackup(env);
+      const list = await env.BACKUPS.list({ prefix: 'backups/' });
+      return Response.json({ ok: true, backups: list.objects.map((o) => ({ key: o.key, size: o.size })) });
+    }
+    if (request.method === 'POST' && path === '/run-push') {
+      await runPushDispatch(env);
+      return Response.json({ ok: true });
+    }
+    return new Response('Not found', { status: 404 });
   },
 };
 
@@ -17,47 +37,49 @@ export default {
 
 async function runBackup(env) {
   try {
-    const base = `https://api.cloudflare.com/client/v4/accounts/${env.CF_ACCOUNT_ID}/d1/database/${env.D1_DATABASE_ID}/export`;
-    const headers = {
-      Authorization: `Bearer ${env.D1_EXPORT_API_TOKEN}`,
-      'Content-Type': 'application/json',
-    };
+    // Dump via the D1 binding — no API token needed, nothing that can expire.
+    const master = await env.DB.prepare(
+      `SELECT type, name, sql FROM sqlite_master
+       WHERE sql IS NOT NULL AND name NOT LIKE '\\_cf%' ESCAPE '\\' AND name != 'sqlite_sequence'
+       ORDER BY CASE type WHEN 'table' THEN 0 ELSE 1 END, name`
+    ).all();
 
-    // The export API is a polling flow: first call starts the export, subsequent
-    // calls with current_bookmark poll until signed_url appears.
-    let body = { output_format: 'polling' };
-    let signedUrl = null;
-    for (let attempt = 0; attempt < 30; attempt++) {
-      const res = await fetch(base, { method: 'POST', headers, body: JSON.stringify(body) });
-      const data = await res.json();
-      if (!data.success) throw new Error(`export API: ${JSON.stringify(data.errors)}`);
-      const r = data.result ?? {};
-      if (r.signed_url || r.result?.signed_url) {
-        signedUrl = r.signed_url ?? r.result.signed_url;
-        break;
+    const parts = [`-- justfit-db dump ${new Date().toISOString()}\nPRAGMA foreign_keys=OFF;\n`];
+    for (const row of master.results) {
+      parts.push(row.sql.trim() + ';\n');
+      if (row.type !== 'table') continue;
+      const { results } = await env.DB.prepare(`SELECT * FROM "${row.name}"`).all();
+      for (const r of results) {
+        const cols = Object.keys(r);
+        const vals = cols.map((c) => sqlLiteral(r[c]));
+        parts.push(`INSERT INTO "${row.name}" (${cols.map((c) => `"${c}"`).join(',')}) VALUES (${vals.join(',')});\n`);
       }
-      if (r.at_bookmark) body = { output_format: 'polling', current_bookmark: r.at_bookmark };
-      await new Promise((ok) => setTimeout(ok, 2000));
     }
-    if (!signedUrl) throw new Error('export never produced a signed_url after 30 polls');
-
-    const dump = await fetch(signedUrl);
-    if (!dump.ok) throw new Error(`signed_url fetch: ${dump.status}`);
 
     const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, '');
     const key = `backups/justfit-db-${stamp}.sql`;
-    await env.BACKUPS.put(key, dump.body);
+    await env.BACKUPS.put(key, parts.join(''));
 
     // Prune: keep the newest KEEP_BACKUPS objects
     const list = await env.BACKUPS.list({ prefix: 'backups/' });
     const sorted = list.objects.sort((a, b) => (a.key < b.key ? 1 : -1));
     for (const obj of sorted.slice(KEEP_BACKUPS)) await env.BACKUPS.delete(obj.key);
 
-    console.log(`[backup] stored ${key}, pruned to ${Math.min(sorted.length, KEEP_BACKUPS)}`);
+    console.log(`[backup] stored ${key} (${master.results.length} objects), kept ${Math.min(sorted.length, KEEP_BACKUPS)}`);
   } catch (e) {
     console.error('[backup] failed:', e.message);
-    await alert(env, 'JustFit D1 backup FAILED', `Weekly justfit-db export failed: ${e.message}`);
+    await alert(env, 'JustFit D1 backup FAILED', `Weekly justfit-db dump failed: ${e.message}`);
   }
+}
+
+function sqlLiteral(v) {
+  if (v === null || v === undefined) return 'NULL';
+  if (typeof v === 'number') return String(v);
+  if (v instanceof ArrayBuffer || ArrayBuffer.isView(v)) {
+    const bytes = v instanceof ArrayBuffer ? new Uint8Array(v) : new Uint8Array(v.buffer);
+    return `X'${[...bytes].map((b) => b.toString(16).padStart(2, '0')).join('')}'`;
+  }
+  return `'${String(v).replace(/'/g, "''")}'`;
 }
 
 // ── Daily push dispatch ──────────────────────────────────────────────────────
