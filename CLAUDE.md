@@ -1184,20 +1184,20 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
-## Built 2026-08-10 — deploy pending wrangler OAuth refresh
+## Shipped 2026-08-11 — all items below LIVE and verified
 
 | Item | Commit | Status |
 |---|---|---|
-| C-B17 cookie-only session auth (Bearer/localStorage fallback removed) | b4c3dcc | ⏳ built + tested (unit/e2e/smoke green), Pages deploy pending |
-| GDPR deletion confirmation email (request + cancel, Resend) | db152d2 | ⏳ built, deploy pending |
-| Switch-trainer sheet real availability status (was hardcoded "Gemiddeld") | 30fba92 | ⏳ built, deploy pending |
-| Account deletion 500 fix (strava_byo_credentials table doesn't exist in prod) | f944afd | ⏳ built, deploy pending — **production account deletion is broken until deployed** |
-| X-27 baseline schema regenerated from production | (chore) | ✅ complete (repo-only) |
-| justfit-ops worker: weekly D1 backup → R2 EU + daily push dispatch cron (X-29 + C-E18) | (feat) | ⏳ scaffolded in `workers/justfit-ops/`; needs R2 bucket + secrets + `wrangler deploy` |
+| C-B17 cookie-only session auth (Bearer/localStorage fallback removed) | b4c3dcc | ✅ LIVE — verified: cookie round-trip, no token in bodies, Bearer rejected |
+| GDPR deletion confirmation email (request + cancel, Resend) | db152d2 | ✅ LIVE |
+| Switch-trainer sheet real availability status | 30fba92 | ✅ LIVE |
+| Account deletion 500 fix | f944afd | ✅ LIVE — verified: guest create→delete→ok |
+| X-27 baseline schema regenerated from production | (chore) | ✅ complete |
+| justfit-ops worker (weekly D1 backup → R2 EU `justfit-db-backups-eu` + daily push dispatch) | (feat) | ✅ DEPLOYED — crons `0 2 * * SUN` + `0 7 * * *`; manual triggers `/run-backup` `/run-push` (Bearer `PUSH_DISPATCH_SECRET`); first backup 2.25 MB verified |
+| C-E19: 4 new E2E journeys (workout/billing×2/settings) — 10 total green | (test) | ✅ complete |
 
-Unblock: `XDG_CONFIG_HOME=/Users/alexander/.cloudflare/justfit-wrangler npx wrangler login`
-then deploy Pages (`npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`),
-then deploy the ops worker + secrets (commands in the secrets vault justfit.md entry).
+Push secrets (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`, `PUSH_DISPATCH_SECRET`) are set
+on justfit-app Pages env; worker has `PUSH_DISPATCH_SECRET` + `RESEND_API_KEY`. Values in the secrets vault.
 
 ---
 
