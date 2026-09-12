@@ -1182,7 +1182,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     {showRampWarn && (
                       <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
                         <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>Progression caution</div>
-                        <span style={{ fontSize: 11, color: "#fcd34d", fontWeight: 600, lineHeight: 1.5 }}>
+                        <span style={{ fontSize: 11, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5 }}>
                           Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
                         </span>
                       </div>
@@ -1577,7 +1577,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 cursor: focusSaveStatus === "saving" ? "default" : "pointer",
                 border: `1px solid ${focusSaveStatus === "saved" ? "transparent" : C.emeraldBorder}`,
                 background: focusSaveStatus === "saved" ? C.emerald : C.emeraldDim,
-                color: focusSaveStatus === "saved" ? "#fff" : C.emerald,
+                color: focusSaveStatus === "saved" ? C.onAccent : C.emerald,
               }}
             >
               {focusSaveStatus === "saved" ? "Saved ✓" :
@@ -1870,7 +1870,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Subtracts overhead from your available training window</div>
                       </div>
                       <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                        <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: "#fff", transition: "left 0.2s" }} />
+                        <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: C.knob, transition: "left 0.2s" }} />
                       </div>
                     </div>
 
@@ -2113,7 +2113,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           <button
                             key={id}
                             onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
-                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? "#fff" : C.muted }}
+                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? C.onAccent : C.muted }}
                           >
                             {sp.label}
                           </button>
@@ -2163,7 +2163,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {effectiveIsPro ? (
               <button
                 onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
-                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
+                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: sportPrefs.polarised_training ? C.onAccent : C.muted }}
               >
                 {sportPrefs.polarised_training ? "Active" : "Enable"}
               </button>
@@ -2185,7 +2185,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
                 api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
               }}
-              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: effectiveIsPro && prefs.daily_replan ? "#fff" : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
+              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: effectiveIsPro && prefs.daily_replan ? C.onAccent : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
             >
               {effectiveIsPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
             </button>
@@ -2422,7 +2422,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 {!showResetConfirm ? (
                   <button
                     onClick={() => setShowResetConfirm(true)}
-                    style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: "#ef4444", fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                    style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: C.dangerStrong, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
                   >
                     Set values to default
                   </button>
@@ -2447,7 +2447,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           setResetting(false);
                           setShowResetConfirm(false);
                         }}
-                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: "#ef4444", color: "#fff", fontWeight: 900, fontSize: 13, cursor: resetting ? "not-allowed" : "pointer", opacity: resetting ? 0.6 : 1 }}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.dangerStrong, color: C.onStatus, fontWeight: 900, fontSize: 13, cursor: resetting ? "not-allowed" : "pointer", opacity: resetting ? 0.6 : 1 }}
                       >
                         {resetting ? "Resetting…" : "Yes, reset"}
                       </button>
@@ -2542,7 +2542,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {/* Step 1 — Medical advisory (inline, shown right after clicking) */}
               {bodyMode === "standard" && pregnancySetupStep === 1 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 1 of 2 — Medical guidance</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 1 of 2 — Medical guidance</div>
                   <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 6 }}>
                     JustFit is a fitness app, not a medical service. Pregnancy mode is designed for use during the 9 months of pregnancy and up to 3 months after birth.
                   </div>
@@ -2554,7 +2554,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       type="checkbox"
                       checked={medicalClearance}
                       onChange={(e) => setMedicalClearance(e.target.checked)}
-                      style={{ marginTop: 2, accentColor: "#fbbf24", width: 16, height: 16, flexShrink: 0 }}
+                      style={{ marginTop: 2, accentColor: C.warningBright, width: 16, height: 16, flexShrink: 0 }}
                     />
                     <span style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
                       I will seek medical guidance regarding exercise during this period.
@@ -2570,7 +2570,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <button
                       disabled={!medicalClearance}
                       onClick={() => setPregnancySetupStep(2)}
-                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: medicalClearance ? "#fbbf24" : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: medicalClearance ? C.warningBright : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
                     >
                       Continue
                     </button>
@@ -2581,7 +2581,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {/* Step 2 — Due date (inline) */}
               {bodyMode === "standard" && pregnancySetupStep === 2 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 2 of 2 — Your due date</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 2 of 2 — Your due date</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When is your estimated due date?</div>
                   <input
                     type="date"
@@ -2628,7 +2628,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         } catch { /* ignore */ }
                         setPregnancySaving(false);
                       }}
-                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: pregnancyDueDate && !pregnancySaving ? "#fbbf24" : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: pregnancyDueDate && !pregnancySaving ? C.warningBright : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
                     >
                       {pregnancySaving ? "Saving…" : "Enable pregnancy mode"}
                     </button>
@@ -2733,7 +2733,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 </button>
                 <button
                   onClick={handleConfirmSexChange}
-                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "#ef4444", border: "none", color: "#fff", cursor: "pointer" }}
+                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, background: C.dangerStrong, border: "none", color: C.onStatus, cursor: "pointer" }}
                 >
                   Yes, deactivate
                 </button>
@@ -2777,12 +2777,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>JustFit Pro</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{planLabel}{ebLabel}</div>
                       </div>
-                      <div style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 900, background: isGrace ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)", color: isGrace ? "#f59e0b" : C.emerald }}>
+                      <div style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 900, background: isGrace ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)", color: isGrace ? C.warning : C.emerald }}>
                         {isGrace ? "Betalingsprobleem" : "Actief"}
                       </div>
                     </div>
                     {endsDate && <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Geldig tot {endsDate}</div>}
-                    {isGrace && <div style={{ fontSize: 12, color: "#f59e0b", marginBottom: 16, lineHeight: 1.5 }}>Je betaling kon niet worden verwerkt. Je houdt 7 dagen toegang. Vernieuw je betaalmethode via Mollie.</div>}
+                    {isGrace && <div style={{ fontSize: 12, color: C.warning, marginBottom: 16, lineHeight: 1.5 }}>Je betaling kon niet worden verwerkt. Je houdt 7 dagen toegang. Vernieuw je betaalmethode via Mollie.</div>}
                     {!cancelConfirm ? (
                       <button onClick={() => setCancelConfirm(true)} style={{ fontSize: 12, fontWeight: 700, color: C.muted, background: "none", border: `1px solid ${C.border}`, borderRadius: 10, padding: "8px 14px", cursor: "pointer" }}>
                         Abonnement opzeggen
@@ -2793,7 +2793,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>Je houdt toegang tot Pro tot {endsDate ?? "het einde van je periode"}. Erna ga je terug naar de gratis versie.</div>
                         <div style={{ display: "flex", gap: 8 }}>
                           <button disabled={canceling} onClick={async () => { setCanceling(true); const r = await api.cancelSubscription().catch(() => null); if (r?.ok) { setSubData(d => ({ ...d, status: 'canceled' })); onSubscriptionChange?.(); } setCanceling(false); setCancelConfirm(false); }}
-                            style={{ flex: 1, padding: "10px 0", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: canceling ? "not-allowed" : "pointer", border: "none", background: "#ef4444", color: "#fff" }}>
+                            style={{ flex: 1, padding: "10px 0", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: canceling ? "not-allowed" : "pointer", border: "none", background: C.dangerStrong, color: C.onStatus }}>
                             {canceling ? "Bezig…" : "Ja, opzeggen"}
                           </button>
                           <button onClick={() => setCancelConfirm(false)} style={{ padding: "10px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 700, fontSize: 12, cursor: "pointer", border: `1px solid ${C.border}`, background: "transparent", color: C.muted }}>
@@ -2811,7 +2811,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <>
                     <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 4 }}>Gratis proefperiode</div>
                     <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Nog {trialDays} {trialDays === 1 ? "dag" : "dagen"} gratis Pro toegang</div>
-                    <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: "#fff" }}>
+                    <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: C.onAccent }}>
                       Activeer Pro →
                     </button>
                   </>
@@ -2824,7 +2824,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ fontSize: 14, color: C.muted, marginBottom: 16 }}>
                     {isCanceled ? "Je abonnement is opgezegd." : "Geen actief abonnement."}
                   </div>
-                  <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: "#fff" }}>
+                  <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: C.onAccent }}>
                     Upgrade naar Pro →
                   </button>
                 </>
@@ -2860,7 +2860,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       background: earlyAccessOn ? "var(--accent)" : "rgba(var(--overlay-rgb),0.1)",
                       position: "relative" }}
                   >
-                    <span style={{ position: "absolute", top: 3, left: earlyAccessOn ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.2s" }} />
+                    <span style={{ position: "absolute", top: 3, left: earlyAccessOn ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: C.knob, transition: "left 0.2s" }} />
                   </button>
                 </div>
                 {earlyAccessOn && (
@@ -2932,7 +2932,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         </div>
                       )}
                       {redeemState === "error" && redeemMsg && (
-                        <div style={{ fontSize: 12, color: "#ef4444", marginTop: 6 }}>{redeemMsg}</div>
+                        <div style={{ fontSize: 12, color: C.dangerStrong, marginTop: 6 }}>{redeemMsg}</div>
                       )}
                     </div>
                   </>
@@ -3018,14 +3018,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div key={row.label} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.label}</div>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.visible.startsWith("Visible") ? "#f59e0b" : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.visible.startsWith("Visible") ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
                     {row.visible.startsWith("Visible") ? "Trainer visible" : "Private"}
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{row.detail}</div>
                 <div style={{ fontSize: 11, color: C.subtle, marginTop: 3, lineHeight: 1.4 }}>Used for: {row.purpose}</div>
                 {row.visible.startsWith("Visible") && (
-                  <div style={{ fontSize: 11, color: "#f59e0b", marginTop: 3 }}>{row.visible}</div>
+                  <div style={{ fontSize: 11, color: C.warning, marginTop: 3 }}>{row.visible}</div>
                 )}
               </div>
             ))}
@@ -3604,7 +3604,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24" }}>Pregnancy mode active</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright }}>Pregnancy mode active</div>
                   {prefs.cycle?.pregnancy_week && (
                     <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginTop: 3 }}>
                       Week {prefs.cycle.pregnancy_week} · Trimester {prefs.cycle.trimester}
@@ -3636,7 +3636,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       } catch { /* ignore */ }
                       setPregnancySaving(false);
                     }}
-                    style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : "#fbbf24", cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
+                    style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : C.warningBright, cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
                   >
                     {pregnancySaving ? "Saving…" : "Update due date"}
                   </button>
@@ -3645,13 +3645,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {/* Baby arrived prompt — show when due date has passed */}
               {prefs.cycle?.pregnancy_due_date && new Date(prefs.cycle.pregnancy_due_date) <= new Date() && postnatalSetupStep === 0 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 6 }}>Has your baby arrived?</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 6 }}>Has your baby arrived?</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.6 }}>
                     When you're ready, switch to postnatal mode for a gentle recovery programme.
                   </div>
                   <button
                     onClick={() => setPostnatalSetupStep(1)}
-                    style={{ padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.1)", color: "#fbbf24", cursor: "pointer" }}
+                    style={{ padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.1)", color: C.warningBright, cursor: "pointer" }}
                   >
                     Yes — set up postnatal mode
                   </button>
@@ -3660,7 +3660,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
               {postnatalSetupStep === 1 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 1 of 2 — Birth date</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 1 of 2 — Birth date</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your baby arrive?</div>
                   <input
                     type="date"
@@ -3674,7 +3674,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <button
                       disabled={!postnatalBirthDate}
                       onClick={() => setPostnatalSetupStep(2)}
-                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthDate ? "#fbbf24" : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthDate ? C.warningBright : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
                     >Continue</button>
                   </div>
                 </div>
@@ -3682,14 +3682,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
               {postnatalSetupStep === 2 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 10 }}>Step 2 of 2 — Birth type</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 2 of 2 — Birth type</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.6 }}>This helps us adapt your recovery timeline. (Optional)</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
                     {[["vaginal", "Vaginal"], ["caesarean", "Caesarean"], ["prefer_not_to_say", "Prefer not to say"]].map(([val, label]) => (
                       <button
                         key={val}
                         onClick={() => setPostnatalBirthType(val)}
-                        style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${postnatalBirthType === val ? "rgba(251,191,36,0.4)" : C.border}`, background: postnatalBirthType === val ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthType === val ? "#fbbf24" : C.muted, cursor: "pointer" }}
+                        style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${postnatalBirthType === val ? "rgba(251,191,36,0.4)" : C.border}`, background: postnatalBirthType === val ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthType === val ? C.warningBright : C.muted, cursor: "pointer" }}
                       >{label}</button>
                     ))}
                   </div>
@@ -3722,7 +3722,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         } catch { /* ignore */ }
                         setPostnatalSaving(false);
                       }}
-                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : "#fbbf24", cursor: postnatalSaving ? "not-allowed" : "pointer" }}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : C.warningBright, cursor: postnatalSaving ? "not-allowed" : "pointer" }}
                     >{postnatalSaving ? "Saving…" : "Start postnatal mode"}</button>
                   </div>
                 </div>
@@ -3751,7 +3751,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* ── Postnatal mode card ── */}
           {bodyMode === "postnatal" && (
             <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.2)" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: "#fbbf24", marginBottom: 4 }}>Postnatal mode active</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright, marginBottom: 4 }}>Postnatal mode active</div>
               {prefs.cycle?.postnatal_phase && (
                 <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginBottom: 12 }}>
                   {{ immediate: "Immediate recovery (0–2 wks)", early: "Early recovery (2–6 wks)", rebuilding: "Rebuilding (6–16 wks)", strengthening: "Strengthening (16–26 wks)", returning: "Returning to fitness (26+ wks)" }[prefs.cycle.postnatal_phase]}

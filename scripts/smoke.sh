@@ -120,7 +120,7 @@ _allow='FC4C02|10b981|8b5cf6|0ea5e9|f43f5e|f59e0b|6366f1|84cc16|06b6d4|f97316|d9
 # see it. (Filtering grep -o output silently does nothing — it has already thrown
 # the context away.)
 _scan() {
-  grep -rnE "#[0-9a-fA-F]{6}" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
+  grep -rnE "#[0-9a-fA-F]{3,8}|[\"'](white|black|silver|gray|grey)[\"']" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
     | grep -v "tokens.js" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" \
     | grep -vE "#($_allow)" | grep -viE "#($_allow)"
 }

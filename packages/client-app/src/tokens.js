@@ -20,6 +20,19 @@ export const C = {
   // Error/validation text. #f87171 is tuned for near-black and lands at ~2.5:1
   // on a light ground, so light uses a darker red.
   danger:       "var(--danger)",
+  dangerStrong: "var(--danger-strong)",
+  warning:      "var(--warning)",
+  warningBright:"var(--warning-bright)",
+  warningSoft:  "var(--warning-soft)",
+  success:      "var(--success)",
+  successSoft:  "var(--success-soft)",
+  info:         "var(--info)",
+  // Text on a saturated status surface (red/amber/green) — white in both themes.
+  onStatus:     "var(--on-status)",
+  // Toggle knob — white in both themes; it always sits on a coloured track.
+  knob:         "var(--knob)",
+  // Brand glyph on the accent tile — white in both themes.
+  logoMark:     "var(--logo-mark)",
   scrim:        "var(--scrim)",
   bgCard:       "rgba(var(--overlay-rgb),0.04)",
   bgCard2:      "rgba(var(--overlay-rgb),0.06)",
@@ -118,6 +131,13 @@ export const THEMES = {
     "--sheet":        "#0f172a",
     "--text-soft":    "#cbd5e1",
     "--danger":       "#f87171",
+    "--warning":        "#f59e0b",
+    "--warning-bright": "#fbbf24",
+    "--warning-soft":   "#fcd34d",
+    "--danger-strong":  "#ef4444",
+    "--success":        "#22c55e",
+    "--success-soft":   "#6ee7b7",
+    "--info":           "#3b82f6",
 
     "--amber":        "#f59e0b",
     "--amber-dim":    "rgba(245,158,11,0.08)",
@@ -128,6 +148,9 @@ export const THEMES = {
     "--scrim":        "rgba(2,6,23,0.72)",
     "--recessed":     "rgba(0,0,0,0.30)",
     "--on-accent":    "#020617",
+    "--on-status":    "#ffffff",
+    "--knob":         "#ffffff",
+    "--logo-mark":    "#ffffff",
   },
   light: {
     // Not pure white: #f7f8fa keeps the black-alpha surface ladder visible, which
@@ -142,6 +165,13 @@ export const THEMES = {
     "--sheet":        "#ffffff",
     "--text-soft":    "#475569",
     "--danger":       "#dc2626",
+    "--warning":        "#b45309",
+    "--warning-bright": "#a16207",
+    "--warning-soft":   "#a16207",
+    "--danger-strong":  "#b91c1c",
+    "--success":        "#15803d",
+    "--success-soft":   "#047857",
+    "--info":           "#1d4ed8",
 
     // Amber and rose are darkened for contrast against a light ground; the dark
     // values are tuned to glow on near-black and fail WCAG AA on white.
@@ -154,6 +184,9 @@ export const THEMES = {
     "--scrim":        "rgba(15,23,42,0.45)",
     "--recessed":     "rgba(0,0,0,0.05)",
     "--on-accent":    "#020617",
+    "--on-status":    "#ffffff",
+    "--knob":         "#ffffff",
+    "--logo-mark":    "#ffffff",
   },
 };
 

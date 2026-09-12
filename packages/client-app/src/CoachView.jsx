@@ -66,7 +66,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const unreadCount = td?.conv_unread_client ?? 0;
 
   function availDot(status) {
-    const col = status === 'available' ? '#22c55e' : status === 'busy' ? '#f59e0b' : C.subtle;
+    const col = status === 'available' ? C.success : status === 'busy' ? C.warning : C.subtle;
     return <span style={{ display: 'inline-block', width: 8, height: 8, borderRadius: 4, background: col, marginRight: 5, flexShrink: 0 }} />;
   }
 
@@ -526,7 +526,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           : tsb < -10 ? 'Good training load — keep building'
           : tsb <= 5  ? 'Fresh enough for quality work'
           : 'Very fresh — good day for a hard session, test, or longer ride';
-        const tsbColor = tsb === null ? C.muted : tsb < -25 ? '#f43f5e' : tsb < -10 ? '#f59e0b' : "var(--accent)";
+        const tsbColor = tsb === null ? C.muted : tsb < -25 ? '#f43f5e' : tsb < -10 ? C.warning : "var(--accent)";
 
         const ftpHistory = cc.ftp_history ?? [];
         const ftpSparkN = ftpHistory.length;
@@ -565,11 +565,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 })()}
                 {ftpStale && cc.unit === 'watts' && ftpSnoozedUntil < nowMs && plan?.slot_type !== 'rest' && (
                   <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                    <div style={{ fontSize: 11, color: "#f59e0b", lineHeight: 1.5, marginBottom: 7 }}>
+                    <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5, marginBottom: 7 }}>
                       FTP refresh recommended{weeksAgo !== null ? ` — tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no test on record'}.
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
-                      <button onClick={() => setView("settings")} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", color: "#f59e0b" }}>
+                      <button onClick={() => setView("settings")} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", color: C.warning }}>
                         Go to FTP test
                       </button>
                       <button
@@ -586,7 +586,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {pmcHasData && (
               <div>
                 <svg viewBox={`0 0 ${pmcChartW} ${pmcChartH}`} width="100%" height={pmcChartH} style={{ display: "block", overflow: "visible" }}>
-                  <polyline points={atlPts} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={atlPts} fill="none" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points={ctlPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
@@ -594,13 +594,13 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" /></svg>
                     CTL fitness
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#f59e0b" }}>
-                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: C.warning }}>
+                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
                     ATL fatigue
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {[{ label: 'CTL', value: pmcLatest.ctl, color: "var(--accent)" }, { label: 'ATL', value: pmcLatest.atl, color: "#f59e0b" }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
+                  {[{ label: 'CTL', value: pmcLatest.ctl, color: "var(--accent)" }, { label: 'ATL', value: pmcLatest.atl, color: C.warning }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
                     <div key={label} style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px", textAlign: "center" }}>
                       <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 2 }}>{label}</div>
                       <div style={{ ...mono(13), color, fontWeight: 700 }}>{value.toFixed(0)}</div>
@@ -731,7 +731,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       KEURING · {kLabel}
                     </div>
                     {daysToAssessment != null && (
-                      <div style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 99, background: daysToAssessment <= 14 ? 'rgba(245,158,11,0.12)' : 'var(--accent-dim)', border: `1px solid ${daysToAssessment <= 14 ? 'rgba(245,158,11,0.3)' : 'var(--accent-border)'}`, color: daysToAssessment <= 14 ? '#f59e0b' : 'var(--accent)' }}>
+                      <div style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 99, background: daysToAssessment <= 14 ? 'rgba(245,158,11,0.12)' : 'var(--accent-dim)', border: `1px solid ${daysToAssessment <= 14 ? 'rgba(245,158,11,0.3)' : 'var(--accent-border)'}`, color: daysToAssessment <= 14 ? C.warning : 'var(--accent)' }}>
                         over {daysToAssessment} dag{daysToAssessment !== 1 ? 'en' : ''}
                       </div>
                     )}
@@ -789,7 +789,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {milClL(track, clusterCurrent + 1)}</span>}
                   </div>
                   {daysToAssessment !== null && (
-                    <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? "#f59e0b" : C.muted, marginTop: 2, fontWeight: 700 }}>
+                    <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? C.warning : C.muted, marginTop: 2, fontWeight: 700 }}>
                       {daysToAssessment > 0 ? `${daysToAssessment} days to assessment` : daysToAssessment === 0 ? "Assessment today" : "Assessment date passed"}
                     </div>
                   )}
@@ -841,7 +841,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         {nextCooperTarget && clusterCurrent < maxLevel && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
                             {milClL(track, nextLevel)} requires ≥{nextCooperTarget}m
-                            {cooperGap != null && cooperGap > 0 && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {cooperGap}m to go</span>}
+                            {cooperGap != null && cooperGap > 0 && <span style={{ color: C.warning, fontWeight: 700 }}> · {cooperGap}m to go</span>}
                             {cooperGap === 0 && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · achieved</span>}
                           </div>
                         )}
@@ -855,7 +855,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
                             {milClL(track, nextLevel)} target: {nextMarchTarget} kg
                             {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · ready</span>}
-                            {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: "#f59e0b", fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
+                            {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: C.warning, fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
                           </div>
                         )}
                         {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>{t("Set weights in Settings →")}</div>}
@@ -958,7 +958,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             )}
             {pendingSwitch && (
               <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)" }}>
-                <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 4 }}>◐ Wisselverzoek in behandeling</div>
+                <div style={{ fontSize: 12, fontWeight: 700, color: C.warning, marginBottom: 4 }}>◐ Wisselverzoek in behandeling</div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Naar: {pendingSwitch.to_trainer_name} · {Math.round((nowMs - pendingSwitch.created_at_ms) / 86400000)} dagen geleden</div>
                 <button onClick={handleCancelSwitch} disabled={cancellingSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}>
                   {cancellingSwitch ? "..." : "Trek verzoek in"}
@@ -978,7 +978,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   return (
                     <div key={s.id} style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                       <div style={{ width: 8, height: 8, borderRadius: 4, flexShrink: 0, marginTop: 5,
-                        background: s.rsvp === 'waitlist' ? '#f59e0b' : isPast ? C.subtle : 'var(--accent)' }} />
+                        background: s.rsvp === 'waitlist' ? C.warning : isPast ? C.subtle : 'var(--accent)' }} />
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13, fontWeight: 700, color: isPast ? C.muted : C.text, marginBottom: 2 }}>{s.title}</div>
                         <div style={{ fontSize: 11, color: C.muted }}>
@@ -1025,7 +1025,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       </div>
                       {s.max_capacity !== null && (
                         <div style={{ height: 3, borderRadius: 2, background: C.border }}>
-                          <div style={{ height: 3, borderRadius: 2, background: isFull ? '#f59e0b' : 'var(--accent)', width: `${pct * 100}%`, transition: "width 0.3s" }} />
+                          <div style={{ height: 3, borderRadius: 2, background: isFull ? C.warning : 'var(--accent)', width: `${pct * 100}%`, transition: "width 0.3s" }} />
                         </div>
                       )}
                       {s.max_capacity !== null && (
@@ -1047,7 +1047,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {clientPackages.map(p => {
                     const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
-                    const barCol = pct > 0.4 ? 'var(--accent)' : pct > 0.15 ? '#f59e0b' : '#f43f5e';
+                    const barCol = pct > 0.4 ? 'var(--accent)' : pct > 0.15 ? C.warning : '#f43f5e';
                     return (
                       <div key={p.id}>
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
@@ -1062,7 +1062,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   })}
                 </div>
                 {totalRemaining === 0 && (
-                  <div style={{ fontSize: 11, color: '#f59e0b', marginTop: 10 }}>Geen sessies meer over — vraag je trainer om een nieuw pakket</div>
+                  <div style={{ fontSize: 11, color: C.warning, marginTop: 10 }}>Geen sessies meer over — vraag je trainer om een nieuw pakket</div>
                 )}
               </div>
             );
@@ -1108,7 +1108,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       const isPast = s.scheduled_date < todayStr;
                       const done = s.status === 'completed';
                       const missed = s.status === 'missed';
-                      const statusColor = done ? '#22c55e' : missed ? '#ef4444' : isToday ? 'var(--accent)' : C.muted;
+                      const statusColor = done ? C.success : missed ? C.dangerStrong : isToday ? 'var(--accent)' : C.muted;
                       const statusIcon = done ? '✓' : missed ? '✕' : isToday ? '→' : '·';
                       const d = new Date(s.scheduled_date + 'T12:00:00');
                       const dateLabel = isToday ? 'Today' : d.toLocaleDateString('nl-NL', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -1181,7 +1181,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {/* ── Active support reply ── */}
       {activeSupport?.status === 'accepted' && activeSupport.reply_message && (
         <Glass style={{ padding: "16px 20px", marginBottom: 16, border: "1px solid rgba(34,197,94,0.3)", background: "rgba(34,197,94,0.05)" }}>
-          <div style={{ fontSize: 12, fontWeight: 700, color: "#22c55e", marginBottom: 6 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
+          <div style={{ fontSize: 12, fontWeight: 700, color: C.success, marginBottom: 6 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
           <div style={{ fontSize: 13, color: C.text, lineHeight: 1.5, fontStyle: "italic" }}>"{activeSupport.reply_message}"</div>
         </Glass>
       )}
@@ -1197,7 +1197,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>HULPVERZOEK</div>
                 {activeSupport.status === 'accepted' && activeSupport.reply_message ? (
                   <>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "#22c55e", marginBottom: 8 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: C.success, marginBottom: 8 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
                     <div style={{ fontSize: 14, color: C.text, lineHeight: 1.6, fontStyle: "italic", marginBottom: 16 }}>"{activeSupport.reply_message}"</div>
                   </>
                 ) : activeSupport.status === 'accepted' ? (
@@ -1239,10 +1239,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     </div>
                   </label>
                 )}
-                {supportError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{supportError}</div>}
+                {supportError && <div style={{ fontSize: 12, color: C.dangerStrong, marginBottom: 10 }}>{supportError}</div>}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setSupportSheet(false)} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
-                  <button onClick={handleSendSupport} disabled={supportSending || !supportMsg.trim()} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: supportMsg.trim() ? "var(--accent)" : C.subtle, cursor: supportMsg.trim() ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: supportMsg.trim() ? "#fff" : C.muted }}>
+                  <button onClick={handleSendSupport} disabled={supportSending || !supportMsg.trim()} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: supportMsg.trim() ? "var(--accent)" : C.subtle, cursor: supportMsg.trim() ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: supportMsg.trim() ? C.onAccent : C.muted }}>
                     {supportSending ? "Versturen…" : "Verstuur →"}
                   </button>
                 </div>
@@ -1300,10 +1300,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     ? `Je verzoek gaat naar jouw huidige trainer${trainer?.display_name ? ", " + trainer.display_name : ""}.`
                     : "Je verzoek gaat naar de eigenaar van de gym. Je hoort zo snel mogelijk terug."}
                 </div>
-                {switchError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{switchError}</div>}
+                {switchError && <div style={{ fontSize: 12, color: C.dangerStrong, marginBottom: 10 }}>{switchError}</div>}
                 <div style={{ display: "flex", gap: 10 }}>
                   <button onClick={() => setSwitchStep("select")} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Terug</button>
-                  <button onClick={handleSendSwitch} disabled={switchSending} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#fff" }}>
+                  <button onClick={handleSendSwitch} disabled={switchSending} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.onAccent }}>
                     {switchSending ? "Versturen…" : "Verstuur verzoek →"}
                   </button>
                 </div>

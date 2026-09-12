@@ -1,4 +1,5 @@
 import { Component } from "react";
+import { C } from "./tokens.js";
 
 // Catches unhandled render errors anywhere in the tree.
 // Must be a class component — React requires it for error boundaries.
@@ -39,7 +40,7 @@ export default class ErrorBoundary extends Component {
             onClick={() => window.location.reload()}
             style={{
               background: "#10b981", border: "none", borderRadius: 14,
-              color: "#fff", fontWeight: 900, fontSize: 14, padding: "12px 28px",
+              color: C.onAccent, fontWeight: 900, fontSize: 14, padding: "12px 28px",
               cursor: "pointer",
             }}
           >

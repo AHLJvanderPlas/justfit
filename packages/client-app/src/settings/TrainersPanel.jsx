@@ -113,7 +113,7 @@ export default function TrainersPanel() {
       {/* Pending upgrade requests */}
       {disclosures.filter(d => d.upgrade_request).map(d => (
         <div key={d.gym_id} style={{ marginBottom: 16, padding: 16, borderRadius: 20, background: 'rgba(245,158,11,0.06)', border: '1px solid rgba(245,158,11,0.25)' }}>
-          <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', color: '#f59e0b', textTransform: 'uppercase', marginBottom: 4 }}>
+          <p style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.1em', color: C.warning, textTransform: 'uppercase', marginBottom: 4 }}>
             Disclosure upgrade request
           </p>
           <p style={{ fontSize: 14, color: C.text, marginBottom: 2 }}>
@@ -130,7 +130,7 @@ export default function TrainersPanel() {
             </button>
             <button disabled={responding}
               onClick={() => handleUpgradeResponse(d.gym_id, d.upgrade_request.request_id, 'decline')}
-              style={{ flex: 1, padding: '10px 0', borderRadius: 12, background: 'transparent', color: '#f59e0b', fontWeight: 700, fontSize: 13, border: '1px solid rgba(245,158,11,0.4)', cursor: 'pointer', opacity: responding ? 0.5 : 1 }}>
+              style={{ flex: 1, padding: '10px 0', borderRadius: 12, background: 'transparent', color: C.warning, fontWeight: 700, fontSize: 13, border: '1px solid rgba(245,158,11,0.4)', cursor: 'pointer', opacity: responding ? 0.5 : 1 }}>
               Decline
             </button>
           </div>
@@ -366,7 +366,7 @@ export default function TrainersPanel() {
               >
                 <span style={{
                   position: 'absolute', top: 3, left: allowSwitch ? 21 : 3,
-                  width: 20, height: 20, borderRadius: 10, background: '#fff',
+                  width: 20, height: 20, borderRadius: 10, background: C.knob,
                   transition: 'left 0.2s',
                 }} />
               </button>

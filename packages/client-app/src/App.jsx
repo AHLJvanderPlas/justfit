@@ -560,7 +560,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       <div style={{ display: "flex", gap: 8 }}>
                         <button
                           onClick={() => { if (lastPeriodStart) { setCycleTrackingMode("smart"); setCycleSetupDone(true); } }}
-                          style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emerald, border: "none", color: "#fff", fontWeight: 900, fontSize: 13, cursor: "pointer" }}
+                          style={{ flex: 2, padding: "10px 16px", borderRadius: 12, background: C.emerald, border: "none", color: C.onAccent, fontWeight: 900, fontSize: 13, cursor: "pointer" }}
                         >
                           Save
                         </button>
@@ -628,7 +628,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                 })}
               </div>
               {isPregnancyGoal && (
-                <div style={{ marginTop: 12, fontSize: 12, color: "#f59e0b", lineHeight: 1.5, padding: "10px 14px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
+                <div style={{ marginTop: 12, fontSize: 12, color: C.warning, lineHeight: 1.5, padding: "10px 14px", background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12 }}>
                   You'll complete pregnancy setup in Settings after onboarding.
                 </div>
               )}
@@ -772,7 +772,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
             <button
               onClick={step === 0 ? () => setStep(1) : step < TOTAL_STEPS - 1 ? () => setStep(step + 1) : handleFinish}
               disabled={saving}
-              style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.emerald, color: "#fff", fontWeight: 900, fontSize: 15, cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.35)", opacity: saving ? 0.7 : 1 }}
+              style={{ flex: 2, padding: 14, borderRadius: 16, border: "none", background: C.emerald, color: C.onAccent, fontWeight: 900, fontSize: 15, cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.35)", opacity: saving ? 0.7 : 1 }}
             >
               {step === 0 ? "I Agree — Continue" : saving ? "Saving..." : step < TOTAL_STEPS - 1 ? "Continue" : "Start Training"}
             </button>
@@ -1057,7 +1057,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
 
               {bodyMode === "pregnant" && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: "#fbbf24", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your body today?</div>
+                  <div style={{ ...mono(10), color: C.warningBright, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your body today?</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {[
                       { key: "nausea",            label: "Feeling nauseous",  sub: "We'll keep it very gentle" },
@@ -1072,11 +1072,11 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? C.warningBright : C.text }}>{label}</div>
                             {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
                           </div>
-                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
-                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? C.warningBright : C.subtle, position: "relative", flexShrink: 0 }}>
+                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: C.knob, left: active ? 19 : 2, transition: "left 0.2s" }} />
                           </div>
                         </button>
                       );
@@ -1101,11 +1101,11 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
                         >
                           <div>
-                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
+                            <div style={{ fontSize: 13, fontWeight: 700, color: active ? C.warningBright : C.text }}>{label}</div>
                             {active && <div style={{ fontSize: 11, color: "rgba(251,191,36,0.7)", marginTop: 2 }}>{sub}</div>}
                           </div>
-                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? "#fbbf24" : C.subtle, position: "relative", flexShrink: 0 }}>
-                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: "#fff", left: active ? 19 : 2, transition: "left 0.2s" }} />
+                          <div style={{ width: 38, height: 20, borderRadius: 999, background: active ? C.warningBright : C.subtle, position: "relative", flexShrink: 0 }}>
+                            <div style={{ position: "absolute", top: 2, width: 16, height: 16, borderRadius: "50%", background: C.knob, left: active ? 19 : 2, transition: "left 0.2s" }} />
                           </div>
                         </button>
                       );
@@ -1129,7 +1129,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
               </button>
               <button
                 onClick={handleStep2Apply}
-                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
+                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: C.onAccent, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
               >
                 {t("Apply")} →
               </button>
@@ -1145,7 +1145,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
               </button>
               <button
                 onClick={buildAndSave}
-                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: "#fff", cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
+                style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 900, fontSize: 15, background: "var(--accent)", border: "none", color: C.onAccent, cursor: "pointer", fontFamily: "inherit", boxShadow: "0 8px 24px rgba(var(--accent-rgb),0.3)" }}
               >
                 {t("Apply")} →
               </button>
@@ -1255,7 +1255,7 @@ function GuestConvertModal({ onClose, onConverted }) {
         <button
           onClick={handle}
           disabled={saving}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: saving ? "not-allowed" : "pointer", marginBottom: 10, opacity: saving ? 0.7 : 1 }}
+          style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15, fontWeight: 900, background: C.emerald, border: "none", color: C.onAccent, cursor: saving ? "not-allowed" : "pointer", marginBottom: 10, opacity: saving ? 0.7 : 1 }}
         >
           {saving ? "Saving…" : "Save my account →"}
         </button>
@@ -1327,7 +1327,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
           <button
             disabled={!logType || !logDuration}
             onClick={() => { onLogActivity(logType.value, logDuration); setLogDone(true); }}
-            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(var(--overlay-rgb),0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
+            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(var(--overlay-rgb),0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : C.onAccent }}
           >
             Log it →
           </button>
@@ -1402,14 +1402,14 @@ function PregnancyProgressBanner({ cycle }) {
     const showMilestone = milestone && !dismissed[milestoneKey];
 
     const pct = Math.min(100, Math.round((week / 40) * 100));
-    const T_COLORS = { 1: "var(--accent)", 2: "#fbbf24", 3: "#f97316" };
-    const barColor = T_COLORS[trimester] ?? "#fbbf24";
+    const T_COLORS = { 1: "var(--accent)", 2: C.warningBright, 3: "#f97316" };
+    const barColor = T_COLORS[trimester] ?? C.warningBright;
 
     return (
       <div style={{ marginBottom: 20 }}>
         <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.18)", borderRadius: 16, padding: "14px 16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24" }}>Week {week} of your pregnancy</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright }}>Week {week} of your pregnancy</div>
             <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)", fontWeight: 700 }}>Trimester {trimester}</div>
           </div>
           <div style={{ height: 5, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 999, overflow: "hidden" }}>
@@ -1467,7 +1467,7 @@ function PregnancyProgressBanner({ cycle }) {
     return (
       <div style={{ marginBottom: 20 }}>
         <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24", marginBottom: 3 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 3 }}>
             {PHASE_LABELS_PN[postnatalPhase] ?? "Postnatal recovery"}
           </div>
           <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)" }}>Day {daysSince} after birth</div>
@@ -1619,7 +1619,7 @@ function BlockingSafetyBanner({ text, cta }) {
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 6 }}>
         Health &amp; Safety
       </div>
-      <p style={{ fontSize: 12, color: "#fcd34d", fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
+      <p style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
         {text}
       </p>
       {cta && (
@@ -1665,7 +1665,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
         <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
         <div>
           <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>No plan generated</div>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: "#ef4444", fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: C.dangerStrong, fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
         </div>
       </div>
       <div style={{ fontSize: 13, color: C.subtle, lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
@@ -1686,7 +1686,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
         <button
           disabled={reportSent || reportSending}
           onClick={handleReport}
-          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${reportSent ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}`, background: reportSent ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)", color: reportSent ? "#4ade80" : "#ef4444", cursor: reportSent ? "default" : "pointer", opacity: reportSending ? 0.6 : 1, transition: "color 0.2s, border-color 0.2s, background 0.2s" }}
+          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${reportSent ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}`, background: reportSent ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)", color: reportSent ? "#4ade80" : C.dangerStrong, cursor: reportSent ? "default" : "pointer", opacity: reportSending ? 0.6 : 1, transition: "color 0.2s, border-color 0.2s, background 0.2s" }}
         >
           {reportSent ? "Report sent ✓" : reportSending ? "Sending…" : "Send report"}
         </button>
@@ -1768,7 +1768,7 @@ function splitTitle(name) {
 
 function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade }) {
   const intensityColor = {
-    low: "#6ee7b7",
+    low: C.successSoft,
     moderate: C.emerald,
     high: C.amber,
   };
@@ -2059,7 +2059,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   style={{
                     width: "100%", height: 56,
                     background: plan.slot_type === "rest" ? C.subtle : "var(--accent)",
-                    color: plan.slot_type === "rest" ? C.muted : "#000",
+                    color: plan.slot_type === "rest" ? C.muted : C.onAccent,
                     border: "none", borderRadius: 16,
                     ...display(18, 800), letterSpacing: "0.02em",
                     display: "flex", alignItems: "center", justifyContent: "center", gap: 10,
@@ -2067,7 +2067,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     cursor: plan.slot_type === "rest" ? "not-allowed" : "pointer",
                   }}
                 >
-                  {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c="#000" /></>}
+                  {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c={C.onAccent} /></>}
                 </button>
                 {plan.slot_type !== "rest" && (
                   <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}>
@@ -2182,7 +2182,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 {(isPostAssess || isBaseBuild || milMode === 'fit' || isCalibration || isDeload || isTaper) && (
                   <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
                     background: (milMode === 'fit' || isBaseBuild) ? "rgba(16,185,129,0.12)" : isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
-                    color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? "#f59e0b" : isDeload ? C.emerald : "var(--accent)",
+                    color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? C.warning : isDeload ? C.emerald : "var(--accent)",
                   }}>
                     {milMode === 'fit' ? "Fit target" : isBaseBuild ? "Base build" : isPostAssess ? "Open" : isCalibration ? "On-ramp" : isDeload ? "Deload" : "Taper"}
                   </span>
@@ -2358,7 +2358,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   display: "flex", alignItems: "center", justifyContent: "center",
                 }}>
                   {status === "done" && <Icons.check size={14} c={C.emerald} />}
-                  {status === "today" && <Icons.bolt size={14} c="#000" filled />}
+                  {status === "today" && <Icons.bolt size={14} c={C.onAccent} filled />}
                 </div>
               </div>
             );
@@ -3495,11 +3495,11 @@ export default function App() {
                 <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.2)" }} strokeWidth="14" strokeLinejoin="round"/>
                 <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.15)" }} strokeWidth="12" strokeLinejoin="round"/>
                 {/* S-curve route */}
-                <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="512" cy="294" r="32" fill="white"/>
+                <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" fill="none" stroke={C.logoMark} strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
+                <circle cx="512" cy="294" r="32" fill={C.logoMark}/>
                 {/* Pole + filled flag */}
-                <path d="M 512 294 L 512 172" stroke="white" strokeWidth="30" strokeLinecap="round"/>
-                <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill="white" stroke="white" strokeWidth="8" strokeLinejoin="round"/>
+                <path d="M 512 294 L 512 172" stroke={C.logoMark} strokeWidth="30" strokeLinecap="round"/>
+                <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill={C.logoMark} stroke={C.logoMark} strokeWidth="8" strokeLinejoin="round"/>
               </svg>
               <span
                 style={{
@@ -3589,10 +3589,10 @@ export default function App() {
           <>
             {isOffline && (
               <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 10 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.warning} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
                 </svg>
-                <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>Je bent offline — wijzigingen worden gesynchroniseerd zodra de verbinding hersteld is</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>Je bent offline — wijzigingen worden gesynchroniseerd zodra de verbinding hersteld is</div>
               </div>
             )}
             {view === "today" && (
@@ -3602,7 +3602,7 @@ export default function App() {
                   <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>{t('pending_sync_title') || 'Workout saved locally'}</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>{t('pending_sync_title') || 'Workout saved locally'}</div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t('pending_sync_body') || 'Syncing when your connection returns…'}</div>
                     </div>
                   </div>
@@ -3611,10 +3611,10 @@ export default function App() {
                   <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>⚠</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>Add your email to keep your data</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>Add your email to keep your data</div>
                       <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Without email, you can't log back in when your session expires.</div>
                     </div>
-                    <button onClick={() => setShowGuestConvert(true)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: "#f59e0b", fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
+                    <button onClick={() => setShowGuestConvert(true)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: C.warning, fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
                       Add →
                     </button>
                     <button onClick={() => { setEmailBannerDismissed(true); localStorage.setItem(uKey('jf_email_banner_dismissed'), String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
@@ -3633,12 +3633,12 @@ export default function App() {
                         {msg.gym_logo_url ? (
                           <img src={msg.gym_logo_url} alt={msg.gym_name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid rgba(var(--overlay-rgb),0.08)" }} />
                         ) : (
-                          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#f59e0b", fontSize: 16, fontWeight: 900 }}>
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.warning, fontSize: 16, fontWeight: 900 }}>
                             T
                           </div>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: "#f59e0b", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                          <div style={{ fontSize: 10, fontWeight: 700, color: C.warning, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
                             Van je trainer{msg.gym_name ? ` · ${msg.gym_name}` : ""}
                           </div>
                           <div style={{ fontSize: 14, color: C.text, lineHeight: 1.5 }}>{msg.text}</div>
@@ -3862,7 +3862,7 @@ export default function App() {
           <div style={{ width: "100%", maxWidth: 420, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 28, padding: 32, boxShadow: "0 40px 100px rgba(0,0,0,0.5)" }}>
             {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
-              <div style={{ width: 36, height: 36, background: C.emerald, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: "#fff" }}>JF</div>
+              <div style={{ width: 36, height: 36, background: C.emerald, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: C.onAccent }}>JF</div>
               <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>Just<span style={{ color: C.emerald }}>Fit</span>.cc</div>
             </div>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Updated Policies</div>
@@ -3930,7 +3930,7 @@ export default function App() {
                   setTermsAccepting(false);
                 }
               }}
-              style={{ width: "100%", padding: 16, background: termsAccepted ? C.emerald : C.subtle, border: "none", borderRadius: 16, color: "#fff", fontSize: 15, fontWeight: 900, cursor: termsAccepted ? "pointer" : "not-allowed", opacity: termsAccepting ? 0.6 : 1, transition: "all 0.15s" }}
+              style={{ width: "100%", padding: 16, background: termsAccepted ? C.emerald : C.subtle, border: "none", borderRadius: 16, color: C.onAccent, fontSize: 15, fontWeight: 900, cursor: termsAccepted ? "pointer" : "not-allowed", opacity: termsAccepting ? 0.6 : 1, transition: "all 0.15s" }}
             >
               {termsAccepting ? "Saving…" : "I agree — Continue"}
             </button>

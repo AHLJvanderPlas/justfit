@@ -99,7 +99,7 @@ export const Toggle = ({ label, sub, active, onToggle }) => (
           width: 16,
           height: 16,
           borderRadius: "50%",
-          background: "#fff",
+          background: C.knob,
           left: active ? 21 : 3,
           transition: "left 0.2s",
         }}

@@ -92,7 +92,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
 
         {/* Early bird banner */}
         {isEbAvailable && eb !== null && eb < 50 && (
-          <div style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12, padding: "10px 14px", marginBottom: 20, fontSize: 13, fontWeight: 700, color: "#f59e0b" }}>
+          <div style={{ background: "rgba(245,158,11,0.12)", border: "1px solid rgba(245,158,11,0.3)", borderRadius: 12, padding: "10px 14px", marginBottom: 20, fontSize: 13, fontWeight: 700, color: C.warning }}>
             Nog {eb} {eb === 1 ? "plek" : "plekken"} op dit vroegboekerstarief
           </div>
         )}
@@ -117,7 +117,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{card.sub}</div>
                 {card.badge && card.badge !== "beste deal" && (
-                  <div style={{ marginTop: 10, fontSize: 10, fontWeight: 900, color: "#f59e0b", background: "rgba(245,158,11,0.12)", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <div style={{ marginTop: 10, fontSize: 10, fontWeight: 900, color: C.warning, background: "rgba(245,158,11,0.12)", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {card.badge}
                   </div>
                 )}
@@ -148,7 +148,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
           onClick={handleStart}
           disabled={loading}
           style={{ width: "100%", padding: "16px 0", borderRadius: 16, fontFamily: "inherit", fontWeight: 900, fontSize: 16, cursor: loading ? "not-allowed" : "pointer",
-            background: loading ? "rgba(var(--overlay-rgb),0.06)" : "var(--accent)", color: loading ? C.muted : "#fff", border: "none", marginBottom: 12 }}
+            background: loading ? "rgba(var(--overlay-rgb),0.06)" : "var(--accent)", color: loading ? C.muted : C.onAccent, border: "none", marginBottom: 12 }}
         >
           {loading ? "Doorsturen naar betaling…" : "Start nu Pro →"}
         </button>

@@ -363,7 +363,7 @@ function SleepTrendChart({ checkins, accentHex }) {
       {values.map((v, i) => {
         if (v == null) return null;
         const h = (v / maxVal) * barAreaH;
-        const color = v >= 7 ? accentHex : v >= 6 ? '#f59e0b' : '#f43f5e';
+        const color = v >= 7 ? accentHex : v >= 6 ? C.warning : '#f43f5e';
         return (
           <rect key={i} x={i * barW + 1} y={barAreaH - h} width={Math.max(barW - 2, 1)} height={h}
             fill={color} rx="1" opacity="0.8" />
@@ -478,7 +478,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
     const exertionLabel = avgPE == null ? null : avgPE >= 7 ? "Tough week" : avgPE <= 4 ? "Light week" : "Well-paced";
     const verdict = done >= target ? "on-track" : done >= Math.ceil(target * 0.6) ? "building" : "behind";
     const verdictLabel = { "on-track": "On track", "building": "Building", "behind": "Behind" }[verdict];
-    const verdictColor = { "on-track": C.emerald, "building": "#f59e0b", "behind": "#f43f5e" }[verdict];
+    const verdictColor = { "on-track": C.emerald, "building": C.warning, "behind": "#f43f5e" }[verdict];
     const insightMap = {
       health:      "Variety is the plan — strength, cardio and mobility in rotation.",
       strength:    "Progressive overload accumulates. 4 sessions per week is the minimum.",
@@ -873,7 +873,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (
-                            <span style={{ color: delta > 0 ? C.emerald : "#f59e0b", marginLeft: 8, fontSize: 11 }}>
+                            <span style={{ color: delta > 0 ? C.emerald : C.warning, marginLeft: 8, fontSize: 11 }}>
                               {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
                             </span>
                           )}
@@ -970,7 +970,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (
-                            <span style={{ color: delta > 0 ? C.emerald : "#f59e0b", marginLeft: 8, fontSize: 11 }}>
+                            <span style={{ color: delta > 0 ? C.emerald : C.warning, marginLeft: 8, fontSize: 11 }}>
                               {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
                             </span>
                           )}
@@ -998,7 +998,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               { z: 4, name: 'Zone 4', desc: 'Drempelzone',     pctMin: 91,  pctMax: 105 },
               { z: 5, name: 'Zone 5', desc: 'VO2max',          pctMin: 106, pctMax: 150 },
             ];
-            const ZCOLORS = [C.muted, accentHex, '#f59e0b', '#f97316', '#ef4444'];
+            const ZCOLORS = [C.muted, accentHex, C.warning, '#f97316', C.dangerStrong];
             return (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>

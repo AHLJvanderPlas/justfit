@@ -438,7 +438,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               <button onClick={() => setShowCancel(false)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
                 {t('Resume')}
               </button>
-              <button onClick={onBack} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: "#ef4444", cursor: "pointer" }}>
+              <button onClick={onBack} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: C.dangerStrong, cursor: "pointer" }}>
                 {t('Quit')}
               </button>
             </div>
@@ -521,7 +521,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
                     {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{totalMinsOv} min{ovMins > 0 ? ` incl. ${ovMins}m overhead` : ""}</span>}
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: "#6ee7b7", moderate: C.emerald, high: C.amber }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: C.successSoft, moderate: C.emerald, high: C.amber }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
                   </div>
                 </div>
 
@@ -597,7 +597,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               <div style={{ maxWidth: 560, margin: "0 auto" }}>
                 <button
                   onClick={() => setPhase("instruction")}
-                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.35)" }}
+                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: C.onAccent, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.35)" }}
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
                   {t('Start Workout')}
@@ -890,8 +890,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: BMI pace guidance (cardio, BMI ≥ 30 only) ── */}
               {bmiNote && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "#f59e0b", textTransform: "uppercase", marginBottom: 8 }}>{t('Pace guidance')}</div>
-                  <p style={{ fontSize: 13, fontWeight: 600, color: "#f59e0b", margin: 0, lineHeight: 1.6 }}>{bmiNote}</p>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.warning, textTransform: "uppercase", marginBottom: 8 }}>{t('Pace guidance')}</div>
+                  <p style={{ fontSize: 13, fontWeight: 600, color: C.warning, margin: 0, lineHeight: 1.6 }}>{bmiNote}</p>
                 </div>
               )}
 
@@ -908,7 +908,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               <div style={{ maxWidth: 560, margin: "0 auto" }}>
                 <button
                   onClick={() => setPhase("working")}
-                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: "#fff", cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
+                  style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: C.onAccent, cursor: "pointer", boxShadow: "0 8px 32px rgba(var(--accent-rgb),0.3)", letterSpacing: "-0.01em" }}
                 >
                   {t('Ready \u2014 let\u2019s go \u2192')}
                 </button>
@@ -960,7 +960,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               /* ── Time-based exercise ── */
               (() => {
                 const totalDur = adjustedDuration ?? cur.target_duration_sec ?? 30;
-                const timerColor = timerRemaining <= 5 ? "#ef4444" : timerRemaining <= 10 ? C.amber : C.emerald;
+                const timerColor = timerRemaining <= 5 ? C.dangerStrong : timerRemaining <= 10 ? C.amber : C.emerald;
                 return (
                   <div style={{ textAlign: "center" }}>
                     <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerColor, fontVariantNumeric: "tabular-nums", marginBottom: 20, transition: "color 0.3s", animation: timerRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
@@ -1092,7 +1092,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
         {/* ── RESTING PHASE ── */}
         {phase === "resting" && (() => {
-          const restColor = restRemaining <= 5 ? "#ef4444" : restRemaining <= 10 ? C.amber : C.emerald;
+          const restColor = restRemaining <= 5 ? C.dangerStrong : restRemaining <= 10 ? C.amber : C.emerald;
           const progressPct = restTotal > 0 ? Math.min(100, ((restTotal - restRemaining) / restTotal) * 100) : 100;
           const nextExName = currentSet <= totalSets ? cur?.name : exercises[exIdx + 1]?.name;
           const isLastSet = currentSet > totalSets;
@@ -1198,17 +1198,17 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // RPE label config based on session type
           const getRpeConfig = (v) => {
             if (isStrengthSession) {
-              if (v <= 3) return { label: t("Too light"), sub: t("Add weight or reps next session"), color: "#3b82f6" };
+              if (v <= 3) return { label: t("Too light"), sub: t("Add weight or reps next session"), color: C.info };
               if (v <= 6) return { label: t("Just right"), sub: t("Weight and reps were appropriate"), color: C.emerald };
               if (v <= 9) return { label: t("Hard"), sub: t("At your limit \u2014 hold or progress slowly"), color: C.amber };
-              return { label: t("Too heavy"), sub: t("Reduce weight or reps next session"), color: "#ef4444" };
+              return { label: t("Too heavy"), sub: t("Reduce weight or reps next session"), color: C.dangerStrong };
             }
             // Cardio / general
-            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: "#3b82f6" };
+            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: C.info };
             if (v <= 4) return { label: t("Easy"), sub: isCardio ? "Zone 2 · Comfortable, conversational" : t("Low effort \u2014 could do much more"), color: C.emerald };
             if (v <= 6) return { label: t("Moderate"), sub: isCardio ? "Zone 3 · Breathing harder" : t("Good effort"), color: "#84cc16" };
             if (v <= 8) return { label: t("Hard"), sub: isCardio ? "Zone 4\u20135 · Pushing your limits" : t("Near your limit"), color: C.amber };
-            return { label: t("Maximum"), sub: isCardio ? "Zone 5+ · At or near your limit" : t("Max effort \u2014 could not have done more"), color: "#ef4444" };
+            return { label: t("Maximum"), sub: isCardio ? "Zone 5+ · At or near your limit" : t("Max effort \u2014 could not have done more"), color: C.dangerStrong };
           };
 
           const rpeConfig = getRpeConfig(rpeValue);
@@ -1256,7 +1256,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       onClick={() => { setRpeValue(n); navigator.vibrate?.(12); }}
                       style={{ width: n === rpeValue ? 28 : 20, height: n === rpeValue ? 28 : 20, borderRadius: "50%", background: n === rpeValue ? cfg.color : "rgba(var(--overlay-rgb),0.08)", border: n === rpeValue ? `2px solid ${cfg.color}` : `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", flexShrink: 0 }}
                     >
-                      {n === rpeValue && <span style={{ fontSize: 9, fontWeight: 900, color: "#fff" }}>{n}</span>}
+                      {n === rpeValue && <span style={{ fontSize: 9, fontWeight: 900, color: C.onStatus }}>{n}</span>}
                     </div>
                   );
                 })}
@@ -1276,7 +1276,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               <button
                 onClick={() => handleFinishSession(rpeValue)}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: rpeConfig.color, border: "none", color: "#fff", cursor: "pointer", letterSpacing: "-0.01em", transition: "background 0.2s" }}
+                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: rpeConfig.color, border: "none", color: C.onStatus, cursor: "pointer", letterSpacing: "-0.01em", transition: "background 0.2s" }}
               >
                 {t('Log session \u2192')}
               </button>
