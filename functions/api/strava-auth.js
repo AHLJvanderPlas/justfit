@@ -1,169 +1,160 @@
 /**
  * /api/strava-auth
  *
- * GET  — returns the Strava OAuth authorization URL for the current user.
- *         Client redirects the browser there to initiate the OAuth flow.
+ * GET    — connection status + a freshly signed OAuth authorization URL.
+ * POST   — exchange { code, state } from the OAuth callback for tokens.
+ * PATCH  — toggle { push_enabled } (writing JustFit sessions back to Strava).
+ * DELETE — disconnect: revoke on Strava's side, then purge locally.
  *
- * POST — receives { code, state } from the OAuth callback (sent by App.jsx
- *         after Strava redirects back to the app).  Exchanges the code for
- *         tokens, fetches the athlete profile, and upserts strava_connections.
- *         Returns { ok, athlete_name, athlete_pic_url }.
+ * All actions require a valid session cookie.
  *
- * DELETE — removes the strava_connections row for the authenticated user
- *           (disconnect).
+ * Changes against the 2026 API Policy:
+ *  §5.8  The Pro entitlement gate is gone. Charging end users for API
+ *        functionality is prohibited; import is available to every account.
+ *  §7.2  The scope actually granted is stored and honoured, rather than
+ *        assuming we received everything we asked for.
+ *  §7.4  Disconnect revokes the token family and purges all Strava Data,
+ *        and reports back what was deleted (§2.1(v), §2.5).
  *
- * All three actions require a valid Bearer JWT.
+ * Security: the OAuth `state` is now mandatory and HMAC-signed. It was
+ * previously optional and unsigned, which allowed an attacker to bind their
+ * own Strava account to a victim's JustFit account via a crafted callback URL.
  *
- * Environment variables required:
- *   STRAVA_CLIENT_ID      — from strava.com/settings/api (JustFit platform app)
- *   STRAVA_CLIENT_SECRET  — from strava.com/settings/api (JustFit platform app)
- *   JWT_SECRET            — shared app secret for token verification
+ * Environment:
+ *   STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET — the JustFit platform app
+ *   STRAVA_API_BASE  — optional; for the api-v3.strava.com migration
+ *   JWT_SECRET       — signs the OAuth state
  */
 
 import { getAuthUserId } from './_shared/auth.js';
+import {
+  OAUTH_AUTHORIZE_URL, OAUTH_TOKEN_URL,
+  SCOPE_READ, SCOPE_WRITE,
+  isConfigured, signState, verifyState,
+  getConnection, revokeToken, purgeStravaData, hasScope,
+} from './_shared/strava.js';
 
-const STRAVA_AUTH_URL  = 'https://www.strava.com/oauth/authorize';
-const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
-const SCOPE            = 'activity:read_all';
-
-function authError(msg, status = 401) {
-  return Response.json({ error: msg }, { status });
+function json(body, status = 200) {
+  return Response.json(body, { status });
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-function corsHeaders() {
-  return {
-    'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'GET, POST, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-  };
-}
-
-function getPlatformCreds(env) {
-  return {
-    clientId:     env.STRAVA_CLIENT_ID     ?? null,
-    clientSecret: env.STRAVA_CLIENT_SECRET ?? null,
-  };
-}
+// ── GET ───────────────────────────────────────────────────────────────────────
 
 async function handleGet(request, env) {
   const userId = await getAuthUserId(request, env);
-  if (!userId) return authError('Unauthorized');
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
 
-  const { clientId } = getPlatformCreds(env);
-  if (!clientId) return Response.json({ error: 'Strava not configured' }, { status: 503 });
-
-  // Fetch existing connection status
-  let connection = null;
-  try {
-    const row = await env.DB.prepare(
-      `SELECT athlete_name, athlete_city, athlete_pic_url, connected_at_ms, last_sync_at_ms
-       FROM strava_connections WHERE user_id = ?`
-    ).bind(userId).first();
-    if (row) {
-      connection = {
-        athlete_name:    row.athlete_name,
-        athlete_city:    row.athlete_city,
-        athlete_pic_url: row.athlete_pic_url,
-        connected_at_ms: row.connected_at_ms,
-        last_sync_at_ms: row.last_sync_at_ms,
-      };
-    }
-  } catch (e) {
-    console.error('strava-auth GET connection lookup:', e);
+  // `available` lets the client hide the integration entirely rather than
+  // render a Connect button that cannot succeed.
+  if (!isConfigured(env)) {
+    return json({ available: false, connection: null });
   }
 
-  // Build OAuth URL for initial connection
-  const redirectUri = new URL(request.url).origin + '/';
-  const state = btoa(JSON.stringify({ uid: userId, ts: Date.now() }));
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: redirectUri,
-    response_type: 'code',
-    approval_prompt: 'auto',
-    scope: SCOPE,
-    state,
+  const row = await getConnection(env, userId).catch((e) => {
+    console.error('strava-auth GET lookup:', e);
+    return null;
   });
 
-  return Response.json({
-    auth_url: `${STRAVA_AUTH_URL}?${params}`,
+  const connection = row ? {
+    athlete_name:    row.athlete_name,
+    athlete_city:    row.athlete_city,
+    athlete_pic_url: row.athlete_pic_url,
+    connected_at_ms: row.connected_at_ms,
+    last_sync_at_ms: row.last_sync_at_ms,
+    last_push_at_ms: row.last_push_at_ms,
+    push_enabled:    Boolean(row.push_enabled),
+    can_push:        hasScope(row, SCOPE_WRITE),
+    scope_granted:   row.scope_granted ?? null,
+  } : null;
+
+  // Ask for write access only when the athlete has said they want uploads.
+  // A fresh connection asks for read only; enabling uploads re-runs consent.
+  const url = new URL(request.url);
+  const wantWrite = url.searchParams.get('write') === '1';
+  const scope = wantWrite ? `${SCOPE_READ},${SCOPE_WRITE}` : SCOPE_READ;
+
+  const params = new URLSearchParams({
+    client_id: env.STRAVA_CLIENT_ID,
+    redirect_uri: `${url.origin}/`,
+    response_type: 'code',
+    // `force` so the athlete sees the permission screen when scopes change,
+    // which §7.2 requires on any change to what we collect.
+    approval_prompt: wantWrite ? 'force' : 'auto',
+    scope,
+    state: await signState(userId, env),
+  });
+
+  return json({
+    available: true,
     connection,
-  }, { headers: corsHeaders() });
+    auth_url: `${OAUTH_AUTHORIZE_URL}?${params}`,
+    requested_scope: scope,
+  });
 }
+
+// ── POST — token exchange ─────────────────────────────────────────────────────
 
 async function handlePost(request, env) {
   const userId = await getAuthUserId(request, env);
-  if (!userId) return authError('Unauthorized');
-
-  const _entRow = await env.DB.prepare(`
-    SELECT 1 FROM entitlements
-    WHERE user_id = ?
-      AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
-      AND status IN ('active', 'trialing')
-      AND ends_at_ms > ?
-    LIMIT 1
-  `).bind(userId, Date.now()).first();
-  if (!_entRow) return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+  if (!isConfigured(env)) return json({ error: 'Strava not configured' }, 503);
 
   let body;
-  try { body = await request.json(); } catch { return Response.json({ error: 'Bad request' }, { status: 400 }); }
+  try { body = await request.json(); } catch { return json({ error: 'Bad request' }, 400); }
 
   const { code, state } = body;
-  if (!code) return Response.json({ error: 'Missing code' }, { status: 400 });
+  if (!code) return json({ error: 'Missing code' }, 400);
 
-  // Validate state param
-  if (state) {
-    try {
-      const decoded = JSON.parse(atob(state));
-      if (decoded.uid !== userId) return authError('State mismatch');
-    } catch {
-      console.warn('strava-auth: could not decode state param');
-    }
+  // Mandatory, signed, bound to this user, and time-limited.
+  const stateUser = await verifyState(state, env);
+  if (!stateUser || stateUser !== userId) {
+    return json({ error: 'Invalid or expired authorization state. Start the connection again.' }, 400);
   }
 
-  const { clientId, clientSecret } = getPlatformCreds(env);
-  if (!clientId || !clientSecret) return Response.json({ error: 'Strava not configured' }, { status: 503 });
-
-  // Exchange code for tokens
   let tokenData;
   try {
-    const resp = await fetch(STRAVA_TOKEN_URL, {
+    const resp = await fetch(OAUTH_TOKEN_URL, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        client_id: clientId,
-        client_secret: clientSecret,
+        client_id:     env.STRAVA_CLIENT_ID,
+        client_secret: env.STRAVA_CLIENT_SECRET,
         code,
-        grant_type: 'authorization_code',
+        grant_type:    'authorization_code',
       }),
     });
     if (!resp.ok) {
       const err = await resp.text();
-      console.error('strava token exchange failed:', err);
-      return Response.json({ error: 'Strava token exchange failed' }, { status: 502 });
+      console.error('strava token exchange failed:', resp.status, err.slice(0, 300));
+      // Athlete capacity is the most likely cause of a rejection in practice,
+      // and "try again" is the wrong advice for it.
+      return json({
+        error: 'Strava refused the connection. If this app has reached its athlete capacity, the limit must be raised in the Strava API settings.',
+      }, 502);
     }
     tokenData = await resp.json();
   } catch (e) {
-    console.error('strava-auth POST token exchange:', e);
-    return Response.json({ error: 'Internal error' }, { status: 500 });
+    console.error('strava-auth POST exchange:', e);
+    return json({ error: 'Could not reach Strava' }, 502);
   }
 
-  const {
-    access_token,
-    refresh_token,
-    expires_at, // unix seconds
-    athlete,
-  } = tokenData;
-
+  const { access_token, refresh_token, expires_at, scope, athlete } = tokenData;
   if (!access_token || !refresh_token) {
-    return Response.json({ error: 'Invalid token response from Strava' }, { status: 502 });
+    return json({ error: 'Invalid token response from Strava' }, 502);
   }
 
-  const athleteId   = athlete?.id ?? null;
+  const athleteId = athlete?.id ?? null;
+  if (athleteId == null) {
+    // athlete_id is NOT NULL; fail loudly rather than on a constraint error.
+    return json({ error: 'Strava did not return an athlete profile' }, 502);
+  }
+
   const athleteName = [athlete?.firstname, athlete?.lastname].filter(Boolean).join(' ') || null;
   const athleteCity = athlete?.city ?? null;
   const athletePic  = athlete?.profile_medium ?? athlete?.profile ?? null;
+  // Since 2026-04-23 the response carries the scopes actually granted. Store
+  // those — the athlete may have declined some of what we asked for.
+  const granted     = scope ?? SCOPE_READ;
   const expiresAtMs = (expires_at ?? 0) * 1000;
   const nowMs       = Date.now();
 
@@ -171,66 +162,119 @@ async function handlePost(request, env) {
     await env.DB.prepare(`
       INSERT INTO strava_connections
         (id, user_id, athlete_id, access_token, refresh_token, expires_at_ms,
-         scope, athlete_name, athlete_city, athlete_pic_url,
+         scope, scope_granted, athlete_name, athlete_city, athlete_pic_url,
          connected_at_ms, created_at_ms, updated_at_ms)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT(user_id) DO UPDATE SET
-        athlete_id     = excluded.athlete_id,
-        access_token   = excluded.access_token,
-        refresh_token  = excluded.refresh_token,
-        expires_at_ms  = excluded.expires_at_ms,
-        scope          = excluded.scope,
-        athlete_name   = excluded.athlete_name,
-        athlete_city   = excluded.athlete_city,
+        athlete_id      = excluded.athlete_id,
+        access_token    = excluded.access_token,
+        refresh_token   = excluded.refresh_token,
+        expires_at_ms   = excluded.expires_at_ms,
+        scope           = excluded.scope,
+        scope_granted   = excluded.scope_granted,
+        athlete_name    = excluded.athlete_name,
+        athlete_city    = excluded.athlete_city,
         athlete_pic_url = excluded.athlete_pic_url,
         connected_at_ms = excluded.connected_at_ms,
-        updated_at_ms  = excluded.updated_at_ms
+        updated_at_ms   = excluded.updated_at_ms
     `).bind(
       crypto.randomUUID(), userId, athleteId,
       access_token, refresh_token, expiresAtMs,
-      SCOPE, athleteName, athleteCity, athletePic,
+      granted, granted, athleteName, athleteCity, athletePic,
       nowMs, nowMs, nowMs
     ).run();
+
+    // Losing write scope must switch uploads off, or we would keep trying.
+    if (!granted.includes(SCOPE_WRITE)) {
+      await env.DB.prepare(
+        'UPDATE strava_connections SET push_enabled = 0 WHERE user_id = ?'
+      ).bind(userId).run();
+    }
   } catch (e) {
-    console.error('strava-auth POST DB upsert:', e);
-    return Response.json({ error: 'Internal error' }, { status: 500 });
+    console.error('strava-auth POST upsert:', e);
+    return json({ error: 'Could not save the connection' }, 500);
   }
 
-  return Response.json({
+  return json({
     ok: true,
     athlete_name: athleteName,
     athlete_city: athleteCity,
     athlete_pic_url: athletePic,
-  }, { headers: corsHeaders() });
+    scope_granted: granted,
+    can_push: granted.includes(SCOPE_WRITE),
+  });
 }
+
+// ── PATCH — upload opt-in ─────────────────────────────────────────────────────
+
+async function handlePatch(request, env) {
+  const userId = await getAuthUserId(request, env);
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+
+  let body;
+  try { body = await request.json(); } catch { return json({ error: 'Bad request' }, 400); }
+  if (typeof body.push_enabled !== 'boolean') {
+    return json({ error: 'push_enabled must be a boolean' }, 400);
+  }
+
+  const conn = await getConnection(env, userId);
+  if (!conn) return json({ error: 'Strava not connected' }, 404);
+
+  // Cannot switch uploads on without the scope that makes them possible.
+  if (body.push_enabled && !hasScope(conn, SCOPE_WRITE)) {
+    return json({
+      error: 'Reconnect Strava and allow uploads first.',
+      needsReauth: true,
+    }, 409);
+  }
+
+  await env.DB.prepare(
+    'UPDATE strava_connections SET push_enabled = ?, updated_at_ms = ? WHERE user_id = ?'
+  ).bind(body.push_enabled ? 1 : 0, Date.now(), userId).run();
+
+  return json({ ok: true, push_enabled: body.push_enabled });
+}
+
+// ── DELETE — disconnect ───────────────────────────────────────────────────────
 
 async function handleDelete(request, env) {
   const userId = await getAuthUserId(request, env);
-  if (!userId) return authError('Unauthorized');
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
 
+  const conn = await getConnection(env, userId);
+  if (!conn) return json({ ok: true, already_disconnected: true });
+
+  // Revoke first so Strava stops considering us authorized even if the local
+  // purge somehow fails; revoking a refresh token kills its access tokens too.
+  const revoked = await revokeToken(conn.refresh_token ?? conn.access_token, env);
+
+  let deleted;
   try {
-    await env.DB.prepare(`DELETE FROM strava_connections WHERE user_id = ?`).bind(userId).run();
+    deleted = await purgeStravaData(env, userId);
   } catch (e) {
-    console.error('strava-auth DELETE:', e);
-    return Response.json({ error: 'Internal error' }, { status: 500 });
+    console.error('strava-auth DELETE purge:', e);
+    return json({ error: 'Could not complete the disconnect' }, 500);
   }
 
-  return Response.json({ ok: true }, { headers: corsHeaders() });
+  // §2.1(v) / §2.5 — the athlete must get written confirmation that deletion
+  // actually happened, and what it covered.
+  return json({
+    ok: true,
+    revoked,
+    deleted,
+    confirmation: `Strava disconnected. ${deleted.imported_removed} imported activit${deleted.imported_removed === 1 ? 'y' : 'ies'} deleted and Strava data removed from ${deleted.links_cleared} JustFit session${deleted.links_cleared === 1 ? '' : 's'}. No Strava data is retained.`,
+  });
 }
 
 // ── Router ────────────────────────────────────────────────────────────────────
 
 export async function onRequest(context) {
   const { request, env } = context;
-  const method = request.method.toUpperCase();
-
-  if (method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders() });
+  switch (request.method.toUpperCase()) {
+    case 'GET':    return handleGet(request, env);
+    case 'POST':   return handlePost(request, env);
+    case 'PATCH':  return handlePatch(request, env);
+    case 'DELETE': return handleDelete(request, env);
+    default:       return json({ error: 'Method not allowed' }, 405);
   }
-
-  if (method === 'GET')    return handleGet(request, env);
-  if (method === 'POST')   return handlePost(request, env);
-  if (method === 'DELETE') return handleDelete(request, env);
-
-  return Response.json({ error: 'Method not allowed' }, { status: 405 });
 }

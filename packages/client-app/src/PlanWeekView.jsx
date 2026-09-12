@@ -400,6 +400,18 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           </div>
                         );
                       })()}
+                      {/* Strava Brand Guidelines require a "View on Strava" link
+                          back to the source activity, in orange or bold. */}
+                      {stravaMeta?.activity_id && (
+                        <a
+                          href={`https://www.strava.com/activities/${stravaMeta.activity_id}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          style={{ display: "inline-block", marginTop: 6, fontSize: 11, fontWeight: 700, color: "#FC4C02", textDecoration: "underline" }}
+                        >
+                          View on Strava
+                        </a>
+                      )}
                       {/* Exercise steps for app workouts */}
                       {!isStravaCard && h.steps?.length > 0 && (() => {
                         const completedSteps = h.steps.map(s => {

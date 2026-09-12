@@ -1,365 +1,273 @@
 /**
  * /api/strava-sync
  *
- * POST — fetches recent Strava activities for the authenticated user,
- *        classifies them by sport, computes TSS for cycling rides,
- *        and upserts them as execution records.
+ * POST — pull recent Strava activities for the authenticated athlete, classify
+ *        them by sport, compute TSS for rides, and store them as executions.
  *
- * Returns { ok, imported, skipped, by_type }.
+ * Returns { ok, imported, skipped, by_type, recent, rate_limit, truncated }.
  *
- * Design choices:
- *  - tss_source is only set for cycling activities → PMC chart stays cycling-only
- *  - All activity types are imported (running, walking, fitness etc.) so they
- *    contribute to consistency score / streak / planner last-activity awareness
- *  - Token refresh happens automatically when within 60s of expiry
- *  - Deduplication via UNIQUE INDEX on (user_id, strava_activity_id)
- *  - First sync: last 90 days; incremental: since last_sync_at_ms
+ * Policy notes (2026-06-01):
+ *  §5.8  No entitlement gate — charging for API functionality is prohibited.
+ *  §6.2  The raw Strava payload is stamped with a seven-day expiry and swept
+ *        on every sync. The derived JustFit record (duration, sport, TSS)
+ *        survives as our own training data.
+ *  §6.1  Nothing here is ever shown to anyone but the athlete it belongs to.
+ *
+ * Rate limits are per application, not per athlete: 100 reads / 15 min and
+ * 1,000 / day at base tier. Every response is inspected and a 429 is reported
+ * rather than being swallowed as a successful empty sync.
  */
 
 import { getAuthUserId } from './_shared/auth.js';
+import {
+  isConfigured, getConnection, getValidAccessToken,
+  stravaFetch, readRateLimit, StravaError,
+  sweepExpiredCache, categorise, CACHE_TTL_MS,
+} from './_shared/strava.js';
 
-const STRAVA_ACTIVITIES_URL = 'https://www.strava.com/api/v3/athlete/activities';
-const STRAVA_TOKEN_URL      = 'https://www.strava.com/oauth/token';
-const MAX_LOOKBACK_DAYS     = 90;
-const PER_PAGE              = 100;
+const MAX_LOOKBACK_DAYS = 90;
+const PER_PAGE          = 100;
+// Five pages covers 500 activities in the window. Each page is one read against
+// an app-wide budget, so this is a deliberate ceiling, not a guess.
+const MAX_PAGES         = 5;
 
-// ── Activity classification ───────────────────────────────────────────────────
+function json(body, status = 200) {
+  return Response.json(body, { status });
+}
 
-const CATEGORY = {
-  // Cycling
-  Ride:             'cycling',
-  VirtualRide:      'cycling',
-  EBikeRide:        'cycling',
-  MountainBikeRide: 'cycling',
-  GravelRide:       'cycling',
-  Velomobile:       'cycling',
-  Handcycle:        'cycling',
-  // Running
-  Run:      'running',
-  TrailRun: 'running',
-  // Walking / hiking
-  Walk: 'walking',
-  Hike: 'hiking',
-  // Other endurance
-  Swim:   'swimming',
-  Rowing: 'rowing',
-  Kayaking: 'rowing',
-  Canoeing: 'rowing',
-  // Gym / general
-  Workout:          'fitness',
-  WeightTraining:   'fitness',
-  Yoga:             'fitness',
-  Crossfit:         'fitness',
-  Pilates:          'fitness',
-  Elliptical:       'fitness',
-  StairStepper:     'fitness',
-  RockClimbing:     'fitness',
-  Soccer:           'fitness',
-  Tennis:           'fitness',
-  Badminton:        'fitness',
-  Squash:           'fitness',
-  Basketball:       'fitness',
-  Volleyball:       'fitness',
-  Golf:             'fitness',
-  Skiing:           'fitness',
-  Snowboard:        'fitness',
-  IceSkate:         'fitness',
-  Skateboard:       'fitness',
-  Surfing:          'fitness',
-  Windsurf:         'fitness',
-  Kitesurf:         'fitness',
-  Martial:          'fitness',
-  Boxing:           'fitness',
-};
-
-const EXEC_TYPE_FOR = {
-  cycling:  'strava_ride',
-  running:  'strava_run',
-  walking:  'strava_walk',
-  hiking:   'strava_hike',
-  swimming: 'strava_swim',
-  rowing:   'strava_row',
-  fitness:  'strava_workout',
-};
-
-// Default intensity factor per category for flat TSS estimate (cycling only uses this)
-const DEFAULT_IF = {
-  cycling: 0.65,
-};
-
-// ── TSS estimation (cycling only — other sports don't feed PMC) ───────────────
+// ── TSS estimation (cycling only — the PMC chart is sport-specific) ───────────
 
 function estimateCyclingTss(act, ftpWatts, maxHr) {
   const hours = (act.moving_time || act.elapsed_time || 0) / 3600;
   if (hours < 0.05) return { tss: null, source: null };
 
-  // Power-based: device_watts ensures it's from an actual power meter
+  // device_watts confirms a real power meter rather than Strava's estimate.
   if (act.average_watts && act.device_watts && ftpWatts > 0) {
     const IF = act.average_watts / ftpWatts;
-    return {
-      tss: Math.round(hours * IF * IF * 100 * 10) / 10,
-      source: 'strava_power',
-    };
+    return { tss: Math.round(hours * IF * IF * 1000) / 10, source: 'strava_power' };
   }
 
-  // HR-based estimate
   if (act.average_heartrate && maxHr > 0) {
-    const IF_est = Math.min((act.average_heartrate / maxHr) * 1.08, 1.15);
-    return {
-      tss: Math.round(hours * IF_est * IF_est * 100 * 10) / 10,
-      source: 'strava_estimated',
-    };
+    const IF = Math.min((act.average_heartrate / maxHr) * 1.08, 1.15);
+    return { tss: Math.round(hours * IF * IF * 1000) / 10, source: 'strava_estimated' };
   }
 
-  // Flat estimate from default IF
-  const IF = DEFAULT_IF.cycling;
-  return {
-    tss: Math.round(hours * IF * IF * 100 * 10) / 10,
-    source: 'strava_estimated',
-  };
+  const IF = 0.65; // flat default for rides with neither power nor HR
+  return { tss: Math.round(hours * IF * IF * 1000) / 10, source: 'strava_estimated' };
 }
 
-// ── Token refresh ─────────────────────────────────────────────────────────────
-
-async function getValidAccessToken(conn, env) {
-  // 60-second buffer before expiry
-  if (Date.now() < conn.expires_at_ms - 60_000) return conn.access_token;
-
-  const clientId     = env.STRAVA_CLIENT_ID;
-  const clientSecret = env.STRAVA_CLIENT_SECRET;
-
-  const resp = await fetch(STRAVA_TOKEN_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      client_id:     clientId,
-      client_secret: clientSecret,
-      refresh_token: conn.refresh_token,
-      grant_type:    'refresh_token',
-    }),
-  });
-
-  if (!resp.ok) throw new Error(`Token refresh failed: ${resp.status}`);
-  const data = await resp.json();
-
-  await env.DB.prepare(`
-    UPDATE strava_connections
-    SET access_token = ?, refresh_token = ?, expires_at_ms = ?, updated_at_ms = ?
-    WHERE user_id = ?
-  `).bind(data.access_token, data.refresh_token, data.expires_at * 1000, Date.now(), conn.user_id).run();
-
-  return data.access_token;
-}
-
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Handler ───────────────────────────────────────────────────────────────────
 
 export async function onRequestPost(context) {
   const { request, env } = context;
 
-  // Auth
   const userId = await getAuthUserId(request, env);
-  if (!userId) return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  if (!userId) return json({ error: 'Unauthorized' }, 401);
+  if (!isConfigured(env)) return json({ error: 'Strava not configured' }, 503);
 
-  const _entRow = await env.DB.prepare(`
-    SELECT 1 FROM entitlements
-    WHERE user_id = ?
-      AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
-      AND status IN ('active', 'trialing')
-      AND ends_at_ms > ?
-    LIMIT 1
-  `).bind(userId, Date.now()).first();
-  if (!_entRow) return Response.json({ error: 'Strava import vereist Pro', requiresUpgrade: true }, { status: 403 });
-
-  // Load connection and user preferences in parallel
   const [conn, prefsRow] = await Promise.all([
-    env.DB.prepare(`
-      SELECT access_token, refresh_token, expires_at_ms, last_sync_at_ms, user_id
-      FROM strava_connections WHERE user_id = ?
-    `).bind(userId).first(),
-    env.DB.prepare(`SELECT preferences_json FROM user_preferences WHERE user_id = ?`)
+    getConnection(env, userId),
+    env.DB.prepare('SELECT preferences_json FROM user_preferences WHERE user_id = ?')
       .bind(userId).first(),
   ]);
 
-  if (!conn) return Response.json({ error: 'Strava not connected' }, { status: 404 });
+  if (!conn) return json({ error: 'Strava not connected' }, 404);
 
-  // Parse user prefs for FTP / max HR (TSS)
+  // §6.2 — expire stale cached payloads before doing anything else, so a failed
+  // sync still honours the retention limit.
+  const swept = await sweepExpiredCache(env, userId).catch(() => 0);
+
   let ftpWatts = 0, maxHr = 0;
   try {
     const prefs = JSON.parse(prefsRow?.preferences_json ?? '{}');
     ftpWatts = prefs.cycling_coach?.ftp_watts ?? 0;
     maxHr    = prefs.cycling_coach?.max_hr ?? 0;
-  } catch { /* ignore */ }
+  } catch { /* defaults are fine */ }
 
-  // Get valid access token (refreshes if needed)
   let accessToken;
   try {
     accessToken = await getValidAccessToken(conn, env);
   } catch (e) {
-    console.error('strava-sync token refresh:', e);
-    return Response.json({ error: 'Token refresh failed — reconnect Strava' }, { status: 502 });
+    console.error('strava-sync token refresh:', e.message);
+    return json({
+      error: 'Strava authorisation expired — reconnect Strava.',
+      needsReauth: e instanceof StravaError ? e.reauth : true,
+      swept,
+    }, 502);
   }
 
-  // Determine lookback window — always cover at least 7 days so activities
-  // that sync late from wearables are never missed.
-  const nowSec  = Math.floor(Date.now() / 1000);
+  // Always reach back at least seven days so activities that sync late from a
+  // watch are never missed.
+  const nowSec = Math.floor(Date.now() / 1000);
   const afterSec = conn.last_sync_at_ms
-    ? Math.min(Math.floor(conn.last_sync_at_ms / 1000) - 86400, nowSec - 7 * 86400)
-    : nowSec - MAX_LOOKBACK_DAYS * 86400;
+    ? Math.min(Math.floor(conn.last_sync_at_ms / 1000) - 86_400, nowSec - 7 * 86_400)
+    : nowSec - MAX_LOOKBACK_DAYS * 86_400;
 
-  // Fetch activities from Strava (up to 2 pages = 200 activities)
-  let activities = [];
-  for (let page = 1; page <= 2; page++) {
-    const url = `${STRAVA_ACTIVITIES_URL}?after=${afterSec}&per_page=${PER_PAGE}&page=${page}`;
-    const resp = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
-    if (!resp.ok) {
-      console.error('strava-sync activities fetch:', resp.status, await resp.text());
+  // With `after`, Strava returns results oldest-first. The previous two-page cap
+  // therefore imported the *oldest* 200 activities of a first sync and silently
+  // dropped everything recent. Page until the window is exhausted.
+  const activities = [];
+  let truncated = false;
+  let rateLimit = null;
+
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    let resp;
+    try {
+      resp = await stravaFetch(
+        `/athlete/activities?after=${afterSec}&per_page=${PER_PAGE}&page=${page}`,
+        accessToken, env
+      );
+    } catch (e) {
+      if (e instanceof StravaError && e.rateLimited) {
+        // Partial results are still worth keeping; say so rather than
+        // reporting a clean sync.
+        return json({
+          error: 'Strava rate limit reached — try again in 15 minutes.',
+          rateLimited: true,
+          imported: 0,
+          partial: activities.length > 0,
+        }, 429);
+      }
+      if (e instanceof StravaError && e.reauth) {
+        return json({ error: 'Strava authorisation rejected — reconnect Strava.', needsReauth: true }, 502);
+      }
+      console.error('strava-sync fetch:', e.message);
+      truncated = true;
       break;
     }
+
+    rateLimit = readRateLimit(resp) ?? rateLimit;
+
     const batch = await resp.json();
     if (!Array.isArray(batch) || batch.length === 0) break;
-    activities = activities.concat(batch);
-    if (batch.length < PER_PAGE) break; // last page
+    activities.push(...batch);
+    if (batch.length < PER_PAGE) break;
+    if (page === MAX_PAGES) truncated = true;
   }
 
-  // Process activities
+  // ── Store ───────────────────────────────────────────────────────────────────
+
   let imported = 0, skipped = 0;
   const byType = {};
-  const recent = []; // up to 10 newly imported activities for UI feedback
+  const recent = [];
   const nowMs  = Date.now();
+  const cacheExpiresAt = nowMs + CACHE_TTL_MS;
 
   for (const act of activities) {
-    const sportType = act.sport_type ?? act.type ?? 'Workout';
-    const category  = CATEGORY[sportType] ?? 'fitness';
-    const execType  = EXEC_TYPE_FOR[category] ?? 'strava_workout';
-    const date      = (act.start_date_local ?? act.start_date ?? '').slice(0, 10);
+    const { sportType, category, execType } = categorise(act);
+    const date = (act.start_date_local ?? act.start_date ?? '').slice(0, 10);
     if (!date) continue;
 
-    // TSS — only computed for cycling to keep PMC chart sport-specific
     let tssActual = null, tssSource = null;
     if (category === 'cycling') {
-      const tssResult = estimateCyclingTss(act, ftpWatts, maxHr);
-      tssActual = tssResult.tss;
-      tssSource = tssResult.source;
+      ({ tss: tssActual, source: tssSource } = estimateCyclingTss(act, ftpWatts, maxHr));
     }
 
     const metadata = JSON.stringify({
-      activity_id:        act.id,
-      name:               act.name,
-      type:               sportType,
-      distance_m:         act.distance ?? null,
-      elevation_m:        act.total_elevation_gain ?? null,
-      average_speed_ms:   act.average_speed ?? null,   // m/s — derive pace or km/h client-side
-      average_watts:      act.average_watts ?? null,
-      device_watts:       act.device_watts ?? false,
-      average_heartrate:  act.average_heartrate ?? null,
-      suffer_score:       act.suffer_score ?? null,
-      calories:           act.calories ?? null,        // running/walking (kcal)
-      kilojoules:         act.kilojoules ?? null,      // cycling (kJ ≈ kcal for exercise)
+      activity_id:       act.id,
+      name:              act.name,
+      type:              sportType,
+      distance_m:        act.distance ?? null,
+      elevation_m:       act.total_elevation_gain ?? null,
+      average_speed_ms:  act.average_speed ?? null,
+      average_watts:     act.average_watts ?? null,
+      device_watts:      act.device_watts ?? false,
+      average_heartrate: act.average_heartrate ?? null,
+      suffer_score:      act.suffer_score ?? null,
+      calories:          act.calories ?? null,
+      kilojoules:        act.kilojoules ?? null,
     });
 
-    // For cycling rides: try to reconcile with an existing manually-completed cycling_coach session
-    // on the same date to avoid duplicates and to link Strava data to planned rides.
-    if (category === 'cycling') {
-      try {
-        const existingManual = await env.DB.prepare(
-          `SELECT id, strava_activity_id FROM executions
-           WHERE user_id = ? AND date = ? AND execution_type = 'cycling_coach' LIMIT 1`
-        ).bind(userId, date).first();
+    const activityId = Number(act.id);
+    const duration   = act.moving_time ?? act.elapsed_time ?? 0;
 
-        if (existingManual) {
-          if (!existingManual.strava_activity_id) {
-            // Link Strava data to the already-completed planned ride
+    try {
+      // Rides: reconcile with a cycling_coach session already logged that day
+      // so a planned ride and its Strava record do not both appear.
+      if (category === 'cycling') {
+        const existing = await env.DB.prepare(`
+          SELECT id, strava_activity_id FROM executions
+           WHERE user_id = ? AND date = ? AND execution_type = 'cycling_coach' LIMIT 1
+        `).bind(userId, date).first();
+
+        if (existing) {
+          if (!existing.strava_activity_id) {
             await env.DB.prepare(`
               UPDATE executions SET
                 strava_activity_id = ?, strava_metadata_json = ?,
+                strava_metadata_expires_at_ms = ?,
                 tss_actual = COALESCE(tss_actual, ?), tss_source = COALESCE(tss_source, ?),
                 updated_at_ms = ?
               WHERE id = ?
-            `).bind(String(act.id), metadata, tssActual, tssSource, nowMs, existingManual.id).run();
+            `).bind(activityId, metadata, cacheExpiresAt, tssActual, tssSource, nowMs, existing.id).run();
             byType[category] = (byType[category] ?? 0) + 1;
             imported++;
-            if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
+            if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: duration });
           } else {
-            skipped++; // already linked or independent session exists
+            skipped++;
           }
           continue;
         }
-
-        // No manual session — look for a day_plan to link
-        const dayPlan = await env.DB.prepare(
-          `SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`
-        ).bind(userId, date).first();
-
-        await env.DB.prepare(`
-          INSERT INTO executions
-            (id, user_id, date, day_plan_id, execution_type, status,
-             total_duration_sec, perceived_exertion,
-             tss_planned, tss_actual, tss_source,
-             strava_activity_id, strava_metadata_json,
-             created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, ?, ?, 'completed', ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(user_id, strava_activity_id)
-            WHERE strava_activity_id IS NOT NULL
-          DO NOTHING
-        `).bind(
-          crypto.randomUUID(), userId, date,
-          dayPlan?.id ?? null,
-          execType,
-          act.moving_time ?? act.elapsed_time ?? 0,
-          tssActual, tssSource,
-          act.id, metadata,
-          nowMs, nowMs,
-        ).run();
-        byType[category] = (byType[category] ?? 0) + 1;
-        imported++;
-        if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
-      } catch (e) {
-        if (e.message?.includes('UNIQUE')) { skipped++; }
-        else { console.error('strava-sync cycling insert:', act.id, e.message); skipped++; }
       }
-      continue;
-    }
 
-    try {
-      await env.DB.prepare(`
+      const dayPlan = category === 'cycling'
+        ? await env.DB.prepare('SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1')
+            .bind(userId, date).first()
+        : null;
+
+      const res = await env.DB.prepare(`
         INSERT INTO executions
           (id, user_id, date, day_plan_id, execution_type, status,
            total_duration_sec, perceived_exertion,
            tss_planned, tss_actual, tss_source,
-           strava_activity_id, strava_metadata_json,
+           strava_activity_id, strava_metadata_json, strava_metadata_expires_at_ms,
            created_at_ms, updated_at_ms)
-        VALUES (?, ?, ?, NULL, ?, 'completed', ?, NULL, NULL, ?, ?, ?, ?, ?, ?)
+        VALUES (?, ?, ?, ?, ?, 'completed', ?, NULL, NULL, ?, ?, ?, ?, ?, ?, ?)
         ON CONFLICT(user_id, strava_activity_id)
           WHERE strava_activity_id IS NOT NULL
         DO NOTHING
       `).bind(
         crypto.randomUUID(), userId, date,
-        execType,
-        act.moving_time ?? act.elapsed_time ?? 0,
+        dayPlan?.id ?? null, execType, duration,
         tssActual, tssSource,
-        act.id, metadata,
-        nowMs, nowMs,
+        activityId, metadata, cacheExpiresAt,
+        nowMs, nowMs
       ).run();
+
+      // DO NOTHING means it was already imported — that is a skip, not an import.
+      if ((res?.meta?.changes ?? 1) === 0) { skipped++; continue; }
 
       byType[category] = (byType[category] ?? 0) + 1;
       imported++;
-      if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: act.moving_time ?? act.elapsed_time ?? 0 });
+      if (recent.length < 10) recent.push({ name: act.name, date, category, duration_sec: duration });
     } catch (e) {
-      if (e.message?.includes('UNIQUE')) {
-        skipped++;
-      } else {
+      skipped++;
+      if (!e.message?.includes('UNIQUE')) {
         console.error('strava-sync insert:', act.id, e.message);
-        skipped++;
       }
     }
   }
 
-  // Update last_sync_at_ms
-  await env.DB.prepare(`
-    UPDATE strava_connections SET last_sync_at_ms = ?, updated_at_ms = ? WHERE user_id = ?
-  `).bind(nowMs, nowMs, userId).run();
+  await env.DB.prepare(
+    'UPDATE strava_connections SET last_sync_at_ms = ?, updated_at_ms = ? WHERE user_id = ?'
+  ).bind(nowMs, nowMs, userId).run();
 
-  return Response.json({ ok: true, imported, skipped, by_type: byType, recent });
+  return json({
+    ok: true,
+    imported,
+    skipped,
+    by_type: byType,
+    recent,
+    truncated,
+    cache_swept: swept,
+    rate_limit: rateLimit
+      ? { short: `${rateLimit.usage.short}/${rateLimit.limit.short}`,
+          daily: `${rateLimit.usage.daily}/${rateLimit.limit.daily}` }
+      : null,
+  });
+}
+
+export async function onRequest(context) {
+  if (context.request.method === 'POST') return onRequestPost(context);
+  return json({ error: 'Method not allowed' }, 405);
 }

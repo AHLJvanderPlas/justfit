@@ -264,6 +264,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [stravaSyncing, setStravaSyncing]             = useState(false);
   const [stravaSyncResult, setStravaSyncResult]       = useState(null); // { imported, by_type }
   const [stravaMsg, setStravaMsg]                     = useState('');
+  const [stravaAvailable, setStravaAvailable]         = useState(true);  // false => hide the card entirely
+  const [stravaPushSaving, setStravaPushSaving]       = useState(false);
   // Pro entitlement — passed from App (entitlements table) or fallback to prefs flag
   const effectiveIsPro = !!(isPro || prefs.isPro);
   // Training Focus
@@ -472,6 +474,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   useEffect(() => {
     api.getStravaStatus(token)
       .then(d => {
+        // `available: false` means no Strava app is configured for this
+        // deployment — hide the integration rather than offer a dead button.
+        setStravaAvailable(d.available !== false);
         setStravaConnection(d.connection ?? false);
       })
       .catch(() => setStravaConnection(false));
@@ -484,11 +489,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     }
   }, []);
 
-  const handleStravaConnect = async () => {
+  const handleStravaConnect = async (withUploads = false) => {
     setStravaConnecting(true);
     setStravaMsg('');
     try {
-      const data = await api.getStravaStatus(token);
+      // A fresh state token is minted per attempt; it is signed and expires in
+      // 15 minutes, so it cannot be reused or forged.
+      const data = await api.getStravaStatus(token, { write: withUploads });
       if (data.auth_url) {
         window.location.href = data.auth_url;
       } else {
@@ -504,10 +511,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     setStravaDisconnecting(true);
     setStravaMsg('');
     try {
-      await api.disconnectStrava(token);
+      const res = await api.disconnectStrava(token);
       setStravaConnection(false);
       setStravaSyncResult(null);
-      setStravaMsg('Disconnected from Strava.');
+      // Strava API Policy §2.5 requires written confirmation that the data was
+      // actually deleted, not just that the link was removed.
+      setStravaMsg(res?.confirmation ?? 'Disconnected from Strava. All Strava data deleted.');
     } catch {
       setStravaMsg('Could not disconnect. Try again.');
     }
@@ -532,6 +541,28 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       setStravaMsg('Could not reach sync service. Try again.');
     }
     setStravaSyncing(false);
+  };
+
+  // Uploading JustFit sessions to Strava needs activity:write, which is a
+  // separate grant. Switching it on without that scope sends the user back
+  // through consent rather than failing later at upload time.
+  const handleStravaPushToggle = async (next) => {
+    setStravaPushSaving(true);
+    setStravaMsg('');
+    try {
+      const res = await api.setStravaPush(token, next);
+      if (res.ok) {
+        setStravaConnection(c => (c ? { ...c, push_enabled: next } : c));
+      } else if (res.needsReauth) {
+        await handleStravaConnect(true);
+        return;
+      } else {
+        setStravaMsg(res.error ?? 'Could not change the upload setting.');
+      }
+    } catch {
+      setStravaMsg('Could not change the upload setting.');
+    }
+    setStravaPushSaving(false);
   };
 
   const handleAddPasskey = async () => {
@@ -3069,7 +3100,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       </>)}
 
       {/* ── Integrations ──────────────────────────────────────────────────── */}
-      {subView === "coach" && (
+      {subView === "coach" && stravaAvailable && (
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           Integrations
@@ -3086,18 +3117,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Strava</div>
-                {!effectiveIsPro && (
-                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
-                )}
               </div>
               <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>
                 {stravaConnection === null
                   ? 'Checking connection…'
                   : stravaConnection
                   ? `Connected${stravaConnection.athlete_name ? ` · ${stravaConnection.athlete_name}` : ''}${stravaConnection.athlete_city ? ` · ${stravaConnection.athlete_city}` : ''}`
-                  : effectiveIsPro
-                  ? 'Import rides and runs to power your PMC chart and cycling coach'
-                  : 'Upgrade to Pro to import Strava activities'}
+                  : 'Import rides and runs to power your PMC chart and cycling coach'}
               </div>
             </div>
             {stravaConnection === null ? null : stravaConnection ? (
@@ -3117,20 +3143,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   {stravaDisconnecting ? '…' : 'Disconnect'}
                 </button>
               </div>
-            ) : effectiveIsPro ? (
+            ) : (
               <button
-                onClick={handleStravaConnect}
+                onClick={() => handleStravaConnect(false)}
                 disabled={stravaConnecting}
                 style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(252,76,2,0.4)", background: "rgba(252,76,2,0.1)", color: "#FC4C02", whiteSpace: "nowrap" }}
               >
                 {stravaConnecting ? 'Redirecting…' : 'Connect Strava'}
-              </button>
-            ) : (
-              <button
-                onClick={onUpgrade}
-                style={{ flexShrink: 0, padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 900, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)", whiteSpace: "nowrap" }}
-              >
-                Upgrade →
               </button>
             )}
           </div>
@@ -3173,11 +3192,51 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             );
           })()}
 
+          {/* Upload JustFit sessions to Strava (activity:write — separate consent) */}
+          {stravaConnection && (
+            <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${C.border}` }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div style={{ fontSize: 12, fontWeight: 800, color: C.text }}>Upload sessions to Strava</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2, lineHeight: 1.45 }}>
+                    Posts each finished strength session as a Strava activity with your sets,
+                    reps and a muscle summary. Strava has no public photo API, so the muscle
+                    map is written as text rather than posted as an image.
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleStravaPushToggle(!stravaConnection.push_enabled)}
+                  disabled={stravaPushSaving}
+                  aria-pressed={!!stravaConnection.push_enabled}
+                  style={{ flexShrink: 0, width: 46, height: 26, borderRadius: 13, cursor: "pointer", padding: 3, border: `1px solid ${stravaConnection.push_enabled ? "rgba(252,76,2,0.5)" : C.border}`, background: stravaConnection.push_enabled ? "rgba(252,76,2,0.25)" : "rgba(255,255,255,0.04)", display: "flex", justifyContent: stravaConnection.push_enabled ? "flex-end" : "flex-start", alignItems: "center" }}
+                >
+                  <span style={{ width: 18, height: 18, borderRadius: 9, background: stravaConnection.push_enabled ? "#FC4C02" : C.subtle, display: "block" }} />
+                </button>
+              </div>
+              {!stravaConnection.can_push && (
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
+                  Turning this on reconnects Strava to ask for upload permission.
+                </div>
+              )}
+            </div>
+          )}
+
           {stravaMsg && (
-            <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' || stravaMsg.includes('saved') ? C.muted : "#f87171", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' || stravaMsg.includes('saved') || stravaMsg.includes('deleted') ? C.muted : "#f87171", marginTop: 4 }}>
               {stravaMsg}
             </div>
           )}
+
+          {/* Strava Brand Guidelines: attribution is required wherever Strava
+              content is shown, kept visually separate from the JustFit brand. */}
+          <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
+            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: C.muted, textTransform: "uppercase" }}>Powered by</span>
+            <svg width="42" height="11" viewBox="0 0 92 24" fill="none" aria-label="Strava">
+              <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116z" fill="#FC4C02" />
+              <path d="M11.094 13.828l2.525-4.977 2.524 4.977h2.948L15.619 6H13.62l-4.952 10.172h2.426z" fill="#FC4C02" opacity="0.85" />
+              <text x="26" y="18" fill="#FC4C02" fontSize="15" fontWeight="800" fontFamily="Inter Tight, system-ui, sans-serif">STRAVA</text>
+            </svg>
+          </div>
 
         </Glass>
       </div>

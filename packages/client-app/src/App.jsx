@@ -2767,6 +2767,11 @@ export default function App() {
         setActivityToast("Pro geactiveerd! Welkom bij JustFit Pro. 🎉");
         setTimeout(() => setActivityToast(""), 6000);
       }).catch(() => {});
+    } else if (params.get("error") && params.get("state")) {
+      // Strava sends ?error=access_denied when the athlete declines consent.
+      window.history.replaceState({}, "", "/");
+      setActivityToast("Strava connection cancelled");
+      setTimeout(() => setActivityToast(""), 4000);
     } else if (params.get("code") && params.get("scope")?.includes("activity")) {
       // Strava OAuth callback: exchange code for tokens
       const code  = params.get("code");
@@ -2780,9 +2785,11 @@ export default function App() {
               const name = d.athlete_name ? ` · ${d.athlete_name}` : "";
               setActivityToast(`Strava connected${name} ✓`);
             } else {
-              setActivityToast("Strava connection failed — try again");
+              // Surface the server's reason — "try again" is wrong advice for a
+              // rejected state token or an app at its athlete capacity.
+              setActivityToast(d.error ?? "Strava connection failed — try again");
             }
-            setTimeout(() => setActivityToast(""), 5000);
+            setTimeout(() => setActivityToast(""), 6000);
           })
           .catch(() => {
             setActivityToast("Strava connection failed — try again");

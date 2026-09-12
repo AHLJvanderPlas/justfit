@@ -135,7 +135,7 @@ export async function onRequestGet({ request, env }) {
       (usersRow?.accepted_terms_version   ?? null) !== CURRENT_TERMS_VERSION   ||
       (usersRow?.accepted_privacy_version ?? null) !== CURRENT_PRIVACY_VERSION;
 
-    // Parse preferences — strava_byo credentials live in strava_byo_credentials table, not here
+    // Parse preferences — BYO Strava credentials were removed entirely (migration 0093)
     const parsedPrefs = prefs.preferences_json ? JSON.parse(prefs.preferences_json) : {};
     // Belt-and-suspenders: strip any legacy strava_byo.client_secret that may still be in JSON
     if (parsedPrefs.strava_byo) delete parsedPrefs.strava_byo;
@@ -245,7 +245,7 @@ export async function onRequestPost({ request, env }) {
     if (bodyPreferences?.sport_prefs && existingParsed?.sport_prefs) {
       preferences.sport_prefs = { ...existingParsed.sport_prefs, ...bodyPreferences.sport_prefs };
     }
-    // Migration-on-write: strip legacy strava_byo block (credentials now live in strava_byo_credentials table)
+    // Migration-on-write: strip the legacy strava_byo block; BYO credentials no longer exist
     if (preferences.strava_byo !== undefined) delete preferences.strava_byo;
 
     // ── Normalize preferences: validate military fields + enforce one-active-coach ─

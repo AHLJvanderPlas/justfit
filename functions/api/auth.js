@@ -1,5 +1,6 @@
 import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
 import { cancelSubscription } from '../lib/mollie.js';
+import { revokeToken as revokeStravaToken } from './_shared/strava.js';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const JWT_EXPIRY      = 60 * 60 * 24 * 7; // 7 days  — session tokens
@@ -724,25 +725,15 @@ async function handleDeleteAccount(request, env, secret) {
     catch { /* ignore — DB deletion proceeds regardless */ }
   }
 
-  // Revoke Strava OAuth token (privacy — prevents dangling third-party access)
+  // Revoke Strava authorization (§7.4 — no dangling third-party access after deletion).
+  // /oauth/revoke supersedes the legacy /oauth/deauthorize: it takes HTTP Basic
+  // auth rather than a Bearer token, and revoking the refresh token also revokes
+  // every access token issued from it — so no refresh dance is needed first.
   const stravaRow = await env.DB.prepare(
-    `SELECT access_token, refresh_token, expires_at_ms FROM strava_connections WHERE user_id = ? LIMIT 1`
+    `SELECT access_token, refresh_token FROM strava_connections WHERE user_id = ? LIMIT 1`
   ).bind(uid).first();
-  if (stravaRow) {
-    let token = stravaRow.access_token;
-    if ((stravaRow.expires_at_ms ?? 0) < Date.now() && env.STRAVA_CLIENT_ID && env.STRAVA_CLIENT_SECRET) {
-      try {
-        const r = await fetch('https://www.strava.com/oauth/token', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ client_id: env.STRAVA_CLIENT_ID, client_secret: env.STRAVA_CLIENT_SECRET, refresh_token: stravaRow.refresh_token, grant_type: 'refresh_token' }),
-        });
-        if (r.ok) { const d = await r.json(); token = d.access_token ?? token; }
-      } catch { /* use stored token as-is */ }
-    }
-    fetch('https://www.strava.com/oauth/deauthorize', {
-      method: 'POST', headers: { Authorization: `Bearer ${token}` },
-    }).catch(() => {});
+  if (stravaRow && env.STRAVA_CLIENT_ID && env.STRAVA_CLIENT_SECRET) {
+    await revokeStravaToken(stravaRow.refresh_token ?? stravaRow.access_token, env);
   }
 
   // Delete in dependency order — execution_steps first (FK to executions), then everything else

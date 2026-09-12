@@ -261,8 +261,30 @@ const api = {
     return res.json();
   },
 
-  async getStravaStatus(_token) {
-    const res = await fetch('/api/strava-auth');
+  // `write=1` requests activity:write alongside read, so JustFit sessions can be
+  // uploaded to Strava. Asked for only when the user opts into uploads.
+  async getStravaStatus(_token, { write = false } = {}) {
+    const res = await fetch(`/api/strava-auth${write ? '?write=1' : ''}`);
+    return res.json();
+  },
+
+  async setStravaPush(_token, pushEnabled) {
+    const res = await fetch('/api/strava-auth', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ push_enabled: pushEnabled }),
+    });
+    return res.json();
+  },
+
+  // Uploads one completed session to Strava as a structured weight-training
+  // activity (per-set data + a text training summary in the description).
+  async pushToStrava(_token, executionId, name) {
+    const res = await fetch('/api/strava-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ execution_id: executionId, ...(name ? { name } : {}) }),
+    });
     return res.json();
   },
 
