@@ -102,6 +102,7 @@ export function applyAccent(hex) {
 export const THEMES = {
   dark: {
     "--bg":           "#020617",
+    "--bg-rgb":       "2,6,23",
     "--text":         "#f8fafc",
     "--muted":        "#64748b",
     "--subtle":       "#334155",
@@ -121,6 +122,7 @@ export const THEMES = {
     // pure white flattens. Text is the dark bg inverted rather than pure black,
     // so the two themes read as one design.
     "--bg":           "#f7f8fa",
+    "--bg-rgb":       "247,248,250",
     "--text":         "#0f172a",
     "--muted":        "#5b6675",
     "--subtle":       "#94a3b8",

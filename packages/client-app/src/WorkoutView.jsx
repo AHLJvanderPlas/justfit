@@ -430,7 +430,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 50, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: "env(safe-area-inset-top)" }}>
       {/* Cancel confirmation overlay */}
       {showCancel && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ position: "absolute", inset: 0, background: "rgba(var(--bg-rgb),0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Glass style={{ padding: 32, maxWidth: 320, width: "100%", textAlign: "center" }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t('Quit workout?')}</div>
             <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>{t("Your progress won't be saved.")}</p>
@@ -825,7 +825,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               )}
 
               {/* ── Card 2: Instructions — highlighted like today card ── */}
-              <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(2,6,23,0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
+              <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(var(--bg-rgb),0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Instructions')}</div>
 
                 {/* Pregnancy / postnatal alert at top of instructions */}
@@ -1299,7 +1299,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           onClick={() => setShowAlternatives(false)}
         >
           {/* Scrim */}
-          <div style={{ position: "absolute", inset: 0, background: "rgba(2,6,23,0.7)" }} />
+          <div style={{ position: "absolute", inset: 0, background: "rgba(var(--bg-rgb),0.7)" }} />
           {/* Sheet */}
           <div
             style={{ position: "relative", background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "20px 0 40px", maxHeight: "70vh", overflowY: "auto" }}

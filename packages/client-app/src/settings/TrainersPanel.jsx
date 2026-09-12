@@ -189,12 +189,12 @@ export default function TrainersPanel() {
       {/* Connect to trainer (Sub-flow C) */}
       {connectStep === 0 && (
         <button onClick={() => { setConnectStep(1); setConnectError(''); setConnectCode(''); setConnectGymInfo(null); }}
-          style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '12px 20px', borderRadius: 14, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 20, width: '100%' }}>
+          style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 12, padding: '14px 20px', borderRadius: 20, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px dashed ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 13, cursor: 'pointer', marginBottom: 20, width: '100%' }}>
           <span style={{ fontSize: 16 }}>+</span> Connect to a trainer
         </button>
       )}
       {connectStep === 1 && (
-        <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}` }}>
+        <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px solid ${C.border}` }}>
           <p style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 12 }}>ENTER TRAINER CODE</p>
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
             Ask your trainer for their code (format: FIT-XXXXXX) or paste a full invite link.
@@ -203,7 +203,7 @@ export default function TrainersPanel() {
             value={connectCode}
             onChange={e => { setConnectCode(e.target.value.trim()); setConnectError(''); }}
             placeholder="FIT-XXXXXX"
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? '#f87171' : C.border}`, background: 'rgba(255,255,255,0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
+            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? '#f87171' : C.border}`, background: 'rgba(var(--overlay-rgb),0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
           />
           {connectError && <p style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{connectError}</p>}
           <div style={{ display: 'flex', gap: 8 }}>

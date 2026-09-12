@@ -345,7 +345,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
         alignItems: "center",
         justifyContent: "center",
         padding: 20,
-        background: "rgba(2,6,23,0.92)",
+        background: "rgba(var(--bg-rgb),0.92)",
         backdropFilter: "blur(12px)",
       }}
     >
@@ -919,7 +919,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
   const dotCount = needsStep3 ? 3 : 2;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(2,6,23,0.7)", backdropFilter: "blur(8px)" }}>
+    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
       {/* Width-constrained row so the sheet matches app card width on desktop */}
       <div style={{ display: "flex", justifyContent: "center" }}>
       <div style={{ background: "#0a1628", borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
@@ -1283,7 +1283,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   });
 
   return (
-    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(2,6,23,0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
+    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(var(--bg-rgb),0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
       {/* Checkmark */}
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
         <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, boxShadow: "0 0 20px rgba(var(--accent-rgb),0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -2519,7 +2519,7 @@ function Nav({ view, setView, hasTrainer, coachDot }) {
         bottom: 0,
         left: 0,
         right: 0,
-        background: "rgba(2,6,23,0.92)",
+        background: "rgba(var(--bg-rgb),0.92)",
         borderTop: `1px solid ${C.border}`,
         backdropFilter: "blur(20px)",
         zIndex: 50,
@@ -3722,7 +3722,7 @@ export default function App() {
             )}
             {view === "awards" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} />
+                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView("history")} />
               </Suspense>
             )}
             {view === "upgrade" && (
@@ -3793,7 +3793,7 @@ export default function App() {
 
       {showSignOutConfirm && (
         <div
-          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(2,6,23,0.85)" }}
+          style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(var(--bg-rgb),0.85)" }}
           onClick={() => setShowSignOutConfirm(false)}
         >
           <div
@@ -3960,7 +3960,7 @@ export default function App() {
       )}
 
       {showCooperModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
             <div style={{ marginBottom: 12 }}><Icons.run size={28} c={C.emerald} /></div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>Cooper Test Complete</div>

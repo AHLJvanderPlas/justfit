@@ -696,7 +696,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         ];
         const selected = TEST_TYPES.find(t => t.v === ftpTestType);
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(2,6,23,0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
+          <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
             <div style={{ width: "100%", maxWidth: 560, background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "24px 20px calc(32px + env(safe-area-inset-bottom)) 20px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 20px" }} />
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 4 }}>FTP Test Result</div>
@@ -3806,7 +3806,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* ── Coach conflict modal ── */}
       {showConflictModal && (
-        <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.9)" }}>
+        <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.9)" }}>
           <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}>
             <div style={{ ...display(22), color:C.text }}>WHICH COACH DRIVES TODAY?</div>
             <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
@@ -3832,7 +3832,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* Email verify / change modal */}
       {emailStep && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.85)" }}
+        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!emailLoading) { setEmailStep(null); setEmailCode(""); setEmailInput(""); setEmailError(""); } }}
         >
           <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
@@ -3949,7 +3949,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* Delete account modal */}
       {deleteStep && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(2,6,23,0.85)" }}
+        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!deleteLoading) { setDeleteStep(null); setDeleteText(""); setDeleteError(""); } }}
         >
           <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}

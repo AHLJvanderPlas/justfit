@@ -100,7 +100,7 @@ fi
 # Every theme-dependent colour must be a CSS custom property, or it will not
 # invert on light. The dark design used white-at-low-alpha for every raised
 # surface, border and divider; those are now rgba(var(--overlay-rgb),a).
-_hard=$(grep -roE "rgba\(255,\s*255,\s*255," packages/client-app/src/*.jsx 2>/dev/null | wc -l | tr -d ' ')
+_hard=$(grep -rrnE "rgba\(255,\s*255,\s*255," packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null | grep -v "tokens.js" | wc -l | tr -d ' ')
 if [ "$_hard" = "0" ]; then
   ok "no hardcoded white overlays in components"
 else
@@ -110,8 +110,15 @@ fi
 # -n (not -o) so the line context survives for the exclusions below:
 #   ErrorBoundary renders before the theme is applied, and themeValue()/var()
 #   fallbacks are literals on purpose.
-_hex=$(grep -rnE "#(020617|f8fafc|64748b|334155)" packages/client-app/src/*.jsx 2>/dev/null \
-  | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" | wc -l | tr -d ' ')
+_bgl=$(grep -rroE "rgba\(2,\s*6,\s*23," packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null | grep -v tokens.js | wc -l | tr -d ' ')
+if [ "$_bgl" = "0" ]; then
+  ok "no hardcoded translucent page backgrounds"
+else
+  fail "$_bgl hardcoded rgba(2,6,23,...) — use rgba(var(--bg-rgb),a)"
+fi
+
+_hex=$(grep -rnE "#(020617|f8fafc|64748b|334155)" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
+  | grep -v "tokens.js" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" | wc -l | tr -d ' ')
 if [ "$_hex" = "0" ]; then
   ok "no hardcoded theme hex in components"
 else

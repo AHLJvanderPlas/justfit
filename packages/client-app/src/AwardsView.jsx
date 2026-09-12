@@ -29,7 +29,7 @@ function AwardRow({ award, state, first }) {
   );
 }
 
-export default function AwardsView({ history, score, isPro, progression, runUnlocked = [] }) {
+export default function AwardsView({ history, score, isPro, progression, runUnlocked = [], onBack }) {
   const [showHorizon, setShowHorizon] = useState(false);
   const n = history.length;
 
@@ -133,6 +133,15 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
     <div>
       {/* Page header */}
       <div style={{ marginBottom: 32 }}>
+        {onBack && (
+          <button
+            onClick={onBack}
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0,
+                     marginBottom: 14, color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
+          >
+            ← {"Voortgang"}
+          </button>
+        )}
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Trophy Room</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
           Showing up,<br />quietly.

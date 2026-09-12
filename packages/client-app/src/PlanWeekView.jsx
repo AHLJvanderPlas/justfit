@@ -475,7 +475,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(2,6,23,0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(var(--bg-rgb),0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Delete session?")}</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>

@@ -25,7 +25,7 @@ export default function PendingInviteModal({ inviteToken, onDone }) {
   }
 
   const overlay = {
-    position: 'fixed', inset: 0, background: 'rgba(2,6,23,0.85)', zIndex: 95, backdropFilter: 'blur(4px)',
+    position: 'fixed', inset: 0, background: 'rgba(var(--bg-rgb),0.85)', zIndex: 95, backdropFilter: 'blur(4px)',
     display: 'flex', alignItems: 'flex-end', justifyContent: 'center', padding: '0 0 env(safe-area-inset-bottom,0)',
   };
   const sheet = { width: '100%', maxWidth: 520, background: C.bg, borderRadius: '24px 24px 0 0', border: `1px solid ${C.border}`, borderBottom: 'none', padding: '28px 28px 40px' };
