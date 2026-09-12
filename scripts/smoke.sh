@@ -96,6 +96,26 @@ else
   fail "App.jsx terms gate catch block may dismiss gate on error"
 fi
 
+# ── Session/localStorage symmetry (login <-> app redirect loop) ───────────────
+# logout() must AWAIT the cookie clear before navigating. Fire-and-forget lets the
+# navigation abort the request, leaving a live cookie with no jf_user_id — which
+# loops /login.html <-> / forever, with no address bar to escape in an installed PWA.
+if grep -qE "await fetch\('/api/auth'" packages/client-app/src/authHelpers.js; then
+  ok "logout() awaits the server-side cookie clear"
+else
+  fail "authHelpers.logout() does not await /api/auth logout — cookie can outlive localStorage"
+fi
+
+# login.js must require BOTH halves of the session before redirecting to "/".
+# Redirecting on res.ok alone is the other half of the same loop.
+if grep -qE "if \(s\.ok\) \{ *redirectAfterAuth\(\); *return; *\}" packages/client-app/public/login.js; then
+  fail "login.js redirects on res.ok alone — will loop against App.jsx auth guard"
+elif grep -q "jf_user_id" packages/client-app/public/login.js && grep -q "d.valid" packages/client-app/public/login.js; then
+  ok "login.js requires cookie AND jf_user_id before redirecting home"
+else
+  fail "login.js session check does not verify both cookie validity and jf_user_id"
+fi
+
 # Detect self-referential C token definitions (amber: C.amber inside the C object literal)
 # This causes a fatal TypeError on every page load (TDZ: C is undefined while being initialized)
 for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.jsx; do

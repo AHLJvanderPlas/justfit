@@ -311,9 +311,30 @@ async function verifyMagicLink(token) {
 // ─── INIT ─────────────────────────────────────────────────────────────────
 (async () => {
   // Already logged in? Session lives in the HttpOnly cookie — verify server-side.
+  //
+  // A 2xx is not sufficient on its own. The app also needs jf_user_id in
+  // localStorage, and the two can fall out of step: if a logout's cookie-clearing
+  // request is aborted by the navigation that follows it, the cookie survives
+  // while localStorage is already gone. Redirecting to "/" on the cookie alone
+  // then loops forever — App.jsx sees no jf_user_id and sends us straight back.
+  //
+  // So: only redirect when BOTH halves of the session are present. A valid cookie
+  // with no local user id is a half-finished logout, and is finished here rather
+  // than resurrected — the user asked to sign out.
   try {
     const s = await fetch('/api/auth');
-    if (s.ok) { redirectAfterAuth(); return; }
+    if (s.ok) {
+      const d = await s.json().catch(() => null);
+      const hasLocal = !!localStorage.getItem('jf_user_id');
+      if (d && d.valid && hasLocal) { redirectAfterAuth(); return; }
+      if (d && d.valid && !hasLocal) {
+        await fetch('/api/auth', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'logout' }),
+        }).catch(() => {});
+      }
+    }
   } catch { /* offline or API down — show the login form */ }
 
   // Magic link in URL?
