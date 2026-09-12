@@ -353,7 +353,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
         style={{
           width: "100%",
           maxWidth: 480,
-          background: "#0a1628",
+          background: C.sheet,
           border: `1px solid ${C.border}`,
           borderRadius: 28,
           overflow: "hidden",
@@ -911,7 +911,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
   ];
 
   const smileys = [
-    { val: 1, label: t("Not great"), color: "#f87171", Face: SadFace     },
+    { val: 1, label: t("Not great"), color: C.danger, Face: SadFace     },
     { val: 2, label: t("Okay"),      color: C.muted,   Face: NeutralFace },
     { val: 3, label: t("Good"),      color: C.emerald, Face: HappyFace   },
   ];
@@ -922,7 +922,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
       {/* Width-constrained row so the sheet matches app card width on desktop */}
       <div style={{ display: "flex", justifyContent: "center" }}>
-      <div style={{ background: "#0a1628", borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
+      <div style={{ background: C.sheet, borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
 
         {/* Drag handle + close */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px 4px" }}>
@@ -1017,7 +1017,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                       <button
                         key={v}
                         onClick={() => { setPainScope(v); if (v === "general") setPainAreas([]); }}
-                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? "#f87171" : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
+                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? C.danger : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
                       >
                         {l}
                       </button>
@@ -1032,7 +1032,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                             <button
                               key={k}
                               onClick={() => toggleArea(k)}
-                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? "#f87171" : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? C.danger : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
                             >
                               {l}
                             </button>
@@ -1043,7 +1043,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                         <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(239,68,68,0.05)", border: "1px solid rgba(239,68,68,0.15)", fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
                           <button
                             onClick={() => onMarkChronic && onMarkChronic(painAreas)}
-                            style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: "#f87171", fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
+                            style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: C.danger, fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
                           >
                             Save as ongoing issue →
                           </button>
@@ -1183,7 +1183,7 @@ const WHY_NOT_OPTIONS = [
 function WhyNotModal({ onRegen, onRestDay, onClose }) {
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
         <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8 }}>What's getting in the way?</div>
         <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>We'll adjust today's plan to fit your situation.</p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
@@ -1230,7 +1230,7 @@ function GuestConvertModal({ onClose, onConverted }) {
 
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.65)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: "#0d1626", border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
         <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 6 }}>Keep your data</div>
         <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>Add an email and password so you can log back in from any device.</p>
 
@@ -1250,7 +1250,7 @@ function GuestConvertModal({ onClose, onConverted }) {
           autoComplete="new-password"
           style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: error ? 10 : 20, outline: "none" }}
         />
-        {error && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 16 }}>{error}</div>}
+        {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 16 }}>{error}</div>}
 
         <button
           onClick={handle}
@@ -1531,7 +1531,7 @@ function WhyPlanPanel({ plan }) {
   const advisoryRow = (entry) => (
     <div key={entry.code} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 5 }}>
       <span style={{ color: C.emerald, flexShrink: 0, marginTop: 1 }}>›</span>
-      <span style={{ fontSize: 12, color: "#94a3b8", lineHeight: 1.5 }}>
+      <span style={{ fontSize: 12, color: C.subtle, lineHeight: 1.5 }}>
         {entry.text}
         {entry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {entry.cta}</span>}
       </span>
@@ -1668,7 +1668,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: "#ef4444", fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
         </div>
       </div>
-      <div style={{ fontSize: 13, color: "#94a3b8", lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
+      <div style={{ fontSize: 13, color: C.subtle, lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
         {msg}
       </div>
       {planError.detail && (
@@ -1974,7 +1974,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     : null;
                   const text = sentence ?? fallback;
                   return text ? (
-                    <div style={{ fontSize: 15, lineHeight: 1.5, color: '#cbd5e1', maxWidth: '34ch', marginBottom: 14 }}>{t(text)}</div>
+                    <div style={{ fontSize: 15, lineHeight: 1.5, color: C.textSoft, maxWidth: '34ch', marginBottom: 14 }}>{t(text)}</div>
                   ) : null;
                 })()}
                 {/* Session meta: time / moves / intensity */}
@@ -3519,10 +3519,10 @@ export default function App() {
                   padding: "9px 16px", borderRadius: 14, fontSize: 12, fontWeight: 900,
                   letterSpacing: "0.06em", textTransform: "uppercase",
                   background: "rgba(226,76,74,0.08)", border: "1px solid rgba(226,76,74,0.25)",
-                  color: "#f87171", cursor: "pointer",
+                  color: C.danger, cursor: "pointer",
                 }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#f87171" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.danger} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
@@ -3802,7 +3802,7 @@ export default function App() {
           onClick={() => setShowSignOutConfirm(false)}
         >
           <div
-            style={{ width: "100%", maxWidth: 320, background: "#0f172a", border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, display: "flex", flexDirection: "column", gap: 20 }}
+            style={{ width: "100%", maxWidth: 320, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 20, padding: 28, display: "flex", flexDirection: "column", gap: 20 }}
             onClick={e => e.stopPropagation()}
           >
             <div>
@@ -3905,11 +3905,11 @@ export default function App() {
             </label>
             {/* Accept button */}
             {termsAcceptError && (
-              <div style={{ fontSize: 12, color: "#f87171", marginBottom: 10, textAlign: "center" }}>
+              <div style={{ fontSize: 12, color: C.danger, marginBottom: 10, textAlign: "center" }}>
                 {termsAcceptError}{" "}
                 <button
                   onClick={() => setTermsAcceptError(null)}
-                  style={{ background: "none", border: "none", color: "#f87171", fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: 0 }}
+                  style={{ background: "none", border: "none", color: C.danger, fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: 0 }}
                 >
                   Retry
                 </button>
@@ -3966,7 +3966,7 @@ export default function App() {
 
       {showCooperModal && (
         <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <div style={{ background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
+          <div style={{ background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
             <div style={{ marginBottom: 12 }}><Icons.run size={28} c={C.emerald} /></div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>Cooper Test Complete</div>
             <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>How far did you run in 12 minutes? Enter your distance in meters.</div>
@@ -4008,7 +4008,7 @@ export default function App() {
       )}
 
       {activityToast && (
-        <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: "#0d1626", border: `1px solid ${C.emeraldBorder}`, borderRadius: 14, padding: "12px 24px", fontSize: 14, fontWeight: 800, color: C.emerald, zIndex: 200, boxShadow: "0 8px 30px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 14, padding: "12px 24px", fontSize: 14, fontWeight: 800, color: C.emerald, zIndex: 200, boxShadow: "0 8px 30px rgba(0,0,0,0.4)" }}>
           {activityToast}
         </div>
       )}

@@ -12,6 +12,14 @@ export const C = {
   bg:           "var(--bg)",
   onAccent:     "var(--on-accent)",
   recessed:     "var(--recessed)",
+  // Modal and bottom-sheet panels — raised above the page, so on light they are
+  // white against the off-white ground rather than another shade of grey.
+  sheet:        "var(--sheet)",
+  // Softened body copy: brighter than muted on dark, darker than muted on light.
+  textSoft:     "var(--text-soft)",
+  // Error/validation text. #f87171 is tuned for near-black and lands at ~2.5:1
+  // on a light ground, so light uses a darker red.
+  danger:       "var(--danger)",
   scrim:        "var(--scrim)",
   bgCard:       "rgba(var(--overlay-rgb),0.04)",
   bgCard2:      "rgba(var(--overlay-rgb),0.06)",
@@ -107,6 +115,10 @@ export const THEMES = {
     "--muted":        "#64748b",
     "--subtle":       "#334155",
     "--overlay-rgb":  "255,255,255",
+    "--sheet":        "#0f172a",
+    "--text-soft":    "#cbd5e1",
+    "--danger":       "#f87171",
+
     "--amber":        "#f59e0b",
     "--amber-dim":    "rgba(245,158,11,0.08)",
     "--amber-border": "rgba(245,158,11,0.30)",
@@ -127,6 +139,10 @@ export const THEMES = {
     "--muted":        "#5b6675",
     "--subtle":       "#94a3b8",
     "--overlay-rgb":  "0,0,0",
+    "--sheet":        "#ffffff",
+    "--text-soft":    "#475569",
+    "--danger":       "#dc2626",
+
     // Amber and rose are darkened for contrast against a light ground; the dark
     // values are tuned to glow on near-black and fail WCAG AA on white.
     "--amber":        "#b45309",

@@ -1302,7 +1302,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           <div style={{ position: "absolute", inset: 0, background: "rgba(var(--bg-rgb),0.7)" }} />
           {/* Sheet */}
           <div
-            style={{ position: "relative", background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "20px 0 40px", maxHeight: "70vh", overflowY: "auto" }}
+            style={{ position: "relative", background: C.sheet, borderRadius: "24px 24px 0 0", padding: "20px 0 40px", maxHeight: "70vh", overflowY: "auto" }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* Handle */}

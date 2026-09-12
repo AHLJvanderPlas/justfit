@@ -230,7 +230,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
 
         <button onClick={startTest}
           style={{ width: "100%", padding: "16px", borderRadius: 16, fontSize: 15, fontWeight: 900, cursor: "pointer",
-                   border: "none", background: accentHex, color: "#04121a" }}>
+                   border: "none", background: accentHex, color: C.onAccent }}>
           Start · test {testIdx + 1} of {testIds.length}
         </button>
       </>,
@@ -294,12 +294,12 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
           </span>
         </div>
 
-        {error && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 14 }}>{error}</div>}
+        {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 14 }}>{error}</div>}
 
         <button onClick={acceptResult} disabled={saving}
           style={{ width: "100%", padding: "16px", borderRadius: 16, fontSize: 15, fontWeight: 900,
                    cursor: saving ? "default" : "pointer", border: "none",
-                   background: accentHex, color: "#04121a", opacity: saving ? 0.6 : 1 }}>
+                   background: accentHex, color: C.onAccent, opacity: saving ? 0.6 : 1 }}>
           {saving ? "Saving…" : isLast ? "Finish assessment" : "Next test →"}
         </button>
 
@@ -334,7 +334,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: C.text, minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.score}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, minWidth: 44, textAlign: "right",
-                               color: d == null ? C.subtle : d > 0 ? accentHex : d < 0 ? "#f87171" : C.muted }}>
+                               color: d == null ? C.subtle : d > 0 ? accentHex : d < 0 ? C.danger : C.muted }}>
                   {d == null ? "—" : d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${Math.abs(d)}` : "="}
                 </span>
               </div>
@@ -351,7 +351,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
 
         <button onClick={() => onDone?.(outcome)}
           style={{ width: "100%", padding: "16px", borderRadius: 16, fontSize: 15, fontWeight: 900,
-                   cursor: "pointer", border: "none", background: accentHex, color: "#04121a" }}>
+                   cursor: "pointer", border: "none", background: accentHex, color: C.onAccent }}>
           See it on your chart →
         </button>
       </>,

@@ -104,7 +104,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
         <div style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>
           Accepting lets your trainer view the training data you choose to share and send you personalised programming.
         </div>
-        {err && <div style={{ fontSize: 13, color: '#f87171', marginBottom: 14 }}>{err}</div>}
+        {err && <div style={{ fontSize: 13, color: C.danger, marginBottom: 14 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10 }}>
           <button disabled={acting} onClick={() => handleAction('accept')}
             style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>

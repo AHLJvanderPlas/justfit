@@ -138,7 +138,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
 
         {/* Error */}
         {error && (
-          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: "#f87171" }}>
+          <div style={{ background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 12, padding: "10px 14px", marginBottom: 16, fontSize: 13, color: C.danger }}>
             {error}
           </div>
         )}

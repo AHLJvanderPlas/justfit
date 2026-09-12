@@ -203,9 +203,9 @@ export default function TrainersPanel() {
             value={connectCode}
             onChange={e => { setConnectCode(e.target.value.trim()); setConnectError(''); }}
             placeholder="FIT-XXXXXX"
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? '#f87171' : C.border}`, background: 'rgba(var(--overlay-rgb),0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
+            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? C.danger : C.border}`, background: 'rgba(var(--overlay-rgb),0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
           />
-          {connectError && <p style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{connectError}</p>}
+          {connectError && <p style={{ fontSize: 12, color: C.danger, marginBottom: 10 }}>{connectError}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               disabled={connectLoading || !connectCode}
@@ -236,7 +236,7 @@ export default function TrainersPanel() {
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
             Your trainer will need to approve this request before they can view your data.
           </p>
-          {connectError && <p style={{ fontSize: 12, color: '#f87171', marginBottom: 10 }}>{connectError}</p>}
+          {connectError && <p style={{ fontSize: 12, color: C.danger, marginBottom: 10 }}>{connectError}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
             <button
               disabled={connectLoading}
@@ -318,7 +318,7 @@ export default function TrainersPanel() {
               </div>
             </div>
 
-            {error && <p style={{ color: '#f87171', fontSize: 13 }}>{error}</p>}
+            {error && <p style={{ color: C.danger, fontSize: 13 }}>{error}</p>}
 
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" onClick={() => setShowIntake(false)}
@@ -335,7 +335,7 @@ export default function TrainersPanel() {
       </Glass>
 
       {error && !showIntake && (
-        <p style={{ color: '#f87171', fontSize: 13, marginTop: 12 }}>{error}</p>
+        <p style={{ color: C.danger, fontSize: 13, marginTop: 12 }}>{error}</p>
       )}
 
       {/* ── Trainer instellingen (only shown when connected to a gym) ── */}

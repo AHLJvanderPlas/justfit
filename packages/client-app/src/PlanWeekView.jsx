@@ -454,7 +454,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                     {!isStravaCard && (
                       <button
                         onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
-                        style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
+                        style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: C.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                         aria-label="Delete session"
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -479,7 +479,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Delete session?")}</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: "#f87171" }}>DELETE</strong> to confirm.
+              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: C.danger }}>DELETE</strong> to confirm.
             </div>
             <input
               type="text"
@@ -499,7 +499,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               <button
                 onClick={handleDeleteConfirm}
                 disabled={deleteInput !== "DELETE" || deleting}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? C.danger : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
               >
                 {deleting ? t("Deleting\u2026") : t("Delete")}
               </button>

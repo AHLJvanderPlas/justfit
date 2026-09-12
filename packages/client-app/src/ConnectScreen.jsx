@@ -69,7 +69,7 @@ export default function ConnectScreen({ connectToken }) {
         <div style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>
           Send a connection request to this trainer. They'll approve it and can then view data you choose to share.
         </div>
-        {err && <div style={{ fontSize: 13, color: '#f87171', marginBottom: 14 }}>{err}</div>}
+        {err && <div style={{ fontSize: 13, color: C.danger, marginBottom: 14 }}>{err}</div>}
         <div style={{ display: 'flex', gap: 10 }}>
           <button disabled={acting} onClick={handleConnect}
             style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>

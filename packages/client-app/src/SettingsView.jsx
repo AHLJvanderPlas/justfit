@@ -697,7 +697,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         const selected = TEST_TYPES.find(t => t.v === ftpTestType);
         return (
           <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
-            <div style={{ width: "100%", maxWidth: 560, background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "24px 20px calc(32px + env(safe-area-inset-bottom)) 20px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
+            <div style={{ width: "100%", maxWidth: 560, background: C.sheet, borderRadius: "24px 24px 0 0", padding: "24px 20px calc(32px + env(safe-area-inset-bottom)) 20px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 20px" }} />
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 4 }}>FTP Test Result</div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Enter your test result to calculate your new FTP.</div>
@@ -1822,7 +1822,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <button onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
                       <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
                       <button onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
-                      <button onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: "#f87171", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
+                      <button onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: C.danger, cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
                     </div>
                   ))}
                   {(profile.custom ?? []).length < 3 && (
@@ -2233,7 +2233,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
           {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>Save failed — check connection</div>}
         </Glass>
       </div>
 
@@ -2265,7 +2265,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       .then(() => onUpdate(p => ({ ...p, preferences: newPrefs })))
                       .catch(() => {});
                   }}
-                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? C.danger : C.subtle, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
                 >
                   {l}
                 </button>
@@ -2379,7 +2379,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 : bmi < 25 ? { label: "Normal", color: C.emerald }
                 : bmi < 30 ? { label: "Overweight", color: C.amber }
                 : bmi < 35 ? { label: "Obese I", color: "#f97316" }
-                : { label: "Obese II", color: "#f87171" };
+                : { label: "Obese II", color: C.danger };
               const isObese = bmi >= 30;
               return (
                 <div style={{ marginTop: 16 }}>
@@ -2689,7 +2689,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
           {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 12, color: "#f87171", textAlign: "center" }}>Save failed — check connection</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>Save failed — check connection</div>}
         </Glass>
 
         {/* Sex-change warning modal */}
@@ -2700,7 +2700,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           >
             <div
               onClick={(e) => e.stopPropagation()}
-              style={{ width: "100%", maxWidth: 380, background: "#0a1628", border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}
+              style={{ width: "100%", maxWidth: 380, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}
             >
               <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
                 Deactivate female settings?
@@ -3226,7 +3226,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           )}
 
           {stravaMsg && (
-            <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' || stravaMsg.includes('saved') || stravaMsg.includes('deleted') ? C.muted : "#f87171", marginTop: 4 }}>
+            <div style={{ fontSize: 11, color: stravaMsg === 'Already up to date.' || stravaMsg.includes('saved') || stravaMsg.includes('deleted') ? C.muted : C.danger, marginTop: 4 }}>
               {stravaMsg}
             </div>
           )}
@@ -3261,8 +3261,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 )}
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>Ontvang een melding als je je training voor vandaag nog niet hebt gedaan.</div>
-              {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.emerald : "#f87171", marginBottom: 12 }}>{pushMsg}</div>}
-              {pushState === "denied" && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 12 }}>Notificaties geblokkeerd. Sta ze toe via je browserinstellingen.</div>}
+              {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.emerald : C.danger, marginBottom: 12 }}>{pushMsg}</div>}
+              {pushState === "denied" && <div style={{ fontSize: 12, color: C.danger, marginBottom: 12 }}>Notificaties geblokkeerd. Sta ze toe via je browserinstellingen.</div>}
               {!effectiveIsPro ? (
                 <button onClick={onUpgrade}
                   style={{ width: "100%", padding: "11px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
@@ -3298,7 +3298,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   fontSize: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 14,
                   background: passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.1)" : "rgba(226,76,74,0.1)",
                   border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.3)" : "rgba(226,76,74,0.3)"}`,
-                  color: passkeyMsg.startsWith("✓") ? C.emerald : "#f87171",
+                  color: passkeyMsg.startsWith("✓") ? C.emerald : C.danger,
                 }}>
                   {passkeyMsg}
                 </div>
@@ -3796,7 +3796,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           </div>
           <button
             onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
-            style={{ flexShrink:0, padding:"10px 14px", borderRadius:14, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:"#f87171", fontWeight:900, fontSize:12, cursor:"pointer" }}
+            style={{ flexShrink:0, padding:"10px 14px", borderRadius:14, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:C.danger, fontWeight:900, fontSize:12, cursor:"pointer" }}
           >
             Delete →
           </button>
@@ -3807,7 +3807,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Coach conflict modal ── */}
       {showConflictModal && (
         <div style={{ position:"fixed", inset:0, zIndex:300, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.9)" }}>
-          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}>
+          <div style={{ width:"100%", maxWidth:360, background:C.sheet, border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}>
             <div style={{ ...display(22), color:C.text }}>WHICH COACH DRIVES TODAY?</div>
             <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
               You have more than one active coach. Pick the one that shapes today's session.
@@ -3835,7 +3835,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!emailLoading) { setEmailStep(null); setEmailCode(""); setEmailInput(""); setEmailError(""); } }}
         >
-          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
+          <div style={{ width:"100%", maxWidth:360, background:C.sheet, border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
             onClick={e => e.stopPropagation()}
           >
             {emailStep === "verify_code" && (
@@ -3851,7 +3851,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   placeholder="123456" autoFocus
                   style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => { setEmailStep(null); setEmailCode(""); setEmailError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
@@ -3886,7 +3886,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   placeholder="new@email.com" autoFocus
                   style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => { setEmailStep(null); setEmailInput(""); setEmailError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
@@ -3920,7 +3920,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   placeholder="123456" autoFocus
                   style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => setEmailStep("change_enter")}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
@@ -3952,7 +3952,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!deleteLoading) { setDeleteStep(null); setDeleteText(""); setDeleteError(""); } }}
         >
-          <div style={{ width:"100%", maxWidth:360, background:"#0f172a", border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
+          <div style={{ width:"100%", maxWidth:360, background:C.sheet, border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
             onClick={e => e.stopPropagation()}
           >
             {deleteStep === "confirm" ? (
@@ -3972,7 +3972,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </button>
                   <button
                     onClick={() => setDeleteStep("type")}
-                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:"#f87171", fontWeight:700, fontSize:14, cursor:"pointer" }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:C.danger, fontWeight:700, fontSize:14, cursor:"pointer" }}
                   >
                     Yes, delete
                   </button>
@@ -3980,7 +3980,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               </>
             ) : (
               <>
-                <div style={{ fontSize:18, fontWeight:900, color:"#f87171", lineHeight:1.3 }}>
+                <div style={{ fontSize:18, fontWeight:900, color:C.danger, lineHeight:1.3 }}>
                   Confirm deletion
                 </div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
@@ -3994,7 +3994,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   autoFocus
                   style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
                 />
-                {deleteError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{deleteError}</div>}
+                {deleteError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{deleteError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button
                     disabled={deleteLoading}
@@ -4021,7 +4021,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         }
                       } catch { setDeleteError("Network error. Please try again."); setDeleteLoading(false); }
                     }}
-                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background: deleteLoading ? "rgba(226,76,74,0.05)" : "rgba(226,76,74,0.15)", color: deleteLoading ? C.muted : "#f87171", fontWeight:900, fontSize:14, cursor: deleteLoading ? "default" : "pointer" }}
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background: deleteLoading ? "rgba(226,76,74,0.05)" : "rgba(226,76,74,0.15)", color: deleteLoading ? C.muted : C.danger, fontWeight:900, fontSize:14, cursor: deleteLoading ? "default" : "pointer" }}
                   >
                     {deleteLoading ? "Deleting…" : "Delete account"}
                   </button>

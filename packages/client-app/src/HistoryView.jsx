@@ -55,7 +55,7 @@ async function shareProgressImage(history, streak, accentHex) {
 
   ctx.fillStyle = overlay(0.06);
   roundRect(ctx, 142, 58, 120, 28, 8); ctx.fill();
-  ctx.fillStyle = "#94a3b8";
+  ctx.fillStyle = C.subtle;
   ctx.font = "700 12px 'Inter Tight', sans-serif";
   ctx.fillText(`${thisWeekCount} sessions this week`, 152, 77);
 

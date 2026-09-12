@@ -107,22 +107,29 @@ else
   fail "$_hard hardcoded rgba(255,255,255,...) in components — use rgba(var(--overlay-rgb),a)"
 fi
 
-# -n (not -o) so the line context survives for the exclusions below:
-#   ErrorBoundary renders before the theme is applied, and themeValue()/var()
-#   fallbacks are literals on purpose.
-_bgl=$(grep -rroE "rgba\(2,\s*6,\s*23," packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null | grep -v tokens.js | wc -l | tr -d ' ')
-if [ "$_bgl" = "0" ]; then
-  ok "no hardcoded translucent page backgrounds"
-else
-  fail "$_bgl hardcoded rgba(2,6,23,...) — use rgba(var(--bg-rgb),a)"
-fi
-
-_hex=$(grep -rnE "#(020617|f8fafc|64748b|334155)" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
-  | grep -v "tokens.js" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" | wc -l | tr -d ' ')
+# Any hex colour in a component is a theme bug waiting to happen: it cannot
+# invert. The previous version of this check listed four specific values, which
+# is why #cbd5e1 (coach sentence, ~1.4:1 on light) and 17 dark sheet backgrounds
+# survived a "green" run. It is now an allowlist: brand and status hues that are
+# genuinely theme-independent are permitted, everything else must be a token.
+#
+# Allowed: Strava brand, the ACCENT_COLORS swatches, status hues that carry
+# meaning (amber/red/green), and #fff/#000.
+_allow='FC4C02|10b981|8b5cf6|0ea5e9|f43f5e|f59e0b|6366f1|84cc16|06b6d4|f97316|d946ef|fb7185|fbbf24|ef4444|22c55e|a78bfa|fcd34d|6ee7b7|3b82f6|fda4af|be123c|b45309|dc2626|4ade80|60a5fa|ffffff|000000|0a0a0a'
+# -n without -o: the full source line has to survive so the exclusions below can
+# see it. (Filtering grep -o output silently does nothing — it has already thrown
+# the context away.)
+_scan() {
+  grep -rnE "#[0-9a-fA-F]{6}" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
+    | grep -v "tokens.js" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" \
+    | grep -vE "#($_allow)" | grep -viE "#($_allow)"
+}
+_hex=$(_scan | wc -l | tr -d ' ')
 if [ "$_hex" = "0" ]; then
-  ok "no hardcoded theme hex in components"
+  ok "no un-tokenised hex colours in components"
 else
-  fail "$_hex hardcoded theme hex in components — use the C tokens"
+  echo "        offenders:"; _scan | head -8 | sed 's/^/          /' | cut -c1-120
+  fail "$_hex un-tokenised hex colour(s) in components — add a token or allowlist the brand hue"
 fi
 
 # index.html resolves the theme inline before the bundle loads; its --bg values

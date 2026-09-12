@@ -1190,7 +1190,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {supportSheet && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSupportSheet(false)} />
-          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
+          <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
             {activeSupport ? (
               <>
@@ -1256,7 +1256,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {switchSheet && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSwitchSheet(false)} />
-          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
+          <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
             {switchStep === "select" ? (
               <>
@@ -1317,7 +1317,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {profileSheet && (
         <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setProfileSheet(null)} />
-          <div style={{ position: "relative", background: "#0f172a", borderRadius: "20px 20px 0 0", padding: "24px 20px 48px", maxHeight: "80dvh", overflowY: "auto" }}>
+          <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 48px", maxHeight: "80dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 24px" }} />
             <div style={{ display: "flex", gap: 16, alignItems: "flex-start", marginBottom: 16 }}>
               <div style={{ width: 72, height: 72, borderRadius: 18, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -1357,7 +1357,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {msgSheet && (
         <>
           <div onClick={() => setMsgSheet(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40 }} />
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: "#0f172a", borderRadius: "24px 24px 0 0", padding: "0 0 env(safe-area-inset-bottom)", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
+          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.sheet, borderRadius: "24px 24px 0 0", padding: "0 0 env(safe-area-inset-bottom)", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 12px" }}>
               <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
                 {trainer?.display_name ?? "Trainer"} — Berichten
