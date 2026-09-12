@@ -794,7 +794,10 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {[
               { key: "goal",    label: t("Your goal"),   sub: t("Primary focus \u00b7 training days \u00b7 session length") },
               { key: "you",     label: t("You"),          sub: t("Body \u00b7 equipment \u00b7 schedule \u00b7 appearance") },
-              { key: "coaches",  label: t("Coaches"),      sub: t("Active programmes \u00b7 add-on coaches \u00b7 Strava") },
+              // The four render blocks below key off subView === "coach" (singular). This row
+              // said "coaches", so tapping Coaches rendered an empty page — which is why the
+              // Strava card, coach enrolment and Integrations were all unreachable.
+              { key: "coach",   label: t("Coaches"),      sub: t("Active programmes \u00b7 add-on coaches \u00b7 Strava") },
               { key: "trainers", label: t("Trainers"),    sub: t("Connected trainers \u00b7 data sharing \u00b7 intake") },
               { key: "awards",   label: t("Trophy room"), sub: t("Awards & milestones") },
               { key: "privacy",  label: t("Privacy"),     sub: t("Data export \u00b7 legal docs \u00b7 feedback") },

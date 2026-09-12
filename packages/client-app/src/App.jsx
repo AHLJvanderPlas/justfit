@@ -2104,9 +2104,15 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
       {/* ── Training intention card ─────────────────── */}
       {(() => {
-        const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
-        const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
-        const milActive = !!(prefs.preferences?.military_coach?.active);
+        // A coach is only "active" for today's card if it is also the primary intent.
+        // The planner already gates on primary_intent, so reading enrolment alone made
+        // the card announce MILITARY over a general session the planner had built —
+        // it looked like the planner was ignoring the user's chosen focus.
+        const _intent = prefs.preferences?.primary_intent ?? null;
+        const _intentAllows = (coach) => _intent === null || _intent === coach;
+        const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed) && _intentAllows('running');
+        const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed) && _intentAllows('cycling');
+        const milActive = !!(prefs.preferences?.military_coach?.active) && _intentAllows('military');
         if (milActive) {
           const mil = prefs.preferences.military_coach;
           const track    = mil.track ?? 'keuring';

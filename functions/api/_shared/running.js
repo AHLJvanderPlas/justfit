@@ -123,3 +123,41 @@ export function buildRunProgramsFromTemplates(rows) {
 // ---------------------------------------------------------------------------
 // Core planner — pure function, no DB calls
 // ---------------------------------------------------------------------------
+
+// ── Run volume identification (R555 safety filter) ───────────────────────────
+//
+// R555 keeps unprepared runners off long runs by replacing generic running with a
+// level-appropriate run/walk interval. It used to do that with a hardcoded list of
+// four English slugs:
+//
+//   easy-run-outdoor, run-intervals-outdoor, tempo-run-outdoor, treadmill-run-steady
+//
+// Migrations since added ~70 more running exercises that the list never learned
+// about — the Dutch `hardlopen-zone-*` military set (49), `run-continuous-level-7`
+// through `-21` (up to a 180-minute long run), the Cooper test, fartlek, hill
+// repeats and trail runs. All of them bypassed the filter, so a beginner with a
+// high BMI and no running history could be handed a 120-minute long run out of the
+// general pool. That is the exact outcome R555 exists to prevent (Principle 3).
+//
+// Identification is structural rather than a slug list, so a future migration
+// cannot silently reopen the hole:
+//
+//   cardio  AND  (needs running shoes OR tagged `running`)  AND  not a warm-up/cool-down
+//
+// The equipment half alone is not enough: the military `hardlopen-*` exercises and
+// `12-minuten-loop` declare `equipment_required_json = ["none"]`, so they reach users
+// who own no running shoes at all. The `running` tag is what catches those.
+
+/** True when an exercise represents real running volume (not a warm-up or cool-down). */
+export function isRunVolumeExercise(ex) {
+  if (!ex || ex.category !== 'cardio') return false;
+
+  const parse = (s) => { try { return JSON.parse(s || '[]'); } catch { return []; } };
+  const tags  = parse(ex.tags_json).map((t) => String(t).trim());
+  const equip = parse(ex.equipment_required_json).map((e) => String(e).trim());
+
+  // Warm-ups and cool-downs are prescribed alongside a run, not instead of one.
+  if (tags.includes('session_phase') || tags.includes('run_warmup')) return false;
+
+  return equip.includes('running_shoes') || tags.includes('running');
+}

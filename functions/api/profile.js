@@ -315,6 +315,26 @@ export async function onRequestPost({ request, env }) {
       preferences.blocked_weekdays = [...new Set(bw)]; // deduplicate
     }
 
+    // ── Invalidate today's plan when the coach changes ────────────────────────
+    // day_plans is UNIQUE(user_id, date) and GET /api/plan returns the stored row,
+    // so switching primary focus left today's session built by the *previous* coach
+    // in place until tomorrow. Drop it and the next load regenerates.
+    const _intentBefore = existingParsed?.primary_intent ?? null;
+    const _intentAfter  = preferences?.primary_intent ?? null;
+    const _coachSig = (o) => JSON.stringify([
+      !!o?.military_coach?.active, !!o?.run_coach?.enrolled, !!o?.cycling_coach?.active,
+    ]);
+    if (_intentBefore !== _intentAfter || _coachSig(existingParsed) !== _coachSig(preferences)) {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        await env.DB.prepare('DELETE FROM day_plans WHERE user_id = ? AND date >= ?')
+          .bind(user.userId, today).run();
+      } catch (e) {
+        // Non-fatal: a stale plan is worse than an error here, but not worth failing the save.
+        console.error('profile: plan invalidation failed', e);
+      }
+    }
+
     // ── user_preferences (training + body fields) ─────────────────────────────
     const bodyUpdates = [];
     const bodyVals = [];

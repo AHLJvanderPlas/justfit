@@ -3,6 +3,7 @@ import {
   RUN_PROGRAMS,
   RUN_WARMUP_TAG,
   buildRunProgramsFromTemplates,
+  isRunVolumeExercise,
 } from '../../../functions/api/_shared/running.js';
 
 // ── RUN_PROGRAMS ──────────────────────────────────────────────────────────────
@@ -140,5 +141,81 @@ describe('buildRunProgramsFromTemplates', () => {
     const result = buildRunProgramsFromTemplates(halfRows);
     expect(result[21.1]).toBeDefined();
     expect(result[21.1][0].hiit).toBe(5);
+  });
+});
+
+// ── R555 run-volume identification ───────────────────────────────────────────
+// Shapes below are copied from production rows. R555 previously filtered four
+// English slugs while the library had grown to ~70 running exercises, so a
+// beginner could be prescribed a 120-minute long run from the general pool.
+
+describe('isRunVolumeExercise', () => {
+  const ex = (slug, category, tags, equip = []) => ({
+    slug, category,
+    tags_json: JSON.stringify(tags),
+    equipment_required_json: JSON.stringify(equip),
+  });
+
+  it('catches the original four English slugs', () => {
+    for (const slug of ['easy-run-outdoor', 'run-intervals-outdoor', 'tempo-run-outdoor', 'treadmill-run-steady']) {
+      expect(isRunVolumeExercise(ex(slug, 'cardio', ['cardio', 'high_impact'], ['running_shoes'])), slug).toBe(true);
+    }
+  });
+
+  it('catches the Dutch military hardlopen set, which declares no equipment', () => {
+    // equipment_required_json = ["none"] — the equipment check alone misses these,
+    // so they reached users who own no running shoes at all.
+    expect(isRunVolumeExercise(
+      ex('hardlopen-zone-2-30-minuten', 'cardio', ['running', 'zone-2', 'steady-state', 'military'], ['none'])
+    )).toBe(true);
+    expect(isRunVolumeExercise(
+      ex('hardlopen-zone-4-3x2-minuten', 'cardio', ['running', 'zone-4', 'military'], ['none'])
+    )).toBe(true);
+  });
+
+  it('catches long continuous runs — the 120-minute case from the bug report', () => {
+    expect(isRunVolumeExercise(
+      ex('run-continuous-level-19', 'cardio', ['cardio', 'high_impact', 'running', 'run_continuous'], ['running_shoes'])
+    )).toBe(true);
+  });
+
+  it('catches the Cooper test', () => {
+    expect(isRunVolumeExercise(
+      ex('12-minuten-loop', 'cardio', ['running', 'fitness-test', 'baseline', 'military'], ['none'])
+    )).toBe(true);
+  });
+
+  it('catches fartlek, which has no running tag but needs shoes', () => {
+    expect(isRunVolumeExercise(
+      ex('fartlek-run', 'cardio', ['cardio', 'high_impact', 'hiit'], ['running_shoes'])
+    )).toBe(true);
+  });
+
+  it('spares warm-ups and cool-downs — they accompany a run, not replace one', () => {
+    expect(isRunVolumeExercise(
+      ex('easy-jog-warmup', 'cardio', ['cardio', 'zone1', 'session_phase'], ['none'])
+    )).toBe(false);
+    expect(isRunVolumeExercise(
+      ex('cooldown-walk', 'cardio', ['cardio', 'recovery', 'session_phase'], ['none'])
+    )).toBe(false);
+    expect(isRunVolumeExercise(
+      ex('run-warmup-leg-swings', 'mobility', ['cardio', 'run_warmup'], ['none'])
+    )).toBe(false);
+  });
+
+  it('spares non-running cardio', () => {
+    expect(isRunVolumeExercise(ex('jump-rope-simulation', 'cardio', ['cardio', 'hiit'], ['none']))).toBe(false);
+    expect(isRunVolumeExercise(ex('rowing-intervals', 'cardio', ['cardio'], ['rowing_machine']))).toBe(false);
+    expect(isRunVolumeExercise(ex('shadow-boxing', 'cardio', ['cardio'], ['none']))).toBe(false);
+  });
+
+  it('spares strength work even when tagged running-adjacent', () => {
+    expect(isRunVolumeExercise(ex('squat', 'strength', ['strength', 'running'], ['none']))).toBe(false);
+  });
+
+  it('does not throw on malformed or missing json', () => {
+    expect(() => isRunVolumeExercise({ slug: 'x', category: 'cardio', tags_json: 'oops' })).not.toThrow();
+    expect(isRunVolumeExercise(null)).toBe(false);
+    expect(isRunVolumeExercise({})).toBe(false);
   });
 });

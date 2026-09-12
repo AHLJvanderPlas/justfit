@@ -1,6 +1,6 @@
 import { computeMilitaryPhase, SESSIONS_PER_BLOCK, MIL_MARCH_KG, MIL_MARCH_SEC, MIL_CLUSTER_RUN_PEAK, MIL_RUN_WEEK_OFFSET } from './_shared/military.js';
 import { buildCyclingWorkoutsFromProtocols, CYCLING_PROFILES, getCyclingBlockPhase, calcCyclingTSS, scaleCyclingIntervals, computeCyclingTsb, buildCyclingCoachNote } from './_shared/cycling.js';
-import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates } from './_shared/running.js';
+import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolumeExercise } from './_shared/running.js';
 
 import { getAuthUserId } from './_shared/auth.js';
 
@@ -1495,25 +1495,34 @@ function _selectCoachBlueprint(ctx) {
     ctx.trace.push('WARN R545/R546 — BMI unknown (height or weight missing from profile): weight-aware running safety rules skipped');
   }
 
-  // R555
-  if (hasRunningShoes) {
-    const genericRunSlugs = new Set([
-      'easy-run-outdoor', 'run-intervals-outdoor', 'tempo-run-outdoor', 'treadmill-run-steady',
-    ]);
+  // R555 — safe running build-up.
+  //
+  // Runs unconditionally, not only when the user owns running shoes. The military
+  // `hardlopen-*` set and `12-minuten-loop` declare equipment_required=["none"], so
+  // they reach users with no running shoes and were never filtered. See
+  // isRunVolumeExercise() in _shared/running.js for why identification is structural.
+  {
     const before = ctx.pool.length;
-    ctx.pool = ctx.pool.filter(ex => !genericRunSlugs.has(ex.slug));
-    const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
-    const runLevel = condScore < T.RUN_LEVEL_2 ? 1
-      : condScore < T.RUN_LEVEL_3 ? 2
-      : condScore < T.RUN_LEVEL_4 ? 3
-      : condScore < T.RUN_LEVEL_5 ? 4
-      : condScore < T.RUN_LEVEL_6 ? 5 : 6;
-    const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
-    if (intervalEx && !ctx.pool.some(ex => ex.id === intervalEx.id)) {
-      ctx.pool = [intervalEx, ...ctx.pool];
+    ctx.pool = ctx.pool.filter(ex => !isRunVolumeExercise(ex));
+    const removed = before - ctx.pool.length;
+
+    if (hasRunningShoes) {
+      // Re-admit exactly one run: the level the user's conditioning supports.
+      const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
+      const runLevel = condScore < T.RUN_LEVEL_2 ? 1
+        : condScore < T.RUN_LEVEL_3 ? 2
+        : condScore < T.RUN_LEVEL_4 ? 3
+        : condScore < T.RUN_LEVEL_5 ? 4
+        : condScore < T.RUN_LEVEL_6 ? 5 : 6;
+      const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
+      if (intervalEx && !ctx.pool.some(ex => ex.id === intervalEx.id)) {
+        ctx.pool = [intervalEx, ...ctx.pool];
+      }
+      if (intervalEx) ctx.r555PinnedEx = intervalEx;
+      ctx.trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${removed} unguarded run${removed === 1 ? '' : 's'} removed)`);
+    } else if (removed > 0) {
+      ctx.trace.push(`R555 — ${removed} running exercise${removed === 1 ? '' : 's'} removed: no running shoes in your equipment`);
     }
-    if (intervalEx) ctx.r555PinnedEx = intervalEx;
-    ctx.trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${genericRunSlugs.size - (before - ctx.pool.length - (intervalEx ? 1 : 0))} generic runs replaced)`);
   }
 
   // R556
