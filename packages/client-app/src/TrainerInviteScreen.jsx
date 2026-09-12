@@ -35,7 +35,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     padding: 'max(40px, calc(env(safe-area-inset-top) + 20px)) 24px 48px',
   };
-  const card = { width: '100%', maxWidth: 480, borderRadius: 28, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, padding: 32 };
+  const card = { width: '100%', maxWidth: 480, borderRadius: 28, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px solid ${C.border}`, padding: 32 };
   const goHome = () => { window.history.replaceState({}, '', '/'); window.location.href = '/'; };
 
   if (loading) return (
@@ -71,7 +71,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
         <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
           {err === 'Invite not found or expired' ? 'This invite link has expired or already been used.' : err}
         </div>
-        <button onClick={goHome} style={{ padding: '12px 24px', borderRadius: 14, background: 'rgba(255,255,255,0.06)', border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
+        <button onClick={goHome} style={{ padding: '12px 24px', borderRadius: 14, background: 'rgba(var(--overlay-rgb),0.06)', border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
           Back to JustFit
         </button>
       </div>

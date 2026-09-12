@@ -5,7 +5,7 @@ import ConnectScreen from "./ConnectScreen.jsx";
 import PendingInviteModal from "./PendingInviteModal.jsx";
 
 // ─── SHARED MODULES ───────────────────────────────────────────────────────────
-import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.js";
+import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent, applyTheme, watchSystemTheme, THEME_STORAGE_KEY } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
@@ -46,6 +46,11 @@ const AssessmentView = lazy(() => import("./AssessmentView.jsx"));
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
+// Theme before first paint, so the app never flashes the wrong ground colour.
+// index.html runs the same resolution inline for the pre-bundle window.
+applyTheme(localStorage.getItem(THEME_STORAGE_KEY) ?? "system");
+// "system" stays live: a sunset switch applies without a reload.
+watchSystemTheme(() => localStorage.getItem(THEME_STORAGE_KEY) ?? "system");
 
 const APP_VERSION = "2";
 
@@ -137,7 +142,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
               <button key={km} onClick={() => setRunKm(km)}
                 style={{ padding: "10px 18px", borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: "pointer",
                   border: `1px solid ${runKm === km ? C.emeraldBorder : C.border}`,
-                  background: runKm === km ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                  background: runKm === km ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
                   color: runKm === km ? C.emerald : C.muted }}
               >{km}km</button>
             ))}
@@ -170,7 +175,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px",
                   borderRadius: 14, cursor: "pointer", textAlign: "left",
                   border: `1px solid ${cycleSubgoal === sg.id ? C.emeraldBorder : C.border}`,
-                  background: cycleSubgoal === sg.id ? C.emeraldDim : "rgba(255,255,255,0.04)" }}
+                  background: cycleSubgoal === sg.id ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)" }}
               >
                 <div>
                   <div style={{ fontSize: 14, fontWeight: 800, color: cycleSubgoal === sg.id ? C.emerald : C.text }}>{sg.label}</div>
@@ -202,7 +207,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
                 <button key={val} onClick={() => setMilTrack(val)}
                   style={{ flex: 1, padding: "12px 14px", borderRadius: 14, cursor: "pointer", textAlign: "left",
                     border: `1px solid ${milTrack === val ? C.emeraldBorder : C.border}`,
-                    background: milTrack === val ? C.emeraldDim : "rgba(255,255,255,0.04)" }}
+                    background: milTrack === val ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)" }}
                 >
                   <div style={{ fontSize: 13, fontWeight: 800, color: milTrack === val ? C.emerald : C.text }}>{label}</div>
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>
@@ -217,7 +222,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
                 <button key={val} onClick={() => setMilMode(val)}
                   style={{ flex: 1, padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontWeight: 800,
                     border: `1px solid ${milMode === val ? C.emeraldBorder : C.border}`,
-                    background: milMode === val ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                    background: milMode === val ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
                     color: milMode === val ? C.emerald : C.muted }}
                 >{label}</button>
               ))}
@@ -228,7 +233,7 @@ function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Assessment date (optional)</div>
               <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
                 min={new Date().toISOString().slice(0, 10)}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
+                style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
               />
             </div>
           )}
@@ -426,7 +431,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                 maxLength={50}
                 style={{
                   width: "100%", padding: "10px 14px", borderRadius: 12,
-                  background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                  background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
                   color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
                   boxSizing: "border-box", marginBottom: 24,
                 }}
@@ -444,7 +449,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       padding: "12px 10px",
                       borderRadius: 14,
                       border: `1px solid ${sex === opt.value ? C.emeraldBorder : C.border}`,
-                      background: sex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      background: sex === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                       color: sex === opt.value ? C.emerald : C.muted,
                       fontWeight: 700, fontSize: 13, cursor: "pointer",
                     }}
@@ -466,7 +471,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                   onChange={(e) => setWeightInput(e.target.value)}
                   style={{
                     width: 80, padding: "10px 14px", borderRadius: 12,
-                    background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                    background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
                     color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
                   }}
                 />
@@ -490,7 +495,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                   onChange={(e) => setHeightInput(e.target.value)}
                   style={{
                     width: 80, padding: "10px 14px", borderRadius: 12,
-                    background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                    background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
                     color: C.text, fontSize: 15, fontWeight: 700, outline: "none", fontFamily: "inherit",
                   }}
                 />
@@ -535,7 +540,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                         value={lastPeriodStart}
                         max={new Date().toISOString().split("T")[0]}
                         onChange={(e) => setLastPeriodStart(e.target.value)}
-                        style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }}
+                        style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 16, boxSizing: "border-box" }}
                       />
                       <div style={{ fontSize: 12, color: C.muted, marginBottom: 10 }}>How long is your typical cycle?</div>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 12 }}>
@@ -543,7 +548,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                           <button
                             key={d}
                             onClick={() => setCycleLength(d)}
-                            style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                            style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
                           >
                             {d}d
                           </button>
@@ -607,11 +612,11 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       style={{
                         padding: "14px 16px", borderRadius: 16, textAlign: "left",
                         border: `1px solid ${isSelected ? C.emeraldBorder : C.border}`,
-                        background: isSelected ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        background: isSelected ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                         cursor: "pointer", display: "flex", alignItems: "center", gap: 14,
                       }}
                     >
-                      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: isSelected ? "rgba(var(--accent-rgb),0.2)" : "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: isSelected ? "var(--accent)" : C.muted }}>
+                      <div style={{ flexShrink: 0, width: 36, height: 36, borderRadius: 10, background: isSelected ? "rgba(var(--accent-rgb),0.2)" : "rgba(var(--overlay-rgb),0.05)", display: "flex", alignItems: "center", justifyContent: "center", color: isSelected ? "var(--accent)" : C.muted }}>
                         {g.icon}
                       </div>
                       <div>
@@ -643,7 +648,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                     style={{
                       padding: "16px 18px", borderRadius: 16,
                       border: `1px solid ${experience === e.value ? C.emeraldBorder : C.border}`,
-                      background: experience === e.value ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      background: experience === e.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                       color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left",
                     }}
                   >
@@ -672,7 +677,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                     style={{
                       padding: "12px 16px", borderRadius: 14,
                       border: `1px solid ${equipment.includes(eq.value) ? C.emeraldBorder : C.border}`,
-                      background: equipment.includes(eq.value) ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      background: equipment.includes(eq.value) ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                       color: C.text, fontWeight: 700, fontSize: 13, cursor: "pointer", textAlign: "left",
                       display: "flex", justifyContent: "space-between", alignItems: "center",
                     }}
@@ -694,7 +699,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                     style={{
                       flex: 1, padding: "10px 0", borderRadius: 12,
                       border: `1px solid ${duration === d ? C.emeraldBorder : C.border}`,
-                      background: duration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      background: duration === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                       color: duration === d ? C.emerald : C.muted,
                       fontWeight: 800, fontSize: 13, cursor: "pointer",
                     }}
@@ -726,7 +731,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       style={{
                         padding: "8px 14px", borderRadius: 999, fontWeight: 700, fontSize: 13,
                         border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                        background: active ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                         color: active ? C.emerald : C.muted, cursor: "pointer",
                       }}
                     >
@@ -759,7 +764,7 @@ function OnboardingModal({ token, prefs, onComplete, onBack }) {
             {/* Back: on waiver step triggers logout; on other steps goes back */}
             <button
               onClick={step === 0 ? onBack : () => setStep(step - 1)}
-              style={{ flex: 1, padding: 14, borderRadius: 16, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
+              style={{ flex: 1, padding: 14, borderRadius: 16, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 700, fontSize: 14, cursor: "pointer" }}
             >
               {step === 0 ? "← Log out" : "Back"}
             </button>
@@ -925,7 +930,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
           <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle }} />
           <button
             onClick={onClose}
-            style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
+            style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
           >×</button>
         </div>
 
@@ -954,7 +959,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                     <button
                       key={val}
                       onClick={() => { setFeeling(val); setStep(2); }}
-                      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 8px", borderRadius: 20, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(255,255,255,0.03)", cursor: "pointer", color: sel ? color : C.muted, fontFamily: "inherit", transition: "all 0.15s" }}
+                      style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 8px", borderRadius: 20, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(var(--overlay-rgb),0.03)", cursor: "pointer", color: sel ? color : C.muted, fontFamily: "inherit", transition: "all 0.15s" }}
                     >
                       <Face size={56} />
                       <span style={{ fontSize: 12, fontWeight: 800 }}>{label}</span>
@@ -979,7 +984,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                     <button
                       key={val}
                       onClick={() => toggleChip(val)}
-                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(255,255,255,0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 7 }}
+                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 7 }}
                     >
                       {icon}
                       {label}
@@ -991,7 +996,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                 placeholder={t("Rough night? Big day? Tell me anything\u2026")}
                 value={freeText}
                 onChange={e => setFreeText(e.target.value)}
-                style={{ width: "100%", minHeight: 72, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
+                style={{ width: "100%", minHeight: 72, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
               />
             </div>
           )}
@@ -1012,7 +1017,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                       <button
                         key={v}
                         onClick={() => { setPainScope(v); if (v === "general") setPainAreas([]); }}
-                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(255,255,255,0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? "#f87171" : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
+                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? "#f87171" : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
                       >
                         {l}
                       </button>
@@ -1027,7 +1032,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                             <button
                               key={k}
                               onClick={() => toggleArea(k)}
-                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? "#f87171" : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
                             >
                               {l}
                             </button>
@@ -1064,7 +1069,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                         <button
                           key={key}
                           onClick={() => setPregnancySignals(s => ({ ...s, [key]: !active }))}
-                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
                         >
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
@@ -1093,7 +1098,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                         <button
                           key={key}
                           onClick={() => setPostnatalSignals(s => ({ ...s, [key]: !active }))}
-                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(255,255,255,0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
+                          style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
                         >
                           <div>
                             <div style={{ fontSize: 13, fontWeight: 700, color: active ? "#fbbf24" : C.text }}>{label}</div>
@@ -1113,7 +1118,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
         </div>
 
         {/* Footer */}
-        <div style={{ padding: "12px 24px 32px", borderTop: step > 1 ? `1px solid ${C.border}` : "none", background: "rgba(255,255,255,0.01)" }}>
+        <div style={{ padding: "12px 24px 32px", borderTop: step > 1 ? `1px solid ${C.border}` : "none", background: "rgba(var(--overlay-rgb),0.01)" }}>
           {step === 2 && (
             <div style={{ display: "flex", gap: 10 }}>
               <button
@@ -1186,7 +1191,7 @@ function WhyNotModal({ onRegen, onRestDay, onClose }) {
             <button
               key={opt.label}
               onClick={() => opt.checkin === null ? onRestDay() : onRegen(opt.checkin)}
-              style={{ padding: "11px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}
+              style={{ padding: "11px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text }}
             >
               {opt.label}
             </button>
@@ -1235,7 +1240,7 @@ function GuestConvertModal({ onClose, onConverted }) {
           value={email}
           onChange={e => setEmail(e.target.value)}
           autoComplete="email"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: 10, outline: "none" }}
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: 10, outline: "none" }}
         />
         <input
           type="password"
@@ -1243,7 +1248,7 @@ function GuestConvertModal({ onClose, onConverted }) {
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete="new-password"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: error ? 10 : 20, outline: "none" }}
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: error ? 10 : 20, outline: "none" }}
         />
         {error && <div style={{ fontSize: 12, color: "#f87171", marginBottom: 16 }}>{error}</div>}
 
@@ -1273,7 +1278,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
   const chipStyle = (active) => ({
     padding: "8px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer",
     border: active ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`,
-    background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+    background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
     color: active ? C.emerald : C.muted,
   });
 
@@ -1322,7 +1327,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
           <button
             disabled={!logType || !logDuration}
             onClick={() => { onLogActivity(logType.value, logDuration); setLogDone(true); }}
-            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(255,255,255,0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
+            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(var(--overlay-rgb),0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : "#fff" }}
           >
             Log it →
           </button>
@@ -1407,7 +1412,7 @@ function PregnancyProgressBanner({ cycle }) {
             <div style={{ fontSize: 13, fontWeight: 800, color: "#fbbf24" }}>Week {week} of your pregnancy</div>
             <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)", fontWeight: 700 }}>Trimester {trimester}</div>
           </div>
-          <div style={{ height: 5, background: "rgba(255,255,255,0.07)", borderRadius: 999, overflow: "hidden" }}>
+          <div style={{ height: 5, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 999, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 999, transition: "width 0.5s" }} />
           </div>
           {showMilestone && (
@@ -1562,7 +1567,7 @@ function WhyPlanPanel({ plan }) {
         <div
           role="status"
           style={{
-            background: "rgba(255,255,255,0.03)",
+            background: "rgba(var(--overlay-rgb),0.03)",
             border: `1px solid ${C.border}`,
             borderRadius: 14,
             padding: "12px 14px",
@@ -1667,14 +1672,14 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
         {msg}
       </div>
       {planError.detail && (
-        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: "#64748b", background: "rgba(0,0,0,0.3)", borderRadius: 10, padding: "8px 12px", marginBottom: 20, lineHeight: 1.5, wordBreak: "break-all" }}>
+        <div style={{ fontFamily: "'Courier New', monospace", fontSize: 11, color: C.muted, background: C.recessed, borderRadius: 10, padding: "8px 12px", marginBottom: 20, lineHeight: 1.5, wordBreak: "break-all" }}>
           {planError.detail}
         </div>
       )}
       <div style={{ display: "flex", gap: 10 }}>
         <button
           onClick={onRetry}
-          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: C.text, cursor: "pointer" }}
+          style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: "1px solid rgba(var(--overlay-rgb),0.1)", background: "rgba(var(--overlay-rgb),0.06)", color: C.text, cursor: "pointer" }}
         >
           Try again
         </button>
@@ -1924,7 +1929,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
                           {milA && <MilitaryIcon size={9} />}{tagLabel}
                         </div>
-                        <div style={{ ...mono(), fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, padding: "3px 7px", borderRadius: 99 }}>
+                        <div style={{ ...mono(), fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, padding: "3px 7px", borderRadius: 99 }}>
                           Add-on
                         </div>
                       </div>
@@ -1992,16 +1997,16 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 </div>
                 {/* Exercise list — first 3 steps with icons */}
                 {plan.slot_type !== "rest" && (plan.steps?.length ?? 0) > 0 ? (
-                  <div style={{ background: "rgba(255,255,255,0.03)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
+                  <div style={{ background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
                     {plan.steps.slice(0, 3).map((s, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < Math.min(2, plan.steps.length - 1) ? `1px solid ${C.border}` : "none" }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(255,255,255,0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(var(--overlay-rgb),0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                           <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
                         </div>
                         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
                           {s.name}
                           {s.trainer_logo_url && (
-                            <span style={{ width: 18, height: 18, borderRadius: 4, background: s.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, display: "inline-flex", border: "1px solid rgba(255,255,255,0.1)" }}>
+                            <span style={{ width: 18, height: 18, borderRadius: 4, background: s.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, display: "inline-flex", border: "1px solid rgba(var(--overlay-rgb),0.1)" }}>
                               <img src={s.trainer_logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
                             </span>
                           )}
@@ -2035,7 +2040,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                           ? { text: "Your check-in reported significant pain — rest is the right call today." }
                           : null);
                       return whyEntry ? (
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(255,255,255,0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
+                        <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
                           {whyEntry.text}
                           {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {whyEntry.cta}</span>}
                         </div>
@@ -2166,7 +2171,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     const pct = Math.min(100, ((((bn - 1) % 6) * SESS + bi) / (6 * SESS)) * 100);
                     return (
                       <div style={{ marginTop: 8 }}>
-                        <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                        <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                         </div>
                         <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>BLOCK {((bn - 1) % 6) + 1} OF 6</div>
@@ -2202,7 +2207,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Plan · Week {rc.week ?? 1} of {totalWeeks}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {rc.session_in_week ?? 0} of 3 this week</div>
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, ((rc.week ?? 1) / totalWeeks) * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
                   <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {rc.week ?? 1} OF {totalWeeks}</div>
@@ -2283,7 +2288,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{ccPhaseShort} · {sessionTypeLabel}</div>
                 )}
                 <div style={{ marginTop: 8 }}>
-                  <div style={{ height: 3, background: "rgba(255,255,255,0.07)", borderRadius: 2, overflow: "hidden" }}>
+                  <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, ccWeekInCycle / 7 * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
                   <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {ccWeekInCycle} VAN 7 · {ccPhaseLabel.toUpperCase()}</div>
@@ -2330,7 +2335,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{GOAL_FOCUS[goal.value] ?? 'Consistent daily movement'}</div>
               </div>
             </div>
-            <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+            <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
               {exp.label}
             </span>
           </Glass>
@@ -2385,7 +2390,7 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
         const dismissed = localStorage.getItem("jf_coach_discovery_dismissed");
         if (dismissed) return null;
         return (
-          <div style={{ background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
+          <div style={{ background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ ...eyebrow, color: "var(--accent)", marginBottom: 6 }}>SPECIALIST COACHING</div>
@@ -2432,13 +2437,13 @@ const COACH_NAV_ITEM = {
   label: "Coach",
   icon: (a, dot) => (
     <div style={{ position: "relative" }}>
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
-      {dot && <span style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", border: "1.5px solid #020617" }} />}
+      {dot && <span style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", border: `1.5px solid ${C.bg}` }} />}
     </div>
   ),
 };
@@ -2453,7 +2458,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "var(--accent)" : "#64748b"}
+        stroke={a ? "var(--accent)" : "var(--muted)"}
         strokeWidth="2"
       >
         <rect width="18" height="18" x="3" y="4" rx="2" />
@@ -2467,13 +2472,13 @@ const NAV_ITEMS = [
   {
     id: "history",
     label: "Progress",
-    icon: (a) => <Icons.chart size={22} c={a ? "var(--accent)" : "#64748b"} />,
+    icon: (a) => <Icons.chart size={22} c={a ? "var(--accent)" : "var(--muted)"} />,
   },
   {
     id: "plan",
     label: "This Week",
     icon: (a) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "#64748b"} strokeWidth="2">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2">
         <rect width="18" height="18" x="3" y="4" rx="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
         <line x1="8" y1="2" x2="8" y2="6" />
@@ -2493,7 +2498,7 @@ const NAV_ITEMS = [
         height="22"
         viewBox="0 0 24 24"
         fill="none"
-        stroke={a ? "var(--accent)" : "#64748b"}
+        stroke={a ? "var(--accent)" : "var(--muted)"}
         strokeWidth="2"
       >
         <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
@@ -2721,6 +2726,12 @@ export default function App() {
     if (data.preferences?.accent) {
       localStorage.setItem("jf_accent", data.preferences.accent);
       applyAccent(data.preferences.accent);
+      // Theme follows the account to a new device. localStorage wins on this
+      // device only until the profile arrives.
+      if (data.preferences.theme) {
+        localStorage.setItem(THEME_STORAGE_KEY, data.preferences.theme);
+        applyTheme(data.preferences.theme);
+      }
     }
     setPrefs((p) => ({
       ...p, ...data, exists: undefined,
@@ -3473,12 +3484,12 @@ export default function App() {
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
               <svg width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
-                <rect x="28" y="28" width="968" height="968" rx="180" fill="var(--accent)"/>
+                <rect x="28" y="28" width="968" height="968" rx="180" style={{ fill: "var(--accent)" }}/>
                 {/* Outer hexagon */}
-                <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" stroke="rgba(255,255,255,0.35)" strokeWidth="28" strokeLinejoin="round"/>
+                <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.35)" }} strokeWidth="28" strokeLinejoin="round"/>
                 {/* Inner web rings — solid */}
-                <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="14" strokeLinejoin="round"/>
-                <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" stroke="rgba(255,255,255,0.15)" strokeWidth="12" strokeLinejoin="round"/>
+                <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.2)" }} strokeWidth="14" strokeLinejoin="round"/>
+                <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.15)" }} strokeWidth="12" strokeLinejoin="round"/>
                 {/* S-curve route */}
                 <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" fill="none" stroke="white" strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
                 <circle cx="512" cy="294" r="32" fill="white"/>
@@ -3521,7 +3532,7 @@ export default function App() {
                   display: "flex", alignItems: "center", gap: 8,
                   padding: "9px 18px", borderRadius: 14, fontSize: 12, fontWeight: 900,
                   letterSpacing: "0.06em", textTransform: "uppercase",
-                  background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`,
+                  background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
                   color: C.muted, cursor: "pointer",
                 }}
               >
@@ -3616,7 +3627,7 @@ export default function App() {
                     <div style={{ margin: "0 0 16px", padding: "16px 18px", borderRadius: 20, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.28)", position: "relative" }}>
                       <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
                         {msg.gym_logo_url ? (
-                          <img src={msg.gym_logo_url} alt={msg.gym_name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid rgba(255,255,255,0.08)" }} />
+                          <img src={msg.gym_logo_url} alt={msg.gym_name} style={{ width: 32, height: 32, borderRadius: 8, objectFit: "cover", flexShrink: 0, border: "1px solid rgba(var(--overlay-rgb),0.08)" }} />
                         ) : (
                           <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "#f59e0b", fontSize: 16, fontWeight: 900 }}>
                             T
@@ -3802,7 +3813,7 @@ export default function App() {
               </button>
               <button
                 onClick={() => { setShowSignOutConfirm(false); logout(); }}
-                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
               >
                 Leave
               </button>
@@ -3960,7 +3971,7 @@ export default function App() {
               placeholder="e.g. 2400"
               value={cooperDistance}
               onChange={e => setCooperDistance(e.target.value)}
-              style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 22, fontWeight: 900, textAlign: "center", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+              style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 22, fontWeight: 900, textAlign: "center", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
             />
             <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 20 }}>
               {(() => {
@@ -3977,7 +3988,7 @@ export default function App() {
             </div>
             <button
               onClick={() => handleCooperSubmit(parseInt(cooperDistance, 10) || 0)}
-              style={{ width: "100%", padding: "16px", borderRadius: 16, background: C.emerald, border: "none", color: "#020617", fontSize: 15, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}
+              style={{ width: "100%", padding: "16px", borderRadius: 16, background: C.emerald, border: "none", color: C.onAccent, fontSize: 15, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}
             >
               Save Result
             </button>

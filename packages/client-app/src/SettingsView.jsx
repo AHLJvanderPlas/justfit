@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "./apiClient.js";
 import { logout, clearPlanCache } from "./authHelpers.js";
-import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent } from "./tokens.js";
+import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent, applyTheme, THEME_STORAGE_KEY } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, RUN_TARGETS } from "./appConstants.js";
 import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
@@ -171,6 +171,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   // Sub-view routing
   const [subView, setSubView] = useState(null); // null | 'you' | 'coach' | 'privacy' | 'account'
   const [primaryIntent, setPrimaryIntent] = useState(prefs.preferences?.primary_intent ?? null);
+  const [themeMode, setThemeMode] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) ?? "system");
   const [showConflictModal, setShowConflictModal] = useState(false);
   // Doc overlay
   const [activeDoc, setActiveDoc] = useState(null); // null | one of the DOCS entries
@@ -705,7 +706,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Test type</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {TEST_TYPES.map(t => (
-                    <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: ftpTestType === t.v ? C.emerald : C.muted }}>
+                    <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: ftpTestType === t.v ? C.emerald : C.muted }}>
                       {t.label}
                     </button>
                   ))}
@@ -720,7 +721,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   type="number" min={50} max={600} placeholder="e.g. 280"
                   value={ftpTestInput} onChange={e => setFtpTestInput(e.target.value)}
                   autoFocus
-                  style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 18, fontWeight: 700, boxSizing: "border-box" }}
+                  style={{ width: "100%", padding: "12px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 18, fontWeight: 700, boxSizing: "border-box" }}
                 />
               </div>
 
@@ -733,10 +734,10 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               )}
 
               <div style={{ display: "flex", gap: 10 }}>
-                <button onClick={() => { setShowFtpTestModal(false); setFtpTestInput(''); }} style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
+                <button onClick={() => { setShowFtpTestModal(false); setFtpTestInput(''); }} style={{ flex: 1, padding: "14px 0", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 14, fontWeight: 700, cursor: "pointer" }}>
                   Cancel
                 </button>
-                <button onClick={handleFtpTestSave} disabled={!previewFtp || ftpTestSaving} style={{ flex: 2, padding: "14px 0", borderRadius: 14, background: previewFtp ? C.emerald : "rgba(255,255,255,0.06)", border: "none", color: previewFtp ? "#020617" : C.muted, fontSize: 14, fontWeight: 900, cursor: previewFtp ? "pointer" : "default" }}>
+                <button onClick={handleFtpTestSave} disabled={!previewFtp || ftpTestSaving} style={{ flex: 2, padding: "14px 0", borderRadius: 14, background: previewFtp ? C.emerald : "rgba(var(--overlay-rgb),0.06)", border: "none", color: previewFtp ? C.onAccent : C.muted, fontSize: 14, fontWeight: 900, cursor: previewFtp ? "pointer" : "default" }}>
                   {ftpTestSaving ? "Saving…" : `Save ${previewFtp ? `— ${previewFtp}W` : ''}`}
                 </button>
               </div>
@@ -901,7 +902,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <div style={{ fontSize: 14, fontWeight: 700, color: sel ? "var(--accent)" : C.text, marginBottom: 2 }}>{opt.label}</div>
                       <div style={{ fontSize: 12, color: C.muted }}>{opt.sub}</div>
                     </div>
-                    {sel && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5"><path d="m20 6-11 11-5-5"/></svg>}
+                    {sel && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2.5"><path d="m20 6-11 11-5-5"/></svg>}
                   </button>
                 );
               })}
@@ -986,7 +987,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {onChangePath && (
             <button
               onClick={onChangePath}
-              style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em" }}
+              style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em" }}
             >
               Change path →
             </button>
@@ -1076,7 +1077,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       style={{
                         padding: "10px 6px 8px", borderRadius: 14, cursor: "pointer",
                         border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                        background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                         display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
                       }}
                     >
@@ -1103,7 +1104,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       style={{
                         flex: 1, padding: "8px 4px", borderRadius: 14, cursor: "pointer",
                         border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                        background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                        background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                         display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                       }}
                     >
@@ -1172,7 +1173,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         const done = unlockedTargets.includes(String(km));
                         const isSel = km === runTargetSelect;
                         return (
-                          <button key={km} onClick={() => setRunTargetSelect(km)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(255,255,255,0.03)", color: isSel ? C.emerald : C.muted }}>
+                          <button key={km} onClick={() => setRunTargetSelect(km)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: isSel ? C.emerald : C.muted }}>
                             {done ? "✓ " : ""}{label}
                           </button>
                         );
@@ -1191,7 +1192,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     </div>
                     {/* When active and target changed: show change button (restarts programme) */}
                     {isActive && runTargetSelect !== (rcState?.target_km ?? 5) && (
-                      <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                      <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                         <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Switching target will restart your programme at week 1.</div>
                       </div>
                     )}
@@ -1232,7 +1233,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             {CYCLE_SUB_GOALS.map(g => (
-                              <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
+                              <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
                                 {g.label}
                               </button>
                             ))}
@@ -1243,7 +1244,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
                           <div style={{ display: "flex", gap: 6 }}>
                             {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
-                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
+                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
                                 {u.label}
                               </button>
                             ))}
@@ -1254,20 +1255,20 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             <>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                               </div>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                               </div>
-                              <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
+                              <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
                                 Test FTP
                               </button>
                             </>
                           ) : (
                             <div style={{ flex: 1 }}>
                               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
-                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                             </div>
                           )}
                         </div>
@@ -1276,7 +1277,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cycling sessions / week</div>
                           <div style={{ display: "flex", gap: 6 }}>
                             {[3,4,5].map(n => (
-                              <button key={n} onClick={() => setCycleDaysPerWeek(n)} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleDaysPerWeek === n ? C.emeraldBorder : C.border}`, background: cycleDaysPerWeek === n ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleDaysPerWeek === n ? C.emerald : C.muted }}>
+                              <button key={n} onClick={() => setCycleDaysPerWeek(n)} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleDaysPerWeek === n ? C.emeraldBorder : C.border}`, background: cycleDaysPerWeek === n ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleDaysPerWeek === n ? C.emerald : C.muted }}>
                                 {n}
                               </button>
                             ))}
@@ -1312,7 +1313,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
                             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
                               {CYCLE_SUB_GOALS.map(g => (
-                                <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
+                                <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
                                   {g.label}
                                 </button>
                               ))}
@@ -1324,18 +1325,18 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             )}
                           </div>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                            <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
                               Test FTP
                             </button>
                           </div>
                           {/* Cross-training runs toggle */}
-                          <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                          <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: cycleCrossTrainEnabled ? 10 : 0 }}>
                               <div style={{ flex: 1 }}>
                                 <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Cross-training runs</div>
                                 <div style={{ fontSize: 11, color: C.muted }}>Add running sessions on short or rest days</div>
                               </div>
-                              <button onClick={() => setCycleCrossTrainEnabled(v => !v)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainEnabled ? C.emeraldBorder : C.border}`, background: cycleCrossTrainEnabled ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleCrossTrainEnabled ? C.emerald : C.muted }}>
+                              <button onClick={() => setCycleCrossTrainEnabled(v => !v)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainEnabled ? C.emeraldBorder : C.border}`, background: cycleCrossTrainEnabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleCrossTrainEnabled ? C.emerald : C.muted }}>
                                 {cycleCrossTrainEnabled ? "On" : "Off"}
                               </button>
                             </div>
@@ -1344,7 +1345,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Run days / week</div>
                                 <div style={{ display: "flex", gap: 6 }}>
                                   {[1,2,3].filter(n => n <= maxCrossTrainDays).map(n => (
-                                    <button key={n} onClick={() => setCycleCrossTrainDays(n)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainDays === n ? C.emeraldBorder : C.border}`, background: cycleCrossTrainDays === n ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleCrossTrainDays === n ? C.emerald : C.muted }}>
+                                    <button key={n} onClick={() => setCycleCrossTrainDays(n)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainDays === n ? C.emeraldBorder : C.border}`, background: cycleCrossTrainDays === n ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleCrossTrainDays === n ? C.emerald : C.muted }}>
                                       {n}
                                     </button>
                                   ))}
@@ -1413,7 +1414,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           {v:'open',   label:'Open',        sub:'No goal or end date'},
                         ].map(m => (
                           <button key={m.v} onClick={() => setMilMode(m.v)}
-                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milMode === m.v ? C.emeraldBorder : C.border}`, background: milMode === m.v ? C.emeraldDim : "rgba(255,255,255,0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
+                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milMode === m.v ? C.emeraldBorder : C.border}`, background: milMode === m.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
                             <span style={{ fontSize: 12, fontWeight: 900, color: milMode === m.v ? C.emerald : C.text }}>{m.label}</span>
                             <span style={{ fontSize: 10, color: C.muted }}>{m.sub}</span>
                           </button>
@@ -1449,7 +1450,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           {clusters.map(c => (
                             <button key={c.v} onClick={() => setMilCluster(c.v)}
                               title={c.desc}
-                              style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(255,255,255,0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
+                              style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
                               {c.label}
                             </button>
                           ))}
@@ -1463,7 +1464,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Assessment date</div>
                         <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
                           min={new Date(Date.now() + 21 * 86400000).toISOString().slice(0,10)}
-                          style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
+                          style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
                         {milTargetDate && (() => {
                           const days  = Math.ceil((new Date(milTargetDate + 'T00:00:00Z') - Date.now()) / 86400000);
                           const weeks = Math.floor(days / 7);
@@ -1481,7 +1482,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           const sel = milPackWeight.includes(kg);
                           return (
                             <button key={kg} onClick={() => setMilPackWeight(w => sel ? w.filter(v => v !== kg) : [...w, kg].sort((a, b) => a - b))}
-                              style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 800, cursor: "pointer", border: sel ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`, background: sel ? C.emeraldDim : "rgba(255,255,255,0.04)", color: sel ? C.emerald : C.text, fontFamily: "inherit" }}>
+                              style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 800, cursor: "pointer", border: sel ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`, background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sel ? C.emerald : C.text, fontFamily: "inherit" }}>
                               {kg} kg
                             </button>
                           );
@@ -1627,7 +1628,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{
                     flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                   }}
                 >
@@ -1664,7 +1665,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{
                     flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
                     border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                     display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                   }}
                 >
@@ -1684,7 +1685,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{
                     padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
                     border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
-                    background: planDuration === d ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                    background: planDuration === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                     color: planDuration === d ? C.emerald : C.muted,
                     cursor: "pointer",
                   }}
@@ -1719,7 +1720,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   const isRest = val === 0;
                   const btnStyle = (disabled) => ({
                     width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                    border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)",
+                    border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)",
                     color: disabled ? C.subtle : C.text,
                     fontSize: 22, fontWeight: 300, cursor: disabled ? "default" : "pointer",
                     display: "flex", alignItems: "center", justifyContent: "center",
@@ -1791,9 +1792,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
                 <span style={{ fontSize: 13, fontWeight: 700, color: value > 0 ? C.text : C.muted }}>{label}</span>
                 <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                  <button onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
                   <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: value > 0 ? C.emerald : C.muted }}>{value}m</span>
-                  <button onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                  <button onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
                 </div>
               </div>
             );
@@ -1816,16 +1817,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         value={c.label}
                         onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
                         placeholder="e.g. Drive to gym"
-                        style={{ flex: 1, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
+                        style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
                       />
-                      <button onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                      <button onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
                       <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
-                      <button onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                      <button onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
                       <button onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: "#f87171", cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
                     </div>
                   ))}
                   {(profile.custom ?? []).length < 3 && (
-                    <button onClick={() => addCustom(profileKey)} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted }}>
+                    <button onClick={() => addCustom(profileKey)} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted }}>
                       + Add custom block
                     </button>
                   )}
@@ -1839,7 +1840,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>Time overhead</div>
                   <button
                     onClick={() => setOverheadEditMode((v) => !v)}
-                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: overheadEditMode ? C.emerald : C.muted }}
+                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.emerald : C.muted }}
                   >
                     {overheadEditMode ? "Done" : "Edit"}
                   </button>
@@ -1862,7 +1863,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     {/* Enable toggle */}
                     <div
                       onClick={() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled }))}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(255,255,255,0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
+                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
                     >
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>Include overhead in planning</div>
@@ -1890,7 +1891,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
             <button
               onClick={() => setEquipEditMode((v) => !v)}
-              style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: equipEditMode ? C.emerald : C.muted }}
+              style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.emerald : C.muted }}
             >
               {equipEditMode ? "Done" : "Edit"}
             </button>
@@ -1963,11 +1964,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 onDragOver={(e) => { e.preventDefault(); setEquipDropZone("inactive"); }}
                 onDragLeave={() => setEquipDropZone(null)}
                 onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, false); setEquipDragItem(null); setEquipDropZone(null); }}
-                style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(255,255,255,0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(255,255,255,0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+                style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
               >
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                   Not in use
-                  <span style={{ background: "rgba(255,255,255,0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                  <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                     {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
                   </span>
                 </div>
@@ -1978,7 +1979,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       draggable
                       onDragStart={(e) => { setEquipDragItem(eq.value); e.dataTransfer.effectAllowed = "move"; }}
                       onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
+                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
                     >
                       {eq.label}
                       <button
@@ -2001,7 +2002,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               </div>
               <button
                 onClick={() => setSportEditMode((v) => !v)}
-                style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(255,255,255,0.04)", color: sportEditMode ? C.emerald : C.muted }}
+                style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.emerald : C.muted }}
               >
                 {sportEditMode ? "Done" : "Edit"}
               </button>
@@ -2072,11 +2073,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   onDragOver={(e) => { e.preventDefault(); setSportDropZone("inactive"); }}
                   onDragLeave={() => setSportDropZone(null)}
                   onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, false); setSportDragItem(null); setSportDropZone(null); }}
-                  style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(255,255,255,0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(255,255,255,0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+                  style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
                 >
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                     Not in use
-                    <span style={{ background: "rgba(255,255,255,0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                    <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                       {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
                     </span>
                   </div>
@@ -2087,7 +2088,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         draggable
                         onDragStart={(e) => { setSportDragItem(sp.id); e.dataTransfer.effectAllowed = "move"; }}
                         onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
-                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
+                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
                       >
                         {sp.label}
                         <button
@@ -2112,7 +2113,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           <button
                             key={id}
                             onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
-                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(255,255,255,0.04)", color: isPrimary ? "#fff" : C.muted }}
+                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? "#fff" : C.muted }}
                           >
                             {sp.label}
                           </button>
@@ -2142,7 +2143,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   flexShrink: 0, padding: "8px 18px", borderRadius: 999, fontSize: 12, fontWeight: 900,
                   cursor: "pointer",
                   border: `1px solid ${sportPrefs.bias_enabled !== false ? C.emeraldBorder : C.border}`,
-                  background: sportPrefs.bias_enabled !== false ? C.emeraldDim : "rgba(255,255,255,0.05)",
+                  background: sportPrefs.bias_enabled !== false ? C.emeraldDim : "rgba(var(--overlay-rgb),0.05)",
                   color: sportPrefs.bias_enabled !== false ? C.emerald : C.muted,
                 }}
               >
@@ -2162,12 +2163,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {effectiveIsPro ? (
               <button
                 onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
-                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(255,255,255,0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
+                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: sportPrefs.polarised_training ? "#fff" : C.muted }}
               >
                 {sportPrefs.polarised_training ? "Active" : "Enable"}
               </button>
             ) : (
-              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.05)", color: C.muted }}>Pro only</button>
+              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.05)", color: C.muted }}>Pro only</button>
             )}
           </div>
 
@@ -2184,7 +2185,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
                 api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
               }}
-              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(255,255,255,0.05)", color: effectiveIsPro && prefs.daily_replan ? "#fff" : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
+              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: effectiveIsPro && prefs.daily_replan ? "#fff" : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
             >
               {effectiveIsPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
             </button>
@@ -2218,7 +2219,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     style={{
                       flex: 1, padding: "8px 2px", borderRadius: 10, cursor: "pointer",
                       border: `1px solid ${blocked ? "rgba(244,63,94,0.4)" : C.border}`,
-                      background: blocked ? "rgba(244,63,94,0.08)" : "rgba(255,255,255,0.03)",
+                      background: blocked ? "rgba(244,63,94,0.08)" : "rgba(var(--overlay-rgb),0.03)",
                       color: blocked ? "#f43f5e" : C.muted,
                       fontSize: 11, fontWeight: 900,
                     }}
@@ -2264,7 +2265,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       .then(() => onUpdate(p => ({ ...p, preferences: newPrefs })))
                       .catch(() => {});
                   }}
-                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(255,255,255,0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
+                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? "#f87171" : "#94a3b8", border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
                 >
                   {l}
                 </button>
@@ -2294,7 +2295,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder="Your name"
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
             />
           </div>
 
@@ -2315,7 +2316,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       setProfileSex(opt.value);
                     }
                   }}
-                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(255,255,255,0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
                 >
                   {opt.label}
                 </button>
@@ -2332,7 +2333,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 value={profileWeight}
                 onChange={(e) => setProfileWeight(e.target.value)}
                 placeholder={profileWeightUnit === "kg" ? "e.g. 70" : "e.g. 154"}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
               />
               <button
                 onClick={() => setProfileWeightUnit(u => u === "kg" ? "lbs" : "kg")}
@@ -2351,7 +2352,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 value={profileHeight}
                 onChange={(e) => setProfileHeight(e.target.value)}
                 placeholder={profileHeightUnit === "cm" ? "e.g. 175" : "e.g. 69"}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
               />
               <button
                 onClick={() => {
@@ -2383,11 +2384,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               return (
                 <div style={{ marginTop: 16 }}>
                   <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>BMI</div>
-                  <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color, fontSize: 15, fontWeight: 900, boxSizing: "border-box" }}>
+                  <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color, fontSize: 15, fontWeight: 900, boxSizing: "border-box" }}>
                     {bmi.toFixed(1)} <span style={{ fontWeight: 600, fontSize: 13 }}>— {label}</span>
                   </div>
                   {isObese && (
-                    <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}` }}>
+                    <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, fontWeight: 700, marginBottom: 8 }}>
                         Consistency and will always produce results — every session counts.
                       </div>
@@ -2408,7 +2409,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ marginTop: 20 }}>
                 <button
                   onClick={onRedoOnboarding}
-                  style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                  style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
                 >
                   Re-do onboarding
                 </button>
@@ -2434,7 +2435,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
                         onClick={() => setShowResetConfirm(false)}
-                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
+                        style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                       >
                         Cancel
                       </button>
@@ -2466,7 +2467,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <button
                     key={opt.value}
                     onClick={() => setCycleTrackingMode(opt.value)}
-                    style={{ flex: 1, padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${cycleTrackingMode === opt.value ? C.emeraldBorder : C.border}`, background: cycleTrackingMode === opt.value ? C.emeraldDim : "rgba(255,255,255,0.04)", color: cycleTrackingMode === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                    style={{ flex: 1, padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${cycleTrackingMode === opt.value ? C.emeraldBorder : C.border}`, background: cycleTrackingMode === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleTrackingMode === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
                   >
                     {opt.label}
                   </button>
@@ -2480,7 +2481,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       type="date"
                       value={lastPeriodStart}
                       onChange={(e) => setLastPeriodStart(e.target.value)}
-                      style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
                     />
                   </div>
                   <div>
@@ -2490,7 +2491,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <button
                           key={d}
                           onClick={() => setCycleLength(d)}
-                          style={{ padding: "6px 12px", borderRadius: 10, fontWeight: 900, fontSize: 13, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.04)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                          style={{ padding: "6px 12px", borderRadius: 10, fontWeight: 900, fontSize: 13, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
                         >
                           {d}
                         </button>
@@ -2512,7 +2513,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   <button
                     onClick={() => setPregnancySetupStep(1)}
-                    style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer", textAlign: "left" }}
+                    style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer", textAlign: "left" }}
                   >
                     Standard · Enable pregnancy mode →
                   </button>
@@ -2562,14 +2563,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       onClick={() => { setPregnancySetupStep(0); setMedicalClearance(false); }}
-                      style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
                     >
                       Cancel
                     </button>
                     <button
                       disabled={!medicalClearance}
                       onClick={() => setPregnancySetupStep(2)}
-                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: medicalClearance ? "#fbbf24" : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: medicalClearance ? "#fbbf24" : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
                     >
                       Continue
                     </button>
@@ -2587,7 +2588,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     value={pregnancyDueDate}
                     min={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setPregnancyDueDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
                     Your due date helps us calculate your trimester and adapt sessions accordingly. You can update it anytime.
@@ -2595,7 +2596,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       onClick={() => setPregnancySetupStep(1)}
-                      style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                      style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
                     >
                       Back
                     </button>
@@ -2627,7 +2628,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         } catch { /* ignore */ }
                         setPregnancySaving(false);
                       }}
-                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: pregnancyDueDate && !pregnancySaving ? "#fbbf24" : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: pregnancyDueDate && !pregnancySaving ? "#fbbf24" : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
                     >
                       {pregnancySaving ? "Saving…" : "Enable pregnancy mode"}
                     </button>
@@ -2726,7 +2727,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ display: "flex", gap: 10 }}>
                 <button
                   onClick={() => { setShowSexWarning(false); setPendingSex(null); }}
-                  style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 800, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer" }}
+                  style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 800, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer" }}
                 >
                   Cancel
                 </button>
@@ -2856,7 +2857,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <button
                     onClick={toggleEarlyAccess}
                     style={{ flexShrink: 0, width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer", transition: "background 0.2s",
-                      background: earlyAccessOn ? "var(--accent)" : "rgba(255,255,255,0.1)",
+                      background: earlyAccessOn ? "var(--accent)" : "rgba(var(--overlay-rgb),0.1)",
                       position: "relative" }}
                   >
                     <span style={{ position: "absolute", top: 3, left: earlyAccessOn ? 21 : 3, width: 20, height: 20, borderRadius: 10, background: "#fff", transition: "left 0.2s" }} />
@@ -2916,7 +2917,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             onChange={e => { setRedeemCode(e.target.value.toUpperCase()); setRedeemMsg(""); }}
                             placeholder="JF…"
                             maxLength={12}
-                            style={{ flex: 1, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, fontFamily: "monospace", outline: "none" }}
+                            style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, fontFamily: "monospace", outline: "none" }}
                           />
                           <button
                             disabled={redeemState === "loading" || !redeemCode.trim()}
@@ -2926,7 +2927,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                               if (r?.ok) { setRedeemState("done"); }
                               else { setRedeemState("error"); setRedeemMsg(r?.error ?? "Ongeldige code"); setTimeout(() => setRedeemState("idle"), 4000); }
                             }}
-                            style={{ padding: "10px 14px", borderRadius: 10, border: "none", background: C.emerald, color: "#020617", fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: redeemState === "loading" ? 0.6 : 1 }}
+                            style={{ padding: "10px 14px", borderRadius: 10, border: "none", background: C.emerald, color: C.onAccent, fontWeight: 900, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: redeemState === "loading" ? 0.6 : 1 }}
                           >{redeemState === "loading" ? "…" : "Inwisselen"}</button>
                         </div>
                       )}
@@ -2964,7 +2965,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess("Verification email sent"); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
+                      <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess("Verification email sent"); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
                         {emailLoading ? "Sending…" : "Resend"}
                       </button>
                       <button onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
@@ -2978,14 +2979,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
-              <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
+              <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Your unique identifier — links your workouts, plan, and score to your account privately and securely.</div>
             </div>
           </Glass>
         </div>
         <div style={{ marginBottom: 32 }}>
           <Glass style={{ padding: 20 }}>
-            <button onClick={() => { logout(); }} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:"rgba(255,255,255,0.03)", color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}>
+            <button onClick={() => { logout(); }} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:"rgba(var(--overlay-rgb),0.03)", color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}>
               Sign out
             </button>
           </Glass>
@@ -3086,7 +3087,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   setExportMsg("Downloaded.");
                 } catch { setExportMsg("Export failed — please try again."); }
                 setExporting(false);
-              }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1 }}>
+              }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1 }}>
                 {exporting ? "Preparing…" : "Download my data (JSON)"}
               </button>
               {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginTop: 8 }}>{exportMsg}</div>}
@@ -3141,7 +3142,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <button
                   onClick={handleStravaDisconnect}
                   disabled={stravaDisconnecting}
-                  style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, whiteSpace: "nowrap" }}
+                  style={{ padding: "7px 14px", borderRadius: 10, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, whiteSpace: "nowrap" }}
                 >
                   {stravaDisconnecting ? '…' : 'Disconnect'}
                 </button>
@@ -3181,7 +3182,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   {stravaSyncResult.imported} activit{stravaSyncResult.imported === 1 ? 'y' : 'ies'} imported
                 </div>
                 {(stravaSyncResult.recent ?? []).map((a, i) => (
-                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderTop: i === 0 ? "none" : `1px solid rgba(255,255,255,0.04)`, background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}>
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderTop: i === 0 ? "none" : `1px solid rgba(var(--overlay-rgb),0.04)`, background: i % 2 === 0 ? "rgba(var(--overlay-rgb),0.02)" : "transparent" }}>
                     <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(252,76,2,0.12)", color: "#FC4C02", flexShrink: 0 }}>{SPORT_LABEL[a.category] ?? a.category}</span>
                     <span style={{ fontSize: 12, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
                     <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{fmtDate(a.date)}</span>
@@ -3189,7 +3190,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </div>
                 ))}
                 {stravaSyncResult.imported > 10 && (
-                  <div style={{ padding: "6px 12px", borderTop: `1px solid rgba(255,255,255,0.04)`, fontSize: 11, color: C.muted }}>+ {stravaSyncResult.imported - 10} more — see History tab</div>
+                  <div style={{ padding: "6px 12px", borderTop: `1px solid rgba(var(--overlay-rgb),0.04)`, fontSize: 11, color: C.muted }}>+ {stravaSyncResult.imported - 10} more — see History tab</div>
                 )}
               </div>
             );
@@ -3211,7 +3212,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   onClick={() => handleStravaPushToggle(!stravaConnection.push_enabled)}
                   disabled={stravaPushSaving}
                   aria-pressed={!!stravaConnection.push_enabled}
-                  style={{ flexShrink: 0, width: 46, height: 26, borderRadius: 13, cursor: "pointer", padding: 3, border: `1px solid ${stravaConnection.push_enabled ? "rgba(252,76,2,0.5)" : C.border}`, background: stravaConnection.push_enabled ? "rgba(252,76,2,0.25)" : "rgba(255,255,255,0.04)", display: "flex", justifyContent: stravaConnection.push_enabled ? "flex-end" : "flex-start", alignItems: "center" }}
+                  style={{ flexShrink: 0, width: 46, height: 26, borderRadius: 13, cursor: "pointer", padding: 3, border: `1px solid ${stravaConnection.push_enabled ? "rgba(252,76,2,0.5)" : C.border}`, background: stravaConnection.push_enabled ? "rgba(252,76,2,0.25)" : "rgba(var(--overlay-rgb),0.04)", display: "flex", justifyContent: stravaConnection.push_enabled ? "flex-end" : "flex-start", alignItems: "center" }}
                 >
                   <span style={{ width: 18, height: 18, borderRadius: 9, background: stravaConnection.push_enabled ? "#FC4C02" : C.subtle, display: "block" }} />
                 </button>
@@ -3274,7 +3275,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 </button>
               ) : (
                 <button onClick={handleDisablePush}
-                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, color: C.muted, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}>
                   Uitschakelen
                 </button>
               )}
@@ -3307,7 +3308,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 disabled={addingPasskey}
                 style={{
                   width: "100%", padding: "11px 16px", borderRadius: 12,
-                  background: addingPasskey ? "rgba(255,255,255,0.03)" : C.emeraldDim,
+                  background: addingPasskey ? "rgba(var(--overlay-rgb),0.03)" : C.emeraldDim,
                   border: `1px solid ${C.emeraldBorder}`,
                   color: C.emerald, fontWeight: 800, fontSize: 13,
                   cursor: addingPasskey ? "not-allowed" : "pointer",
@@ -3329,6 +3330,50 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {t("Appearance")}
         </div>
         <Glass style={{ padding: 24 }}>
+          {/* ── Theme ── */}
+          <div style={{ marginBottom: 20 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
+              {t("Theme")}
+            </div>
+            <div style={{ display: "flex", gap: 8 }}>
+              {[
+                { id: "light",  label: t("Light")  },
+                { id: "dark",   label: t("Dark")   },
+                { id: "system", label: t("System") },
+              ].map((opt) => {
+                const active = themeMode === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    onClick={() => {
+                      setThemeMode(opt.id);
+                      localStorage.setItem(THEME_STORAGE_KEY, opt.id);
+                      applyTheme(opt.id);
+                      // Persist so the choice follows the account to another device.
+                      api.saveProfile(token, { preferences: { theme: opt.id } }).catch(() => {});
+                    }}
+                    aria-pressed={active}
+                    style={{
+                      flex: 1, padding: "9px 0", borderRadius: 12, fontWeight: 900, fontSize: 13, cursor: "pointer",
+                      border: `1px solid ${active ? C.emeraldBorder : C.border}`,
+                      background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
+                      color: active ? C.emerald : C.muted,
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                );
+              })}
+            </div>
+            <div style={{ fontSize: 11, color: C.muted, marginTop: 8, lineHeight: 1.5 }}>
+              {themeMode === "system"
+                ? t("Follows your device setting, and keeps following it.")
+                : themeMode === "light"
+                ? t("Always light, whatever your device is set to.")
+                : t("Always dark, whatever your device is set to.")}
+            </div>
+          </div>
+
           {/* ── Language toggle ── */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
@@ -3344,7 +3389,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     style={{
                       padding: "8px 20px", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: "pointer",
                       border: `1px solid ${active ? "var(--accent-border, rgba(16,185,129,0.3))" : C.border}`,
-                      background: active ? "var(--accent-dim, rgba(16,185,129,0.15))" : "rgba(255,255,255,0.04)",
+                      background: active ? "var(--accent-dim, rgba(16,185,129,0.15))" : "rgba(var(--overlay-rgb),0.04)",
                       color: active ? "var(--accent, #10b981)" : C.muted,
                     }}
                   >
@@ -3420,7 +3465,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder="Type your message here…"
                 rows={4}
-                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text, fontSize: 14, fontWeight: 500, resize: "vertical", fontFamily: "inherit", outline: "none", lineHeight: 1.5 }}
+                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontWeight: 500, resize: "vertical", fontFamily: "inherit", outline: "none", lineHeight: 1.5 }}
               />
               <button
                 disabled={feedbackSending || feedbackText.trim().length === 0}
@@ -3501,7 +3546,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     style={{
                       padding: "6px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700,
                       border: `1px solid ${cycleTrackingMode === mode ? C.emeraldBorder : C.border}`,
-                      background: cycleTrackingMode === mode ? C.emeraldDim : "rgba(255,255,255,0.03)",
+                      background: cycleTrackingMode === mode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
                       color: cycleTrackingMode === mode ? C.emerald : C.muted, cursor: "pointer",
                     }}
                   >
@@ -3519,7 +3564,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   value={lastPeriodStart}
                   max={new Date().toISOString().split("T")[0]}
                   onChange={(e) => setLastPeriodStart(e.target.value)}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 14, boxSizing: "border-box" }}
+                  style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 14, boxSizing: "border-box" }}
                 />
 
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Cycle length</div>
@@ -3528,7 +3573,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <button
                       key={d}
                       onClick={() => setCycleLength(d)}
-                      style={{ padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(255,255,255,0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                      style={{ padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
                     >
                       {d}d
                     </button>
@@ -3549,7 +3594,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 } catch { /* ignore */ }
                 setCycleSaving(false);
               }}
-              style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(255,255,255,0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
+              style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(var(--overlay-rgb),0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
             >
               {cycleSaving ? "Saving…" : "Save"}
             </button>
@@ -3577,7 +3622,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     type="date"
                     value={pregnancyDueDate}
                     onChange={(e) => setPregnancyDueDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <button
                     disabled={pregnancySaving}
@@ -3591,7 +3636,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       } catch { /* ignore */ }
                       setPregnancySaving(false);
                     }}
-                    style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : "#fbbf24", cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
+                    style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : "#fbbf24", cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
                   >
                     {pregnancySaving ? "Saving…" : "Update due date"}
                   </button>
@@ -3622,14 +3667,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     value={postnatalBirthDate}
                     max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setPostnatalBirthDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}>Cancel</button>
+                    <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>Cancel</button>
                     <button
                       disabled={!postnatalBirthDate}
                       onClick={() => setPostnatalSetupStep(2)}
-                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(255,255,255,0.03)", color: postnatalBirthDate ? "#fbbf24" : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthDate ? "#fbbf24" : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
                     >Continue</button>
                   </div>
                 </div>
@@ -3644,12 +3689,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <button
                         key={val}
                         onClick={() => setPostnatalBirthType(val)}
-                        style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${postnatalBirthType === val ? "rgba(251,191,36,0.4)" : C.border}`, background: postnatalBirthType === val ? "rgba(251,191,36,0.12)" : "rgba(255,255,255,0.03)", color: postnatalBirthType === val ? "#fbbf24" : C.muted, cursor: "pointer" }}
+                        style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${postnatalBirthType === val ? "rgba(251,191,36,0.4)" : C.border}`, background: postnatalBirthType === val ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthType === val ? "#fbbf24" : C.muted, cursor: "pointer" }}
                       >{label}</button>
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setPostnatalSetupStep(1)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}>Back</button>
+                    <button onClick={() => setPostnatalSetupStep(1)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>Back</button>
                     <button
                       disabled={postnatalSaving}
                       onClick={async () => {
@@ -3677,7 +3722,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         } catch { /* ignore */ }
                         setPostnatalSaving(false);
                       }}
-                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(255,255,255,0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : "#fbbf24", cursor: postnatalSaving ? "not-allowed" : "pointer" }}
+                      style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : "#fbbf24", cursor: postnatalSaving ? "not-allowed" : "pointer" }}
                     >{postnatalSaving ? "Saving…" : "Start postnatal mode"}</button>
                   </div>
                 </div>
@@ -3696,7 +3741,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   } catch { /* ignore */ }
                   setPregnancySaving(false);
                 }}
-                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
               >
                 Leave pregnancy mode
               </button>
@@ -3726,7 +3771,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   } catch { /* ignore */ }
                   setPostnatalSaving(false);
                 }}
-                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", color: C.muted, cursor: "pointer" }}
+                style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
               >
                 Leave postnatal mode
               </button>
@@ -3804,7 +3849,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   value={emailCode}
                   onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
                   placeholder="123456" autoFocus
-                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
                 {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3839,7 +3884,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   type="email" value={emailInput}
                   onChange={e => { setEmailInput(e.target.value); setEmailError(""); }}
                   placeholder="new@email.com" autoFocus
-                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
                 />
                 {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3873,7 +3918,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   value={emailCode}
                   onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
                   placeholder="123456" autoFocus
-                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
                 {emailError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{emailError}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3947,7 +3992,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   onChange={e => { setDeleteText(e.target.value); setDeleteError(""); }}
                   placeholder="delete"
                   autoFocus
-                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(255,255,255,0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
                 />
                 {deleteError && <div style={{ fontSize:12, color:"#f87171", marginTop:-12 }}>{deleteError}</div>}
                 <div style={{ display:"flex", gap:10 }}>

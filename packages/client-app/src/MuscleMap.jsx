@@ -400,8 +400,8 @@ export function MuscleMap({
   gender = "male",
   primaryColor = "#10b981",
   secondaryColor = "rgba(16,185,129,0.32)",
-  baseColor = "rgba(255,255,255,0.06)",
-  lineColor = "rgba(255,255,255,0.55)",
+  baseColor = "rgba(var(--overlay-rgb),0.06)",
+  lineColor = "rgba(var(--overlay-rgb),0.55)",
   showLabels = true,
 }) {
   const isMale = gender !== "female";

@@ -96,6 +96,36 @@ else
   fail "App.jsx terms gate catch block may dismiss gate on error"
 fi
 
+# ── Theme tokens (light/dark) ─────────────────────────────────────────────────
+# Every theme-dependent colour must be a CSS custom property, or it will not
+# invert on light. The dark design used white-at-low-alpha for every raised
+# surface, border and divider; those are now rgba(var(--overlay-rgb),a).
+_hard=$(grep -roE "rgba\(255,\s*255,\s*255," packages/client-app/src/*.jsx 2>/dev/null | wc -l | tr -d ' ')
+if [ "$_hard" = "0" ]; then
+  ok "no hardcoded white overlays in components"
+else
+  fail "$_hard hardcoded rgba(255,255,255,...) in components — use rgba(var(--overlay-rgb),a)"
+fi
+
+# -n (not -o) so the line context survives for the exclusions below:
+#   ErrorBoundary renders before the theme is applied, and themeValue()/var()
+#   fallbacks are literals on purpose.
+_hex=$(grep -rnE "#(020617|f8fafc|64748b|334155)" packages/client-app/src/*.jsx 2>/dev/null \
+  | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" | wc -l | tr -d ' ')
+if [ "$_hex" = "0" ]; then
+  ok "no hardcoded theme hex in components"
+else
+  fail "$_hex hardcoded theme hex in components — use the C tokens"
+fi
+
+# index.html resolves the theme inline before the bundle loads; its --bg values
+# must match THEMES in tokens.js or the page flashes the wrong ground colour.
+if grep -q '"--bg": "#f7f8fa"' packages/client-app/index.html && grep -q '"--bg":           "#f7f8fa"' packages/client-app/src/tokens.js; then
+  ok "index.html pre-paint palette matches tokens.js"
+else
+  fail "index.html inline theme palette is out of step with tokens.js THEMES"
+fi
+
 # ── Session/localStorage symmetry (login <-> app redirect loop) ───────────────
 # logout() must AWAIT the cookie clear before navigating. Fire-and-forget lets the
 # navigation abort the request, leaving a live cookie with no jf_user_id — which

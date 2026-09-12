@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { C, display, eyebrow, mono } from "./tokens.js";
+import { C, display, eyebrow, mono , overlay, themeValue} from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
@@ -33,16 +33,16 @@ async function shareProgressImage(history, streak, accentHex) {
   const ctx = canvas.getContext("2d");
 
   // Background
-  ctx.fillStyle = "#020617";
+  ctx.fillStyle = themeValue("--bg", "#020617");
   ctx.fillRect(0, 0, W, H);
 
   // Subtle card border
-  ctx.strokeStyle = "rgba(255,255,255,0.06)";
+  ctx.strokeStyle = overlay(0.06);
   ctx.lineWidth = 1;
   ctx.strokeRect(0.5, 0.5, W - 1, H - 1);
 
   // Title
-  ctx.fillStyle = "#f8fafc";
+  ctx.fillStyle = themeValue("--text", "#f8fafc");
   ctx.font = "900 22px 'Barlow Condensed', sans-serif";
   ctx.fillText("MY JUSTFIT PROGRESS", 24, 46);
 
@@ -53,7 +53,7 @@ async function shareProgressImage(history, streak, accentHex) {
   ctx.font = "700 12px 'Inter Tight', sans-serif";
   ctx.fillText(`${streak} day streak`, 34, 77);
 
-  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  ctx.fillStyle = overlay(0.06);
   roundRect(ctx, 142, 58, 120, 28, 8); ctx.fill();
   ctx.fillStyle = "#94a3b8";
   ctx.font = "700 12px 'Inter Tight', sans-serif";
@@ -66,7 +66,7 @@ async function shareProgressImage(history, streak, accentHex) {
   // Median reference line
   if (median > 0) {
     const medY = barAreaTop + barAreaH - (median / maxCount) * barAreaH;
-    ctx.strokeStyle = "rgba(255,255,255,0.1)";
+    ctx.strokeStyle = overlay(0.1);
     ctx.setLineDash([3, 2]);
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -85,7 +85,7 @@ async function shareProgressImage(history, streak, accentHex) {
     const x = barChartLeft + i * gap + (gap - bw) / 2;
     const bh = count > 0 ? Math.max(4, (count / maxCount) * barAreaH) : 2;
     const y = barAreaTop + barAreaH - bh;
-    ctx.fillStyle = isCurrent ? accentHex : "rgba(255,255,255,0.18)";
+    ctx.fillStyle = isCurrent ? accentHex : overlay(0.18);
     ctx.beginPath();
     ctx.roundRect(x, y, bw, bh, 2);
     ctx.fill();
@@ -213,7 +213,7 @@ function TrajectoryChart({ history, accentHex }) {
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
       {median > 0 && (
         <line x1={0} y1={barArea - (median / maxCount) * barArea} x2={W} y2={barArea - (median / maxCount) * barArea}
-          stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3 2" />
+          style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
       )}
       {weeks.map((wk, i) => {
         const count = counts[i];
@@ -226,7 +226,7 @@ function TrajectoryChart({ history, accentHex }) {
         return (
           <g key={wk}>
             <rect x={x} y={y} width={bw} height={bh} rx={2}
-              fill={isCurrent ? accentHex : "rgba(255,255,255,0.18)"} />
+              fill={isCurrent ? accentHex : "rgba(var(--overlay-rgb),0.18)"} />
             <text x={x + bw / 2} y={H - 1} textAnchor="middle"
               fontSize={7} fontWeight="800" fontFamily="monospace"
               fill={isCurrent ? accentHex : "rgba(100,116,139,0.45)"}>
@@ -272,14 +272,14 @@ function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
             return `${pt.x},${pt.y}`;
           }).join(" ")}
           fill="none"
-          stroke="rgba(255,255,255,0.06)"
+          style={{ stroke: "rgba(var(--overlay-rgb),0.06)" }}
           strokeWidth="1"
         />
       ))}
       {/* Spokes */}
       {RADAR_AXES.map((_, i) => {
         const pt = radarPoint(cx, cy, maxR, i, RADAR_AXES.length);
-        return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} stroke="rgba(255,255,255,0.06)" strokeWidth="1" />;
+        return <line key={i} x1={cx} y1={cy} x2={pt.x} y2={pt.y} style={{ stroke: "rgba(var(--overlay-rgb),0.06)" }} strokeWidth="1" />;
       })}
       {/* Goal target polygon */}
       {goalScores && (
@@ -359,7 +359,7 @@ function SleepTrendChart({ checkins, accentHex }) {
   return (
     <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
       <line x1={0} y1={barAreaH - (7 / maxVal) * barAreaH} x2={W} y2={barAreaH - (7 / maxVal) * barAreaH}
-        stroke="rgba(255,255,255,0.1)" strokeWidth="1" strokeDasharray="3 2" />
+        style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
       {values.map((v, i) => {
         if (v == null) return null;
         const h = (v / maxVal) * barAreaH;
@@ -369,8 +369,8 @@ function SleepTrendChart({ checkins, accentHex }) {
             fill={color} rx="1" opacity="0.8" />
         );
       })}
-      <text x={0} y={H} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="monospace">30 dagen</text>
-      <text x={W} y={H} fill="rgba(255,255,255,0.25)" fontSize="8" fontFamily="monospace" textAnchor="end">vandaag</text>
+      <text x={0} y={H} style={{ fill: "rgba(var(--overlay-rgb),0.25)" }} fontSize="8" fontFamily="monospace">30 dagen</text>
+      <text x={W} y={H} style={{ fill: "rgba(var(--overlay-rgb),0.25)" }} fontSize="8" fontFamily="monospace" textAnchor="end">vandaag</text>
     </svg>
   );
 }
@@ -598,7 +598,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               const isCurrent = i === weeklyOutcome.sparkCounts.length - 1;
               const h = count > 0 ? Math.max(4, Math.round((count / maxSpark) * 28)) : 3;
               return (
-                <div key={i} style={{ width: 8, height: h, borderRadius: 2, background: isCurrent ? "var(--accent)" : "rgba(255,255,255,0.14)", alignSelf: "flex-end" }} />
+                <div key={i} style={{ width: 8, height: h, borderRadius: 2, background: isCurrent ? "var(--accent)" : "rgba(var(--overlay-rgb),0.14)", alignSelf: "flex-end" }} />
               );
             })}
           </div>
@@ -636,12 +636,12 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
             {/* Goal-fit ring */}
             <svg width={36} height={36} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
-              <circle cx={18} cy={18} r={14} fill="none" stroke="rgba(var(--accent-rgb),0.12)" strokeWidth={3} />
-              <circle cx={18} cy={18} r={14} fill="none" stroke="var(--accent)" strokeWidth={3}
+              <circle cx={18} cy={18} r={14} fill="none" style={{ stroke: "rgba(var(--accent-rgb),0.12)" }} strokeWidth={3} />
+              <circle cx={18} cy={18} r={14} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth={3}
                 strokeDasharray={`${(progression.goal_fit / 100) * 87.96} 87.96`}
                 strokeLinecap="round" transform="rotate(-90 18 18)" />
               <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight="900"
-                fontFamily="monospace" fill="var(--accent)">{progression.goal_fit}%</text>
+                fontFamily="monospace" style={{ fill: "var(--accent)" }}>{progression.goal_fit}%</text>
             </svg>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
@@ -681,7 +681,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         style={{
                           padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
                           border: `1px solid ${active ? C.emeraldBorder : C.border}`,
-                          background: active ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                          background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
                           color: active ? C.emerald : C.muted,
                         }}
                       >
@@ -694,7 +694,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     style={{
                       marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
                       border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
-                      background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                      background: showCompare ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
                       color: showCompare ? C.emerald : C.muted,
                     }}
                   >
@@ -723,7 +723,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     style={{
                       padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
                       border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
-                      background: showCompare ? C.emeraldDim : "rgba(255,255,255,0.04)",
+                      background: showCompare ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
                       color: showCompare ? C.emerald : C.muted,
                     }}
                   >
@@ -777,7 +777,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
                           {Object.entries(assessment.last.scores).map(([axis, score]) => (
                             <span key={axis} style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 8,
-                                     background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                                     background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
                               {({ push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cond.", mobility: "Mob." })[axis] ?? axis} {score}
                             </span>
                           ))}
@@ -998,7 +998,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               { z: 4, name: 'Zone 4', desc: 'Drempelzone',     pctMin: 91,  pctMax: 105 },
               { z: 5, name: 'Zone 5', desc: 'VO2max',          pctMin: 106, pctMax: 150 },
             ];
-            const ZCOLORS = ['#64748b', accentHex, '#f59e0b', '#f97316', '#ef4444'];
+            const ZCOLORS = [C.muted, accentHex, '#f59e0b', '#f97316', '#ef4444'];
             return (
               <div style={{ marginBottom: 20 }}>
                 <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>
@@ -1119,7 +1119,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {historyTruncated && (
             <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 16, background: "rgba(var(--accent-rgb),0.06)", border: "1px solid rgba(var(--accent-rgb),0.2)" }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 6 }}>Pro — Onbeperkte geschiedenis</div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginBottom: 12, lineHeight: 1.6 }}>Je ziet de laatste 30 dagen. Upgrade naar Pro voor je volledige trainingshistorie.</div>
+              <div style={{ fontSize: 12, color: "rgba(var(--overlay-rgb),0.55)", marginBottom: 12, lineHeight: 1.6 }}>Je ziet de laatste 30 dagen. Upgrade naar Pro voor je volledige trainingshistorie.</div>
               <button
                 onClick={onUpgrade}
                 style={{ padding: "9px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 12, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}
@@ -1142,7 +1142,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 <button
                   onClick={handleRecompute}
                   disabled={recomputing}
-                  style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
+                  style={{ padding: "10px 18px", borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: recomputing ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, opacity: recomputing ? 0.6 : 1 }}
                 >
                   {recomputing ? t("Recomputing\u2026") : t("Rebuild scores from history")}
                 </button>

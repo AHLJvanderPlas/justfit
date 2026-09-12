@@ -30,7 +30,7 @@ function Ring({ fraction, label, sub, color }) {
   return (
     <div style={{ position: "relative", width: 200, height: 200 }}>
       <svg width="200" height="200" viewBox="0 0 200 200">
-        <circle cx="100" cy="100" r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth="10" />
+        <circle cx="100" cy="100" r={r} fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.07)" }} strokeWidth="10" />
         <circle
           cx="100" cy="100" r={r} fill="none" stroke={color} strokeWidth="10"
           strokeLinecap="round" strokeDasharray={circ}
@@ -166,7 +166,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
               key={p.id}
               onClick={() => { setFocus(p.id); setTestIdx(0); setResults([]); setPhase("brief"); }}
               style={{ textAlign: "left", padding: "16px 18px", borderRadius: 18, cursor: "pointer",
-                       border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}
+                       border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text }}
             >
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12 }}>
                 <span style={{ fontSize: 16, fontWeight: 800 }}>{p.label}</span>
@@ -211,7 +211,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
                 <button key={v.slug} onClick={() => setVariant(v.slug)}
                   style={{ padding: "9px 14px", borderRadius: 12, fontSize: 13, fontWeight: 700, cursor: "pointer",
                            border: `1px solid ${variant === v.slug ? accentHex : C.border}`,
-                           background: variant === v.slug ? `${accentHex}1f` : "rgba(255,255,255,0.04)",
+                           background: variant === v.slug ? `${accentHex}1f` : "rgba(var(--overlay-rgb),0.04)",
                            color: variant === v.slug ? accentHex : C.muted }}>
                   {v.label}
                 </button>
@@ -256,7 +256,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
         {!isHold && (
           <button onClick={tap} aria-label="Count one rep"
             style={{ width: "100%", minHeight: 200, borderRadius: 24, cursor: "pointer",
-                     border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)",
+                     border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)",
                      color: C.muted, fontSize: 15, fontWeight: 800 }}>
             Tap for each rep
           </button>
@@ -264,7 +264,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
 
         <button onClick={stopTest}
           style={{ width: "100%", padding: "15px", borderRadius: 16, fontSize: 15, fontWeight: 800, cursor: "pointer",
-                   border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text }}>
+                   border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text }}>
           {isHold ? "I dropped — stop" : "Done"}
         </button>
       </div>,
@@ -286,7 +286,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
             type="number" inputMode="numeric" value={draft}
             onChange={(e) => setDraft(e.target.value)}
             style={{ flex: 1, padding: "16px 18px", borderRadius: 14, fontSize: 28, fontWeight: 900,
-                     border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.text,
+                     border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text,
                      fontVariantNumeric: "tabular-nums" }}
           />
           <span style={{ fontSize: 15, fontWeight: 700, color: C.muted, minWidth: 62 }}>
@@ -327,7 +327,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
             return (
               <div key={r.test_id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "13px 16px",
                      borderTop: i === 0 ? "none" : `1px solid ${C.border}`,
-                     background: i % 2 === 0 ? "rgba(255,255,255,0.02)" : "transparent" }}>
+                     background: i % 2 === 0 ? "rgba(var(--overlay-rgb),0.02)" : "transparent" }}>
                 <span style={{ flex: 1, fontSize: 14, fontWeight: 800, color: C.text }}>{AXIS_LABELS[r.axis] ?? r.axis}</span>
                 <span style={{ fontSize: 13, color: C.muted, fontVariantNumeric: "tabular-nums" }}>
                   {r.raw}{r.test_id === "core_hold" ? "s" : ""}

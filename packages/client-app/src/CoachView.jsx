@@ -246,7 +246,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           <button
             onClick={handleSignConsent}
             disabled={consentSigning}
-            style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: "none", background: "var(--accent)", color: "#020617", fontFamily: "inherit", fontWeight: 900, fontSize: 15, cursor: consentSigning ? "wait" : "pointer", opacity: consentSigning ? 0.7 : 1 }}
+            style={{ width: "100%", padding: "14px 20px", borderRadius: 14, border: "none", background: "var(--accent)", color: C.onAccent, fontFamily: "inherit", fontWeight: 900, fontSize: 15, cursor: consentSigning ? "wait" : "pointer", opacity: consentSigning ? 0.7 : 1 }}
           >
             {consentSigning ? "Bezig…" : "Akkoord en doorgaan →"}
           </button>
@@ -280,7 +280,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           </div>
           <button
             onClick={() => onNavigateSettings()}
-            style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 99, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", flexShrink: 0, marginTop: 2 }}
+            style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 99, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", flexShrink: 0, marginTop: 2 }}
           >
             <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
@@ -319,7 +319,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   display: "grid", gridTemplateColumns: "18px 1fr auto",
                   gap: 12, alignItems: "center", width: "100%",
                   padding: "13px 16px", cursor: available ? "pointer" : "default",
-                  background: active ? "rgba(var(--accent-rgb),0.08)" : "rgba(255,255,255,0.03)",
+                  background: active ? "rgba(var(--accent-rgb),0.08)" : "rgba(var(--overlay-rgb),0.03)",
                   border: `1px solid ${active ? "var(--accent-border)" : C.border}`,
                   borderRadius: 14, fontFamily: "inherit",
                   opacity: available ? 1 : 0.4,
@@ -365,7 +365,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             <div>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
               <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
-              <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+              <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
                 {exp.label}
               </span>
             </div>
@@ -415,7 +415,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const done = sessionInWeek >= s.n;
                   const next = sessionInWeek === s.n - 1;
                   return (
-                    <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? "var(--accent-dim)" : next ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.02)", border: `1px solid ${done ? "var(--accent-border)" : next ? C.border : "rgba(255,255,255,0.04)"}` }}>
+                    <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? "var(--accent-dim)" : next ? "rgba(var(--overlay-rgb),0.05)" : "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${done ? "var(--accent-border)" : next ? C.border : "rgba(var(--overlay-rgb),0.04)"}` }}>
                       <div style={{ fontSize: 9, fontWeight: 900, color: done ? "var(--accent)" : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
                       <div style={{ fontSize: 9, color: done ? "var(--accent)" : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
                       {done && <div style={{ fontSize: 9, color: "var(--accent)" }}>✓</div>}
@@ -428,7 +428,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const done = unlockedTargets.includes(String(t));
                   const isCurrent = t === (rc.target_km ?? 5);
                   return (
-                    <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? "var(--accent-border)" : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.02)", color: isCurrent ? "var(--accent)" : done ? C.muted : C.subtle }}>
+                    <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? "var(--accent-border)" : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(var(--overlay-rgb),0.02)", color: isCurrent ? "var(--accent)" : done ? C.muted : C.subtle }}>
                       {done ? "✓ " : ""}{t}km
                     </div>
                   );
@@ -558,7 +558,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const blockWeek = ((weekNumber - 1) % 7) + 1;
                   const phase = blockWeek <= 2 ? "BASE" : blockWeek <= 5 ? "BUILD" : blockWeek === 6 ? "RECOVERY" : "PEAK";
                   return (
-                    <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
+                    <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
                       {phase}
                     </div>
                   );
@@ -574,7 +574,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       </button>
                       <button
                         onClick={() => { const until = nowMs + 7 * 86400000; const _u = getUserId(); localStorage.setItem(_u ? `jf_ftp_snooze_until_${_u}` : 'jf_ftp_snooze_until', String(until)); setFtpSnoozedUntil(until); }}
-                        style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, color: C.muted }}
+                        style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, color: C.muted }}
                       >
                         Remind me next week
                       </button>
@@ -587,11 +587,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <div>
                 <svg viewBox={`0 0 ${pmcChartW} ${pmcChartH}`} width="100%" height={pmcChartH} style={{ display: "block", overflow: "visible" }}>
                   <polyline points={atlPts} fill="none" stroke="#f59e0b" strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
-                  <polyline points={ctlPts} fill="none" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={ctlPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--accent)" }}>
-                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke="var(--accent)" strokeWidth="2" strokeLinecap="round" /></svg>
+                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" /></svg>
                     CTL fitness
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "#f59e0b" }}>
@@ -618,11 +618,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <div style={{ marginTop: 14 }}>
                 <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</div>
                 <svg viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
-                  <polyline points={ftpPts} fill="none" stroke="var(--accent)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  <polyline points={ftpPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   {ftpHistory.map((h, i) => {
                     const x = (i / (ftpSparkN - 1)) * ftpSparkW;
                     const y = ftpSparkH - ((h.ftp_watts - ftpMin) / ftpRange) * (ftpSparkH - 8) - 4;
-                    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="3" fill="var(--accent)" />;
+                    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="3" style={{ fill: "var(--accent)" }} />;
                   })}
                 </svg>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
@@ -744,7 +744,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     </div>
                   ))}
                   {weakest && (
-                    <div style={{ marginTop: 12, fontSize: 12, color: C.muted, padding: '9px 12px', borderRadius: 10, background: 'rgba(255,255,255,0.03)', border: `1px solid ${C.border}` }}>
+                    <div style={{ marginTop: 12, fontSize: 12, color: C.muted, padding: '9px 12px', borderRadius: 10, background: 'rgba(var(--overlay-rgb),0.03)', border: `1px solid ${C.border}` }}>
                       Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
                     </div>
                   )}
@@ -833,7 +833,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 {(cooperBenchmark || maxOwnedKg !== null) && (
                   <>
                     <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
-                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cooper test</div>
                         {cooperBenchmark
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{milClL(track, cooperLevel)}</span></div>
@@ -846,7 +846,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                           </div>
                         )}
                       </div>
-                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                      <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>March weight</div>
                         {maxOwnedKg !== null
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>max</span></div>
@@ -921,7 +921,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {activeSupport ? (
               <button
                 onClick={() => setSupportSheet(true)}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: C.muted, textAlign: "left" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 12, fontWeight: 700, color: C.muted, textAlign: "left" }}
               >
                 {activeSupport.status === 'accepted' && activeSupport.reply_message
                   ? "✓ Trainer heeft gereageerd"
@@ -932,7 +932,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             ) : (trainer.availability_status !== 'offline') && (
               <button
                 onClick={() => { setSupportSheet(true); setSupportError(null); }}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.text }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.text }}
               >
                 Vraag om hulp
               </button>
@@ -940,24 +940,24 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* Berichten button */}
             <button
               onClick={handleOpenMessages}
-              style={{ position: "relative", flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${unreadCount > 0 ? 'rgba(var(--accent-rgb),0.4)' : C.border}`, background: unreadCount > 0 ? 'rgba(var(--accent-rgb),0.06)' : "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : C.muted }}
+              style={{ position: "relative", flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${unreadCount > 0 ? 'rgba(var(--accent-rgb),0.4)' : C.border}`, background: unreadCount > 0 ? 'rgba(var(--accent-rgb),0.06)' : "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : C.muted }}
             >
               Berichten
               {unreadCount > 0 && (
-                <span style={{ position: "absolute", top: 6, right: 8, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: '#020617', fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{unreadCount}</span>
+                <span style={{ position: "absolute", top: 6, right: 8, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: C.onAccent, fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{unreadCount}</span>
               )}
             </button>
             {/* Wissel van trainer button — hide if only 1 trainer or pending switch */}
             {gymTeam && gymTeam.filter(t => !t.is_assigned).length > 0 && !pendingSwitch && (
               <button
                 onClick={() => { setSwitchSheet(true); setSwitchStep("select"); setSwitchTarget(null); setSwitchMsg(""); setSwitchError(null); }}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.muted }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: C.muted }}
               >
                 Wissel van trainer
               </button>
             )}
             {pendingSwitch && (
-              <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)" }}>
+              <div style={{ flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#f59e0b", marginBottom: 4 }}>◐ Wisselverzoek in behandeling</div>
                 <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Naar: {pendingSwitch.to_trainer_name} · {Math.round((nowMs - pendingSwitch.created_at_ms) / 86400000)} dagen geleden</div>
                 <button onClick={handleCancelSwitch} disabled={cancellingSwitch} style={{ background: "none", border: "none", padding: 0, cursor: "pointer", fontSize: 11, fontWeight: 700, color: C.muted, fontFamily: "inherit" }}>
@@ -1099,7 +1099,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       {completed}/{total}
                     </div>
                   </div>
-                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(255,255,255,0.06)', marginBottom: 12 }}>
+                  <div style={{ height: 3, borderRadius: 2, background: 'rgba(var(--overlay-rgb),0.06)', marginBottom: 12 }}>
                     <div style={{ height: '100%', borderRadius: 2, background: 'var(--accent)', width: `${pct}%` }} />
                   </div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
@@ -1117,7 +1117,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                           display: 'flex', alignItems: 'center', gap: 10,
                           padding: isToday ? '10px 12px' : '7px 12px',
                           borderRadius: 10,
-                          background: isToday ? 'rgba(var(--accent-rgb),0.08)' : 'rgba(255,255,255,0.02)',
+                          background: isToday ? 'rgba(var(--accent-rgb),0.08)' : 'rgba(var(--overlay-rgb),0.02)',
                           border: `1px solid ${isToday ? 'var(--accent-border)' : C.border}`,
                         }}>
                           <span style={{ fontSize: 13, fontWeight: 900, color: statusColor, width: 14, textAlign: 'center', flexShrink: 0 }}>{statusIcon}</span>
@@ -1155,7 +1155,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <button
                 key={t.user_id}
                 onClick={() => setProfileSheet(t)}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, border: `1px solid ${t.is_assigned ? "var(--accent-border)" : C.border}`, background: t.is_assigned ? "rgba(var(--accent-rgb),0.06)" : "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 12, border: `1px solid ${t.is_assigned ? "var(--accent-border)" : C.border}`, background: t.is_assigned ? "rgba(var(--accent-rgb),0.06)" : "rgba(var(--overlay-rgb),0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
               >
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                   {t.photo_url
@@ -1205,10 +1205,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 ) : (
                   <div style={{ fontSize: 13, color: C.muted, marginBottom: 16 }}>● Wachten op reactie van een trainer…</div>
                 )}
-                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}`, fontSize: 13, color: C.muted, marginBottom: 16 }}>
+                <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, fontSize: 13, color: C.muted, marginBottom: 16 }}>
                   Jouw vraag: "{activeSupport.message}"
                 </div>
-                <button onClick={() => setSupportSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>
+                <button onClick={() => setSupportSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>
                   Sluiten
                 </button>
               </>
@@ -1216,7 +1216,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <>
                 <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VRAAG OM HULP</div>
                 {trainer && (
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                     {availDot(trainer.availability_status)}
                     <span style={{ fontSize: 13, color: C.muted }}>{trainer.display_name ?? "Trainer"} — {trainer.availability_status === 'available' ? "Beschikbaar" : "Bezig"}</span>
                   </div>
@@ -1227,7 +1227,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   placeholder="Schrijf je vraag…"
                   maxLength={500}
                   rows={4}
-                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
+                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
                 />
                 <div style={{ fontSize: 11, color: C.muted, textAlign: "right", marginBottom: 12 }}>{supportMsg.length} / 500</div>
                 {gymModel === 'zzp' && gymTeam && gymTeam.filter(t => !t.is_assigned && t.availability_status !== 'offline').length > 0 && (
@@ -1241,7 +1241,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 )}
                 {supportError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{supportError}</div>}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setSupportSheet(false)} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
+                  <button onClick={() => setSupportSheet(false)} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
                   <button onClick={handleSendSupport} disabled={supportSending || !supportMsg.trim()} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: supportMsg.trim() ? "var(--accent)" : C.subtle, cursor: supportMsg.trim() ? "pointer" : "default", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: supportMsg.trim() ? "#fff" : C.muted }}>
                     {supportSending ? "Versturen…" : "Verstuur →"}
                   </button>
@@ -1268,7 +1268,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       <button
                         key={t.user_id}
                         onClick={() => { setSwitchTarget(t); setSwitchStep("message"); setSwitchError(null); }}
-                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
+                        style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", cursor: "pointer", fontFamily: "inherit", textAlign: "left" }}
                       >
                         <div style={{ width: 44, height: 44, borderRadius: 12, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
                           {t.photo_url ? <img src={t.photo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <span style={{ fontSize: 18, color: C.muted }}>👤</span>}
@@ -1282,7 +1282,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     );
                   })}
                 </div>
-                <button onClick={() => setSwitchSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
+                <button onClick={() => setSwitchSheet(false)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Annuleren</button>
               </>
             ) : (
               <>
@@ -1293,16 +1293,16 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   placeholder="Optioneel bericht aan de gym…"
                   maxLength={300}
                   rows={3}
-                  style={{ width: "100%", background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 12 }}
+                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 12 }}
                 />
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(255,255,255,0.03)", border: `1px solid ${C.border}` }}>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                   {gymModel === 'zzp'
                     ? `Je verzoek gaat naar jouw huidige trainer${trainer?.display_name ? ", " + trainer.display_name : ""}.`
                     : "Je verzoek gaat naar de eigenaar van de gym. Je hoort zo snel mogelijk terug."}
                 </div>
                 {switchError && <div style={{ fontSize: 12, color: "#ef4444", marginBottom: 10 }}>{switchError}</div>}
                 <div style={{ display: "flex", gap: 10 }}>
-                  <button onClick={() => setSwitchStep("select")} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Terug</button>
+                  <button onClick={() => setSwitchStep("select")} style={{ flex: 1, padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Terug</button>
                   <button onClick={handleSendSwitch} disabled={switchSending} style={{ flex: 2, padding: "13px", borderRadius: 12, border: "none", background: "var(--accent)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: "#fff" }}>
                     {switchSending ? "Versturen…" : "Verstuur verzoek →"}
                   </button>
@@ -1328,7 +1328,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 {profileSheet.specialties?.length > 0 && (
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     {profileSheet.specialties.map(s => (
-                      <span key={s} style={{ padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>{s}</span>
+                      <span key={s} style={{ padding: "3px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>{s}</span>
                     ))}
                   </div>
                 )}
@@ -1341,7 +1341,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {profileSheet.bio && (
               <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, fontStyle: "italic", marginBottom: 20 }}>"{profileSheet.bio}"</div>
             )}
-            <button onClick={() => setProfileSheet(null)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Sluiten</button>
+            <button onClick={() => setProfileSheet(null)} style={{ width: "100%", padding: "13px", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 14, fontWeight: 700, color: C.muted }}>Sluiten</button>
           </div>
         </div>
       )}
@@ -1371,7 +1371,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               )}
               {messages.map(m => (
                 <div key={m.id} style={{ display: "flex", flexDirection: "column", alignItems: m.is_mine ? "flex-end" : "flex-start" }}>
-                  <div style={{ maxWidth: "78%", padding: "10px 13px", borderRadius: m.is_mine ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.is_mine ? 'var(--accent)' : C.bgCard, border: m.is_mine ? "none" : `1px solid ${C.border}`, fontSize: 13, color: m.is_mine ? "#020617" : C.text, lineHeight: 1.5 }}>
+                  <div style={{ maxWidth: "78%", padding: "10px 13px", borderRadius: m.is_mine ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.is_mine ? 'var(--accent)' : C.bgCard, border: m.is_mine ? "none" : `1px solid ${C.border}`, fontSize: 13, color: m.is_mine ? C.onAccent : C.text, lineHeight: 1.5 }}>
                     {m.body}
                   </div>
                   <div style={{ fontSize: 10, color: C.muted, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
@@ -1393,7 +1393,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <button
                 onClick={handleSendMessage}
                 disabled={msgSending || !msgInput.trim()}
-                style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: 'var(--accent)', color: "#020617", fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: (msgSending || !msgInput.trim()) ? "not-allowed" : "pointer", opacity: (msgSending || !msgInput.trim()) ? 0.5 : 1 }}
+                style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: 'var(--accent)', color: C.onAccent, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: (msgSending || !msgInput.trim()) ? "not-allowed" : "pointer", opacity: (msgSending || !msgInput.trim()) ? 0.5 : 1 }}
               >
                 {msgSending ? "…" : "→"}
               </button>

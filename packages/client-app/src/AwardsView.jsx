@@ -1,36 +1,25 @@
 // ─── Lazy-loaded chunk — not on the critical path ─────────────────────────────
 import { useState } from "react";
 import { Icons } from "./icons.jsx";
+import { C } from "./tokens.js";
 
-const C = {
-  bg: "#020617",
-  bgCard: "rgba(255,255,255,0.04)",
-  border: "rgba(255,255,255,0.08)",
-  borderHover: "rgba(255,255,255,0.14)",
-  emerald: "var(--accent)",
-  emeraldDim: "var(--accent-dim)",
-  emeraldBorder: "var(--accent-border)",
-  text: "#f8fafc",
-  muted: "#64748b",
-  subtle: "#334155",
-};
 
 // ── Award row component ───────────────────────────────────────────────────────
 function AwardRow({ award, state, first }) {
   const Ic = Icons[award.icon] || Icons.spark;
   const iconWrap = {
     earned: { width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 12, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", flexShrink: 0 },
-    next:   { width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 12, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", flexShrink: 0 },
-    locked: { width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 12, background: "transparent", border: "1px dashed #334155", flexShrink: 0 },
+    next:   { width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.04)", border: "1px solid rgba(var(--overlay-rgb),0.08)", flexShrink: 0 },
+    locked: { width: 40, height: 40, display: "grid", placeItems: "center", borderRadius: 12, background: "transparent", border: `1px dashed ${C.subtle}`, flexShrink: 0 },
   };
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 14, padding: "14px 16px", borderTop: first ? "none" : "1px solid rgba(255,255,255,0.08)", alignItems: "center" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "40px 1fr", gap: 14, padding: "14px 16px", borderTop: first ? "none" : "1px solid rgba(var(--overlay-rgb),0.08)", alignItems: "center" }}>
       <div style={iconWrap[state]}>
-        {state === "earned" ? <Ic size={20} c="var(--accent)" /> : state === "next" ? <Ic size={20} c="#64748b" /> : <Icons.lock size={16} c="#334155" />}
+        {state === "earned" ? <Ic size={20} c="var(--accent)" /> : state === "next" ? <Ic size={20} c={C.muted} /> : <Icons.lock size={16} c={C.subtle} />}
       </div>
       <div>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase", color: state === "locked" ? "#334155" : "#f8fafc" }}>{award.title}</div>
-        <div style={{ fontSize: 12, color: "#64748b", marginTop: 3 }}>
+        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase", color: state === "locked" ? C.subtle : C.text }}>{award.title}</div>
+        <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
           {state === "earned" && "Earned"}
           {state === "next" && (award.deltaText ? `${award.deltaText} to go` : award.req)}
           {state === "locked" && award.req}

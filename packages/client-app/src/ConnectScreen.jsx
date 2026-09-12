@@ -35,7 +35,7 @@ export default function ConnectScreen({ connectToken }) {
     display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
     padding: 'max(40px, calc(env(safe-area-inset-top) + 20px)) 24px 48px',
   };
-  const card = { width: '100%', maxWidth: 480, borderRadius: 28, background: 'rgba(255,255,255,0.04)', border: `1px solid ${C.border}`, padding: 32 };
+  const card = { width: '100%', maxWidth: 480, borderRadius: 28, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px solid ${C.border}`, padding: 32 };
   const goHome = () => { window.history.replaceState({}, '', '/'); window.location.href = '/'; };
 
   if (loading) return (

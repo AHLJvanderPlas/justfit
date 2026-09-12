@@ -148,7 +148,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
           onClick={handleStart}
           disabled={loading}
           style={{ width: "100%", padding: "16px 0", borderRadius: 16, fontFamily: "inherit", fontWeight: 900, fontSize: 16, cursor: loading ? "not-allowed" : "pointer",
-            background: loading ? "rgba(255,255,255,0.06)" : "var(--accent)", color: loading ? C.muted : "#fff", border: "none", marginBottom: 12 }}
+            background: loading ? "rgba(var(--overlay-rgb),0.06)" : "var(--accent)", color: loading ? C.muted : "#fff", border: "none", marginBottom: 12 }}
         >
           {loading ? "Doorsturen naar betaling…" : "Start nu Pro →"}
         </button>

@@ -146,8 +146,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             {weekOffset === 0 ? t('This Week') : weekOffset === 1 ? t('Next Week') : weekOffset === -1 ? t('Last Week') : `${weekOffset > 0 ? '+' : ''}${weekOffset}w`}
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => setWeekOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: C.muted }}>‹</button>
-            <button onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: weekOffset >= 1 ? "not-allowed" : "pointer", border: `1px solid ${C.border}`, background: "rgba(255,255,255,0.04)", color: weekOffset >= 1 ? C.subtle : C.muted }}>›</button>
+            <button onClick={() => setWeekOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted }}>‹</button>
+            <button onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: weekOffset >= 1 ? "not-allowed" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: weekOffset >= 1 ? C.subtle : C.muted }}>›</button>
           </div>
         </div>
         <div style={{ fontSize: 13, color: C.muted }}>{weekOffset === 0 ? t('Your last 7 days at a glance') : weekOffset > 0 ? t('Upcoming plan preview') : t('Past week history')}</div>
@@ -175,7 +175,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                   ? C.emeraldDim
                   : done
                     ? "rgba(var(--accent-rgb),0.06)"
-                    : "rgba(255,255,255,0.02)",
+                    : "rgba(var(--overlay-rgb),0.02)",
                 border: `1px solid ${isToday ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`,
               }}
             >
@@ -195,7 +195,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                     ? C.emerald
                     : isFuture
                       ? "transparent"
-                      : "rgba(255,255,255,0.1)",
+                      : "rgba(var(--overlay-rgb),0.1)",
                   border: done ? "none" : isFuture ? `1px dashed ${C.subtle}` : `1px solid ${C.subtle}`,
                 }}
               />
@@ -266,7 +266,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       </span>
                     </div>
                     {isRest ? (
-                      <div style={{ padding: "3px 10px", borderRadius: 999, background: "rgba(255,255,255,0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
+                      <div style={{ padding: "3px 10px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
                         {t("Rest day")}
                       </div>
                     ) : mins ? (
@@ -293,7 +293,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       </div>
 
       {deleteToast && (
-        <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
+        <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
           {deleteToast}
         </div>
       )}
@@ -487,19 +487,19 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               onChange={(e) => setDeleteInput(e.target.value)}
               placeholder={t("Type DELETE")}
               autoFocus
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
             />
             <div style={{ display: "flex", gap: 10 }}>
               <button
                 onClick={() => { setDeleteTarget(null); setDeleteInput(""); }}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(255,255,255,0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
               >
                 {t("Cancel")}
               </button>
               <button
                 onClick={handleDeleteConfirm}
                 disabled={deleteInput !== "DELETE" || deleting}
-                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(255,255,255,0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
+                style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? "#f87171" : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
               >
                 {deleting ? t("Deleting\u2026") : t("Delete")}
               </button>
