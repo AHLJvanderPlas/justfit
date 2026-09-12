@@ -343,7 +343,7 @@ const NL = {
   "Active programmes \u00b7 add-on coaches \u00b7 Strava": "Actieve programma\u2019s \u00b7 extra coaches \u00b7 Strava",
   'Trainers': 'Trainers',
   'Connected trainers \u00b7 data sharing \u00b7 intake': 'Verbonden trainers \u00b7 gegevensdeling \u00b7 intake',
-  'Trophy room': 'Trofee\u00ebnnkamer',
+  'Trophy room': 'Trofee\u00ebnkamer',
   'Awards & milestones': 'Prestaties & mijlpalen',
   'Privacy': 'Privacy',
   'Data export \u00b7 legal docs \u00b7 feedback': 'Gegevensexport \u00b7 juridische documenten \u00b7 feedback',

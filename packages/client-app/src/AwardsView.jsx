@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Icons } from "./icons.jsx";
 import { C } from "./tokens.js";
+import { t } from "./i18n.js";
 
 
 // ── Award row component ───────────────────────────────────────────────────────
@@ -29,7 +30,7 @@ function AwardRow({ award, state, first }) {
   );
 }
 
-export default function AwardsView({ history, score, isPro, progression, runUnlocked = [], onBack }) {
+export default function AwardsView({ history, score, isPro, progression, runUnlocked = [], onBack, origin = "history" }) {
   const [showHorizon, setShowHorizon] = useState(false);
   const n = history.length;
 
@@ -139,7 +140,7 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
             style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0,
                      marginBottom: 14, color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
           >
-            ← {"Voortgang"}
+            ← {origin === "settings" ? t("Settings") : t("Progress")}
           </button>
         )}
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Trophy Room</div>

@@ -2618,6 +2618,10 @@ export default function App() {
   // Fitness assessment overlay. Config is fetched by HistoryView and handed over,
   // so the runner never renders before it knows the battery.
   const [assessmentConfig, setAssessmentConfig] = useState(null);
+  // The Trophy room is reachable from Progress and from Settings, so its back
+  // control has to return to whichever one you actually came from.
+  const [awardsOrigin, setAwardsOrigin] = useState("history");
+  const openAwards = (from) => { setAwardsOrigin(from); setView("awards"); };
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [plan, setPlan] = useState(null);
@@ -3718,11 +3722,12 @@ export default function App() {
                 onUpgrade={() => setView("upgrade")}
                 setView={setView}
                 onStartAssessment={(cfg) => setAssessmentConfig(cfg)}
+                onOpenAwards={() => openAwards("history")}
               />
             )}
             {view === "awards" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView("history")} />
+                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView(awardsOrigin)} origin={awardsOrigin} />
               </Suspense>
             )}
             {view === "upgrade" && (
@@ -3764,7 +3769,7 @@ export default function App() {
                   }}
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
-                  onNavigateAwards={() => setView("awards")}
+                  onNavigateAwards={() => openAwards("settings")}
                   onNavigateCoach={() => setView("coach")}
                   isPro={isPro || !!prefs.isPro}
                   onUpgrade={() => setView("upgrade")}

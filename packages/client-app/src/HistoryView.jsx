@@ -381,7 +381,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView, onStartAssessment }) {
+export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView, onStartAssessment, onOpenAwards }) {
   useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
@@ -1063,7 +1063,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     Next: {nextAward.name} — {nextAward.remaining} {t(nextAward.remaining === 1 ? "session to go" : "sessions to go")}
                   </div>
                 )}
-                <button onClick={() => setView("awards")} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
+                <button onClick={() => (onOpenAwards ?? (() => setView("awards")))()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
                   {t("Trophy room \u2192")}
                 </button>
               </div>
