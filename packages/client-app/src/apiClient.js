@@ -263,6 +263,21 @@ const api = {
 
   // `write=1` requests activity:write alongside read, so JustFit sessions can be
   // uploaded to Strava. Asked for only when the user opts into uploads.
+  // Fitness assessment ("Where you are"). Free for every account.
+  async getAssessment(date) {
+    const res = await fetch(`/api/assessment${date ? `?date=${date}` : ''}`);
+    return res.json();
+  },
+
+  async submitAssessment(focus, results, date) {
+    const res = await fetch('/api/assessment', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ focus, results, ...(date ? { date } : {}) }),
+    });
+    return res.json();
+  },
+
   async getStravaStatus(_token, { write = false } = {}) {
     const res = await fetch(`/api/strava-auth${write ? '?write=1' : ''}`);
     return res.json();

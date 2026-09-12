@@ -42,6 +42,7 @@ const SettingsView  = lazy(() => import("./SettingsView.jsx"));
 const ProGate       = lazy(() => import("./ProGate.jsx"));
 // CoachView: large secondary tab — lazy loaded for bundle reduction
 const CoachView     = lazy(() => import("./CoachView.jsx"));
+const AssessmentView = lazy(() => import("./AssessmentView.jsx"));
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
@@ -2603,6 +2604,9 @@ export default function App() {
 
   const [view, setView] = useState("today");
   const [inWorkout, setInWorkout] = useState(false);
+  // Fitness assessment overlay. Config is fetched by HistoryView and handed over,
+  // so the runner never renders before it knows the battery.
+  const [assessmentConfig, setAssessmentConfig] = useState(null);
   const [showCheckIn, setShowCheckIn] = useState(false);
   const [showSignOutConfirm, setShowSignOutConfirm] = useState(false);
   const [plan, setPlan] = useState(null);
@@ -3526,7 +3530,21 @@ export default function App() {
           </header>
         )}
 
-        {inBonusWorkout && bonusPlan ? (
+        {assessmentConfig ? (
+          <Suspense fallback={null}>
+            <AssessmentView
+              config={assessmentConfig}
+              accentHex={prefs.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981"}
+              onBack={() => setAssessmentConfig(null)}
+              onDone={() => {
+                setAssessmentConfig(null);
+                // The assessment rewrites progression baselines, so pull the
+                // fresh scores before the radar re-renders.
+                api.getProgression(token).then(setProgression).catch(() => {});
+              }}
+            />
+          </Suspense>
+        ) : inBonusWorkout && bonusPlan ? (
           <Suspense fallback={null}>
             <WorkoutView
               plan={bonusPlan ? { ...bonusPlan, experience_level: prefs.experience_level ?? bonusPlan.experience_level } : bonusPlan}
@@ -3682,6 +3700,7 @@ export default function App() {
                 historyTruncated={historyTruncated}
                 onUpgrade={() => setView("upgrade")}
                 setView={setView}
+                onStartAssessment={(cfg) => setAssessmentConfig(cfg)}
               />
             )}
             {view === "awards" && (

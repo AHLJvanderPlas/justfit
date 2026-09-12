@@ -381,7 +381,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView }) {
+export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView, onStartAssessment }) {
   useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
@@ -391,10 +391,18 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   const [recomputeMsg, setRecomputeMsg] = useState("");
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [checkins, setCheckins] = useState([]);
+  const [assessment, setAssessment] = useState(null);   // null = loading, false = unavailable
 
   useEffect(() => {
     if (!userId) return;
     api.getCheckins(userId, 30).then(setCheckins).catch(() => {});
+  }, [userId]);
+
+  // Fitness assessment status — drives the entry card above the radar.
+  useEffect(() => {
+    if (!userId) return;
+    const today = new Date().toISOString().slice(0, 10);
+    api.getAssessment(today).then(d => setAssessment(d?.available ? d : false)).catch(() => setAssessment(false));
   }, [userId]);
 
   const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
@@ -722,6 +730,69 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     {showCompare ? "Target on" : "Target off"}
                   </button>
                 </div>
+              )}
+
+              {/* ── Where you are (fitness assessment) ──
+                   Sits directly above the radar because it calibrates it: the
+                   assessment writes the per-axis baseline the chart decays toward. */}
+              {assessment && (
+                <Glass style={{ padding: 20, marginBottom: 20 }}>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>WHERE YOU ARE</div>
+
+                  {assessment.blocked ? (
+                    <>
+                      <div style={{ fontSize: 13, color: C.text, lineHeight: 1.55 }}>{assessment.blocked.message}</div>
+                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 8 }}>
+                        The measurement can wait — your plan keeps adapting either way.
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.5 }}>
+                            {assessment.last
+                              ? `Last measured ${assessment.days_since === 0 ? "today" : `${assessment.days_since} day${assessment.days_since === 1 ? "" : "s"} ago`}`
+                              : "Not measured yet"}
+                          </div>
+                          <div style={{ fontSize: 12, color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
+                            {assessment.last
+                              ? (assessment.due
+                                  ? "Worth re-testing — your baseline is getting stale."
+                                  : "A few short tests set the baseline your chart measures against.")
+                              : "A few short tests replace the estimate below with a measurement."}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => onStartAssessment?.(assessment)}
+                          style={{ flexShrink: 0, padding: "9px 15px", borderRadius: 12, fontSize: 13, fontWeight: 800,
+                                   cursor: "pointer", border: `1px solid ${accentHex}55`,
+                                   background: `${accentHex}14`, color: accentHex, whiteSpace: "nowrap" }}
+                        >
+                          {assessment.last ? "Re-test" : "Measure me"}
+                        </button>
+                      </div>
+
+                      {assessment.last?.scores && (
+                        <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 14 }}>
+                          {Object.entries(assessment.last.scores).map(([axis, score]) => (
+                            <span key={axis} style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 8,
+                                     background: "rgba(255,255,255,0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
+                              {({ push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cond.", mobility: "Mob." })[axis] ?? axis} {score}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+
+                      {assessment.unmeasured_axes?.length > 0 && (
+                        <div style={{ fontSize: 10.5, color: C.subtle, marginTop: 10, lineHeight: 1.55 }}>
+                          Pull and mobility are estimated, not measured — no equipment-free test
+                          gives an honest reading for either.
+                        </div>
+                      )}
+                    </>
+                  )}
+                </Glass>
               )}
 
               {/* ── Radar chart ── */}
