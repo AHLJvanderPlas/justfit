@@ -64,6 +64,20 @@ export const ALL_EQUIPMENT = [
   { value: "smith_machine",      label: "Smith machine" },
   { value: "elliptical",         label: "Elliptical trainer" },
   { value: "squat_rack",         label: "Home squat rack" },
+  // Gym machines. Listed here as well as recognised by R518's gym_today path, so a
+  // user who owns one at home unlocks the same exercises without ticking "at the gym".
+  { value: "cable",              label: "Cable machine" },
+  { value: "lat_pulldown",       label: "Lat pulldown" },
+  { value: "seated_row_machine", label: "Seated row machine" },
+  { value: "chest_press_machine",label: "Chest press machine" },
+  { value: "pec_deck",           label: "Pec deck / fly machine" },
+  { value: "leg_press",          label: "Leg press" },
+  { value: "leg_curl_machine",   label: "Leg curl machine" },
+  { value: "leg_extension_machine", label: "Leg extension machine" },
+  { value: "bench",              label: "Flat bench" },
+  { value: "dip_station",        label: "Dip station / parallel bars" },
+  { value: "ez_bar",             label: "EZ curl bar" },
+  { value: "multi_gym",          label: "Multi-gym / home gym station" },
   { value: "bench_press_rack",   label: "Bench press rack" },
   { value: "multi_gym",          label: "Multi-gym machine" },
 ];
