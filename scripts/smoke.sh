@@ -96,6 +96,23 @@ else
   fail "App.jsx terms gate catch block may dismiss gate on error"
 fi
 
+# ── Equipment vocabulary coherence ───────────────────────────────────────────
+# The gym is a superset of home. GYM_EQUIPMENT once omitted rucksack, chair,
+# resistance_bands and foam_roller, so ticking "at the gym" dropped 52 exercises
+# and added one. It also said resistance_band (singular) while the library says
+# resistance_bands, silently excluding band work at the gym.
+if grep -q "GYM_ONLY_EQUIPMENT" functions/api/plan.js && grep -q "HOME_EQUIPMENT" functions/api/plan.js; then
+  ok "gym equipment is composed from the home list, not a parallel one"
+else
+  fail "GYM_EQUIPMENT is a standalone list again — it will drift from home equipment"
+fi
+
+if grep -qE "'resistance_band'" functions/api/plan.js; then
+  fail "plan.js uses 'resistance_band' (singular); the exercise library says resistance_bands"
+else
+  ok "resistance_bands naming is consistent with the library"
+fi
+
 # ── Theme tokens (light/dark) ─────────────────────────────────────────────────
 # Every theme-dependent colour must be a CSS custom property, or it will not
 # invert on light. The dark design used white-at-low-alpha for every raised

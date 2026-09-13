@@ -846,11 +846,32 @@ const T = {
   MOBILITY_DECAY_DAYS: 7,
 };
 
-// Gym equipment recognised when gym_today is true
-const GYM_EQUIPMENT = ['none','dumbbell','barbell','cable','machine','pull_up_bar',
-  'bench','bench_press_rack','squat_rack','kettlebell','resistance_band','weight_plates',
-  'exercise_bike','rowing_machine','treadmill','indoor_bike','running_shoes','multi_gym',
-  'road_bike','mountain_bike'];
+// Equipment available when gym_today is true.
+//
+// A gym is a SUPERSET of home, not a different place. This list was neither:
+// it omitted rucksack, chair, resistance_bands, foam_roller and the two bike
+// aliases, so ticking "at the gym" *dropped* 52 exercises while adding one.
+// It also said `resistance_band` (singular) while every exercise in the library
+// says `resistance_bands`, so band work was excluded at the gym specifically.
+//
+// Anything a user can own at home is therefore included, plus the gym-only
+// vocabulary. Keep this in step with ALL_EQUIPMENT in appConstants.js.
+const HOME_EQUIPMENT = ['none','dumbbell','resistance_bands','pull_up_bar','kettlebell',
+  'chair','foam_roller','yoga_mat','exercise_mat','jump_rope','stability_ball',
+  'adjustable_bench','ankle_weights','push_up_handles','medicine_ball','suspension_trainer',
+  'step_platform','power_tower','punching_bag','rucksack','trail_shoes','running_shoes',
+  'fitness_tracker','treadmill','exercise_bike','indoor_bike','rowing_machine','elliptical',
+  'road_bike','mountain_bike','outdoor_bike','stationary_bike','barbell','weight_plates',
+  'squat_rack','smith_machine'];
+
+// Gym-only additions: the machines and racks a commercial gym has and a home
+// usually does not. Seeding exercises against these is roadmap X-38.
+const GYM_ONLY_EQUIPMENT = ['cable','machine','bench','bench_press_rack','multi_gym',
+  'leg_press','lat_pulldown','chest_press_machine','leg_curl_machine','leg_extension_machine',
+  'seated_row_machine','pec_deck','hack_squat','preacher_bench','dip_station','ez_bar',
+  'trap_bar','sled','battle_ropes','assault_bike','ski_erg'];
+
+const GYM_EQUIPMENT = [...HOME_EQUIPMENT, ...GYM_ONLY_EQUIPMENT];
 
 // Cycling equipment — triggers cycling coach rule
 const CYCLING_EQUIPMENT = ['road_bike','mountain_bike','indoor_bike','exercise_bike'];
@@ -2124,7 +2145,7 @@ function _assembleSession(ctx) {
 
     const equipmentRequired = JSON.parse(ex.equipment_required_json || '["none"]');
     const isWeighted = supportsReps && equipmentRequired.some(e =>
-      ['dumbbell', 'barbell', 'kettlebell', 'cable', 'machine', 'plate', 'resistance_band',
+      ['dumbbell', 'barbell', 'kettlebell', 'cable', 'machine', 'plate', 'resistance_bands',
        'bench', 'bench_press_rack', 'squat_rack', 'smith_machine', 'multi_gym', 'ankle_weights',
        'weight_plates', 'stability_ball'].includes(e)
     );
