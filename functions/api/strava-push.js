@@ -265,7 +265,7 @@ export async function onRequestPost(context) {
     return json({
       error: 'Strava authorisation expired — reconnect Strava.',
       needsReauth: e instanceof StravaError ? e.reauth : true,
-    }, 502);
+    }, 409);
   }
 
   const form = new FormData();
@@ -287,7 +287,7 @@ export async function onRequestPost(context) {
       return json({ error: 'Strava rate limit reached — try again in 15 minutes.', rateLimited: true }, 429);
     }
     console.error('strava-push upload:', e.message);
-    return json({ error: 'Strava rejected the upload.', detail: e.message?.slice(0, 200) }, 502);
+    return json({ error: 'Strava rejected the upload.', detail: e.message?.slice(0, 200) }, 409);
   }
 
   if (upload.error) {

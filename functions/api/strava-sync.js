@@ -93,7 +93,7 @@ export async function onRequestPost(context) {
       error: 'Strava authorisation expired — reconnect Strava.',
       needsReauth: e instanceof StravaError ? e.reauth : true,
       swept,
-    }, 502);
+    }, 409);
   }
 
   // Always reach back at least seven days so activities that sync late from a
@@ -129,7 +129,7 @@ export async function onRequestPost(context) {
         }, 429);
       }
       if (e instanceof StravaError && e.reauth) {
-        return json({ error: 'Strava authorisation rejected — reconnect Strava.', needsReauth: true }, 502);
+        return json({ error: 'Strava authorisation rejected — reconnect Strava.', needsReauth: true }, 409);
       }
       console.error('strava-sync fetch:', e.message);
       truncated = true;

@@ -5,9 +5,10 @@ export function getUserId() {
   return localStorage.getItem("jf_user_id");
 }
 
-export function getToken() {
-  return localStorage.getItem("jf_token");
-}
+// getToken() was removed: C-B17 moved the session into an HttpOnly cookie and
+// nothing writes jf_token any more, so it always returned null. It silently
+// disabled the Strava OAuth callback for months. If you need "is there a
+// session", call GET /api/auth — do not reintroduce a localStorage token.
 
 export function getJwtPayload(token) {
   try {

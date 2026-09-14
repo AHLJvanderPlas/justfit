@@ -316,7 +316,14 @@ const api = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code, state }),
     });
-    return res.json();
+    // An edge error page is text/plain, so res.json() throws and the real status
+    // is lost. Report the status instead of a generic failure.
+    const text = await res.text();
+    try {
+      return JSON.parse(text);
+    } catch {
+      return { ok: false, error: `Server returned ${res.status}`, raw: text.slice(0, 120) };
+    }
   },
 
   async passkeyBeginRegister(_token) {

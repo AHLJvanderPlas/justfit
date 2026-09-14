@@ -9,7 +9,7 @@ import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent, applyTheme, watc
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, LEGAL_VERSIONS } from "./appConstants.js";
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
-import { milClL, formatExDuration, estimateMins, getUserId, getToken, getJwtPayload } from "./planUtils.js";
+import { milClL, formatExDuration, estimateMins, getUserId, getJwtPayload } from "./planUtils.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
@@ -2577,7 +2577,9 @@ function Nav({ view, setView, hasTrainer, coachDot }) {
 export default function App() {
   useLang();
   const userId = getUserId();
-  const token = getToken();
+  // Kept only because many child props are still named `token`. The API layer
+  // ignores it — authentication is the __Host-jf_session cookie (C-B17).
+  const token = null;
   // Namespace user-scoped localStorage keys so multiple accounts on one device don't share state
   const uKey = (k) => userId ? `${k}_${userId}` : k;
   const shellValue = { token, userId };
@@ -2802,23 +2804,29 @@ export default function App() {
       const code  = params.get("code");
       const state = params.get("state");
       window.history.replaceState({}, "", "/");
-      const t = getToken();
-      if (t) {
-        api.exchangeStravaCode(t, code, state)
+      // This used to be gated on getToken(), which reads localStorage jf_token.
+      // C-B17 moved the session into an HttpOnly cookie and nothing has written
+      // jf_token since, so the guard was always false and the Strava code was
+      // silently discarded on every single connection attempt. The session is the
+      // cookie; exchangeStravaCode ignores the argument.
+      {
+        api.exchangeStravaCode(null, code, state)
           .then(d => {
             if (d.ok) {
               const name = d.athlete_name ? ` · ${d.athlete_name}` : "";
               setActivityToast(`Strava connected${name} ✓`);
             } else {
               // Surface the server's reason — "try again" is wrong advice for a
-              // rejected state token or an app at its athlete capacity.
-              setActivityToast(d.error ?? "Strava connection failed — try again");
+              // rejected state token or an app at its athlete capacity. Strava's
+              // own detail is appended when it sent one.
+              const why = d.strava_detail ? ` (${d.strava_detail})` : "";
+              setActivityToast((d.error ?? "Strava connection failed — try again") + why);
             }
             setTimeout(() => setActivityToast(""), 6000);
           })
-          .catch(() => {
-            setActivityToast("Strava connection failed — try again");
-            setTimeout(() => setActivityToast(""), 5000);
+          .catch((e) => {
+            setActivityToast(`Strava connection failed — ${e?.message ?? "no response from the server"}`);
+            setTimeout(() => setActivityToast(""), 6000);
           });
       }
     }
@@ -3013,7 +3021,6 @@ export default function App() {
     };
     document.addEventListener('visibilitychange', trySync);
     return () => document.removeEventListener('visibilitychange', trySync);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [onboardingReady]);
 
   // Persist plan to IndexedDB after every successful load/generate for offline fallback.

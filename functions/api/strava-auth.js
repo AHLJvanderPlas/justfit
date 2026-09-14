@@ -128,25 +128,37 @@ async function handlePost(request, env) {
       console.error('strava token exchange failed:', resp.status, err.slice(0, 300));
       // Athlete capacity is the most likely cause of a rejection in practice,
       // and "try again" is the wrong advice for it.
+      // Surface Strava's own reason. Its errors are short and specific
+      // ("invalid", "code already used", athlete-capacity messages) and without
+      // them the user only ever sees "try again", which is often wrong advice.
+      let detail = null;
+      try {
+        const parsed = JSON.parse(err);
+        detail = parsed?.message
+          || parsed?.errors?.map((e) => `${e.field ?? ''} ${e.code ?? ''}`.trim()).filter(Boolean).join(', ')
+          || null;
+      } catch { detail = err.slice(0, 160) || null; }
       return json({
         error: 'Strava refused the connection. If this app has reached its athlete capacity, the limit must be raised in the Strava API settings.',
-      }, 502);
+        strava_status: resp.status,
+        strava_detail: detail,
+      }, 409);
     }
     tokenData = await resp.json();
   } catch (e) {
     console.error('strava-auth POST exchange:', e);
-    return json({ error: 'Could not reach Strava' }, 502);
+    return json({ error: 'Could not reach Strava' }, 503);
   }
 
   const { access_token, refresh_token, expires_at, scope, athlete } = tokenData;
   if (!access_token || !refresh_token) {
-    return json({ error: 'Invalid token response from Strava' }, 502);
+    return json({ error: 'Invalid token response from Strava' }, 409);
   }
 
   const athleteId = athlete?.id ?? null;
   if (athleteId == null) {
     // athlete_id is NOT NULL; fail loudly rather than on a constraint error.
-    return json({ error: 'Strava did not return an athlete profile' }, 502);
+    return json({ error: 'Strava did not return an athlete profile' }, 409);
   }
 
   const athleteName = [athlete?.firstname, athlete?.lastname].filter(Boolean).join(' ') || null;

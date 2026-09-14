@@ -96,6 +96,16 @@ else
   fail "App.jsx terms gate catch block may dismiss gate on error"
 fi
 
+# ── Dead session-token guard ─────────────────────────────────────────────────
+# C-B17 moved the session into an HttpOnly cookie. localStorage jf_token has not
+# been written since, so any guard reading it is always false. One such guard sat
+# in front of the Strava OAuth callback and silently discarded every connection.
+if grep -rn 'getItem("jf_token")' packages/client-app/src --include="*.js" --include="*.jsx" >/dev/null 2>&1; then
+  fail "something reads localStorage jf_token — it is never written; the guard will always be false"
+else
+  ok "no code reads the dead jf_token"
+fi
+
 # ── Equipment vocabulary coherence ───────────────────────────────────────────
 # The gym is a superset of home. GYM_EQUIPMENT once omitted rucksack, chair,
 # resistance_bands and foam_roller, so ticking "at the gym" dropped 52 exercises
