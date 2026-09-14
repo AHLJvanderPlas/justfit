@@ -131,17 +131,33 @@ async function handlePost(request, env) {
       // Surface Strava's own reason. Its errors are short and specific
       // ("invalid", "code already used", athlete-capacity messages) and without
       // them the user only ever sees "try again", which is often wrong advice.
+      // Strava's `message` is almost always the generic "Authorization Error".
+      // The discriminator is the errors[] array, which names the resource, field
+      // and code — e.g. {resource:"Application", field:"client_id", code:"invalid"}
+      // vs {resource:"AccessToken", field:"code", code:"invalid"}. One means our
+      // stored credentials are wrong, the other means the code was reused or
+      // expired. Prefer it over the generic message.
       let detail = null;
       try {
         const parsed = JSON.parse(err);
-        detail = parsed?.message
-          || parsed?.errors?.map((e) => `${e.field ?? ''} ${e.code ?? ''}`.trim()).filter(Boolean).join(', ')
-          || null;
+        const fields = (parsed?.errors ?? [])
+          .map((e) => [e.resource, e.field, e.code].filter(Boolean).join(' '))
+          .filter(Boolean);
+        detail = fields.length ? fields.join('; ') : (parsed?.message || null);
       } catch { detail = err.slice(0, 160) || null; }
+      // Strava reports which thing it rejected. "Application" means our stored
+      // client_id/secret are wrong — nothing to do with the athlete, the code,
+      // athlete capacity or a subscription — so say that instead of guessing.
+      const badApp = /Application/i.test(detail ?? '');
       return json({
-        error: 'Strava refused the connection. If this app has reached its athlete capacity, the limit must be raised in the Strava API settings.',
+        error: badApp
+          ? 'Strava rejected this app\'s credentials. STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET need updating — this is not about your Strava account.'
+          : 'Strava refused the connection. If this app has reached its athlete capacity, the limit must be raised in the Strava API settings.',
         strava_status: resp.status,
         strava_detail: detail,
+        // Raw upstream body, truncated. This is the app owner's own integration
+        // error and carries no athlete data. Remove once the cause is settled.
+        strava_raw: err.slice(0, 220) || null,
       }, 409);
     }
     tokenData = await resp.json();
