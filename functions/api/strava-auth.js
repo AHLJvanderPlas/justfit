@@ -154,10 +154,10 @@ async function handlePost(request, env) {
           ? 'Strava rejected this app\'s credentials. STRAVA_CLIENT_ID / STRAVA_CLIENT_SECRET need updating — this is not about your Strava account.'
           : 'Strava refused the connection. If this app has reached its athlete capacity, the limit must be raised in the Strava API settings.',
         strava_status: resp.status,
+        // Strava's own resource/field/code, e.g. "Application invalid" (our
+        // credentials are wrong) vs "AuthorizationCode code invalid" (the code
+        // was reused or expired). The raw body is logged, not returned.
         strava_detail: detail,
-        // Raw upstream body, truncated. This is the app owner's own integration
-        // error and carries no athlete data. Remove once the cause is settled.
-        strava_raw: err.slice(0, 220) || null,
       }, 409);
     }
     tokenData = await resp.json();
