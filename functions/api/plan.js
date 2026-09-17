@@ -89,7 +89,8 @@ export async function onRequestPost({ request, env }) {
     // Fetch exercises and (optionally) user preferences in parallel
     const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, lastWeightsResult] = await Promise.all([
       env.DB.prepare(
-        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
+        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
+                primary_muscles_json, secondary_muscles_json
          FROM exercises WHERE is_active = 1`
       ).all(),
       user_id
@@ -2234,6 +2235,11 @@ function _assembleSession(ctx) {
       rest_sec:             adjustedRest,
       instructions_json:    ex.instructions_json ?? null,
       alternatives_json:    ex.alternatives_json ?? null,
+      // Carried so R592 can avoid pairing two exercises that share a primary muscle,
+      // and so the in-session muscle map uses real data instead of musclesFor()'s
+      // slug-pattern fallback, which is all it has had until now.
+      primary_muscles_json:   ex.primary_muscles_json ?? null,
+      secondary_muscles_json: ex.secondary_muscles_json ?? null,
       gif_url:              media.gif_url ?? null,
       coaching_note:        coachingNote,
       // C-F6 — load contract. supports_weight drives whether the client shows a
@@ -2427,10 +2433,34 @@ function _assembleSession(ctx) {
   const coreSteps         = steps.filter(s => !isOutdoorStep(s) && !isIndoorCardioStep(s));
   const indoorCardioSteps = steps.filter(s => isIndoorCardioStep(s));
   const outdoorSteps      = steps.filter(s => isOutdoorStep(s));
-  const orderedSteps = [...coreSteps, ...indoorCardioSteps, ...outdoorSteps];
+  let orderedSteps = [...coreSteps, ...indoorCardioSteps, ...outdoorSteps];
   if (indoorCardioSteps.length || outdoorSteps.length) {
     ctx.trace.push(`Ordering — core: ${coreSteps.length}, indoor cardio: ${indoorCardioSteps.length}, outdoor: ${outdoorSteps.length}`);
   }
+
+  // R591 — C-F10: warm-up sets before a heavy lift.
+  // Prepended as extra sets on the same step rather than separate steps, so they
+  // cannot inflate exercise count or be mistaken for working volume. Flagged with
+  // warmup_sets so the client renders and records them distinctly.
+  for (const step of orderedSteps) {
+    if (!step.supports_weight || !(step.target_weight_kg > 0)) continue;
+    if ((step.sets ?? 0) < 3) continue;
+    // Below ~20 kg the ramp is noise — an empty bar needs no rehearsal.
+    if (step.target_weight_kg < 20) continue;
+    const round = step.load_type === 'machine_stack' ? 5
+      : step.load_type === 'barbell' || step.load_type === 'plate_loaded' ? 2.5 : 1;
+    const r = (w) => Math.max(round, Math.round(w / round) * round);
+    step.warmup_sets = [
+      { weight_kg: r(step.target_weight_kg * 0.5), reps: Math.max(5, Math.round((step.target_reps ?? 8) * 0.6)) },
+      { weight_kg: r(step.target_weight_kg * 0.75), reps: Math.max(3, Math.round((step.target_reps ?? 8) * 0.4)) },
+    ];
+    ctx.trace.push(`R591 — ${step.name}: warm-up ${step.warmup_sets.map(w => w.weight_kg + 'kg').join(' → ')} before ${step.target_weight_kg}kg`);
+  }
+
+  // R592 — C-F10: pair exercises into supersets when the clock is the constraint.
+  // Opt-in by circumstance, never imposed: only when a time budget is actually set
+  // and the session has more strength work than the budget comfortably holds.
+  orderedSteps = _applySupersets(ctx, orderedSteps);
 
   return {
     date,
@@ -2492,6 +2522,77 @@ function _assembleSession(ctx) {
       };
     })() : null,
   };
+}
+
+
+/**
+ * R592 — superset pairing (C-F10).
+ *
+ * Pairs strength steps that do NOT share a primary muscle, so the second exercise
+ * is genuinely resting the first. Pairing two pushes together would just be a drop
+ * set with extra steps and would compromise both.
+ *
+ * Only fires when a time budget exists and the session overruns it. Cardio, runs,
+ * mobility, pelvic-floor and warm-up-carrying heavy lifts are never paired — heavy
+ * work needs full rest, and the rest is where the adaptation is.
+ */
+function _applySupersets(ctx, steps) {
+  const budget = ctx.checkIn?.time_budget ?? ctx.checkIn?.checkin_json?.time_budget ?? null;
+  if (!budget || steps.length < 4) return steps;
+
+  const estMin = steps.reduce((m, s) => {
+    const sets = s.sets ?? 3;
+    const work = s.target_duration_sec ?? ((s.target_reps ?? 10) * 3);
+    return m + (sets * (work + (s.rest_sec ?? 60))) / 60;
+  }, 0);
+  if (estMin <= budget) return steps;
+
+  const pairable = (s) => {
+    const tags = (() => { try { return JSON.parse(s.tags_json ?? '[]'); } catch { return []; } })();
+    if (s.warmup_sets) return false;                         // heavy lifts keep their rest
+    if (s.category === 'cardio' || s.category === 'mobility' || s.category === 'recovery') return false;
+    return !tags.some(t => ['run_interval', 'cardio', 'pelvic_floor', 'breathing', 'mobility'].includes(t));
+  };
+
+  const musclesOf = (s) => {
+    try { return new Set(JSON.parse(s.primary_muscles_json ?? '[]')); } catch { return new Set(); }
+  };
+
+  const used = new Set();
+  let groupSeq = 0;
+  const out = [];
+  for (let i = 0; i < steps.length; i++) {
+    if (used.has(i)) continue;
+    const a = steps[i];
+    out.push(a);
+    used.add(i);
+    if (!pairable(a)) continue;
+    const ma = musclesOf(a);
+    for (let j = i + 1; j < steps.length; j++) {
+      if (used.has(j)) continue;
+      const b = steps[j];
+      if (!pairable(b)) continue;
+      const mb = musclesOf(b);
+      const overlaps = [...ma].some(m => mb.has(m));
+      if (overlaps) continue;
+      const gid = `ss${++groupSeq}`;
+      a.group_id = gid;
+      b.group_id = gid;
+      // Members must agree on set count or the cycle cannot close cleanly.
+      const sets = Math.min(a.sets ?? 3, b.sets ?? 3);
+      a.sets = sets; b.sets = sets;
+      out.push(b);
+      used.add(j);
+      ctx.trace.push(`R592 — superset ${gid}: ${a.name} + ${b.name} (no shared primary muscle)`);
+      break;
+    }
+  }
+
+  if (groupSeq > 0) {
+    const saved = Math.round(groupSeq * (steps[0]?.rest_sec ?? 60) * (steps[0]?.sets ?? 3) / 60);
+    _addNote(ctx, `Supersets aan — ${groupSeq} paar gecombineerd om binnen ${budget} minuten te blijven` + (saved > 0 ? ` (±${saved} min korter)` : ''));
+  }
+  return out;
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────

@@ -113,6 +113,19 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
   const totalSets = cur?.sets ?? 3;
   const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+  // ── C-F10 — superset geometry ────────────────────────────────────────────────
+  // Steps sharing a group_id are performed A → B → rest → A → B rather than
+  // completing A entirely first. Everything below derives from the step list, so a
+  // session with no groups behaves exactly as it always has.
+  const stepAt = (i) => exerciseOverrides[i] ?? exercises[i];
+  const curGroupId = stepAt(exIdx)?.group_id ?? null;
+  const groupMembers = curGroupId == null
+    ? [exIdx]
+    : exercises.map((_, i) => i).filter((i) => stepAt(i)?.group_id === curGroupId);
+  const posInGroup = groupMembers.indexOf(exIdx);
+  const isGrouped = groupMembers.length > 1;
+  const isLastInGroup = posInGroup === groupMembers.length - 1;
+
   const supportsWeight = !!cur?.supports_weight;
   const loadType = cur?.load_type ?? null;
   // Smallest change the athlete can actually make. A machine stack moves in whole
@@ -191,6 +204,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     stepsActualRef.current[exIdx]?.actual?.rest_taken_seconds?.push(actualRest);
     setCurrentSet((s) => s + 1);
     setRepCount(0);
+    // C-F10 — a superset rests after its LAST member, so the next round starts back
+    // at the first. Ungrouped exercises stay where they are.
+    if (isGrouped) setExIdx(groupMembers[0]);
     setPhase("working");
   // exIdx is stable during resting; restStartedAtRef is a ref (always current)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -271,6 +287,19 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       }
     }
 
+    // C-F10 — mid-group: straight on to the next exercise, no rest between members.
+    // That is the point of a superset; resting here would make it two exercises.
+    if (isGrouped && !isLastInGroup) {
+      setExIdx(groupMembers[posInGroup + 1]);
+      setRepCount(0);
+      setAdjustedReps(null);
+      setAdjustedDuration(null);
+      // Show the instruction card only on the first round, so the athlete meets each
+      // movement once without it interrupting every subsequent round.
+      setPhase(currentSet === 1 ? "instruction" : "working");
+      return;
+    }
+
     if (currentSet < totalSets) {
       const rest = getRestDuration(cur);
       restStartedAtRef.current = Date.now();
@@ -317,6 +346,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     setRestRemaining(0);
     setCurrentSet((s) => s + 1);
     setRepCount(0);
+    if (isGrouped) setExIdx(groupMembers[0]);
     setPhase("working");
   }
 
@@ -948,7 +978,27 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               <div style={{ fontSize: 13, fontWeight: 900, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
                 {t('Set {current} of {total}', { current: currentSet, total: totalSets })}
               </div>
+              {/* ── C-F10: superset position — which exercise of the pair, and what's next ── */}
+              {isGrouped && (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 6 }}>
+                  {groupMembers.map((mi, k) => (
+                    <div key={mi} style={{
+                      width: k === posInGroup ? 22 : 7, height: 7, borderRadius: 4,
+                      background: k === posInGroup ? C.emerald : "rgba(var(--overlay-rgb),0.18)",
+                      transition: "width 0.2s",
+                    }} />
+                  ))}
+                  <div style={{ fontSize: 11, fontWeight: 700, color: C.emerald, letterSpacing: "0.08em", textTransform: "uppercase", marginLeft: 4 }}>
+                    {t('Superset')}
+                  </div>
+                </div>
+              )}
               <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{cur.name}</div>
+              {isGrouped && !isLastInGroup && (
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+                  {t('then')} {stepAt(groupMembers[posInGroup + 1])?.name}
+                </div>
+              )}
             </div>
 
             {/* ── Difficulty override row ── */}

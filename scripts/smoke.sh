@@ -197,6 +197,39 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F10 — superset pairing guard ─────────────────────────────────────────
+# Pairing two exercises that share a primary muscle is not a superset — it is a
+# drop set that compromises both. This asserts the overlap check still holds, and
+# that pairing stays off when no time budget forces it.
+SS=$(node --input-type=module -e '
+import fs from "node:fs";
+const src = fs.readFileSync("functions/api/plan.js","utf8");
+const m = src.match(/function _applySupersets[\s\S]*?\n\}\n/);
+if (!m) { process.stdout.write("MISSING"); }
+else {
+  fs.writeFileSync("/tmp/_ss_guard.mjs",
+    m[0].replace("function _applySupersets","export function _applySupersets")
+    + "\nfunction _addNote(ctx,n){ (ctx.sessionNotes ??= []).push(n); }\n");
+  const { _applySupersets } = await import("/tmp/_ss_guard.mjs?t=" + Date.now());
+  const mk = (n,p) => ({name:n,category:"strength",sets:3,target_reps:10,rest_sec:60,
+    tags_json:"[]",primary_muscles_json:JSON.stringify(p)});
+  const legsOnly = [mk("Squat",["quads","glutes"]),mk("Lunge",["quads","glutes"]),
+                    mk("Step-up",["quads"]),mk("Leg press",["quads"])];
+  const paired = _applySupersets({checkIn:{time_budget:15},trace:[],sessionNotes:[]},
+    JSON.parse(JSON.stringify(legsOnly))).filter(s => s.group_id).length;
+  const noBudget = _applySupersets({checkIn:{},trace:[],sessionNotes:[]},
+    JSON.parse(JSON.stringify(legsOnly))).filter(s => s.group_id).length;
+  const errs = [];
+  if (paired > 0) errs.push("paired exercises sharing a primary muscle");
+  if (noBudget > 0) errs.push("paired with no time budget set");
+  process.stdout.write(errs.length ? errs.join("; ") : "OK");
+}' 2>&1)
+if [ "$SS" = "OK" ]; then
+  ok "supersets never pair a shared primary muscle, and stay off without a time budget"
+else
+  fail "superset pairing regression: ${SS}"
+fi
+
 # ── C-F6 — load model guards ───────────────────────────────────────────────
 # Bodyweight work must never score differently than it did before load existed.
 # progLoadMultiplier returning anything but exactly 1.0 for an unlogged set would
