@@ -197,6 +197,24 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── X-7 — webhook handlers must never invite retries ───────────────────────
+# A webhook endpoint that answers non-200 gets retried. On a logging endpoint that
+# turns one failure into a storm and helps nobody, so both handlers answer 200
+# unconditionally and log instead. Also asserts the Resend handler actually checks
+# a signature rather than trusting the caller.
+if [ -f functions/api/webhooks/resend.js ]; then
+  if grep -qE 'status: (4|5)[0-9][0-9]' functions/api/webhooks/resend.js; then
+    fail "resend webhook can answer non-200 — that invites a retry storm"
+  else
+    ok "resend webhook always answers 200"
+  fi
+  if grep -q "verifySvix" functions/api/webhooks/resend.js && grep -q "TOLERANCE_SEC" functions/api/webhooks/resend.js; then
+    ok "resend webhook verifies the Svix signature and rejects replays"
+  else
+    fail "resend webhook is missing signature verification or replay tolerance"
+  fi
+fi
+
 # ── C-B20 — no equipment option the planner cannot satisfy ─────────────────
 # A user ticks an option in onboarding and the planner has nothing behind it: a
 # broken promise at the first interaction. X-36 swept these once, and exercise_mat
