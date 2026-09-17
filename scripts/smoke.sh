@@ -197,6 +197,23 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F9 — location profiles must never starve the pool ────────────────────
+# R518's history: a parallel GYM_EQUIPMENT list once made "at the gym" drop 52
+# exercises and add one. Profiles reintroduce that risk per location, so R518 now
+# keeps the wider pool whenever a profile resolves fewer than 3 exercises. These
+# assert the floor exists and that gym still resolves as a superset of home.
+if grep -q "_next.length >= 3" functions/api/plan.js; then
+  ok "R518 keeps the wider pool when a location resolves too few exercises"
+else
+  fail "R518 lost its minimum-pool floor — a narrow profile can empty a session"
+fi
+
+if grep -q "equipment_profile_id ?? (checkIn?.gym_today ? 'gym' : null)" functions/api/plan.js; then
+  ok "R518 still accepts gym_today from cached clients"
+else
+  fail "R518 dropped gym_today back-compat — an offline client would silently lose gym access"
+fi
+
 # ── R590 — recovery bias must never starve the pool ────────────────────────
 # On a day when every muscle is fatigued the right answer is "train the least
 # fatigued thing", not "train nothing". R590 is a reorder, never a filter; if it

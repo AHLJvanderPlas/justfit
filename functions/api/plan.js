@@ -1340,12 +1340,52 @@ function _applySafetyPolicies(ctx) {
     }
   }
 
-  // R518
-  if (checkIn?.gym_today) {
-    ctx.pool = exercises.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => GYM_EQUIPMENT.includes(e));
-    });
+  // R518 — resolve the exercise pool from the athlete's training location.
+  //
+  // C-F9: this used to be a single boolean asked fresh every day, which could not
+  // express a hotel gym, a partly equipped garage, or a bench at home plus a
+  // membership. It now resolves a named profile. `gym_today` is still accepted and
+  // maps to the gym profile, because an offline-cached client will keep sending it.
+  //
+  // The home profile deliberately has no equipment list of its own — it reads
+  // available_equipment, so the existing Settings editor stays the single place kit
+  // is managed and the two can never disagree.
+  const _profileId = checkIn?.equipment_profile_id ?? (checkIn?.gym_today ? 'gym' : null);
+  if (_profileId) {
+    const _profiles = prefs?.preferences?.equipment_profiles ?? [];
+    const _profile  = _profiles.find(p => p.id === _profileId) ?? null;
+    let _equip;
+    if (_profileId === 'home') {
+      _equip = prefs?.preferences?.available_equipment ?? ['none'];
+      if (!_equip.includes('none')) _equip = [..._equip, 'none'];
+    } else if (_profile?.equipment?.length) {
+      _equip = _profile.equipment.includes('none') ? _profile.equipment : [..._profile.equipment, 'none'];
+    } else if (_profileId === 'gym') {
+      _equip = GYM_EQUIPMENT;                    // seeded default when never customised
+    } else if (_profileId === 'travel') {
+      _equip = ['none', 'running_shoes', 'resistance_bands'];
+    } else {
+      _equip = null;                             // unknown profile → leave pool alone
+    }
+
+    if (_equip) {
+      const _before = ctx.pool.length;
+      const _next = exercises.filter(ex => {
+        const eq = JSON.parse(ex.equipment_required_json || '["none"]');
+        return eq.every(e => _equip.includes(e));
+      });
+      // A profile must never leave the athlete with nothing. If a custom kit is too
+      // narrow to build a session, keep the previous pool and say so — the same
+      // failure mode that once made "at the gym" drop 52 exercises and add one.
+      if (_next.length >= 3) {
+        ctx.pool = _next;
+        ctx.trace.push(`R518 — Location "${_profile?.name ?? _profileId}" → ${ctx.pool.length} exercises available (was ${_before})`);
+      } else {
+        ctx.trace.push(`R518 — Location "${_profile?.name ?? _profileId}" resolves only ${_next.length} exercises — keeping the wider pool of ${_before}`);
+        _addNote(ctx, 'Je uitrusting voor deze locatie is te beperkt voor een volledige sessie — de planner gebruikt je volledige oefeningenlijst.');
+      }
+    }
+
     if (checkIn?.no_gear || checkIn?.traveling) {
       ctx.pool = ctx.pool.filter(ex => {
         const equip = JSON.parse(ex.equipment_required_json || '["none"]');
@@ -1358,7 +1398,6 @@ function _applySafetyPolicies(ctx) {
         return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
       });
     }
-    ctx.trace.push(`R518 — Gym today → gym equipment unlocked (${ctx.pool.length} exercises available)`);
   }
 
   // R545/R546: BMI-aware running caution

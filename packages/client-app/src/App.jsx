@@ -840,6 +840,11 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     return s >= 4 ? 1 : (m >= 4 && s <= 2) ? 3 : 2;
   });
   const [chips, setChips] = useState([]);
+  // C-F9 — where you are training today. Defaults to wherever you trained last, so
+  // the usual case costs no taps at all; the old chip asked the same question daily.
+  const [location, setLocation] = useState(() => {
+    try { return localStorage.getItem("jf_last_location") || "home"; } catch { return "home"; }
+  });
   const [freeText, setFreeText] = useState("");
   const [painScope, setPainScope] = useState(null);
   const [painAreas, setPainAreas] = useState([]);
@@ -859,6 +864,7 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
       3: { mood: 9, stress: 2, motivation: 9 },
     };
     const m = moodMap[feeling] ?? moodMap[2];
+    try { localStorage.setItem("jf_last_location", location); } catch { /* private mode */ }
     onSave({
       mood: m.mood,
       stress: m.stress,
@@ -868,7 +874,9 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
         no_clothing: false,
         no_gear: false,
         no_time: chips.includes("zero_time"),
-        gym_today: chips.includes("gym"),
+        equipment_profile_id: location,
+        // Kept in sync for older cached clients and any consumer still reading it.
+        gym_today: location === "gym",
         traveling: false,
         recovery_mode: chips.includes("taking_easy"),
         pain_level: hasPain ? 3 : 0,
@@ -898,7 +906,6 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
     { val: "poor_sleep", label: t("Rough night"),      icon: ci(<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>) },
     { val: "low_energy", label: t("Low energy"),       icon: ci(<><rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/></>) },
     { val: "zero_time",  label: t("Zero time today"),  icon: ci(<><circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15 15"/></>) },
-    { val: "gym",        label: t("Gym access today"), icon: ci(<><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="9" x2="4" y2="15"/><line x1="8" y1="7" x2="8" y2="17"/><line x1="16" y1="7" x2="16" y2="17"/><line x1="20" y1="9" x2="20" y2="15"/></>) },
     { val: "taking_easy",label: t("Taking it easy"),  icon: ci(<path d="M17 8C8 10 5.9 16.17 3.82 19.25c3.82 1.24 7.47-.93 8.74-2.97C13.42 14.77 14 11 14 11c1.72 2.4 2 7 2 7 2-2.4 2-5 2-5 2.4 1 3 3 3 3C22 10 17 8 17 8z"/>) },
     ...(showPeriodChip ? [{ val: "period", label: t("Period today"), icon: ci(<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>) }] : []),
   ];
@@ -977,6 +984,38 @@ function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastChec
                 <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>{t("What's going on?")}</div>
                 <div style={{ fontSize: 14, color: C.muted }}>{t("Tap anything that fits \u2014 or just hit Apply")}</div>
               </div>
+              {/* ── C-F9: where are you training today ── */}
+              <div style={{ paddingTop: 16 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.subtle, marginBottom: 8 }}>
+                  {t("Where are you training?")}
+                </div>
+                <div style={{ display: "flex", gap: 6 }}>
+                  {[
+                    { id: "home",   label: t("Home") },
+                    { id: "gym",    label: t("Gym") },
+                    { id: "travel", label: t("Away") },
+                  ].map(({ id, label }) => {
+                    const sel = location === id;
+                    return (
+                      <button
+                        key={id}
+                        onClick={() => setLocation(id)}
+                        aria-pressed={sel}
+                        style={{
+                          flex: 1, minHeight: 48, borderRadius: 14, cursor: "pointer",
+                          fontSize: 13, fontWeight: 800, touchAction: "manipulation",
+                          border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                          background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
+                          color: sel ? C.emerald : C.muted,
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, paddingTop: 16, paddingBottom: 14 }}>
                 {CHIP_DEFS.map(({ val, label, icon }) => {
                   const sel = chips.includes(val);
