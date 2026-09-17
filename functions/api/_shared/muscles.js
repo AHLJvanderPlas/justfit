@@ -45,6 +45,26 @@ export const REGION_LABELS_NL = {
   'calves': 'Kuiten',
 };
 
+/** English labels, parallel to REGION_LABELS_NL. Both must cover every region. */
+export const REGION_LABELS_EN = {
+  'chest': 'chest',
+  'front-shoulders': 'front shoulders',
+  'rear-shoulders': 'rear shoulders',
+  'biceps': 'biceps',
+  'triceps': 'triceps',
+  'forearms': 'forearms',
+  'abdominals': 'abs',
+  'obliques': 'obliques',
+  'lats': 'lats',
+  'traps': 'neck and traps',
+  'traps-middle': 'upper back',
+  'lowerback': 'lower back',
+  'quads': 'quads',
+  'hamstrings': 'hamstrings',
+  'glutes': 'glutes',
+  'calves': 'calves',
+};
+
 /**
  * Every value observed in the live library, mapped to the regions it belongs to.
  * A value may map to several regions (group terms like `legs`), or to none

@@ -197,6 +197,31 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F3 — exercise purpose labels must all translate ──────────────────────
+# deriveExerciseWhy() previously returned raw English literals without passing
+# through t(), so Dutch users saw English whatever their language setting. The
+# purpose keys now go through t(); this asserts every one has an NL entry, and
+# that the dictionary has no duplicate keys (a later duplicate silently shadows
+# an earlier one).
+I18N=$(node --input-type=module -e '
+import fs from "node:fs";
+import { WHY_PURPOSE } from "./functions/api/_shared/exerciseWhy.js";
+const src = fs.readFileSync("packages/client-app/src/i18n.js", "utf8");
+const keys = [...src.matchAll(/^  [\x27"]([^\x27"]+)[\x27"]:/gm)].map(m => m[1]);
+const set = new Set(keys);
+const errs = [];
+const missing = Object.values(WHY_PURPOSE).filter(v => !set.has(v));
+if (missing.length) errs.push("no NL entry for: " + missing.join(", "));
+if (!set.has("and")) errs.push("no NL entry for the joining word \"and\"");
+const dup = [...new Set(keys.filter((k, i) => keys.indexOf(k) !== i))];
+if (dup.length) errs.push("duplicate NL keys: " + dup.join(", "));
+process.stdout.write(errs.length ? errs.join("; ") : "OK (" + keys.length + " keys)");
+' 2>&1)
+case "$I18N" in
+  OK*) ok "every exercise purpose label translates — $I18N" ;;
+  *)   fail "i18n: ${I18N}" ;;
+esac
+
 # ── S-3 — Strava webhook correctness ───────────────────────────────────────
 # The subscription challenge must be gated on the verify token: without it anyone
 # can point Strava at our endpoint. And POST must stay idempotent + always 200,

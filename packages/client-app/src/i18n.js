@@ -40,6 +40,56 @@ export function t(key, vars) {
 // Training science terms (FTP, TSS, Zone 2, PMC, CTL, ATL, TSB, RPE, VO2max) are
 // intentionally NOT in this dict — they fall back to the English key in both languages.
 const NL = {
+  // ── C-F3 — exercise purpose labels (see _shared/exerciseWhy.js) ──
+  'Recovery': 'Herstel',
+  'Breathwork': 'Ademhaling',
+  'Pelvic floor': 'Bekkenbodem',
+  'Mobility': 'Mobiliteit',
+  'Running fitness': 'Loopconditie',
+  'Conditioning': 'Conditie',
+  'Loaded carry': 'Gewicht dragen',
+  'Core stability': 'Rompstabiliteit',
+  // 'Strength' already exists further down with the same value — not repeated here.
+  'Functional strength': 'Functionele kracht',
+  'and': 'en',
+  // ── C-F7 / C-F8 / C-F9 / C-F10 — strings added 2026-09-17 ──
+  'Recovery panel': 'Herstel',
+  'Show body map': 'Toon lichaamskaart',
+  'Hide body map': 'Verberg lichaamskaart',
+  'Needs the most rest': 'Heeft het meeste rust nodig',
+  'Ready to train': 'Klaar om te trainen',
+  'last loaded': 'laatst belast',
+  'just now': 'zojuist',
+  'h ago': 'uur geleden',
+  'yesterday': 'gisteren',
+  'days ago': 'dagen geleden',
+  'Based on what you trained in the last 14 days. Green is ready, red needs rest.':
+    'Gebaseerd op je trainingen van de afgelopen 14 dagen. Groen is klaar, rood heeft rust nodig.',
+  'Nothing logged in the last 14 days — everything is fresh.':
+    'Niets gelogd in de afgelopen 14 dagen — alles is fris.',
+  'Records': 'Records',
+  'Your best estimated one-rep max per exercise, from the weight and reps you logged.':
+    'Je beste geschatte 1RM per oefening, op basis van het gewicht en de herhalingen die je logde.',
+  'est. 1RM': 'gesch. 1RM',
+  'Show all': 'Toon alles',
+  'Show less': 'Toon minder',
+  'Last time': 'Vorige keer',
+  'Bodyweight': 'Lichaamsgewicht',
+  'Weight': 'Gewicht',
+  'per hand': 'per hand',
+  'Less weight': 'Minder gewicht',
+  'More weight': 'Meer gewicht',
+  'Superset': 'Superset',
+  'then': 'daarna',
+  'Where are you training?': 'Waar train je?',
+  'Home': 'Thuis',
+  'Gym': 'Sportschool',
+  'Away': 'Onderweg',
+  'Add JustFit to your home screen': 'Zet JustFit op je beginscherm',
+  'Opens full screen and works offline.': 'Opent schermvullend en werkt offline.',
+  'Install': 'Installeren',
+  'Dismiss': 'Sluiten',
+  "Start today's session": 'Start de sessie van vandaag',
   // === NAVIGATION ===
   'Today': 'Vandaag',
   'Plan': 'Plan',
