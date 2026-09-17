@@ -39,7 +39,6 @@ export const ALL_EQUIPMENT = [
   { value: "dumbbell",           label: "Dumbbells" },
   { value: "resistance_bands",   label: "Resistance bands" },
   { value: "jump_rope",          label: "Jump rope" },
-  { value: "exercise_mat",       label: "Exercise mat" },
   { value: "foam_roller",        label: "Foam roller" },
   { value: "kettlebell",         label: "Kettlebell" },
   { value: "pull_up_bar",        label: "Pull-up bar" },
@@ -79,7 +78,6 @@ export const ALL_EQUIPMENT = [
   { value: "ez_bar",             label: "EZ curl bar" },
   { value: "multi_gym",          label: "Multi-gym / home gym station" },
   { value: "bench_press_rack",   label: "Bench press rack" },
-  { value: "multi_gym",          label: "Multi-gym machine" },
 ];
 
 export const ALL_SPORTS = [

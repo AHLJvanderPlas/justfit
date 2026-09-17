@@ -924,7 +924,7 @@ const T = {
 // Anything a user can own at home is therefore included, plus the gym-only
 // vocabulary. Keep this in step with ALL_EQUIPMENT in appConstants.js.
 const HOME_EQUIPMENT = ['none','dumbbell','resistance_bands','pull_up_bar','kettlebell',
-  'chair','foam_roller','yoga_mat','exercise_mat','jump_rope','stability_ball',
+  'chair','foam_roller','yoga_mat','jump_rope','stability_ball',
   'adjustable_bench','ankle_weights','push_up_handles','medicine_ball','suspension_trainer',
   'step_platform','power_tower','punching_bag','rucksack','trail_shoes','running_shoes',
   'fitness_tracker','treadmill','exercise_bike','indoor_bike','rowing_machine','elliptical',

@@ -197,6 +197,35 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-B20 — no equipment option the planner cannot satisfy ─────────────────
+# A user ticks an option in onboarding and the planner has nothing behind it: a
+# broken promise at the first interaction. X-36 swept these once, and exercise_mat
+# survived by being a duplicate rather than an absence. This compares the options
+# offered against the vocabulary the planner actually resolves, so the next dead
+# option fails the build instead of reaching onboarding.
+EQ=$(node --input-type=module -e '
+import fs from "node:fs";
+const consts = fs.readFileSync("packages/client-app/src/appConstants.js","utf8");
+const plan   = fs.readFileSync("functions/api/plan.js","utf8");
+const block  = consts.match(/export const ALL_EQUIPMENT = \[([\s\S]*?)\n\];/)[1];
+const offered = [...block.matchAll(/value:\s*"([a-z_]+)"/g)].map(m => m[1]);
+const list = (n) => {
+  const m = plan.match(new RegExp("const " + n + " = \\[([\\s\\S]*?)\\];"));
+  return m ? [...m[1].matchAll(/.([a-z_]+)./g)].map(x => x[1]) : [];
+};
+const known = new Set([...list("HOME_EQUIPMENT"), ...list("GYM_ONLY_EQUIPMENT"), ...list("CYCLING_EQUIPMENT")]);
+const orphans = offered.filter(o => !known.has(o));
+const dupes = offered.filter((o,i) => offered.indexOf(o) !== i);
+const errs = [];
+if (orphans.length) errs.push("options the planner cannot resolve: " + orphans.join(","));
+if (dupes.length) errs.push("duplicate options: " + dupes.join(","));
+process.stdout.write(errs.length ? errs.join("; ") : "OK (" + offered.length + " options)");
+' 2>&1)
+case "$EQ" in
+  OK*) ok "every equipment option is resolvable by the planner — $EQ" ;;
+  *)   fail "equipment vocabulary: ${EQ}" ;;
+esac
+
 # ── C-F9 — location profiles must never starve the pool ────────────────────
 # R518's history: a parallel GYM_EQUIPMENT list once made "at the gym" drop 52
 # exercises and add one. Profiles reintroduce that risk per location, so R518 now
