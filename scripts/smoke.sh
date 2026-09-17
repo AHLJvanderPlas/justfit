@@ -197,6 +197,24 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── S-3 — Strava webhook correctness ───────────────────────────────────────
+# The subscription challenge must be gated on the verify token: without it anyone
+# can point Strava at our endpoint. And POST must stay idempotent + always 200,
+# because Strava retries.
+if [ -f functions/api/webhooks/strava.js ]; then
+  if grep -q "STRAVA_WEBHOOK_VERIFY_TOKEN" functions/api/webhooks/strava.js; then
+    ok "strava webhook gates the subscription challenge on a verify token"
+  else
+    fail "strava webhook echoes hub.challenge without checking the verify token"
+  fi
+  if grep -qE "onRequestPost[\s\S]{0,40}" functions/api/webhooks/strava.js \
+     && ! grep -A200 "export async function onRequestPost" functions/api/webhooks/strava.js | grep -qE "status: (4|5)[0-9][0-9]"; then
+    ok "strava webhook POST always answers 200 (Strava retries on failure)"
+  else
+    fail "strava webhook POST can answer non-200 — Strava will retry it"
+  fi
+fi
+
 # ── X-7 — webhook handlers must never invite retries ───────────────────────
 # A webhook endpoint that answers non-200 gets retried. On a logging endpoint that
 # turns one failure into a storm and helps nobody, so both handlers answer 200
