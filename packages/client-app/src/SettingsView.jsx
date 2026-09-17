@@ -536,6 +536,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         setStravaConnection(c => c ? { ...c, last_sync_at_ms: Date.now() } : c);
         setStravaMsg(data.imported === 0 ? 'Already up to date.' : '');
       } else {
+        // Strava's own reason where it gave one — "try again" is wrong advice for
+        // an application marked Inactive.
         setStravaMsg(data.error ?? 'Sync failed. Try again.');
       }
     } catch {

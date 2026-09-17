@@ -117,13 +117,30 @@ export function readRateLimit(resp) {
 }
 
 export class StravaError extends Error {
-  constructor(message, { status, rateLimited = false, reauth = false } = {}) {
+  constructor(message, { status, rateLimited = false, reauth = false, forbidden = false, detail = null } = {}) {
     super(message);
     this.name = 'StravaError';
     this.status = status;
     this.rateLimited = rateLimited;
     this.reauth = reauth;
+    // 403 with resource "Application" means the Strava app itself is disabled
+    // (status Inactive, tier/subscription lapsed). Tokens still refresh fine, so
+    // nothing else in the flow notices — it has to be surfaced explicitly or the
+    // sync reports a clean zero-activity success.
+    this.forbidden = forbidden;
+    this.detail = detail;
   }
+}
+
+/** Pull resource/field/code out of a Strava error body; far more useful than `message`. */
+export function parseStravaError(body) {
+  try {
+    const p = JSON.parse(body);
+    const fields = (p?.errors ?? [])
+      .map((e) => [e.resource, e.field, e.code].filter(Boolean).join(' '))
+      .filter(Boolean);
+    return fields.length ? fields.join('; ') : (p?.message || null);
+  } catch { return (body || '').slice(0, 160) || null; }
 }
 
 /** Authorized fetch against the Strava API with typed failures. */
@@ -142,7 +159,12 @@ export async function stravaFetch(path, accessToken, env, init = {}) {
   }
   if (!resp.ok) {
     const body = await resp.text().catch(() => '');
-    throw new StravaError(`Strava ${resp.status}: ${body.slice(0, 300)}`, { status: resp.status });
+    const detail = parseStravaError(body);
+    throw new StravaError(`Strava ${resp.status}: ${body.slice(0, 300)}`, {
+      status: resp.status,
+      forbidden: resp.status === 403,
+      detail,
+    });
   }
   return resp;
 }

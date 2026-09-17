@@ -131,7 +131,20 @@ export async function onRequestPost(context) {
       if (e instanceof StravaError && e.reauth) {
         return json({ error: 'Strava authorisation rejected — reconnect Strava.', needsReauth: true }, 409);
       }
-      console.error('strava-sync fetch:', e.message);
+      // A 403 used to fall through to the generic path below, which breaks the
+      // loop and still returns ok:true with imported:0 — so the UI reported
+      // "Already up to date." while Strava was refusing every request.
+      if (e instanceof StravaError && e.forbidden) {
+        const inactive = /Inactive/i.test(e.detail ?? '');
+        return json({
+          error: inactive
+            ? 'Strava has this application marked Inactive, so it will not return activities. The connection itself is fine — the app needs reactivating in the Strava API settings (Standard tier requires an active Strava subscription).'
+            : 'Strava refused the request.',
+          strava_detail: e.detail,
+          appInactive: inactive,
+        }, 409);
+      }
+      console.error('strava-sync fetch:', e.message, e.detail ?? '');
       truncated = true;
       break;
     }
