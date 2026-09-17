@@ -197,6 +197,37 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── R590 — recovery bias must never starve the pool ────────────────────────
+# On a day when every muscle is fatigued the right answer is "train the least
+# fatigued thing", not "train nothing". R590 is a reorder, never a filter; if it
+# ever becomes a filter, a consistent trainer gets an empty session.
+R590=$(node --input-type=module -e '
+import fs from "node:fs";
+const src = fs.readFileSync("functions/api/plan.js","utf8");
+const m = src.match(/  \/\/ R590 — C-F7[\s\S]*?\n  \}\n/);
+if (!m) { process.stdout.write("MISSING"); }
+else {
+  fs.writeFileSync("/tmp/_r590_guard.mjs",
+   "export function r590(ctx){ const FATIGUE_THRESHOLD=40; const _addNote=(c,n)=>(c.sessionNotes??=[]).push(n);\n"
+   + m[0] + "\n}");
+  const { r590 } = await import("/tmp/_r590_guard.mjs?t=" + Date.now());
+  const ex = (id,f) => ({id,name:"e"+id,muscle_freshness:f,category:"strength"});
+  const errs = [];
+  const allTired = {pool:[ex(1,5),ex(2,9),ex(3,14)],slot_type:"main",trace:[],sessionNotes:[]};
+  r590(allTired);
+  if (allTired.pool.length !== 3) errs.push("pool shrank when everything was fatigued");
+  const mixed = {pool:[ex(1,12),ex(2,90)],slot_type:"main",trace:[],sessionNotes:[]};
+  r590(mixed);
+  if (mixed.pool.length !== 2) errs.push("pool shrank on mixed fatigue");
+  if (mixed.pool[0].muscle_freshness !== 90) errs.push("fresh exercise was not promoted");
+  process.stdout.write(errs.length ? errs.join("; ") : "OK");
+}' 2>&1)
+if [ "$R590" = "OK" ]; then
+  ok "R590 reorders by fatigue without ever shrinking the exercise pool"
+else
+  fail "R590 regression: ${R590}"
+fi
+
 # ── C-F10 — superset pairing guard ─────────────────────────────────────────
 # Pairing two exercises that share a primary muscle is not a superset — it is a
 # drop set that compromises both. This asserts the overlap check still holds, and

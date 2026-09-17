@@ -3,6 +3,8 @@ import { buildCyclingWorkoutsFromProtocols, CYCLING_PROFILES, getCyclingBlockPha
 import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolumeExercise } from './_shared/running.js';
 
 import { getAuthUserId } from './_shared/auth.js';
+import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
+import { musclesFromJson } from './_shared/muscles.js';
 
 // ---------------------------------------------------------------------------
 // adaptExistingPlan — free tier: adjust volume/intensity on a stored plan
@@ -87,7 +89,7 @@ export async function onRequestPost({ request, env }) {
     const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, lastWeightsResult] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, recoveryResult, lastWeightsResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
                 primary_muscles_json, secondary_muscles_json
@@ -141,6 +143,11 @@ export async function onRequestPost({ request, env }) {
              JOIN gym_memberships gm ON gm.gym_id = e.gym_id AND gm.user_id = ? AND gm.status = 'active'
              WHERE e.gym_id IS NOT NULL AND e.is_active = 1`
           ).bind(user_id).all()
+        : Promise.resolve(null),
+      // C-F7 / R590 — recent training load per muscle, so the planner can avoid
+      // stacking work on a muscle group that has not recovered.
+      user_id
+        ? env.DB.prepare(RECOVERY_QUERY).bind(user_id, Date.now() - RECOVERY_WINDOW_DAYS * 86_400_000).all()
         : Promise.resolve(null),
       // C-F6 — last weight the athlete actually used per exercise, so a prescribed
       // load starts from their real history rather than a guess. Newest row wins.
@@ -196,11 +203,23 @@ export async function onRequestPost({ request, env }) {
     // C-F6 — hang the athlete's last used weight on the exercise row itself. The
     // planner passes exercises through by reference, so _assembleSession can seed a
     // target load without another positional parameter on an already long signature.
+    // R590 — an exercise is only as fresh as its most fatigued primary muscle. A
+    // squat is not a good idea because the glutes recovered if the quads have not.
+    const freshness = user_id
+      ? computeRecovery(recoveryResult?.results ?? [], Date.now()).freshness
+      : null;
+
     for (const ex of exResult.results) {
       const last = lastWeightByExercise.get(ex.id);
       if (last != null) ex.last_weight_kg = last;
       const perf = lastPerfByExercise.get(ex.id);
       if (perf) ex.last_performance = perf;
+      if (freshness) {
+        const regions = musclesFromJson(ex.primary_muscles_json);
+        if (regions.size > 0) {
+          ex.muscle_freshness = Math.min(...[...regions].map((r) => freshness[r] ?? 100));
+        }
+      }
     }
 
     const allExercises = [
@@ -2082,6 +2101,31 @@ function _selectExercises(ctx) {
     if (topGap && topGap.gap >= T.PROG_GAP_NOTE) {
       const axisLabel = { push:'Push', pull:'Pull', legs:'Legs', core:'Core', conditioning:'Cardio', mobility:'Mobility' }[topGap.axis] ?? topGap.axis;
       ctx.trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
+    }
+  }
+
+  // R590 — C-F7: bias selection away from muscles that have not recovered.
+  //
+  // A soft reorder, never a filter. Removing fatigued exercises outright would
+  // empty the pool for anyone training consistently, and on a day when everything
+  // is fatigued the right answer is "train the least-fatigued thing", not "train
+  // nothing". Only strength work is affected; cardio and mobility are how you
+  // train *around* fatigue, not into it.
+  if (ctx.pool?.length && ctx.slot_type !== 'rest') {
+    const fatigued = ctx.pool.filter(ex =>
+      ex.muscle_freshness != null && ex.muscle_freshness < FATIGUE_THRESHOLD
+      && ex.category !== 'mobility' && ex.category !== 'recovery' && ex.category !== 'cardio');
+    if (fatigued.length && fatigued.length < ctx.pool.length) {
+      const fatiguedSet = new Set(fatigued.map(e => e.id));
+      ctx.pool = [
+        ...ctx.pool.filter(e => !fatiguedSet.has(e.id)),
+        ...fatigued.sort((a, b) => (b.muscle_freshness ?? 100) - (a.muscle_freshness ?? 100)),
+      ];
+      const worst = fatigued.reduce((w, e) => (e.muscle_freshness < (w?.muscle_freshness ?? 101) ? e : w), null);
+      ctx.trace.push(`R590 — ${fatigued.length} exercise(s) deprioritised for muscle fatigue (lowest: ${worst?.name} at ${worst?.muscle_freshness}% recovered)`);
+      if (worst && worst.muscle_freshness <= 20) {
+        _addNote(ctx, 'Sommige spiergroepen zijn nog niet hersteld — de planner kiest vandaag bewust ander werk.');
+      }
     }
   }
 
