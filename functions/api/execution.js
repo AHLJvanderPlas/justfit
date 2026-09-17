@@ -136,6 +136,26 @@ function progApplyStimulus(scores, stimulus, eventMs) {
   return updated;
 }
 
+/**
+ * Load multiplier for a logged step — C-F6.
+ *
+ * Relative to a 20 kg reference (an empty barbell, a pair of mid-weight dumbbells)
+ * and compressed with a square root so the curve rewards getting stronger without
+ * letting a heavy lifter's scores run away: 20 kg → 1.0, 40 kg → 1.41, 80 kg → 2.0.
+ * Capped at 2.5.
+ *
+ * Returns exactly 1.0 when nothing was logged, which is what keeps every existing
+ * bodyweight session scoring identically to before.
+ */
+const PROG_LOAD_REFERENCE_KG = 20;
+const PROG_LOAD_MAX_MULT = 2.5;
+function progLoadMultiplier(actual) {
+  const w = (actual?.weight_kg ?? []).filter((x) => Number(x) > 0);
+  if (!w.length) return 1.0;
+  const avg = w.reduce((a, b) => a + Number(b), 0) / w.length;
+  return Math.min(Math.sqrt(avg / PROG_LOAD_REFERENCE_KG), PROG_LOAD_MAX_MULT);
+}
+
 // Compute how much stimulus each exercise step contributes to each axis
 function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _eventMs) {
   const acc = {};
@@ -172,7 +192,14 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
       acc[axis].mobility = Math.min(acc[axis].mobility + sets * 0.6, PROG_MAX_STIMULUS_PER_AXIS);
     } else {
       const sets = actual.sets_completed ?? 0;
-      acc[axis].power = Math.min(acc[axis].power + sets * 0.8, PROG_MAX_STIMULUS_PER_AXIS);
+      // C-F6 — weight moved now counts. Before this, 8 reps at 40 kg and 8 reps at
+      // 100 kg produced identical stimulus, so an athlete getting genuinely stronger
+      // on a fixed rep scheme registered as flat.
+      //
+      // Bodyweight and unlogged sets must score EXACTLY as before, or every existing
+      // user's history silently re-bases. Hence a multiplier of 1.0 whenever there is
+      // no weight, and a cap so one heavy session cannot dominate an axis.
+      acc[axis].power = Math.min(acc[axis].power + sets * 0.8 * progLoadMultiplier(actual), PROG_MAX_STIMULUS_PER_AXIS);
     }
   }
 
@@ -345,6 +372,35 @@ async function updateProgression(userId, executionId, sessionType, durationSec, 
 
   // Compute stimulus from this session
   const stimulus = progComputeStimulus(steps, sessionType, durationSec, exerciseMap, nowMs);
+
+  // C-F6 — the load term changes what a session is worth. Record both the old and
+  // new figures whenever they differ so the switch is auditable after the fact
+  // rather than a silent re-baselining nobody can reconstruct. Costs one insert on
+  // the sessions where weight was actually logged, and nothing on any other.
+  try {
+    const anyLoad = (steps ?? []).some((st) => {
+      try { return (JSON.parse(st.actual_json ?? '{}')?.weight_kg ?? []).some((w) => Number(w) > 0); }
+      catch { return false; }
+    });
+    if (anyLoad) {
+      const unweighted = progComputeStimulus(
+        (steps ?? []).map((st) => {
+          try {
+            const a = JSON.parse(st.actual_json ?? '{}');
+            delete a.weight_kg;
+            return { ...st, actual_json: JSON.stringify(a) };
+          } catch { return st; }
+        }), sessionType, durationSec, exerciseMap, nowMs
+      );
+      await env.DB.prepare(
+        `INSERT INTO app_events (id, user_id, event_type, detail, created_at_ms) VALUES (?, ?, 'progression_load_delta', ?, ?)`
+      ).bind(crypto.randomUUID(), userId,
+        JSON.stringify({ with_load: stimulus, without_load: unweighted }), nowMs).run();
+    }
+  } catch (e) {
+    // Auditing must never block saving a workout.
+    console.error('load delta audit:', e.message);
+  }
 
   // Apply stimulus to get new scores
   const scoresAfter = progApplyStimulus(scoresBefore, stimulus, nowMs);

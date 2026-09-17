@@ -197,6 +197,71 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F6 — load model guards ───────────────────────────────────────────────
+# Bodyweight work must never score differently than it did before load existed.
+# progLoadMultiplier returning anything but exactly 1.0 for an unlogged set would
+# silently re-baseline every existing user's progression.
+LOAD_MULT=$(node --input-type=module -e '
+const src = await import("node:fs").then(m => m.readFileSync("functions/api/execution.js","utf8"));
+const m = src.match(/function progLoadMultiplier\(actual\) \{[\s\S]*?\n\}/);
+if (!m) { process.stdout.write("MISSING"); }
+else {
+  const fn = new Function("actual", m[0].replace(/^function progLoadMultiplier\(actual\) \{/, "").replace(/\}$/, "")
+    .replace("PROG_LOAD_REFERENCE_KG", "20").replace("PROG_LOAD_MAX_MULT", "2.5"));
+  const cases = [[{}, 1], [{weight_kg: []}, 1], [{weight_kg: [0,0]}, 1], [{weight_kg: [20]}, 1]];
+  const bad = cases.filter(([a, want]) => Math.abs(fn(a) - want) > 1e-9);
+  process.stdout.write(bad.length ? "DRIFT" : "OK");
+}' 2>&1)
+if [ "$LOAD_MULT" = "OK" ]; then
+  ok "progLoadMultiplier is exactly 1.0 for unweighted sets (no silent re-baseline)"
+else
+  fail "progLoadMultiplier changed unweighted scoring (${LOAD_MULT}) — existing history would shift"
+fi
+
+# An exercise needing no equipment must never ask for a weight.
+if [ -f migrations/0107_exercise_load.sql ]; then
+  if grep -q "rucksack" migrations/0107_exercise_load.sql && ! grep -qE "^UPDATE.*load_type.*rucksack" migrations/0107_exercise_load.sql; then
+    ok "0107 documents why rucksack is excluded from the load vocabulary"
+  else
+    fail "0107 must document the rucksack exclusion (march weight comes from MIL_MARCH_KG)"
+  fi
+fi
+
+# ── C-F7 — muscle vocabulary guards ────────────────────────────────────────
+# The library vocabulary is uncontrolled (100 distinct values). Anything the map
+# cannot resolve is dropped in silence, which looks identical to "that muscle was
+# not worked" — so a new exercise using an unmapped synonym degrades the recovery
+# map with no error anywhere. These assert the two halves stay reconcilable.
+MUSCLE_CHECK=$(node --input-type=module -e '
+import { MUSCLE_REGIONS, REGION_TIER, REGION_LABELS_NL } from "./functions/api/_shared/muscles.js";
+import fs from "fs";
+const src = fs.readFileSync("packages/client-app/src/MuscleMap.jsx", "utf8");
+const ids = new Set();
+for (const m of src.matchAll(/^  "([a-z_-]+)":/gm)) ids.add(m[1]);
+const regions = new Set(MUSCLE_REGIONS);
+const errs = [];
+for (const r of regions) if (!ids.has(r)) errs.push("region not drawn: " + r);
+for (const i of ids) if (!regions.has(i)) errs.push("SVG group has no region: " + i);
+for (const r of MUSCLE_REGIONS) {
+  if (!REGION_TIER[r]) errs.push("no recovery tier: " + r);
+  if (!REGION_LABELS_NL[r]) errs.push("no label: " + r);
+}
+process.stdout.write(errs.length ? errs.join("; ") : "OK");
+' 2>&1)
+if [ "$MUSCLE_CHECK" = "OK" ]; then
+  ok "muscle regions, SVG groups, tiers and labels are all in step"
+else
+  fail "muscle vocabulary mismatch: ${MUSCLE_CHECK}"
+fi
+
+# Match the declaration, not the word — the file explains in a comment why the
+# old ALIASES table was removed, and a bare grep flags its own documentation.
+if grep -qE "^\s*(const|let|var)\s+ALIASES" packages/client-app/src/MuscleMap.jsx; then
+  fail "MuscleMap.jsx still has a local ALIASES table — vocabulary must come from _shared/muscles.js"
+else
+  ok "MuscleMap.jsx has no local muscle vocabulary"
+fi
+
 # ── X-28 — migration number drift guard ────────────────────────────────────
 # The documented "next valid migration number" has drifted twice (docs claimed
 # 0089 and 0099 long after 0106 was applied). A stale number means a new

@@ -1,9 +1,12 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { C, display, eyebrow, mono , overlay, themeValue} from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+// 82 KB of SVG path data — kept out of the Progress tab's critical path and
+// only fetched when the body map is actually opened.
+const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 // ─── SHARE PROGRESS ───────────────────────────────────────────────────────────
 async function shareProgressImage(history, streak, accentHex) {
@@ -254,6 +257,83 @@ function radarPolygon(cx, cy, maxR, scores) {
     const pt = radarPoint(cx, cy, maxR * fraction, i, RADAR_AXES.length);
     return `${pt.x},${pt.y}`;
   }).join(" ");
+}
+
+// ── C-F7 — Recovery ───────────────────────────────────────────────────────────
+// The question this answers is "is it sensible to train this today", which the six
+// progression axes are too coarse to reach. Everything it needs already existed:
+// the anatomical figure, the muscle columns, and a decay model.
+function RecoveryPanel({ recovery, gender }) {
+  const [open, setOpen] = useState(false);
+  if (!recovery?.freshness) return null;
+
+  const { freshness, labels, mostFatigued, freshest, last_loaded_at_ms: lastAt } = recovery;
+  const trained = Object.values(freshness).some((f) => f < 100);
+
+  const ago = (ms) => {
+    if (!ms) return null;
+    const h = Math.round((Date.now() - ms) / 3600000);
+    if (h < 1) return t("just now");
+    if (h < 24) return `${h} ${t("h ago")}`;
+    const d = Math.round(h / 24);
+    return d === 1 ? t("yesterday") : `${d} ${t("days ago")}`;
+  };
+
+  const Row = ({ region, freshness: f }) => (
+    <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 0" }}>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {labels?.[region] ?? region}
+        </div>
+        {lastAt?.[region] && (
+          <div style={{ fontSize: 11, color: C.muted }}>{t("last loaded")} {ago(lastAt[region])}</div>
+        )}
+      </div>
+      <div style={{ width: 74, height: 6, borderRadius: 3, background: "rgba(var(--overlay-rgb),0.08)", overflow: "hidden", flex: "none" }}>
+        <div style={{ width: `${f}%`, height: "100%", borderRadius: 3,
+          background: f >= 65 ? C.emerald : f >= 45 ? C.amber : C.rose }} />
+      </div>
+      <div style={{ width: 34, textAlign: "right", fontSize: 12, fontWeight: 700,
+        fontVariantNumeric: "tabular-nums", flex: "none",
+        color: f >= 65 ? C.emerald : f >= 45 ? C.amber : C.rose }}>{f}%</div>
+    </div>
+  );
+
+  return (
+    <Glass style={{ padding: 20, marginBottom: 14 }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{t("Recovery")}</div>
+        <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", cursor: "pointer",
+          color: C.emerald, fontSize: 12, fontWeight: 600, padding: "6px 0", minHeight: 32, touchAction: "manipulation" }}>
+          {open ? t("Hide body map") : t("Show body map")}
+        </button>
+      </div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+        {trained
+          ? t("Based on what you trained in the last 14 days. Green is ready, red needs rest.")
+          : t("Nothing logged in the last 14 days — everything is fresh.")}
+      </div>
+
+      {open && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: 14 }}>
+          <Suspense fallback={<div style={{ height: 150 }} />}>
+            <MuscleMap freshness={freshness} gender={gender} size={280} showLabels={true} />
+          </Suspense>
+        </div>
+      )}
+
+      {trained && mostFatigued?.length > 0 && (
+        <>
+          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+            color: C.subtle, marginBottom: 2 }}>{t("Needs the most rest")}</div>
+          {mostFatigued.map((x) => <Row key={x.region} {...x} />)}
+          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+            color: C.subtle, margin: "12px 0 2px" }}>{t("Ready to train")}</div>
+          {freshest.map((x) => <Row key={x.region} {...x} />)}
+        </>
+      )}
+    </Glass>
+  );
 }
 
 function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
@@ -658,6 +738,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           </div>
         )}
       </Glass>
+
+      <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
 
       {!progression ? (
         <Glass style={{ padding: 48, textAlign: "center" }}>

@@ -75,6 +75,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
   const [showBreathingReminder, setShowBreathingReminder] = useState(false);
   const [rpeValue, setRpeValue] = useState(5);
+  // C-F6 — load for the current exercise. Seeded from what the athlete lifted last
+  // time (target_weight_kg) and carried forward between sets of the same exercise.
+  const [weightKg, setWeightKg] = useState(0);
   const [sessionNotes, setSessionNotes] = useState("");
   const breathingTimerRef = useRef(null);
   const [showAlternatives, setShowAlternatives] = useState(false);
@@ -92,6 +95,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       actual: {
         sets_completed: 0,
         reps_per_set: [],          // actual reps per set (or seconds for time-based)
+        weight_kg: [],             // C-F6 — load per set; empty for bodyweight work
         rest_taken_seconds: [],    // actual rest duration between sets
         target_adjusted: false,
         target_original: null,
@@ -109,7 +113,23 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
   const totalSets = cur?.sets ?? 3;
   const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+  const supportsWeight = !!cur?.supports_weight;
+  const loadType = cur?.load_type ?? null;
+  // Smallest change the athlete can actually make. A machine stack moves in whole
+  // plates; a barbell needs a pair of the smallest plate; dumbbells come in fixed
+  // steps. Offering 0.5 kg on a stack machine would be a number nobody can set.
+  const weightStep = loadType === 'machine_stack' ? 5
+    : loadType === 'barbell' || loadType === 'plate_loaded' ? 2.5
+    : 1;
+  const weightLabel = loadType === 'dumbbell_pair' ? t('per hand') : null;
   const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
+
+  // C-F6 — reseed the load when the exercise changes. Falls back to the prescribed
+  // target (itself the athlete's last logged weight), then to 0 for a first attempt.
+  useEffect(() => {
+    if (!supportsWeight) { setWeightKg(0); return; }
+    setWeightKg(cur?.target_weight_kg ?? 0);
+  }, [exIdx, supportsWeight, cur?.target_weight_kg]);
 
   // ── Wake Lock — keep screen on during active workout ─────────────────────────
   const wakeLockRef = useRef(null);
@@ -230,6 +250,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     const actualEntry = stepsActualRef.current[exIdx]?.actual;
     if (actualEntry) {
       actualEntry.reps_per_set.push(reps);
+      // Only recorded for exercises that declare `weight`; a bodyweight set must
+      // not push a 0 and make the history look like a failed lift.
+      if (supportsWeight) actualEntry.weight_kg.push(weightKg);
       actualEntry.sets_completed += 1;
       // Record target adjustment info (on first set that differs from prescribed)
       if (!actualEntry.target_adjusted) {
@@ -955,6 +978,34 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 +
               </button>
             </div>
+
+            {/* ── C-F6: load row — only for exercises that declare a weight ── */}
+            {supportsWeight && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+                <button
+                  aria-label={t('Less weight')}
+                  onClick={() => setWeightKg((w) => Math.max(0, Math.round((w - weightStep) * 4) / 4))}
+                  style={{ width: 48, height: 48, minWidth: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", touchAction: "manipulation" }}
+                >
+                  −
+                </button>
+                <div style={{ minWidth: 120, textAlign: "center" }}>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: weightKg > 0 ? C.text : C.muted, fontVariantNumeric: "tabular-nums" }}>
+                    {weightKg > 0 ? `${weightKg} kg` : t('Bodyweight')}
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                    {weightLabel ?? t('Weight')}
+                  </div>
+                </div>
+                <button
+                  aria-label={t('More weight')}
+                  onClick={() => setWeightKg((w) => Math.round((w + weightStep) * 4) / 4)}
+                  style={{ width: 48, height: 48, minWidth: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", touchAction: "manipulation" }}
+                >
+                  +
+                </button>
+              </div>
+            )}
 
             {isTimeBased ? (
               /* ── Time-based exercise ── */

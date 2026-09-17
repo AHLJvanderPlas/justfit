@@ -3,6 +3,9 @@
 // POST /api/progression?action=recompute — admin: rebuild from execution history
 
 import { getUser } from './_shared/auth.js';
+import { computeRecovery, summariseRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS,
+         FATIGUE_THRESHOLD } from './_shared/recovery.js';
+import { MUSCLE_REGIONS, REGION_LABELS_NL } from './_shared/muscles.js';
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -499,6 +502,10 @@ export async function onRequestGet({ request, env }) {
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const nowMs = Date.now();
+    // C-F7 — recovery is opt-in per request so the common Progress-tab fetch stays
+    // one round trip, and callers that only need scores pay nothing for it.
+    const wantRecovery = (new URL(request.url).searchParams.get('include') ?? '')
+      .split(',').includes('recovery');
 
     // Fetch progression + preferences in parallel
     const [{ scores: rawScores, sportScores, createdAtMs }, prefs] = await Promise.all([
@@ -507,6 +514,27 @@ export async function onRequestGet({ request, env }) {
         `SELECT training_goal, preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1`
       ).bind(user.userId).first(),
     ]);
+
+    let recovery = null;
+    if (wantRecovery) {
+      try {
+        const since = nowMs - RECOVERY_WINDOW_DAYS * 86_400_000;
+        const { results } = await env.DB.prepare(RECOVERY_QUERY).bind(user.userId, since).all();
+        const { freshness, lastLoadedAtMs } = computeRecovery(results ?? [], nowMs);
+        recovery = {
+          freshness,
+          last_loaded_at_ms: lastLoadedAtMs,
+          regions: MUSCLE_REGIONS,
+          labels: REGION_LABELS_NL,
+          fatigue_threshold: FATIGUE_THRESHOLD,
+          window_days: RECOVERY_WINDOW_DAYS,
+          ...summariseRecovery(freshness),
+        };
+      } catch (e) {
+        // Recovery is additive; never let it take down the Progress tab.
+        console.error('progression recovery:', e.message);
+      }
+    }
 
     // Apply decay
     const scores   = applyAllDecay(rawScores, nowMs);
@@ -548,6 +576,7 @@ export async function onRequestGet({ request, env }) {
       axes: AXES,
       axis_labels: AXIS_LABELS,
       sport_scores: sportScores,
+      recovery,
     });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });

@@ -188,8 +188,11 @@ const api = {
     return res.json();
   },
 
+  // include=recovery adds the C-F7 per-muscle freshness block. Requested on every
+  // call because the Progress tab renders it and the extra query is one 14-day
+  // window; splitting it into a second round trip costs more than it saves.
   async getProgression(_token) {
-    const res = await fetch("/api/progression", {
+    const res = await fetch("/api/progression?include=recovery", {
     });
     return res.json();
   },

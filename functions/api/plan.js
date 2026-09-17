@@ -87,7 +87,7 @@ export async function onRequestPost({ request, env }) {
     const user_id = await getAuthUserId(request, env);
 
     // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult] = await Promise.all([
+    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, lastWeightsResult] = await Promise.all([
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json
          FROM exercises WHERE is_active = 1`
@@ -141,7 +141,30 @@ export async function onRequestPost({ request, env }) {
              WHERE e.gym_id IS NOT NULL AND e.is_active = 1`
           ).bind(user_id).all()
         : Promise.resolve(null),
+      // C-F6 — last weight the athlete actually used per exercise, so a prescribed
+      // load starts from their real history rather than a guess. Newest row wins.
+      user_id
+        ? env.DB.prepare(
+            `SELECT es.exercise_id, es.actual_json
+               FROM execution_steps es
+               JOIN executions ex ON ex.id = es.execution_id
+              WHERE ex.user_id = ? AND ex.status = 'completed'
+                AND es.actual_json LIKE '%weight_kg%'
+              ORDER BY COALESCE(ex.ended_at_ms, ex.created_at_ms) DESC
+              LIMIT 400`
+          ).bind(user_id).all()
+        : Promise.resolve(null),
     ]);
+
+    // exercise_id → heaviest weight in the most recent session that used it.
+    const lastWeightByExercise = new Map();
+    for (const row of (lastWeightsResult?.results ?? [])) {
+      if (lastWeightByExercise.has(row.exercise_id)) continue; // ordered newest first
+      try {
+        const w = (JSON.parse(row.actual_json)?.weight_kg ?? []).filter((x) => Number(x) > 0);
+        if (w.length) lastWeightByExercise.set(row.exercise_id, Math.max(...w));
+      } catch { /* skip malformed */ }
+    }
     // Use unified protocols when available; fall back to legacy cycling_workouts
     const protocolRows = cyclingProtocolsResult?.results ?? [];
     const cyclingWorkouts = protocolRows.length > 0
@@ -155,6 +178,14 @@ export async function onRequestPost({ request, env }) {
       : null;
 
     const customExRows = customExResult?.results ?? [];
+    // C-F6 — hang the athlete's last used weight on the exercise row itself. The
+    // planner passes exercises through by reference, so _assembleSession can seed a
+    // target load without another positional parameter on an already long signature.
+    for (const ex of exResult.results) {
+      const last = lastWeightByExercise.get(ex.id);
+      if (last != null) ex.last_weight_kg = last;
+    }
+
     const allExercises = [
       ...exResult.results,
       ...customExRows.map(ce => {
@@ -2205,6 +2236,19 @@ function _assembleSession(ctx) {
       alternatives_json:    ex.alternatives_json ?? null,
       gif_url:              media.gif_url ?? null,
       coaching_note:        coachingNote,
+      // C-F6 — load contract. supports_weight drives whether the client shows a
+      // weight field at all; load_type drives how the number is displayed and
+      // rounded. Absent on bodyweight and timed work, which is the common case.
+      ...(() => {
+        let m = {};
+        try { m = ex.metrics_json ? JSON.parse(ex.metrics_json) : {}; } catch { /* ignore */ }
+        if (!(m.supports ?? []).includes('weight')) return {};
+        return {
+          supports_weight: true,
+          load_type: m.load_type ?? null,
+          target_weight_kg: ex.last_weight_kg ?? null,
+        };
+      })(),
       ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
     };
   });

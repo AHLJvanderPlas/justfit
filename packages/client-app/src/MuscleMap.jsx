@@ -3,23 +3,17 @@
 // viewBox: 0 0 660.46 1206.46 per figure, side-by-side layout
 
 import React from "react";
+import { normaliseMuscles } from "../../../functions/api/_shared/muscles.js";
 
-const ALIASES = {
-  shoulders: ["delts_front", "delts_rear"],
-  back: ["lats", "traps", "lower_back"],
-  legs: ["quads", "hamstrings", "glutes", "calves"],
-  arms: ["biceps", "triceps", "forearms_front", "forearms_back"],
-  core: ["abs", "obliques"],
-  forearms: ["forearms_front", "forearms_back"],
-  delts: ["delts_front", "delts_rear"],
-};
+// Muscle vocabulary lives in functions/api/_shared/muscles.js so the Worker that
+// computes recovery and the component that draws it cannot drift apart.
+//
+// This replaced a local ALIASES table whose targets — delts_front, delts_rear, abs,
+// lower_back, forearms_front, forearms_back — matched none of the 16 regions this
+// file actually draws, so `shoulders` (48 exercises), `quadriceps` (50),
+// `lower_back` (23), `upper_back` (23) and `rhomboids` (17) rendered blank.
 function expandGroups(list = []) {
-  const out = new Set();
-  for (const g of list) {
-    if (ALIASES[g]) ALIASES[g].forEach((k) => out.add(k));
-    else out.add(g);
-  }
-  return out;
+  return normaliseMuscles(list);
 }
 
 // ── MALE FRONT ──────────────────────────────────────────────────────────────
@@ -351,36 +345,17 @@ const FB_GROUPS = {
 };
 
 // SVG group id → internal muscle key
-const SVG_KEY = {
-  "calves": "calves",
-  "quads": "quads",
-  "abdominals": "abs",
-  "obliques": "obliques",
-  "biceps": "biceps",
-  "chest": "chest",
-  "front-shoulders": "delts_front",
-  "rear-shoulders": "delts_rear",
-  "traps": "traps",
-  "traps-middle": "traps",
-  "triceps": "triceps",
-  "lats": "lats",
-  "lowerback": "lower_back",
-  "hamstrings": "hamstrings",
-  "glutes": "glutes",
-};
+// The 16 SVG group ids match MUSCLE_REGIONS 1:1, so no translation table is needed.
+// SVG_KEY used to map them onto the old ALIASES vocabulary (abs, delts_front,
+// lower_back, forearms_front/back); that vocabulary is gone.
 
 // Figure renders one 660.46×1206.46 anatomical figure
-function Figure({ groups, body, isFront, fill, lineColor }) {
-  // forearms key differs front vs back
-  const forearmKey = isFront ? "forearms_front" : "forearms_back";
+function Figure({ groups, body, isFront: _isFront, fill, lineColor }) {
   return (
     <g>
       {/* muscle fills */}
       {Object.entries(groups).map(([svgId, paths]) => {
-        const internalKey = svgId === "forearms"
-          ? forearmKey
-          : SVG_KEY[svgId] ?? svgId;
-        const color = fill(internalKey);
+        const color = fill(svgId);
         return paths.map((d, i) => (
           <path key={`${svgId}-${i}`} d={d} fill={color} />
         ));
@@ -403,6 +378,9 @@ export function MuscleMap({
   baseColor = "rgba(var(--overlay-rgb),0.06)",
   lineColor = "rgba(var(--overlay-rgb),0.55)",
   showLabels = true,
+  // C-F7 — when supplied ({ region: 0-100 }), the figure is tinted by how
+  // recovered each region is instead of by this exercise's primary/secondary.
+  freshness = null,
 }) {
   const isMale = gender !== "female";
   const frontGroups = isMale ? MF_GROUPS : FF_GROUPS;
@@ -412,7 +390,20 @@ export function MuscleMap({
 
   const primarySet   = expandGroups(primary);
   const secondarySet = expandGroups(secondary);
+
+  // Banded rather than continuous: a smooth gradient across 16 small shapes reads
+  // as noise, and "is this one worse than that one" is the only question the map
+  // has to answer. Colours come from theme tokens so both themes stay legible.
   const fill = (key) => {
+    if (freshness) {
+      const f = freshness[key];
+      if (f == null) return baseColor;
+      if (f >= 85) return "rgba(var(--accent-rgb),0.55)";
+      if (f >= 65) return "rgba(var(--accent-rgb),0.28)";
+      if (f >= 45) return "var(--amber-dim-strong)";
+      if (f >= 25) return "var(--rose-dim-strong)";
+      return "var(--rose)";
+    }
     if (primarySet.has(key))   return primaryColor;
     if (secondarySet.has(key)) return secondaryColor;
     return baseColor;

@@ -50,6 +50,10 @@ export const C = {
   faint:        "rgba(var(--overlay-rgb),0.32)",
   subtle:       "var(--subtle)",
   amber:        "var(--amber)",
+  // C-F7 recovery ramp — mid-band fills for the muscle map. Strong enough to
+  // read at small sizes, unlike the 0.08–0.10 *Dim tokens used for card washes.
+  amberDimStrong: "var(--amber-dim-strong)",
+  roseDimStrong:  "var(--rose-dim-strong)",
   amberDim:     "var(--amber-dim)",
   amberBorder:  "var(--amber-border)",
   rose:         "var(--rose)",
@@ -141,9 +145,11 @@ export const THEMES = {
 
     "--amber":        "#f59e0b",
     "--amber-dim":    "rgba(245,158,11,0.08)",
+    "--amber-dim-strong": "rgba(245,158,11,0.42)",
     "--amber-border": "rgba(245,158,11,0.30)",
     "--rose":         "#f43f5e",
     "--rose-dim":     "rgba(244,63,94,0.08)",
+    "--rose-dim-strong":  "rgba(244,63,94,0.45)",
     "--rose-border":  "rgba(244,63,94,0.30)",
     "--scrim":        "rgba(2,6,23,0.72)",
     "--recessed":     "rgba(0,0,0,0.30)",
@@ -177,9 +183,11 @@ export const THEMES = {
     // values are tuned to glow on near-black and fail WCAG AA on white.
     "--amber":        "#b45309",
     "--amber-dim":    "rgba(180,83,9,0.10)",
+    "--amber-dim-strong": "rgba(180,83,9,0.48)",
     "--amber-border": "rgba(180,83,9,0.32)",
     "--rose":         "#be123c",
     "--rose-dim":     "rgba(190,18,60,0.10)",
+    "--rose-dim-strong":  "rgba(190,18,60,0.50)",
     "--rose-border":  "rgba(190,18,60,0.32)",
     "--scrim":        "rgba(15,23,42,0.45)",
     "--recessed":     "rgba(0,0,0,0.05)",
