@@ -197,6 +197,21 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── X-28 — migration number drift guard ────────────────────────────────────
+# The documented "next valid migration number" has drifted twice (docs claimed
+# 0089 and 0099 long after 0106 was applied). A stale number means a new
+# migration either collides with an applied one or silently never runs. The
+# filesystem is the only source of truth; this asserts the docs agree with it.
+REAL_NEXT=$(printf "%04d" $((10#$(ls migrations/*.sql | sed 's|.*/||; s|_.*||' | sort -n | tail -1) + 1)))
+DOC_NEXT=$(grep -oE 'next valid number: `0[0-9]{3}`' ../CLAUDE.md | grep -oE '0[0-9]{3}' | head -1)
+if [ -z "$DOC_NEXT" ]; then
+  fail "root CLAUDE.md has no parseable 'next valid number' — the migration ledger is the release gate"
+elif [ "$REAL_NEXT" != "$DOC_NEXT" ]; then
+  fail "migration number drift: migrations/ implies ${REAL_NEXT}, root CLAUDE.md says ${DOC_NEXT}"
+else
+  ok "migration ledger matches migrations/ (next valid: ${REAL_NEXT})"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 
