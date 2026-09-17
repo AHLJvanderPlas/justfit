@@ -259,6 +259,63 @@ function radarPolygon(cx, cy, maxR, scores) {
   }).join(" ");
 }
 
+// ── C-F8 — Personal records ───────────────────────────────────────────────────
+// Kept visually distinct from the Trophy room's behavioural awards. A heavy week
+// and a consistency streak are not comparable, and showing them as one list makes
+// the quieter one feel like it lost.
+function RecordsPanel() {
+  const [data, setData] = useState(null);
+  const [expanded, setExpanded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    api.getRecords().then((d) => { if (alive) setData(d); }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
+  const records = data?.records ?? [];
+  if (!data || records.length === 0) return null;
+
+  const shown = expanded ? records : records.slice(0, 4);
+
+  return (
+    <Glass style={{ padding: 20, marginBottom: 14 }}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Records")}</div>
+      <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+        {t("Your best estimated one-rep max per exercise, from the weight and reps you logged.")}
+      </div>
+      <div style={{ display: "flex", flexDirection: "column" }}>
+        {shown.map((r) => (
+          <div key={r.exercise_id} style={{ display: "flex", alignItems: "center", gap: 12,
+            padding: "9px 0", borderTop: `1px solid ${C.border}` }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: "nowrap",
+                overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+              <div style={{ fontSize: 11, color: C.muted, fontVariantNumeric: "tabular-nums" }}>
+                {r.weight_kg} kg × {r.reps}{r.date ? ` · ${r.date}` : ""}
+              </div>
+            </div>
+            <div style={{ textAlign: "right", flex: "none" }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.emerald, fontVariantNumeric: "tabular-nums" }}>
+                {r.e1rm} kg
+              </div>
+              <div style={{ fontSize: 9.5, color: C.subtle, fontWeight: 600, letterSpacing: "0.1em",
+                textTransform: "uppercase" }}>{t("est. 1RM")}</div>
+            </div>
+          </div>
+        ))}
+      </div>
+      {records.length > 4 && (
+        <button onClick={() => setExpanded((e) => !e)} style={{ background: "none", border: "none",
+          cursor: "pointer", color: C.emerald, fontSize: 12, fontWeight: 600, padding: "10px 0 0",
+          minHeight: 40, touchAction: "manipulation" }}>
+          {expanded ? t("Show less") : `${t("Show all")} (${records.length})`}
+        </button>
+      )}
+    </Glass>
+  );
+}
+
 // ── C-F7 — Recovery ───────────────────────────────────────────────────────────
 // The question this answers is "is it sensible to train this today", which the six
 // progression axes are too coarse to reach. Everything it needs already existed:
@@ -740,6 +797,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
       </Glass>
 
       <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
+
+      <RecordsPanel />
 
       {!progression ? (
         <Glass style={{ padding: 48, textAlign: "center" }}>

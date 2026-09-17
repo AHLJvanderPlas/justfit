@@ -1039,13 +1039,23 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 >
                   −
                 </button>
-                <div style={{ minWidth: 120, textAlign: "center" }}>
+                <div style={{ minWidth: 130, textAlign: "center" }}>
                   <div style={{ fontSize: 15, fontWeight: 900, color: weightKg > 0 ? C.text : C.muted, fontVariantNumeric: "tabular-nums" }}>
                     {weightKg > 0 ? `${weightKg} kg` : t('Bodyweight')}
                   </div>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                    {weightLabel ?? t('Weight')}
-                  </div>
+                  {/* ── C-F8: what you actually did last time, beside today's target.
+                       This comparison is where progression becomes something you feel
+                       rather than a number computed out of sight. ── */}
+                  {cur?.last_performance?.weight_kg > 0 ? (
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                      {t('Last time')}: {cur.last_performance.weight_kg} kg
+                      {cur.last_performance.reps ? ` × ${cur.last_performance.reps}` : ''}
+                    </div>
+                  ) : (
+                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
+                      {weightLabel ?? t('Weight')}
+                    </div>
+                  )}
                 </div>
                 <button
                   aria-label={t('More weight')}

@@ -146,7 +146,7 @@ export async function onRequestPost({ request, env }) {
       // load starts from their real history rather than a guess. Newest row wins.
       user_id
         ? env.DB.prepare(
-            `SELECT es.exercise_id, es.actual_json
+            `SELECT es.exercise_id, es.actual_json, ex.date
                FROM execution_steps es
                JOIN executions ex ON ex.id = es.execution_id
               WHERE ex.user_id = ? AND ex.status = 'completed'
@@ -157,13 +157,27 @@ export async function onRequestPost({ request, env }) {
         : Promise.resolve(null),
     ]);
 
-    // exercise_id → heaviest weight in the most recent session that used it.
+    // exercise_id → what the athlete actually did last time. C-F8 shows this beside
+    // today's target, which is where progression stops being a number in a chart and
+    // becomes something you can feel.
     const lastWeightByExercise = new Map();
+    const lastPerfByExercise = new Map();
     for (const row of (lastWeightsResult?.results ?? [])) {
       if (lastWeightByExercise.has(row.exercise_id)) continue; // ordered newest first
       try {
-        const w = (JSON.parse(row.actual_json)?.weight_kg ?? []).filter((x) => Number(x) > 0);
-        if (w.length) lastWeightByExercise.set(row.exercise_id, Math.max(...w));
+        const a = JSON.parse(row.actual_json);
+        const w = (a?.weight_kg ?? []).filter((x) => Number(x) > 0);
+        if (!w.length) continue;
+        const top = Math.max(...w);
+        lastWeightByExercise.set(row.exercise_id, top);
+        // Reps performed on the heaviest set, so "last time" describes one real set
+        // rather than mixing the top weight with an unrelated rep count.
+        const idx = a.weight_kg.findIndex((x) => Number(x) === top);
+        lastPerfByExercise.set(row.exercise_id, {
+          weight_kg: top,
+          reps: a.reps_per_set?.[idx] ?? null,
+          date: row.date ?? null,
+        });
       } catch { /* skip malformed */ }
     }
     // Use unified protocols when available; fall back to legacy cycling_workouts
@@ -185,6 +199,8 @@ export async function onRequestPost({ request, env }) {
     for (const ex of exResult.results) {
       const last = lastWeightByExercise.get(ex.id);
       if (last != null) ex.last_weight_kg = last;
+      const perf = lastPerfByExercise.get(ex.id);
+      if (perf) ex.last_performance = perf;
     }
 
     const allExercises = [
@@ -2253,6 +2269,7 @@ function _assembleSession(ctx) {
           supports_weight: true,
           load_type: m.load_type ?? null,
           target_weight_kg: ex.last_weight_kg ?? null,
+          last_performance: ex.last_performance ?? null,
         };
       })(),
       ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),

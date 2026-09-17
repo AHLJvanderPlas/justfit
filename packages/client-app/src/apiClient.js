@@ -197,6 +197,12 @@ const api = {
     return res.json();
   },
 
+  // C-F8 — personal records and per-exercise strength curves.
+  async getRecords(_token) {
+    const res = await fetch("/api/records", {});
+    return res.json();
+  },
+
   async getCyclingPmc(_token) {
     const res = await fetch("/api/cycling-pmc", {
     });
