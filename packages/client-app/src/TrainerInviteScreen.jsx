@@ -40,7 +40,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
 
   if (loading) return (
     <div style={{ ...overlay, gap: 16 }}>
-      <div style={{ width: 36, height: 36, border: `3px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
+      <div className="jf-spin" style={{ width: 36, height: 36, border: `3px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
       <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
     </div>
   );

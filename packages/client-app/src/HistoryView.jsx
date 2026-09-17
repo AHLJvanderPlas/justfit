@@ -659,8 +659,11 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         <h1 style={{ ...display(36), color: C.text, margin: "0 0 20px 0" }}>{t("PROGRESS")}</h1>
         <Glass style={{ padding: 20, marginBottom: 20 }}>
           {completedCount === 0 ? (
-            <div style={{ textAlign: "center", padding: "16px 0", fontSize: 13, color: C.muted, fontStyle: "italic" }}>
-              {t("Start your first session to begin the chart.")}
+            <div style={{ textAlign: "center", padding: "22px 0 18px", display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
+              <Icons.spark size={22} c={C.subtle} />
+              <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.55, maxWidth: 260 }}>
+                {t("Start your first session to begin the chart.")}
+              </div>
             </div>
           ) : (
             <>
@@ -804,7 +807,17 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         <Glass style={{ padding: 48, textAlign: "center" }}>
           <div style={{ marginBottom: 10 }}><Icons.lift size={22} c={C.muted} /></div>
           <div style={{ fontSize: 14, fontWeight: 700, color: C.text, marginBottom: 8 }}>{t("No progression data yet")}</div>
-          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>{t("Complete your first workout and your training profile will appear here.")}</div>
+          <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6, marginBottom: 18 }}>{t("Complete your first workout and your training profile will appear here.")}</div>
+          {/* UX-12 — an empty state is an onboarding moment, not a dead end. */}
+          {setView && (
+            <button
+              onClick={() => setView("today")}
+              style={{ minHeight: 48, padding: "0 22px", borderRadius: 14, border: "none", cursor: "pointer",
+                background: C.emerald, color: C.onAccent, fontSize: 14, fontWeight: 800, touchAction: "manipulation" }}
+            >
+              {t("Start today's session")}
+            </button>
+          )}
         </Glass>
       ) : (
         <>

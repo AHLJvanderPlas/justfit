@@ -1945,9 +1945,23 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
           <div style={{ position: "absolute", top: -80, right: -80, width: 220, height: 220, borderRadius: "50%", background: C.emeraldGlow, filter: "blur(60px)", pointerEvents: "none" }} />
           <div style={{ padding: 18, position: "relative" }}>
             {isGenerating ? (
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: "32px 0" }}>
-                <div style={{ width: 40, height: 40, border: `3px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-                <p style={{ fontSize: 14, color: C.emerald, fontWeight: 700 }}>Designing your session...</p>
+              /* ── UX-5: skeleton, not a spinner ──
+                 The bars mirror the session card that is about to replace them, so
+                 the wait reads as "nearly there" rather than "nothing is happening".
+                 Honours prefers-reduced-motion via the shared .jf-skeleton class. ── */
+              <div style={{ padding: "4px 0 8px" }} aria-busy="true" aria-live="polite">
+                <div className="jf-skeleton" style={{ width: 96, height: 9, borderRadius: 5, marginBottom: 14 }} />
+                <div className="jf-skeleton" style={{ width: "62%", height: 24, borderRadius: 7, marginBottom: 18 }} />
+                {[0, 1, 2].map((i) => (
+                  <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
+                    <div className="jf-skeleton" style={{ width: 34, height: 34, borderRadius: 10, flex: "none" }} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div className="jf-skeleton" style={{ width: `${72 - i * 12}%`, height: 11, borderRadius: 5, marginBottom: 6 }} />
+                      <div className="jf-skeleton" style={{ width: `${44 - i * 8}%`, height: 9, borderRadius: 5 }} />
+                    </div>
+                  </div>
+                ))}
+                <p style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginTop: 14, textAlign: "center" }}>Designing your session...</p>
               </div>
             ) : plan ? (
               <>
@@ -2715,6 +2729,27 @@ export default function App() {
     () => localStorage.getItem(`jf_bonus_${today}`) === "1"
   );
   const [activityToast, setActivityToast] = useState("");
+  // ── UX-8 — install prompt ────────────────────────────────────────────────────
+  // Captured on load, offered only after the 3rd completed workout: a high-intent
+  // moment, not a gate on someone still deciding whether the app is for them.
+  const [installPrompt, setInstallPrompt] = useState(null);
+  const [installDismissed, setInstallDismissed] = useState(() => {
+    try { return localStorage.getItem("jf_install_dismissed") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    const onPrompt = (e) => { e.preventDefault(); setInstallPrompt(e); };
+    const onInstalled = () => {
+      setInstallPrompt(null);
+      try { localStorage.setItem("jf_install_dismissed", "1"); } catch { /* private mode */ }
+    };
+    window.addEventListener("beforeinstallprompt", onPrompt);
+    window.addEventListener("appinstalled", onInstalled);
+    return () => {
+      window.removeEventListener("beforeinstallprompt", onPrompt);
+      window.removeEventListener("appinstalled", onInstalled);
+    };
+  }, []);
   const [showWhyNot, setShowWhyNot] = useState(false);
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
@@ -3512,6 +3547,44 @@ export default function App() {
       <style>{`
         * { box-sizing: border-box; margin: 0; padding: 0; }
         @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        /* ── UX-7 — touch targets ──
+           Every control gets touch-action: manipulation, which removes iOS Safari's
+           300ms tap delay. The small +/- steppers in Settings keep their 28px look —
+           they are correct visually — while .jf-tap expands the actual hit area to
+           44px with a centred pseudo-element. Enlarging the buttons themselves would
+           have broken layouts that are working. */
+        button, [role="button"] { touch-action: manipulation; }
+        .jf-tap { position: relative; }
+        .jf-tap::after {
+          content: ""; position: absolute; top: 50%; left: 50%;
+          transform: translate(-50%, -50%);
+          width: 44px; height: 44px;
+        }
+
+        /* UX-5 — one skeleton style for every loading placeholder. */
+        .jf-skeleton { background: rgba(var(--overlay-rgb),0.07); animation: pulse 1.4s ease-in-out infinite; }
+
+        /* ── UX-2 — prefers-reduced-motion ──
+           Applied as a blanket rule rather than per-animation. The login canvas was
+           already handled, but tapScale, tapRing, the rest-ring dashoffset and every
+           inline transition were not, and hunting them one at a time guarantees the
+           next new animation is missed again.
+
+           Spinners are the deliberate exception: rotation in place involves no
+           translation and is not a vestibular trigger, while a loading spinner that
+           does not spin reads as a frozen app. Slowed rather than stopped. */
+        @media (prefers-reduced-motion: reduce) {
+          *, *::before, *::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+            scroll-behavior: auto !important;
+          }
+          .jf-spin {
+            animation-duration: 1.6s !important;
+            animation-iteration-count: infinite !important;
+          }
+        }
         @keyframes spin { to { transform: rotate(360deg); } }
         @keyframes tapScale { 0%{transform:scale(1)} 40%{transform:scale(0.96)} 100%{transform:scale(1)} }
         @keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
@@ -3644,6 +3717,39 @@ export default function App() {
             {view === "today" && (
               <>
                 <PregnancyProgressBanner cycle={prefs.cycle} />
+                {/* ── UX-8: install prompt — a banner, never a modal gate ──
+                     Shown after the 3rd completed workout, when the app has already
+                     proved useful. Dismissal is remembered; installing clears it. ── */}
+                {installPrompt && !installDismissed && history.length >= 3 && (
+                  <div style={{ margin: "0 0 16px", padding: "14px 16px", borderRadius: 16, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.emerald }}>{t("Add JustFit to your home screen")}</div>
+                      <div style={{ fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 1.45 }}>
+                        {t("Opens full screen and works offline.")}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async () => {
+                        const p = installPrompt;
+                        setInstallPrompt(null);
+                        try { await p.prompt(); } catch { /* dismissed by the browser */ }
+                      }}
+                      style={{ flex: "none", minHeight: 40, padding: "0 14px", borderRadius: 12, border: "none", cursor: "pointer", background: C.emerald, color: C.onAccent, fontSize: 13, fontWeight: 800, touchAction: "manipulation" }}
+                    >
+                      {t("Install")}
+                    </button>
+                    <button
+                      aria-label={t("Dismiss")}
+                      onClick={() => {
+                        setInstallDismissed(true);
+                        try { localStorage.setItem("jf_install_dismissed", "1"); } catch { /* private mode */ }
+                      }}
+                      style={{ flex: "none", width: 40, minHeight: 40, borderRadius: 12, border: "none", cursor: "pointer", background: "transparent", color: C.muted, fontSize: 18, fontWeight: 700, touchAction: "manipulation" }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 {pendingSyncCount > 0 && (
                   <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>⏳</span>
