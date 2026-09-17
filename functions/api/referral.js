@@ -3,8 +3,11 @@
 // POST /api/referral        → { action: 'redeem', code } — redeem a friend's code
 //
 // Reward model: referred user + referrer each get 14 days Pro on redeem.
-// referral_codes table has a legacy FK bug (references users(user_id) instead of
-// users(id)) — FK is not enforced by D1, so plain INSERT/SELECT works fine.
+// Note: 0002_seed.sql created referral_codes with REFERENCES users(user_id), which
+// does not exist. 0003_cleanup.sql rebuilt it against users(id) and the live schema
+// has been correct ever since — verified 2026-09-17. This comment previously warned
+// of a "legacy FK bug" that had already been fixed, and the roadmap (C-B18) carried
+// the same stale claim; both are corrected.
 
 import { getUser } from './_shared/auth.js';
 
