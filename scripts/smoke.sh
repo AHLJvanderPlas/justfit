@@ -197,6 +197,18 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── A-E2 — a config-driven cap must fail closed ────────────────────────────
+# The early-bird cap moved from a constant into platform_config. If that row is
+# missing or unreadable the offer must fall back to a finite number, never to
+# unlimited — a silently uncapped launch offer is a revenue bug that looks like
+# nothing at all.
+if grep -q "EARLY_BIRD_CAP_FALLBACK" functions/api/subscribe.js \
+   && grep -q "return EARLY_BIRD_CAP_FALLBACK" functions/api/subscribe.js; then
+  ok "early-bird cap falls back to a finite value when platform_config is unreadable"
+else
+  fail "early-bird cap has no finite fallback — a missing config row would uncap the offer"
+fi
+
 # ── C-F3 — exercise purpose labels must all translate ──────────────────────
 # deriveExerciseWhy() previously returned raw English literals without passing
 # through t(), so Dutch users saw English whatever their language setting. The

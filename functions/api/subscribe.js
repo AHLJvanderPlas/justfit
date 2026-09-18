@@ -7,7 +7,23 @@
 import { getUser } from './_shared/auth.js';
 import { createCustomer, createMandatePayment, cancelSubscription } from '../lib/mollie.js';
 
-const EARLY_BIRD_CAP = 200;
+// A-E2 — the cap lives in platform_config so it can be moved during a launch
+// without a deploy. This constant is the fallback only: if the config row is
+// missing or unreadable the offer must not silently become unlimited, so we fall
+// back to the previous hardcoded value rather than to Infinity.
+const EARLY_BIRD_CAP_FALLBACK = 200;
+
+async function earlyBirdCap(env) {
+  try {
+    const row = await env.DB.prepare(
+      `SELECT value FROM platform_config WHERE key = 'consumer_early_bird_cap' LIMIT 1`
+    ).first();
+    const n = Number(row?.value);
+    return Number.isFinite(n) && n >= 0 ? n : EARLY_BIRD_CAP_FALLBACK;
+  } catch {
+    return EARLY_BIRD_CAP_FALLBACK;
+  }
+}
 
 const PLANS = {
   pro_monthly_eb: { amount: 4.99,  interval: '1 month', days: 31  },
@@ -52,7 +68,8 @@ export async function onRequestPost({ request, env }) {
       const { cnt } = await env.DB.prepare(
         `SELECT COUNT(*) as cnt FROM entitlements WHERE source = 'mollie_sub' AND product_code LIKE '%_eb'`
       ).first();
-      if ((cnt ?? 0) >= EARLY_BIRD_CAP) {
+      const cap = await earlyBirdCap(env);
+      if ((cnt ?? 0) >= cap) {
         return Response.json({ error: 'early_bird_sold_out' }, { status: 409 });
       }
     }
@@ -117,7 +134,7 @@ export async function onRequestGet({ request, env }) {
     const { cnt: ebUsed } = await env.DB.prepare(
       `SELECT COUNT(*) as cnt FROM entitlements WHERE source = 'mollie_sub' AND product_code LIKE '%_eb'`
     ).first();
-    const early_bird_remaining = Math.max(0, EARLY_BIRD_CAP - (ebUsed ?? 0));
+    const early_bird_remaining = Math.max(0, (await earlyBirdCap(env)) - (ebUsed ?? 0));
 
     return Response.json({
       isPro,
