@@ -433,7 +433,7 @@ function RecoveryPanel({ recovery, gender }) {
   );
 }
 
-function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
+function RadarChart({ scores, goalScores, accentHex, size = 220, onSelectAxis = null }) {
   const cx = size / 2, cy = size / 2, maxR = size * 0.37;
   const gridLevels = [0.25, 0.5, 0.75, 1.0];
   const labelOffset = 22;
@@ -481,6 +481,26 @@ function RadarChart({ scores, goalScores, accentHex, size = 220 }) {
         const pt = radarPoint(cx, cy, maxR * fraction, i, RADAR_AXES.length);
         return <circle key={axis} cx={pt.x} cy={pt.y} r="4" fill={accentHex} stroke={C.bg} strokeWidth="2" />;
       })}
+      {/* C-F11 — tap targets for the drill-down. Drawn before the labels so the
+          text stays readable on top; 30px radius because a 10px label is not a
+          touch target. */}
+      {onSelectAxis && RADAR_AXES.map((axis, i) => {
+        const pt = radarPoint(cx, cy, maxR + labelOffset, i, RADAR_AXES.length);
+        return (
+          <circle
+            key={`hit-${axis}`}
+            cx={pt.x} cy={pt.y + 6} r="30"
+            fill="transparent"
+            style={{ cursor: "pointer" }}
+            role="button"
+            tabIndex={0}
+            aria-label={`${RADAR_LABELS[axis]} — ${t("show history")}`}
+            onClick={() => onSelectAxis(axis)}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectAxis(axis); } }}
+          />
+        );
+      })}
+
       {/* Axis labels */}
       {RADAR_AXES.map((axis, i) => {
         const pt = radarPoint(cx, cy, maxR + labelOffset, i, RADAR_AXES.length);
@@ -563,6 +583,31 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
   const [chartMode, setChartMode] = useState(null); // null = use API default
+  // C-F11 — which radar axis is open, and its replayed history.
+  //
+  // Fetched in the click handler rather than an effect. This is a response to a
+  // user action, not synchronisation with an external system, and the React
+  // Compiler correctly rejects setState called synchronously in an effect body.
+  const [axisDrill, setAxisDrill] = useState(null);
+  const [axisHistory, setAxisHistory] = useState(null);
+  const [axisLoading, setAxisLoading] = useState(false);
+
+  const openAxis = (axis) => {
+    if (axis === axisDrill) { setAxisDrill(null); setAxisHistory(null); return; }
+    setAxisDrill(axis);
+    setAxisHistory(null);
+    setAxisLoading(true);
+    api.getAxisHistory(axis)
+      .then((d) => {
+        // Guard against a slow response for an axis the user has since left.
+        setAxisDrill((cur) => {
+          if (cur === axis) setAxisHistory(d?.axis_history ?? null);
+          return cur;
+        });
+      })
+      .catch(() => setAxisHistory(null))
+      .finally(() => setAxisLoading(false));
+  };
   const [recomputing, setRecomputing] = useState(false);
   const [shareState, setShareState] = useState("idle"); // idle | generating | done
   const [recomputeMsg, setRecomputeMsg] = useState("");
@@ -999,7 +1044,42 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   goalScores={showCompare ? goalScores : null}
                   accentHex={accentHex}
                   size={220}
+                  onSelectAxis={openAxis}
                 />
+                {/* C-F11 — axis drill-down. The radar answers "what shape am I";
+                    this answers "am I getting better at it", which no snapshot can. */}
+                {axisDrill && (
+                  <div style={{ width: "100%", marginTop: 18, paddingTop: 16, borderTop: `1px solid ${C.border}`, textAlign: "left" }}>
+                    <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10 }}>
+                      <div>
+                        <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>
+                          {axisHistory?.label ?? axisDrill}
+                        </div>
+                        <div style={{ fontSize: 11, color: C.muted }}>
+                          {t("Model score — falls on its own without training")}
+                        </div>
+                      </div>
+                      <button onClick={() => setAxisDrill(null)}
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.emerald,
+                          fontSize: 12, fontWeight: 600, minHeight: 40, padding: "0 0 0 12px", touchAction: "manipulation" }}>
+                        {t("Close")}
+                      </button>
+                    </div>
+                    {axisLoading ? (
+                      <div className="jf-skeleton" style={{ height: 168, borderRadius: 8 }} />
+                    ) : (
+                      <Suspense fallback={<div style={{ height: 168 }} />}>
+                        <MetricCurve data={{
+                          unit: "score",
+                          label: axisHistory?.label ?? axisDrill,
+                          baseline: axisHistory?.baseline ?? null,
+                          points: axisHistory?.points ?? [],
+                          pr: null,
+                        }} />
+                      </Suspense>
+                    )}
+                  </div>
+                )}
                 <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 12, height: 3, borderRadius: 2, background: accentHex }} />

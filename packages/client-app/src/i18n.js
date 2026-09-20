@@ -75,6 +75,10 @@ const NL = {
   'down from': 'lager dan',
   'Two sessions are needed before a trend means anything.':
     'Er zijn twee sessies nodig voordat een trend iets betekent.',
+  'show history': 'toon verloop',
+  'Close': 'Sluiten',
+  'Model score — falls on its own without training':
+    'Modelscore — zakt vanzelf zonder training',
   // ── C-F7 / C-F8 / C-F9 / C-F10 — strings added 2026-09-17 ──
   'Recovery panel': 'Herstel',
   'Show body map': 'Toon lichaamskaart',

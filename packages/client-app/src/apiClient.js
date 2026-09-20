@@ -197,6 +197,12 @@ const api = {
     return res.json();
   },
 
+  // C-F11 — replayed history for one radar axis (drill-down).
+  async getAxisHistory(axis) {
+    const res = await fetch(`/api/progression?include=history&axis=${encodeURIComponent(axis)}`, {});
+    return res.json();
+  },
+
   // C-F8 — personal records and per-exercise strength curves.
   async getRecords(_token) {
     const res = await fetch("/api/records", {});

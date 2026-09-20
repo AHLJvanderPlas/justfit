@@ -157,6 +157,54 @@ function getDisplayScore(scores, axis, chartMode) {
   return Math.round(ax.power ?? DEFAULT_SCORE);
 }
 
+/**
+ * C-F11 — replay the stored progression snapshots into a time series.
+ *
+ * `user_progression_events` has carried a full before/after score snapshot on every
+ * workout since April, so this is retroactive rather than starting to collect now.
+ *
+ * It deliberately reuses `getDisplayScore` — the exact function the radar renders
+ * with. Any separate computation here would let the last point of the curve
+ * disagree with the radar's current value on the same screen, which is the one
+ * thing a drill-down must never do.
+ *
+ * A point is `decayed` when the value fell AND the axis stimulus timestamp did not
+ * advance: the score dropped without training. That is the distinction the chart
+ * draws dotted, and it is already in the snapshot — no new columns, no guessing.
+ */
+function buildAxisHistory(events, axis, chartMode) {
+  const points = [];
+  let prevValue = null;
+  let prevStimulus = null;
+  let baseline = null;
+
+  for (const ev of events) {
+    let scores;
+    try { scores = JSON.parse(ev.scores_after_json ?? 'null'); } catch { continue; }
+    if (!scores) continue;
+
+    const value = getDisplayScore(scores, axis, chartMode);
+    if (!Number.isFinite(value)) continue;
+
+    const ax = axis === 'mobility' ? scores.mobility : scores[axis];
+    const stimulus = axis === 'mobility'
+      ? (ax?.last_mobility_stimulus_at_ms ?? null)
+      : (chartMode === 'endurance'
+          ? (ax?.last_endurance_stimulus_at_ms ?? null)
+          : (ax?.last_power_stimulus_at_ms ?? null));
+    if (ax?.baseline != null) baseline = ax.baseline;
+
+    const decayed = prevValue != null && value < prevValue
+      && stimulus != null && prevStimulus != null && stimulus === prevStimulus;
+
+    points.push({ at_ms: ev.created_at_ms, value, decayed });
+    prevValue = value;
+    prevStimulus = stimulus;
+  }
+
+  return { points, baseline };
+}
+
 // Compute insights: strongest, weakest, most decayed, fastest improving
 function computeInsights(scores, goal, chartMode, nowMs, createdAtMs) {
   const profile = GOAL_TARGET_PROFILES[goal];
@@ -504,8 +552,13 @@ export async function onRequestGet({ request, env }) {
     const nowMs = Date.now();
     // C-F7 — recovery is opt-in per request so the common Progress-tab fetch stays
     // one round trip, and callers that only need scores pay nothing for it.
-    const wantRecovery = (new URL(request.url).searchParams.get('include') ?? '')
-      .split(',').includes('recovery');
+    const _params = new URL(request.url).searchParams;
+    const _include = (_params.get('include') ?? '').split(',');
+    const wantRecovery = _include.includes('recovery');
+    // C-F11 — axis trajectory for the radar drill-down. Opt-in per request so the
+    // ordinary Progress fetch does not pay for a table scan nobody asked for.
+    const wantHistory  = _include.includes('history');
+    const historyAxis  = _params.get('axis');
 
     // Fetch progression + preferences in parallel
     const [{ scores: rawScores, sportScores, createdAtMs }, prefs] = await Promise.all([
@@ -546,6 +599,26 @@ export async function onRequestGet({ request, env }) {
       ?? GOAL_TARGET_PROFILES[goal]?.chartMode
       ?? 'balanced';
 
+    let axisHistory = null;
+    if (wantHistory && historyAxis && AXES.includes(historyAxis)) {
+      try {
+        const { results } = await env.DB.prepare(
+          `SELECT created_at_ms, scores_after_json
+             FROM user_progression_events
+            WHERE user_id = ? AND scores_after_json IS NOT NULL
+            ORDER BY created_at_ms ASC
+            LIMIT 500`
+        ).bind(user.userId).all();
+        axisHistory = buildAxisHistory(results ?? [], historyAxis, chartMode);
+        axisHistory.axis = historyAxis;
+        axisHistory.label = AXIS_LABELS[historyAxis] ?? historyAxis;
+        axisHistory.chart_mode = chartMode;
+      } catch (e) {
+        // Additive: never take down the Progress tab for a drill-down.
+        console.error('progression history:', e.message);
+      }
+    }
+
     const profile   = GOAL_TARGET_PROFILES[goal] ?? GOAL_TARGET_PROFILES.health;
     const goalFit   = computeGoalFit(scores, goal, chartMode);
     const insights  = computeInsights(scores, goal, chartMode, nowMs, createdAtMs);
@@ -577,6 +650,7 @@ export async function onRequestGet({ request, env }) {
       axis_labels: AXIS_LABELS,
       sport_scores: sportScores,
       recovery,
+      axis_history: axisHistory,
     });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });

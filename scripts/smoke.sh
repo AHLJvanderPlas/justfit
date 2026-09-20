@@ -197,6 +197,27 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F11 — the curve must agree with the radar ────────────────────────────
+# The axis drill-down replays stored snapshots through getDisplayScore. If it ever
+# used a separate computation, the last point of the curve could disagree with the
+# radar's current value on the same screen — the one thing a drill-down must never
+# do. This asserts the replay calls the shared function rather than its own maths.
+if grep -q "function buildAxisHistory" functions/api/progression.js; then
+  if sed -n '/function buildAxisHistory/,/^}/p' functions/api/progression.js | grep -q "getDisplayScore(scores, axis, chartMode)"; then
+    ok "axis history replays through getDisplayScore — curve cannot disagree with the radar"
+  else
+    fail "buildAxisHistory no longer uses getDisplayScore — the curve can drift from the radar"
+  fi
+  # chartMode must be defined before the history block, or it is a TDZ ReferenceError
+  CM=$(grep -n "const chartMode" functions/api/progression.js | head -1 | cut -d: -f1)
+  AH=$(grep -n "let axisHistory" functions/api/progression.js | head -1 | cut -d: -f1)
+  if [ -n "$CM" ] && [ -n "$AH" ] && [ "$AH" -gt "$CM" ]; then
+    ok "axis history reads chartMode after it is declared"
+  else
+    fail "axis history uses chartMode before declaration (line ${AH} vs ${CM}) — ReferenceError at runtime"
+  fi
+fi
+
 # ── A-E2 — a config-driven cap must fail closed ────────────────────────────
 # The early-bird cap moved from a constant into platform_config. If that row is
 # missing or unreadable the offer must fall back to a finite number, never to
