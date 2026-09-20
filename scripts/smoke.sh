@@ -197,6 +197,56 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F12 — progression calibration must stay physiological ────────────────
+# The old model claimed you lose 65% of your strength in 28 days off, and capped
+# a weekly trainee at 12/100. These assert the calibrated behaviour rather than
+# the constants, so a future tune is free to change the numbers but not to
+# reintroduce a model that does not describe training.
+CAL=$(node --input-type=module -e '
+import { applyGain, applyDecay, applyBaselineRatchet, GAIN_PER_SET }
+  from "./functions/api/_shared/progressionModel.js";
+const NOW = Date.now(), ago = d => NOW - d * 86400000;
+const sim = (every, sets, days) => {
+  let s = 0, b = 0;
+  for (let i = 0, n = Math.floor(days / every); i < n; i++) {
+    s = applyGain(s, sets * GAIN_PER_SET);
+    b = applyBaselineRatchet(b, s);
+    s = applyDecay(s, b, ago(every), NOW, "power");
+  }
+  return s;
+};
+const errs = [];
+const weekly = sim(7, 4, 365);
+if (weekly < 50 || weekly > 72) errs.push("weekly/year = " + weekly.toFixed(1) + ", expected 50-72");
+const daily = sim(1, 4, 365);
+if (daily > 97) errs.push("daily/year = " + daily.toFixed(1) + " — 100 must stay out of reach");
+if (daily < weekly) errs.push("training more often scores lower");
+const keep28 = applyDecay(70, 30, ago(28), NOW, "power") / 70;
+if (keep28 < 0.88) errs.push("28d retention " + Math.round(keep28*100) + "% — literature says ~93%");
+const keep90 = applyDecay(70, 30, ago(90), NOW, "power") / 70;
+if (keep90 < 0.70) errs.push("90d retention " + Math.round(keep90*100) + "% — too aggressive");
+if (applyDecay(70, 30, ago(3650), NOW, "power") < 30) errs.push("decay crossed the baseline floor");
+if (applyBaselineRatchet(40, 5) < 40) errs.push("baseline fell");
+if (applyGain(99.9, 500) > 100) errs.push("score exceeded 100");
+process.stdout.write(errs.length ? errs.join("; ") : "OK");
+' 2>&1)
+if [ "$CAL" = "OK" ]; then
+  ok "progression calibration is physiological (retention, ceiling, monotonic baseline)"
+else
+  fail "progression calibration: ${CAL}"
+fi
+
+# One definition of the model, not three. Before the shared module, applyGain
+# existed twice with DIFFERENT curves and applyDecay twice with different configs.
+for fn in applyGain applyDecay; do
+  CNT=$(grep -rcE "^(export )?function ${fn}\(" functions/api/ 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
+  if [ "$CNT" = "1" ]; then
+    ok "${fn} has exactly one definition"
+  else
+    fail "${fn} defined ${CNT} times — duplicate formulas drift silently"
+  fi
+done
+
 # ── C-F11 — the curve must agree with the radar ────────────────────────────
 # The axis drill-down replays stored snapshots through getDisplayScore. If it ever
 # used a separate computation, the last point of the curve could disagree with the

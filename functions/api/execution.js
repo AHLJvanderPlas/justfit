@@ -12,13 +12,10 @@ import { getAuthUserId } from './_shared/auth.js';
 const PROG_DEFAULT_BASELINE = 15;
 const RUN_PROGRAM_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
 const PROG_DEFAULT_SCORE    = 15;
-const PROG_MAX_STIMULUS_PER_AXIS = 6;
+import { applyGain as progApplyGain, applyDecay as progApplyDecay,
+         applyBaselineRatchet, MAX_STIMULUS_PER_AXIS as PROG_MAX_STIMULUS_PER_AXIS,
+         GAIN_PER_SET } from './_shared/progressionModel.js';
 
-const PROG_DECAY_CONFIG = {
-  power:     { gracePeriodMs: 48 * 3_600_000, ratePerDay: 0.04  },
-  endurance: { gracePeriodMs: 72 * 3_600_000, ratePerDay: 0.025 },
-  mobility:  { gracePeriodMs: 96 * 3_600_000, ratePerDay: 0.015 },
-};
 
 const PROG_MUSCLE_TO_AXIS = {
   chest: 'push', pectorals: 'push', pectoral: 'push',
@@ -78,19 +75,7 @@ function progBuildDefaultScores() {
   };
 }
 
-function progApplyGain(currentScore, stimulus) {
-  return Math.min(100, currentScore + stimulus * (1 - currentScore / 100));
-}
 
-function progApplyDecay(currentScore, baseline, lastStimulusAtMs, nowMs, mode) {
-  if (!lastStimulusAtMs) return currentScore;
-  const cfg = PROG_DECAY_CONFIG[mode];
-  const elapsedMs = nowMs - lastStimulusAtMs;
-  if (elapsedMs <= cfg.gracePeriodMs) return currentScore;
-  const decayDays = (elapsedMs - cfg.gracePeriodMs) / 86_400_000;
-  const factor = Math.pow(1 - cfg.ratePerDay, decayDays);
-  return baseline + (currentScore - baseline) * factor;
-}
 
 function progApplyAllDecay(scores, nowMs) {
   const decayed = structuredClone(scores);
@@ -112,6 +97,7 @@ function progApplyStimulus(scores, stimulus, eventMs) {
       if (gains.mobility > 0) {
         mob.mobility = progApplyGain(mob.mobility, gains.mobility);
         mob.last_mobility_stimulus_at_ms = eventMs;
+        mob.baseline = applyBaselineRatchet(mob.baseline ?? 0, mob.mobility);
       }
       continue;
     }
@@ -120,6 +106,8 @@ function progApplyStimulus(scores, stimulus, eventMs) {
     if (gains.power > 0) {
       ax.power = progApplyGain(ax.power, gains.power);
       ax.last_power_stimulus_at_ms = eventMs;
+      // Sustained work leaves retained adaptation; the floor rises with it.
+      ax.baseline = applyBaselineRatchet(ax.baseline ?? 0, Math.max(ax.power, ax.endurance ?? 0));
     }
     if (gains.endurance > 0) {
       ax.endurance = progApplyGain(ax.endurance, gains.endurance);
@@ -199,7 +187,7 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
       // Bodyweight and unlogged sets must score EXACTLY as before, or every existing
       // user's history silently re-bases. Hence a multiplier of 1.0 whenever there is
       // no weight, and a cap so one heavy session cannot dominate an axis.
-      acc[axis].power = Math.min(acc[axis].power + sets * 0.8 * progLoadMultiplier(actual), PROG_MAX_STIMULUS_PER_AXIS);
+      acc[axis].power = Math.min(acc[axis].power + sets * GAIN_PER_SET * progLoadMultiplier(actual), PROG_MAX_STIMULUS_PER_AXIS);
     }
   }
 

@@ -3,6 +3,8 @@
 // POST /api/progression?action=recompute — admin: rebuild from execution history
 
 import { getUser } from './_shared/auth.js';
+import { applyDecay, applyGain, applyBaselineRatchet, GAIN_PER_SET,
+         MAX_STIMULUS_PER_AXIS, DECAY_CONFIG } from './_shared/progressionModel.js';
 import { computeRecovery, summariseRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS,
          FATIGUE_THRESHOLD } from './_shared/recovery.js';
 import { MUSCLE_REGIONS, REGION_LABELS_NL } from './_shared/muscles.js';
@@ -16,11 +18,6 @@ const DEFAULT_BASELINE = 0;
 const DEFAULT_SCORE    = 0;
 
 // Decay parameters — tune these without changing logic
-const DECAY_CONFIG = {
-  power:     { gracePeriodMs: 48 * 3_600_000, ratePerDay: 0.04  }, // starts after 2 days
-  endurance: { gracePeriodMs: 72 * 3_600_000, ratePerDay: 0.025 }, // starts after 3 days
-  mobility:  { gracePeriodMs: 96 * 3_600_000, ratePerDay: 0.015 }, // starts after 4 days
-};
 
 // Goal → default chart mode + target profile (0–100 per axis)
 const GOAL_TARGET_PROFILES = {
@@ -86,20 +83,10 @@ function buildDefaultScores() {
 }
 
 // Gain formula: diminishing returns — harder to improve when already high
-function applyGain(currentScore, stimulus) {
-  return Math.min(100, currentScore + stimulus * (1 - currentScore / 100));
-}
+// applyGain now comes from _shared/progressionModel.js — this file held a third
+// copy using the OLD linear curve, which would have silently contradicted it.
 
 // Decay formula: exponential decay above the personal baseline
-function applyDecay(currentScore, baseline, lastStimulusAtMs, nowMs, mode) {
-  if (!lastStimulusAtMs) return currentScore; // never trained → no decay needed
-  const cfg = DECAY_CONFIG[mode];
-  const elapsedMs = nowMs - lastStimulusAtMs;
-  if (elapsedMs <= cfg.gracePeriodMs) return currentScore; // within grace period
-  const decayDays = (elapsedMs - cfg.gracePeriodMs) / 86_400_000;
-  const factor = Math.pow(1 - cfg.ratePerDay, decayDays);
-  return baseline + (currentScore - baseline) * factor;
-}
 
 // Apply decay to all axes — returns a new scores object (does not mutate)
 function applyAllDecay(scores, nowMs) {
