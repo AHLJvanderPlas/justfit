@@ -7,6 +7,8 @@ import { t, useLang } from "./i18n.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
+// C-F11 — only pulled in when a record row is opened.
+const MetricCurve = lazy(() => import("./MetricCurve.jsx").then(m => ({ default: m.MetricCurve })));
 
 // ─── SHARE PROGRESS ───────────────────────────────────────────────────────────
 async function shareProgressImage(history, streak, accentHex) {
@@ -266,6 +268,7 @@ function radarPolygon(cx, cy, maxR, scores) {
 function RecordsPanel() {
   const [data, setData] = useState(null);
   const [expanded, setExpanded] = useState(false);
+  const [openId, setOpenId] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -277,6 +280,10 @@ function RecordsPanel() {
   if (!data || records.length === 0) return null;
 
   const shown = expanded ? records : records.slice(0, 4);
+  const series = data?.series ?? {};
+  // C-F11 — a row is only worth opening if there is a curve behind it. /api/records
+  // already withholds series with fewer than two points, so this is the same test.
+  const openable = (id) => (series[id]?.length ?? 0) >= 2;
 
   return (
     <Glass style={{ padding: 20, marginBottom: 14 }}>
@@ -285,9 +292,19 @@ function RecordsPanel() {
         {t("Your best estimated one-rep max per exercise, from the weight and reps you logged.")}
       </div>
       <div style={{ display: "flex", flexDirection: "column" }}>
-        {shown.map((r) => (
-          <div key={r.exercise_id} style={{ display: "flex", alignItems: "center", gap: 12,
-            padding: "9px 0", borderTop: `1px solid ${C.border}` }}>
+        {shown.map((r) => {
+          const canOpen = openable(r.exercise_id);
+          const isOpen = openId === r.exercise_id;
+          return (
+          <div key={r.exercise_id} style={{ borderTop: `1px solid ${C.border}` }}>
+          <div
+            onClick={canOpen ? () => setOpenId(isOpen ? null : r.exercise_id) : undefined}
+            role={canOpen ? "button" : undefined}
+            tabIndex={canOpen ? 0 : undefined}
+            aria-expanded={canOpen ? isOpen : undefined}
+            onKeyDown={canOpen ? (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setOpenId(isOpen ? null : r.exercise_id); } } : undefined}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: "9px 0",
+              cursor: canOpen ? "pointer" : "default", minHeight: 48, touchAction: "manipulation" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: "nowrap",
                 overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
@@ -302,8 +319,31 @@ function RecordsPanel() {
               <div style={{ fontSize: 9.5, color: C.subtle, fontWeight: 600, letterSpacing: "0.1em",
                 textTransform: "uppercase" }}>{t("est. 1RM")}</div>
             </div>
+            {canOpen && (
+              <span aria-hidden="true" style={{ flex: "none", color: C.subtle, fontSize: 13,
+                transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</span>
+            )}
           </div>
-        ))}
+          {isOpen && (
+            <div style={{ padding: "4px 0 16px" }}>
+              <Suspense fallback={<div style={{ height: 180 }} />}>
+                <MetricCurve data={{
+                  unit: "kg",
+                  label: r.name,
+                  points: series[r.exercise_id].map(pt => ({
+                    at_ms: new Date(pt.date + "T12:00:00Z").getTime(),
+                    value: pt.e1rm,
+                    decayed: false,
+                  })),
+                  pr: { value: r.e1rm, at_ms: null },
+                  baseline: null,
+                }} />
+              </Suspense>
+            </div>
+          )}
+          </div>
+          );
+        })}
       </div>
       {records.length > 4 && (
         <button onClick={() => setExpanded((e) => !e)} style={{ background: "none", border: "none",
