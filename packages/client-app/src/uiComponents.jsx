@@ -39,24 +39,6 @@ export const Glass = ({ children, style = {}, onClick }) => (
 );
 
 // ─── PILL BUTTON ─────────────────────────────────────────────────────────────
-export const Pill = ({ children, active, onClick }) => (
-  <button
-    onClick={onClick}
-    style={{
-      padding: "8px 0",
-      borderRadius: 12,
-      fontSize: 13,
-      fontWeight: 700,
-      border: active ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`,
-      background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-      color: active ? C.emerald : C.muted,
-      cursor: "pointer",
-      transition: "all 0.15s",
-    }}
-  >
-    {children}
-  </button>
-);
 
 // ─── TOGGLE ROW ──────────────────────────────────────────────────────────────
 export const Toggle = ({ label, sub, active, onToggle }) => (
@@ -109,52 +91,3 @@ export const Toggle = ({ label, sub, active, onToggle }) => (
 );
 
 // ─── SCALE INPUT ─────────────────────────────────────────────────────────────
-export const ScaleInput = ({ label, value, onChange }) => (
-  <div style={{ marginBottom: 20 }}>
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        marginBottom: 10,
-      }}
-    >
-      <span
-        style={{
-          fontSize: 13,
-          fontWeight: 600,
-          color: C.muted,
-          letterSpacing: "0.04em",
-          textTransform: "uppercase",
-        }}
-      >
-        {label}
-      </span>
-      <span style={{ fontSize: 13, fontWeight: 800, color: C.emerald }}>{value}</span>
-    </div>
-    <div style={{ display: "flex", gap: 6 }}>
-      {[1, 2, 3, 4, 5].map((v) => (
-        <button
-          key={v}
-          onClick={() => onChange(v)}
-          style={{
-            flex: 1,
-            padding: "10px 0",
-            minHeight: 44,
-            borderRadius: 10,
-            fontSize: 14,
-            fontWeight: 800,
-            background: value === v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-            border: `1px solid ${value === v ? C.emeraldBorder : C.border}`,
-            color: value === v ? C.emerald : C.muted,
-            cursor: "pointer",
-            transition: "all 0.15s",
-            boxShadow: value === v ? "0 4px 20px rgba(var(--accent-rgb),0.25)" : "none",
-          }}
-        >
-          {v}
-        </button>
-      ))}
-    </div>
-  </div>
-);

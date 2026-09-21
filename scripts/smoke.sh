@@ -197,6 +197,51 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-B22 — no SQL against a table that no longer exists ───────────────────
+# mollie-consumer.js read `auth_users` for months after the schema consolidation
+# dropped it. It threw on every failed payment, a .catch discarded the error, and
+# the customer was never warned. Schema drift is this codebase's most expensive
+# bug class, so it gets a build-time check rather than a documented rule.
+#
+# The table list is committed alongside the code (scripts/known-tables.txt) so the
+# guard runs offline; refresh it whenever a migration adds or drops a table.
+if [ -f scripts/known-tables.txt ]; then
+  DRIFT=$(node --input-type=module -e '
+import fs from "node:fs";
+const live = new Set(fs.readFileSync("scripts/known-tables.txt","utf8").split("\n").map(s=>s.trim()).filter(Boolean));
+const files = [];
+(function walk(d){ for (const e of fs.readdirSync(d,{withFileTypes:true})) {
+  const p = d + "/" + e.name;
+  if (e.isDirectory()) walk(p); else if (e.name.endsWith(".js")) files.push(p);
+} })("functions");
+const sqlish = /\b(SELECT|INSERT|UPDATE|DELETE)\b/i;
+const tbl = /\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]{2,})/gi;
+const noise = new Set(["select","set","where","values","json_each"]);
+const bad = [];
+for (const f of files) {
+  const src = fs.readFileSync(f,"utf8");
+  for (const m of src.matchAll(/`([^`]*)`/g)) {
+    const lit = m[1];
+    if (!sqlish.test(lit)) continue;
+    // Skip HTML email bodies: they contain words like UPDATE and arrows such as
+    // "from Settings -> Privacy" that read as a table reference. No SQL string
+    // contains markup, so this costs nothing and removes the whole false class.
+    if (/<\/?[a-z][^>]*>|&[a-z]+;/i.test(lit)) continue;
+    for (const t of lit.matchAll(tbl)) {
+      const name = t[1].toLowerCase();
+      if (!noise.has(name) && !live.has(name)) bad.push(f.replace("functions/api/","") + " → " + name);
+    }
+  }
+}
+process.stdout.write(bad.length ? [...new Set(bad)].join("; ") : "OK");
+' 2>&1)
+  if [ "$DRIFT" = "OK" ]; then
+    ok "every table referenced in SQL exists in the schema"
+  else
+    fail "SQL references a table that does not exist: ${DRIFT}"
+  fi
+fi
+
 # ── C-F12 — progression calibration must stay physiological ────────────────
 # The old model claimed you lose 65% of your strength in 28 days off, and capped
 # a weekly trainee at 12/100. These assert the calibrated behaviour rather than

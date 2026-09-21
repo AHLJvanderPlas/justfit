@@ -105,7 +105,7 @@ export const ACCENT_COLORS = [
   { id: "coral",   hex: "#fb7185", name: "Coral"     },
 ];
 
-export function hexToRgbParts(hex) {
+function hexToRgbParts(hex) {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
 }
 
@@ -124,7 +124,7 @@ export function applyAccent(hex) {
 // keeps following it — the listener stays attached so a change at sunset applies
 // without a reload.
 
-export const THEMES = {
+const THEMES = {
   dark: {
     "--bg":           "#020617",
     "--bg-rgb":       "2,6,23",
@@ -201,7 +201,7 @@ export const THEMES = {
 export const THEME_STORAGE_KEY = "jf_theme";
 
 /** Resolve "system" to the OS preference; "dark"/"light" pass through. */
-export function resolveTheme(mode) {
+function resolveTheme(mode) {
   if (mode === "light" || mode === "dark") return mode;
   return (typeof window !== "undefined"
     && window.matchMedia?.("(prefers-color-scheme: light)").matches) ? "light" : "dark";

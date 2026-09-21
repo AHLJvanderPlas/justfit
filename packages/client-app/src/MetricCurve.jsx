@@ -1,4 +1,3 @@
-/* eslint-disable react-refresh/only-export-components */
 // MetricCurve — C-F11: one value plotted over time.
 //
 // NOT TrajectoryChart. That name is already taken in HistoryView.jsx by a
@@ -21,7 +20,7 @@ import { t, getLang } from "./i18n.js";
 
 const DAY = 86_400_000;
 
-export const PERIODS = [
+const PERIODS = [
   { days: 28,    key: "4 wk" },
   { days: 90,    key: "3 mnd" },
   { days: 180,   key: "6 mnd" },
@@ -29,7 +28,7 @@ export const PERIODS = [
 ];
 
 /** Dutch-style decimals for kg; scores are whole numbers. */
-export function fmtValue(v, unit) {
+function fmtValue(v, unit) {
   if (v == null || !Number.isFinite(v)) return "—";
   if (unit !== "kg") return String(Math.round(v));
   const s = (Math.round(v * 10) / 10).toFixed(1);

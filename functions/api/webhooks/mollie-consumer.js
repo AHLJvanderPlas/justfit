@@ -111,11 +111,29 @@ export async function onRequest(context) {
           `INSERT INTO billing_events (id, user_id, event_type, product_code, mollie_id, payload_json, created_at_ms) VALUES (?,?,?,?,?,?,?)`
         ).bind(crypto.randomUUID(), userId, 'payment_failed', ent.product_code, payment.id, null, now),
       ]);
-      // Fire-and-forget grace alert email
+      // Fire-and-forget grace alert email.
+      //
+      // C-B22: this read `auth_users`, a table the schema consolidation dropped.
+      // The query threw on every failed payment, the catch discarded it, and the
+      // customer was never told their card had failed — they found out when Pro
+      // stopped working. The catch now logs, because a swallowed error is exactly
+      // why this survived the consolidation unnoticed.
       if (env.RESEND_API_KEY) {
         const authUser = await env.DB.prepare(
-          `SELECT email FROM auth_users WHERE user_id = ? AND provider = 'email' LIMIT 1`
-        ).bind(userId).first().catch(() => null);
+          `SELECT primary_email AS email FROM users WHERE id = ? LIMIT 1`
+        ).bind(userId).first().catch((e) => {
+          console.error('[mollie-consumer] grace-email lookup failed:', e.message);
+          return null;
+        });
+        if (!authUser?.email) {
+          // A paying customer whose payment failed and who cannot be reached is
+          // worth a row in app_events; silence here is how C-B22 stayed hidden.
+          await env.DB.prepare(
+            `INSERT INTO app_events (id, user_id, event_type, detail, created_at_ms) VALUES (?, ?, 'grace_email_unsent', ?, ?)`
+          ).bind(crypto.randomUUID(), userId,
+                 JSON.stringify({ reason: 'no email on user row', mollie_id: payment.id }), now
+          ).run().catch(() => {});
+        }
         if (authUser?.email) {
           fetch('https://api.resend.com/emails', {
             method: 'POST',

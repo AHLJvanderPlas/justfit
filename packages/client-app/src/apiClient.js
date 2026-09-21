@@ -425,12 +425,10 @@ const api = {
     return res.json();
   },
 
-  async gdprRequestDelete(_token) {
-    const res = await fetch("/api/client/gdpr/delete", {
-      method: "POST",
-    });
-    return res.json();
-  },
+  // gdprRequestDelete removed 2026-09-21 (C-B23): the endpoint returned ok:true
+  // while failing a CHECK constraint, referencing a column that does not exist,
+  // and leaving no sweep to execute the deletion. Account deletion goes through
+  // `deleteAccount()` above, which performs a real erasure.
 
   // Trainer invite (Sub-flow A + B)
   async lookupTrainerInvite(inviteToken) {
