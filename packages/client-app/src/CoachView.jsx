@@ -47,6 +47,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const [consentSigning, setConsentSigning] = useState(false);
   const [consentError, setConsentError] = useState(null);
   const [enrollingId, setEnrollingId] = useState(null);
+  const [cancellingId, setCancellingId] = useState(null);
+  const [confirmCancelId, setConfirmCancelId] = useState(null);
 
   // ── Messaging state ──
   const [msgSheet, setMsgSheet] = useState(false);
@@ -145,6 +147,26 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       }
     } catch { /* ignore — user can retry */ }
     setEnrollingId(null);
+  }
+
+  // C-B24 — a client could sign up for a session and had no way to withdraw.
+  // The endpoint existed and was deployed; only the control was missing. Confirmed
+  // before it fires: a mis-tap must not silently drop someone's place.
+  async function handleCancelEnrollment(sessionId) {
+    setCancellingId(sessionId);
+    try {
+      const res = await api.cancelSessionEnrollment(token, sessionId);
+      if (res?.ok) {
+        const [fresh, freshAvail] = await Promise.all([
+          api.getSessions(token),
+          api.getAvailableSessions(token),
+        ]);
+        if (Array.isArray(fresh?.sessions)) onClientSessionsChange(fresh.sessions);
+        if (Array.isArray(freshAvail?.sessions)) onAvailableSessionsChange(freshAvail.sessions);
+      }
+    } catch { /* ignore — the row stays, the user can retry */ }
+    setCancellingId(null);
+    setConfirmCancelId(null);
   }
 
   async function handleOpenMessages() {
@@ -987,6 +1009,38 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                           {isGroup ? ' · Groep' : ''}
                           {s.rsvp === 'waitlist' ? ' · Wachtlijst' : ''}
                         </div>
+                        {/* Only future sessions can be cancelled — withdrawing from
+                            one that already happened is not a thing. */}
+                        {!isPast && (
+                          confirmCancelId === s.id ? (
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 6 }}>
+                              <span style={{ fontSize: 11, color: C.muted }}>{t("Cancel your place?")}</span>
+                              <button
+                                onClick={() => handleCancelEnrollment(s.id)}
+                                disabled={cancellingId === s.id}
+                                style={{ minHeight: 34, padding: "0 12px", borderRadius: 9, cursor: "pointer",
+                                  border: `1px solid ${C.roseBorder}`, background: C.roseDim, color: C.rose,
+                                  fontSize: 11.5, fontWeight: 800, touchAction: "manipulation" }}>
+                                {cancellingId === s.id ? t("Cancelling…") : t("Yes, cancel")}
+                              </button>
+                              <button
+                                onClick={() => setConfirmCancelId(null)}
+                                style={{ minHeight: 34, padding: "0 10px", borderRadius: 9, cursor: "pointer",
+                                  border: "none", background: "transparent", color: C.muted,
+                                  fontSize: 11.5, fontWeight: 700, touchAction: "manipulation" }}>
+                                {t("Keep it")}
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setConfirmCancelId(s.id)}
+                              style={{ marginTop: 4, minHeight: 32, padding: 0, border: "none",
+                                background: "transparent", color: C.muted, fontSize: 11, fontWeight: 600,
+                                cursor: "pointer", textDecoration: "underline", touchAction: "manipulation" }}>
+                              {t("Cancel enrolment")}
+                            </button>
+                          )
+                        )}
                       </div>
                     </div>
                   );

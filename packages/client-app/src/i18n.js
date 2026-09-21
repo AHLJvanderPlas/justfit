@@ -52,6 +52,12 @@ const NL = {
   // 'Strength' already exists further down with the same value — not repeated here.
   'Functional strength': 'Functionele kracht',
   'and': 'en',
+  // ── C-B24 — cancel a session enrolment ──
+  'Cancel enrolment': 'Afmelden',
+  'Cancel your place?': 'Je plek annuleren?',
+  'Yes, cancel': 'Ja, afmelden',
+  'Cancelling…': 'Bezig…',
+  'Keep it': 'Behouden',
   // ── C-F11 — MetricCurve ──
   '4 wk': '4 wk',
   '3 mnd': '3 mnd',
