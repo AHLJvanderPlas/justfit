@@ -83,6 +83,22 @@ export const TESTS = {
     instruction: 'Hold until your hips drop. Straight line from heels to head.',
     weights: { power: 0.7, endurance: 1.0 },
   },
+  situp_max: {
+    id: 'situp_max',
+    axis: 'core',
+    name: 'Sit-ups in 2 minutes',
+    slug: 'sit-up',
+    metric: 'reps',
+    mode: 'count',
+    timeCapSec: 120,
+    repCap: 120,
+    // The clock runs the full two minutes. Stopping early is a valid DCP result
+    // (you simply score what you did), so this is fixedDuration like the squat
+    // test rather than an open-ended hold.
+    fixedDuration: true,
+    instruction: 'As many as you can in two minutes. Torso to vertical, shoulder blades down each rep. Pace it — most people fail this by sprinting the first thirty seconds.',
+    weights: { power: 0.6, endurance: 1.0 },
+  },
   cond_3min: {
     id: 'cond_3min',
     axis: 'conditioning',
@@ -110,6 +126,10 @@ export const PRESETS = {
   lower:     { id: 'lower',     label: 'Lower body', tests: ['legs_60s', 'core_hold'],                          emphasis: 'both',      minutes: 6  },
   stamina:   { id: 'stamina',   label: 'Stamina',    tests: ['cond_3min', 'legs_60s', 'core_hold'],             emphasis: 'endurance', minutes: 9  },
   power:     { id: 'power',     label: 'Power',      tests: ['push_max', 'legs_60s', 'core_hold'],              emphasis: 'power',     minutes: 7  },
+  // C-F13 — the two DCP movements in test format. The 12-minute run is not here:
+  // it needs a measured route and is logged separately, and every keuring cluster
+  // already clears the DCP run distance anyway.
+  dcp:       { id: 'dcp',       label: 'DCP baseline', tests: ['push_max', 'situp_max'],                        emphasis: 'both',      minutes: 8  },
 };
 
 export function presetList() {

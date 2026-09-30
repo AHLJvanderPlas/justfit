@@ -134,6 +134,102 @@ export function computeMilitaryPhase(milCoach, checkIn, date) {
 
 // Prescribed march weight (kg) per group per week (0 = no march / bodyweight)
 // R577 caps actual increase at +5 kg from last week's weight
+/**
+ * ── DCP — Defensie Conditie Proef (C-F13) ────────────────────────────────────
+ *
+ * A DIFFERENT TEST from the aanstellingskeuring the rest of this file models.
+ *
+ *   aanstellingskeuring  one-time entry gate, standards by function cluster,
+ *                        tests run / march / lift-carry / digging
+ *   DCP                  recurring for the whole of service, standards by age
+ *                        and sex, tests push-ups / sit-ups / 12-minute run
+ *
+ * So the DCP is not a goal with a finish line — it is a floor you must stay above
+ * for twenty years. It is modelled as a standing standard with an optional date,
+ * never as a second target-date programme.
+ *
+ * The run is deliberately not programmed here. A DCP run of 2,200 m is already
+ * cleared by every keuring cluster (1–3 need exactly 2,200 m, 4–5 need 2,600 m,
+ * 6 needs 2,700 m), so the running row displays the keuring target rather than
+ * competing with it.
+ *
+ * Standards as published in the DCP material; unchanged per the 2025 confirmation.
+ * A 2026-07-02 motion asked Defence to move to function-specific standards and
+ * drop the age/sex system — not implemented at the time of writing, so if that
+ * lands this table is what changes.
+ */
+export const DCP_NORMS = {
+  male: [
+    { maxAge: 30, pushups: 20, situps: 30, run_m: 2400 },
+    { maxAge: 35, pushups: 18, situps: 27, run_m: 2300 },
+    { maxAge: 40, pushups: 16, situps: 24, run_m: 2200 },
+    { maxAge: 45, pushups: 14, situps: 21, run_m: 2100 },
+    { maxAge: 50, pushups: 12, situps: 18, run_m: 2000 },
+    { maxAge: 55, pushups: 10, situps: 15, run_m: 1900 },
+    { maxAge: 60, pushups:  8, situps: 12, run_m: 1800 },
+    { maxAge: 999, pushups: 6, situps:  9, run_m: 1700 },
+  ],
+  // Female standards are published separately by Defence and are NOT yet
+  // transcribed here. Returning null is deliberate: showing a woman the male
+  // table would be worse than showing her nothing, and inventing numbers for a
+  // test someone is training against is not acceptable.
+  female: null,
+};
+
+/** Target tiers. One number demotivates: 32 push-ups means nothing at 6. */
+export const DCP_TIERS = {
+  safe:     1.3,   // clears the minimum on a bad day
+  capacity: 2.0,   // the minimum becomes a warm-up
+  runSafe:     1.12,
+  runCapacity: 1.25,  // ≈ cluster 6 (2,750 vs 2,700 m) — one target covers both tests
+};
+
+/**
+ * Age from a birth year. The app stores no date of birth and no age — body profile
+ * carries sex, height and weight only — so the DCP block keeps its own birth_year.
+ * A year is enough for a five-year band and is less than a full DOB would be.
+ */
+export function dcpAgeFrom(birthYear, nowMs = Date.now()) {
+  const y = Number(birthYear);
+  if (!Number.isFinite(y) || y < 1900) return null;
+  return new Date(nowMs).getUTCFullYear() - y;
+}
+
+/** Age + sex → the three minimums, or null when no table exists for that sex. */
+export function getDcpNorms(sex, ageYears) {
+  const table = DCP_NORMS[sex === 'female' ? 'female' : 'male'];
+  if (!table || !(ageYears > 0)) return null;
+  return table.find(b => ageYears <= b.maxAge) ?? table[table.length - 1];
+}
+
+/**
+ * Where one movement stands: the tier the athlete has cleared, the next target
+ * to aim at, and one achievable step toward it.
+ *
+ * `next` is never the capacity figure when the minimum has not been reached —
+ * that is the whole point of tiering. The step is roughly a third of the gap,
+ * floored at 1, so it always moves and never asks for a leap.
+ */
+export function dcpProgress(current, minimum, isRun = false) {
+  if (!(minimum > 0)) return null;
+  const safe     = Math.round(minimum * (isRun ? DCP_TIERS.runSafe : DCP_TIERS.safe));
+  const capacity = Math.round(minimum * (isRun ? DCP_TIERS.runCapacity : DCP_TIERS.capacity));
+  const value = Number(current) || 0;
+
+  const tier = value >= capacity ? 'capacity'
+    : value >= safe ? 'safe'
+    : value >= minimum ? 'minimum'
+    : 'below';
+
+  // The target on screen is the next unmet tier, not the ceiling.
+  const next = value < minimum ? minimum : value < safe ? safe : value < capacity ? capacity : capacity;
+  const gap = Math.max(0, next - value);
+  const step = gap === 0 ? 0 : Math.max(isRun ? 50 : 1, Math.round(gap / 3));
+
+  return { value, minimum, safe, capacity, tier, next, gap, step,
+           pct: Math.min(100, Math.round((value / capacity) * 100)) };
+}
+
 export const MIL_MARCH_KG = {
   keuring_low:    [ 0,  0,  5, 10,  0,  0],
   keuring_mid:    [ 0,  5, 10, 15,  0,  0],

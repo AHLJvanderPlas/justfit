@@ -197,6 +197,50 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F13 — DCP norms and tiering ──────────────────────────────────────────
+# The DCP is a published standard someone is training against, so the numbers
+# must not drift and the tiering must never show an unreachable target to
+# someone below the minimum. Also asserts the female table stays null rather
+# than silently falling back to male norms.
+DCP=$(node --input-type=module -e '
+import { getDcpNorms, dcpProgress, DCP_NORMS } from "./functions/api/_shared/military.js";
+const errs = [];
+const m37 = getDcpNorms("male", 37);
+if (!m37 || m37.pushups !== 16 || m37.situps !== 24 || m37.run_m !== 2200)
+  errs.push("published 36-40 male norms changed: " + JSON.stringify(m37));
+if (DCP_NORMS.male.length !== 8) errs.push("expected 8 male age bands, got " + DCP_NORMS.male.length);
+if (getDcpNorms("female", 37) !== null)
+  errs.push("female norms are not published here — must return null, never male numbers");
+// Tiering: below the minimum, the target shown is the minimum, never capacity.
+const low = dcpProgress(6, 16);
+if (low.next !== 16) errs.push("below minimum shows " + low.next + ", must show the minimum");
+if (low.step < 1) errs.push("step must always move");
+if (low.value + low.step > low.next) errs.push("step overshoots the target");
+// Cleared the minimum, the target moves up rather than sticking.
+const mid = dcpProgress(25, 24);
+if (mid.next <= 24) errs.push("target did not advance past a cleared minimum");
+// At capacity, nothing further is demanded.
+const top = dcpProgress(40, 16);
+if (top.gap !== 0 || top.tier !== "capacity") errs.push("capacity not recognised");
+// The run capacity must still cover the hardest keuring cluster (2700 m).
+if (dcpProgress(0, 2200, true).capacity < 2700)
+  errs.push("run capacity " + dcpProgress(0,2200,true).capacity + " no longer covers cluster 6");
+process.stdout.write(errs.length ? errs.join("; ") : "OK");
+' 2>&1)
+if [ "$DCP" = "OK" ]; then
+  ok "DCP norms match the published standards and tiering never overshoots"
+else
+  fail "DCP: ${DCP}"
+fi
+
+# The sit-up family must exist, or the app can measure a DCP score it cannot train.
+SITUPS=$(grep -c "sit-up" migrations/0110_dcp_situps.sql 2>/dev/null || echo 0)
+if [ "$SITUPS" -ge 4 ]; then
+  ok "DCP sit-up family is seeded (the library had no sit-up at all)"
+else
+  fail "the sit-up family is missing — DCP sit-ups would be measurable but untrainable"
+fi
+
 # ── C-B22 — no SQL against a table that no longer exists ───────────────────
 # mollie-consumer.js read `auth_users` for months after the schema consolidation
 # dropped it. It threw on every failed payment, a .catch discarded the error, and

@@ -4,6 +4,9 @@ import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
 import { Icons, GoalIcon, MilitaryIcon } from "./icons.jsx";
 import { milClL, fmtDateNL, getUserId } from "./planUtils.js";
+// C-F13 — DCP norms and tiering live server-side so the card and the planner
+// rule can never disagree about what the target is.
+import { getDcpNorms, dcpProgress, dcpAgeFrom } from "../../../functions/api/_shared/military.js";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 import { useAppShell } from "./AppShellContext.js";
@@ -727,6 +730,18 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           clusterCurrent <= 3 ? "Foundation phase: focus on completing all sessions rather than intensity." : "Progression phase: small weekly volume increases, watch for signs of overload.",
         ];
         const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
+        // ── C-F13: DCP state ──
+        const dcp       = mil.dcp ?? {};
+        const dcpSex    = prefs?.sex ?? prefs?.preferences?.sex ?? 'male';
+        const dcpAge    = dcpAgeFrom(dcp.birth_year);
+        const dcpNorms  = dcp.enabled ? getDcpNorms(dcpSex, dcpAge) : null;
+        const dcpLast   = dcp.last ?? {};
+        const dcpDate   = dcp.test_date ?? null;
+        const dcpPush   = dcpNorms ? dcpProgress(dcpLast.pushups ?? 0, dcpNorms.pushups) : null;
+        const dcpSitup  = dcpNorms ? dcpProgress(dcpLast.situps  ?? 0, dcpNorms.situps)  : null;
+        // The run row shows the keuring-covering target, not a second programme.
+        const dcpRunTarget = dcpNorms ? dcpProgress(0, dcpNorms.run_m, true).capacity : 0;
+
         const sortedAxes = RADAR_AXES_CC.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
         const weakest = sortedAxes[0];
         const fmtSec = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
@@ -794,6 +809,79 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
                   </div>
                 )}
+              </Glass>
+            )}
+
+            {/* ── DCP readiness (C-F13) ──
+                A standing standard, not a goal: the DCP is a floor held for the
+                whole of service. Shows the next unmet tier per movement — never
+                the capacity figure to someone below the minimum. The run row
+                displays the keuring-covering target because every cluster already
+                clears the DCP distance; it says "handled", it does not programme. */}
+            {dcpNorms && dcpPush && dcpSitup && (
+              <Glass style={{ padding: 20, marginBottom: 12 }}>
+                <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 2 }}>
+                  <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>DCP</div>
+                  <div style={{ fontSize: 11, color: C.muted, fontVariantNumeric: "tabular-nums" }}>
+                    {dcpAge} jr · {dcpSex === "female" ? "vrouw" : "man"}
+                  </div>
+                </div>
+                <div style={{ fontSize: 11, color: C.muted, marginBottom: 14 }}>
+                  {dcpDate
+                    ? `Test op ${new Date(dcpDate).toLocaleDateString("nl-NL", { day: "numeric", month: "long" })} — nog ${Math.max(0, Math.ceil((new Date(dcpDate).getTime() - nowMs) / 86400000))} dagen`
+                    : "Geen datum ingepland — doorlopende norm"}
+                </div>
+
+                {[
+                  { key: "pushups", label: "Push-ups · 2 min", p: dcpPush },
+                  { key: "situps",  label: "Sit-ups · 2 min",  p: dcpSitup },
+                ].map(({ key, label, p }) => {
+                  const color = p.tier === "below" ? C.rose : p.tier === "minimum" ? C.amber : C.emerald;
+                  return (
+                    <div key={key} style={{ padding: "11px 0", borderTop: `1px solid ${C.border}` }}>
+                      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 7 }}>
+                        <span style={{ fontSize: 13, fontWeight: 650, color: C.text }}>{label}</span>
+                        <span style={{ fontFamily: C.font.mono, fontSize: 12, fontVariantNumeric: "tabular-nums", color }}>
+                          {p.value} / {p.next}
+                        </span>
+                      </div>
+                      {/* One bar, two ticks. The fill never resets when a tier is
+                          cleared — progress is continuous, which is the honest picture. */}
+                      <div style={{ position: "relative", height: 8, borderRadius: 4, background: "rgba(var(--overlay-rgb),0.08)" }}>
+                        <div style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: `${p.pct}%`, borderRadius: 4, background: color }} />
+                        <div style={{ position: "absolute", top: -3, bottom: -3, left: `${Math.round((p.minimum / p.capacity) * 100)}%`, width: 2, borderRadius: 1, background: "rgba(var(--overlay-rgb),0.45)" }} />
+                        <div style={{ position: "absolute", top: -3, bottom: -3, left: `${Math.round((p.safe / p.capacity) * 100)}%`, width: 2, borderRadius: 1, background: "rgba(var(--overlay-rgb),0.25)" }} />
+                      </div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 5, lineHeight: 1.45 }}>
+                        {p.gap === 0
+                          ? `Marge opgebouwd — norm is ${p.minimum}.`
+                          : p.tier === "below"
+                            ? `Nog ${p.gap} tot de norm van ${p.minimum}. Volgende stap: ${p.value + p.step}.`
+                            : `Norm van ${p.minimum} gehaald. Op weg naar ${p.next} — volgende stap: ${p.value + p.step}.`}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                <div style={{ padding: "11px 0 0", borderTop: `1px solid ${C.border}` }}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 5 }}>
+                    <span style={{ fontSize: 13, fontWeight: 650, color: C.text }}>12 min hardlopen</span>
+                    <span style={{ fontFamily: C.font.mono, fontSize: 12, fontVariantNumeric: "tabular-nums", color: C.emerald }}>
+                      {dcpRunTarget.toLocaleString("nl-NL")} m
+                    </span>
+                  </div>
+                  <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.45 }}>
+                    Norm {dcpNorms.run_m.toLocaleString("nl-NL")} m — gedekt door je keuringsdoel. Elk cluster vraagt dit al.
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => setView && setView("assessment")}
+                  style={{ marginTop: 14, width: "100%", minHeight: 44, borderRadius: 12, cursor: "pointer",
+                    border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald,
+                    fontSize: 13, fontWeight: 800, touchAction: "manipulation" }}>
+                  {dcpLast?.at_ms ? "Opnieuw meten" : "Nulmeting doen"}
+                </button>
               </Glass>
             )}
 

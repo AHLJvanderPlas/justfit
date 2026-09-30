@@ -4,6 +4,7 @@ import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolum
 
 import { getAuthUserId } from './_shared/auth.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
+import { getDcpNorms, dcpProgress, dcpAgeFrom } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
 
 // ---------------------------------------------------------------------------
@@ -2140,6 +2141,60 @@ function _selectExercises(ctx) {
     if (topGap && topGap.gap >= T.PROG_GAP_NOTE) {
       const axisLabel = { push:'Push', pull:'Pull', legs:'Legs', core:'Core', conditioning:'Cardio', mobility:'Mobility' }[topGap.axis] ?? topGap.axis;
       ctx.trace.push(`R554 — ${axisLabel} is your biggest gap (score ${topGap.current} vs target ${topGap.target}) — planner is prioritising it`);
+    }
+  }
+
+  // R593 — C-F13: keep the two DCP movements in rotation.
+  //
+  // The DCP is a floor held for the whole of service, not a goal with a finish
+  // line, so the failure mode is silent: push-ups quietly stop being selected,
+  // and months later the standard is gone. This guarantees both patterns appear
+  // weekly and pulls the weaker of the two to the front of the pool.
+  //
+  // A bias, never a filter — the same rule R590 follows. On a rest day, an injury
+  // day or a pregnancy-mode day it does nothing at all.
+  const _dcp = prefs?.preferences?.military_coach?.dcp;
+  if (_dcp?.enabled && ctx.pool?.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
+    const norms = getDcpNorms(bodyProfile?.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
+    if (norms) {
+      const last = _dcp.last ?? {};
+      const push  = dcpProgress(last.pushups ?? 0, norms.pushups);
+      const situp = dcpProgress(last.situps  ?? 0, norms.situps);
+      // Whichever movement sits further below its next tier gets priority. Both
+      // at capacity → neither is urgent and the pool is left alone.
+      const pushNeed  = push.gap  / Math.max(1, push.next);
+      const situpNeed = situp.gap / Math.max(1, situp.next);
+      const wantPush  = pushNeed  > 0;
+      const wantSitup = situpNeed > 0;
+
+      if (wantPush || wantSitup) {
+        const isDcpEx = (ex, kind) => {
+          const tags = (() => { try { return JSON.parse(ex.tags_json ?? '[]'); } catch { return []; } })();
+          if (!tags.includes('dcp') && !/push-up|sit-up/.test(ex.slug ?? '')) return false;
+          return kind === 'push' ? /push-up/.test(ex.slug ?? '') : /sit-up/.test(ex.slug ?? '');
+        };
+        const priority = [];
+        const rest = [];
+        for (const ex of ctx.pool) {
+          const p = wantPush  && isDcpEx(ex, 'push');
+          const t = wantSitup && isDcpEx(ex, 'situp');
+          (p || t ? priority : rest).push(ex);
+        }
+        if (priority.length && priority.length < ctx.pool.length) {
+          // Weaker movement first, so a short session still trains the right one.
+          const firstKind = situpNeed > pushNeed ? 'situp' : 'push';
+          priority.sort((a, b) => {
+            const av = isDcpEx(a, firstKind) ? 0 : 1;
+            const bv = isDcpEx(b, firstKind) ? 0 : 1;
+            return av - bv;
+          });
+          ctx.pool = [...priority, ...rest];
+          ctx.trace.push(`R593 — DCP actief: ${priority.length} oefening(en) vooraan, ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.next}, sit-up ${situp.value}/${situp.next})`);
+          if (push.tier === 'below' || situp.tier === 'below') {
+            _addNote(ctx, `DCP-norm nog niet gehaald — ${push.tier === 'below' ? `push-ups ${push.value}/${push.minimum}` : `sit-ups ${situp.value}/${situp.minimum}`}. Deze sessie werkt daar naartoe.`);
+          }
+        }
+      }
     }
   }
 
