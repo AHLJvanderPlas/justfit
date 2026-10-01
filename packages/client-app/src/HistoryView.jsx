@@ -889,6 +889,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
       <DcpCard
         dcp={prefs?.preferences?.military_coach?.dcp}
+        militaryActive={!!prefs?.preferences?.military_coach?.active}
         sex={prefs?.sex ?? 'male'}
         nowMs={nowMs}
         onMeasure={onStartAssessment}

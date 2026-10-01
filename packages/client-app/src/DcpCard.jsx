@@ -11,18 +11,26 @@
 import { C } from "./tokens.js";
 import { t } from "./i18n.js";
 import { Glass } from "./uiComponents.jsx";
-import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpIsStale, DCP_RETEST_DAYS }
+import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpIsStale, dcpCardVisible, DCP_RETEST_DAYS }
   from "../../../functions/api/_shared/military.js";
 
 /**
- * @param {object}  dcp       preferences.military_coach.dcp
- * @param {string}  sex       from the body profile
- * @param {number}  nowMs     captured once by the caller — never read the clock in render
- * @param {func}    onMeasure opens the DCP baseline assessment
- * @param {boolean} compact   drops the header when the host screen already titles it
+ * Visibility rule, in one place so both mounts agree: the card appears only when
+ * the DCP is actually in play — either the military coach is running it as a
+ * sub-target, or the standing bias is switched on. `dcp.enabled` alone is not
+ * enough; it only records that a baseline exists, and showing readiness stats plus
+ * a "go and measure yourself" prompt to someone who has turned both off is nagging
+ * about a goal they do not have.
+ *
+ * @param {object}  dcp            preferences.military_coach.dcp
+ * @param {boolean} militaryActive preferences.military_coach.active
+ * @param {string}  sex            from the body profile
+ * @param {number}  nowMs          captured once by the caller — never read the clock in render
+ * @param {func}    onMeasure      opens the DCP baseline assessment
+ * @param {boolean} compact        drops the header when the host screen already titles it
  */
-export function DcpCard({ dcp, sex, nowMs, onMeasure, compact = false }) {
-  if (!dcp?.enabled) return null;
+export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, compact = false }) {
+  if (!dcpCardVisible(dcp, militaryActive)) return null;
 
   const age = dcpAgeFrom(dcp.birth_year, nowMs);
   const norms = getDcpNorms(sex, age);

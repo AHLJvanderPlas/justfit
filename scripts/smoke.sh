@@ -197,6 +197,40 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F15 — the DCP card must not appear uninvited ─────────────────────────
+# dcp.enabled only records that a baseline exists. Showing readiness stats and a
+# "go measure yourself" prompt to someone who has turned the coach AND the bias
+# off is nagging about a goal they do not have. One predicate, both mounts.
+VIS=$(node --input-type=module -e '
+import fs from "node:fs";
+const src = fs.readFileSync("functions/api/_shared/military.js","utf8");
+const m = src.match(/export function dcpCardVisible[\s\S]*?\n\}/);
+if (!m) { process.stdout.write("MISSING dcpCardVisible"); }
+else {
+  fs.writeFileSync("/tmp/_vis.mjs", m[0].replace("export ", "") + "\nexport { dcpCardVisible };");
+  const { dcpCardVisible } = await import("/tmp/_vis.mjs?t=" + Date.now());
+  const errs = [];
+  if (dcpCardVisible({enabled:true}, false)) errs.push("shows with coach off and bias off");
+  if (!dcpCardVisible({enabled:true, bias_enabled:true}, false)) errs.push("hidden when the bias is on");
+  if (!dcpCardVisible({enabled:true}, true)) errs.push("hidden when the military coach is on");
+  if (dcpCardVisible({enabled:false, bias_enabled:true}, true)) errs.push("shows without a baseline");
+  if (dcpCardVisible(undefined, true)) errs.push("shows with no dcp block");
+  process.stdout.write(errs.length ? errs.join("; ") : "OK");
+}' 2>&1)
+if [ "$VIS" = "OK" ]; then
+  ok "DCP card appears only when the coach or the bias is actually on"
+else
+  fail "DCP card visibility: ${VIS}"
+fi
+
+# Both mounts must route through that predicate, or one screen drifts from the other.
+if grep -q "militaryActive" packages/client-app/src/HistoryView.jsx \
+   && grep -q "militaryActive" packages/client-app/src/CoachView.jsx; then
+  ok "both DCP card mounts pass the military flag"
+else
+  fail "a DCP card mount is not passing militaryActive — it will show uninvited"
+fi
+
 # ── C-F13b — the DCP bias must let go ──────────────────────────────────────
 # A goal pushes continuously; a bias must stop once the floor is cleared, or
 # general training quietly becomes permanent DCP prep. Also asserts the bias

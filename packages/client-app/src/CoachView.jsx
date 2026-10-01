@@ -808,7 +808,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 The same card also appears in Voortgang, where it reads as a
                 standing requirement rather than a goal — one component, so the
                 numbers on a published standard cannot differ between screens. */}
-            <DcpCard dcp={dcp} sex={dcpSex} nowMs={nowMs} onMeasure={() => setView && setView("assessment")} />
+            <DcpCard dcp={dcp} militaryActive sex={dcpSex} nowMs={nowMs} onMeasure={() => setView && setView("assessment")} />
 
             {/* Level ladder */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>

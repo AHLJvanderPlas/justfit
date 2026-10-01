@@ -191,6 +191,18 @@ export const DCP_TIERS = {
   runCapacity: 1.25,  // ≈ cluster 6 (2,750 vs 2,700 m) — one target covers both tests
 };
 
+/**
+ * Should the DCP card be shown at all?
+ *
+ * `dcp.enabled` only records that a baseline exists. Showing readiness stats and a
+ * "go measure yourself" prompt to someone who has switched the coach AND the bias
+ * off is nagging about a goal they do not have. One predicate, both mounts.
+ */
+export function dcpCardVisible(dcp, militaryActive) {
+  if (!dcp?.enabled) return false;
+  return !!militaryActive || !!dcp.bias_enabled;
+}
+
 /** A measurement older than this drives the bias off stale numbers. */
 export const DCP_RETEST_DAYS = 42;   // six weeks — long enough to change, short enough to matter
 
