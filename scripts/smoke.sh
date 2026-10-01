@@ -197,6 +197,46 @@ for f in packages/client-app/src/App.jsx packages/client-app/src/SettingsView.js
   fi
 done
 
+# ── C-F13b — the DCP bias must let go ──────────────────────────────────────
+# A goal pushes continuously; a bias must stop once the floor is cleared, or
+# general training quietly becomes permanent DCP prep. Also asserts the bias
+# floor and the goal's `safe` tier remain ONE number — two near-identical
+# thresholds would be a glossary nobody reads.
+BIAS=$(node --input-type=module -e '
+import { getDcpNorms, dcpProgress, dcpBiasStrength, DCP_TIERS, dcpIsStale, DCP_RETEST_DAYS }
+  from "./functions/api/_shared/military.js";
+const n = getDcpNorms("male", 37), errs = [];
+if (DCP_TIERS.safe !== 1.2) errs.push("safe is " + DCP_TIERS.safe + ", the bias defends +20% — keep them one number");
+const at  = (v) => dcpBiasStrength(dcpProgress(v, n.pushups));
+const safe = Math.round(n.pushups * DCP_TIERS.safe);
+if (at(0) !== 1) errs.push("no full push below the minimum");
+if (at(safe) !== 0) errs.push("bias still pushing at the +20% floor (" + safe + ") — it must let go");
+if (at(safe + 10) !== 0) errs.push("bias pushing above the floor");
+if (!(at(n.pushups) > 0 && at(n.pushups) < 1)) errs.push("no taper between minimum and floor");
+// Monotonic: more capability must never mean more push.
+let prev = 2;
+for (let v = 0; v <= safe + 4; v++) { const b = at(v); if (b > prev + 1e-9) errs.push("bias rose at " + v); prev = b; }
+if (dcpIsStale(Date.now() - (DCP_RETEST_DAYS - 1) * 86400000)) errs.push("stale too early");
+if (!dcpIsStale(Date.now() - (DCP_RETEST_DAYS + 1) * 86400000)) errs.push("never goes stale");
+if (dcpIsStale(null)) errs.push("never-measured must not read as stale");
+process.stdout.write(errs.length ? errs.join("; ") : "OK");
+' 2>&1)
+if [ "$BIAS" = "OK" ]; then
+  ok "DCP bias tapers and releases at +20%, and shares one number with the goal"
+else
+  fail "DCP bias: ${BIAS}"
+fi
+
+# R593 guarantees the test MOVEMENTS; R594 shapes the axis targets. Target shaping
+# alone would let a dumbbell press satisfy a raised push target, which is not what
+# the DCP measures. Both must exist.
+if grep -q "R593 — DCP-beweging gegarandeerd" functions/api/plan.js \
+   && grep -q "R594 — DCP-bias actief" functions/api/plan.js; then
+  ok "DCP has both a movement guarantee (R593) and a target bias (R594)"
+else
+  fail "DCP is missing either the movement guarantee or the target bias"
+fi
+
 # ── C-F13 — DCP norms and tiering ──────────────────────────────────────────
 # The DCP is a published standard someone is training against, so the numbers
 # must not drift and the tiering must never show an unreachable target to

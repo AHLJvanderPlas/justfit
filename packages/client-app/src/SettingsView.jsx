@@ -288,6 +288,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [milTrack,        setMilTrack]        = useState(() => prefs.preferences?.military_coach?.track ?? 'keuring');
   const [milCluster,      setMilCluster]      = useState(() => prefs.preferences?.military_coach?.cluster_target ?? 3);
   const [milMode,         setMilMode]         = useState(() => prefs.preferences?.military_coach?.mode ?? 'target');
+  // C-F13 — the DCP bias is a separate switch from the sport bias: someone may
+  // want one without the other, and the DCP applies with no sport selected.
+  const [dcpBiasOn,       setDcpBiasOn]       = useState(() => !!prefs.preferences?.military_coach?.dcp?.bias_enabled);
   const [milTargetDate,   setMilTargetDate]   = useState(() => prefs.preferences?.military_coach?.target_date ?? '');
   const [milPackWeight,   setMilPackWeight]   = useState(() => prefs.preferences?.military_coach?.pack_weights_available_kg ?? []);
   // has_trail_shoes is now derived from planEquipment.includes("trail_shoes") — no separate state needed
@@ -445,6 +448,22 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(sportPrefs)]);
+
+  // ── Auto-save: DCP bias (C-F13) ──
+  // Mirrors the sport-bias auto-save rather than riding the main Save button:
+  // both are standing biases and both should take effect the moment they are
+  // switched, since neither changes anything the user is mid-way through.
+  const dcpBiasSaveRef = useRef(false);
+  useEffect(() => {
+    if (!dcpBiasSaveRef.current) { dcpBiasSaveRef.current = true; return; }
+    const mil = prefs.preferences?.military_coach;
+    if (!mil?.dcp?.enabled) return;
+    const nextMil = { ...mil, dcp: { ...mil.dcp, bias_enabled: dcpBiasOn } };
+    api.saveProgressionPrefs(token, { military_coach: nextMil })
+      .then(() => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), military_coach: nextMil } })))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dcpBiasOn]);
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -2127,6 +2146,38 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               </div>
             )}
           </div>
+
+          {/* ── DCP bias toggle (C-F13) ──
+              Sits beside the sport bias because it is the same kind of thing: a
+              standing requirement with no end date that shapes what the planner
+              aims for, as opposed to a coach, which is a programme with a
+              destination. Only shown once a DCP baseline exists. ── */}
+          {prefs.preferences?.military_coach?.dcp?.enabled && (
+            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>{t("Stay DCP-ready")}</div>
+                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
+                    {dcpBiasOn
+                      ? t("Planner keeps you 20% above the DCP minimum, and stops pushing once you are.")
+                      : t("Planner ignores the DCP standard.")}
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDcpBiasOn(v => !v)}
+                  style={{
+                    flexShrink: 0, padding: "8px 18px", borderRadius: 999, fontSize: 12, fontWeight: 900,
+                    cursor: "pointer", minHeight: 40, touchAction: "manipulation",
+                    border: `1px solid ${dcpBiasOn ? C.emeraldBorder : C.border}`,
+                    background: dcpBiasOn ? C.emeraldDim : "rgba(var(--overlay-rgb),0.05)",
+                    color: dcpBiasOn ? C.emerald : C.muted,
+                  }}
+                >
+                  {dcpBiasOn ? t("On") : t("Off")}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* ── Sport bias toggle ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>

@@ -4,6 +4,9 @@ import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+// C-F13 — the DCP is a standing requirement, so it belongs on the screen where
+// someone asks "where am I", not only inside the military programme.
+import { DcpCard } from "./DcpCard.jsx";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -883,6 +886,13 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           </div>
         )}
       </Glass>
+
+      <DcpCard
+        dcp={prefs?.preferences?.military_coach?.dcp}
+        sex={prefs?.sex ?? 'male'}
+        nowMs={nowMs}
+        onMeasure={onStartAssessment}
+      />
 
       <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
 

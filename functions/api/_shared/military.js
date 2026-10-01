@@ -176,13 +176,46 @@ export const DCP_NORMS = {
   female: null,
 };
 
-/** Target tiers. One number demotivates: 32 push-ups means nothing at 6. */
+/**
+ * Target tiers. One number demotivates: 32 push-ups means nothing at 6.
+ *
+ * `safe` is deliberately the SAME number the training bias defends (+20%). Two
+ * near-identical thresholds — one for the goal, one for the bias — would be a
+ * glossary nobody reads, so the goal says "work up to capacity" and the bias says
+ * "never fall below safe", both pointing at one figure.
+ */
 export const DCP_TIERS = {
-  safe:     1.3,   // clears the minimum on a bad day
+  safe:     1.2,   // +20% — the floor the bias holds, and the goal's middle tier
   capacity: 2.0,   // the minimum becomes a warm-up
   runSafe:     1.12,
   runCapacity: 1.25,  // ≈ cluster 6 (2,750 vs 2,700 m) — one target covers both tests
 };
+
+/** A measurement older than this drives the bias off stale numbers. */
+export const DCP_RETEST_DAYS = 42;   // six weeks — long enough to change, short enough to matter
+
+export function dcpIsStale(lastAtMs, nowMs = Date.now()) {
+  if (!lastAtMs) return false;        // never measured is a different state, handled separately
+  return (nowMs - lastAtMs) > DCP_RETEST_DAYS * 86_400_000;
+}
+
+/**
+ * How hard the training bias should push, given where the athlete sits.
+ *
+ * Hysteresis is the point. A goal pushes continuously; a bias must STOP once the
+ * floor is cleared, or general training quietly becomes permanent DCP prep. Below
+ * the minimum it pushes hardest, between minimum and safe it eases off, and at or
+ * above safe it returns zero and gets out of the way.
+ *
+ * @returns {number} 0 … 1
+ */
+export function dcpBiasStrength(progress) {
+  if (!progress || progress.value >= progress.safe) return 0;
+  if (progress.value < progress.minimum) return 1;
+  const span = progress.safe - progress.minimum;
+  if (span <= 0) return 0;
+  return Math.min(1, Math.max(0, (progress.safe - progress.value) / span)) * 0.6;
+}
 
 /**
  * Age from a birth year. The app stores no date of birth and no age — body profile

@@ -4,7 +4,7 @@ import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolum
 
 import { getAuthUserId } from './_shared/auth.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
-import { getDcpNorms, dcpProgress, dcpAgeFrom } from './_shared/military.js';
+import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
 
 // ---------------------------------------------------------------------------
@@ -696,10 +696,13 @@ const SPORT_AXES = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
 // Primary sport weighted 0.6, secondary sports share 0.4.
 // Nudge = (sportAxis - 0.5) × 24, capped at ±12 points per axis.
 // Guardrail: halve legs/conditioning nudge if user ran or rode in the last 24 h.
-function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, weeklyRideCount) {
+function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, weeklyRideCount, dcpBias) {
   const sports = sportPrefs?.sports ?? [];
   const knownSports = sports.filter(s => SPORT_DEMAND[s]);
-  if (!knownSports.length) return { targets: baseTargets, biasTrace: null };
+  // A DCP bias is a standing requirement like a sport: no end date, shapes what
+  // the planner aims for rather than prescribing a programme. It therefore runs
+  // through the same path, and can apply with no sports selected at all.
+  if (!knownSports.length && !dcpBias) return { targets: baseTargets, biasTrace: null };
 
   const primary = (sportPrefs?.primary && SPORT_DEMAND[sportPrefs.primary]) ? sportPrefs.primary : knownSports[0];
   const others  = knownSports.filter(s => s !== primary);
@@ -728,7 +731,17 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, week
     if (guardrailApplied && (ax === 'legs' || ax === 'conditioning')) {
       sportVal = 0.5 + (sportVal - 0.5) * guardrailFactor;
     }
-    const nudge = Math.round((sportVal - 0.5) * 24);
+    let nudge = Math.round((sportVal - 0.5) * 24);
+
+    // ── DCP bias (C-F13) ──
+    // Lifts only the two axes the test measures, and only while below +20%.
+    // dcpBiasStrength returns 0 once the floor is cleared, so this gets out of
+    // the way rather than turning general training into permanent DCP prep.
+    if (dcpBias && (ax === 'push' || ax === 'core')) {
+      const strength = ax === 'push' ? dcpBias.push : dcpBias.core;
+      nudge += Math.round(strength * 16);
+    }
+
     const base  = baseTargets[ax] ?? 50;
     adjustedTargets[ax] = Math.min(90, Math.max(30, base + nudge));
     adjustments[ax] = adjustedTargets[ax] - base;
@@ -736,7 +749,8 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, week
 
   return {
     targets: adjustedTargets,
-    biasTrace: { primary, sports: knownSports, adjustments, guardrailApplied, guardrailFactor, weeklyCount },
+    biasTrace: { primary, sports: knownSports, adjustments, guardrailApplied, guardrailFactor, weeklyCount,
+                 dcp: dcpBias ? { push: dcpBias.push, core: dcpBias.core } : null },
   };
 }
 
@@ -2068,11 +2082,33 @@ function _selectExercises(ctx) {
     const chartMode   = ctx.progressionState.chartMode ?? 'balanced';
     const baseTargets = PROG_GOAL_TARGETS[goal] ?? PROG_GOAL_TARGETS.health;
     const _sportPrefs = prefs?.preferences?.sport_prefs;
-    const { targets, biasTrace } = (!ctx.runProgramOverride && !ctx.cyclingProgramOverride && sportBiasEnabled)
-      ? computeSportBiasedTargets(baseTargets, _sportPrefs, ctx.runSessionsLast7, ctx.cyclingSessionsLast7)
+
+    // ── DCP bias (C-F13) — a standing requirement, not a programme ──
+    // Separate switch from the sport bias: someone may want one without the other.
+    let _dcpBias = null;
+    const _dcpB = prefs?.preferences?.military_coach?.dcp;
+    if (_dcpB?.enabled && _dcpB?.bias_enabled) {
+      const dn = getDcpNorms(bodyProfile?.sex ?? prefs?.sex, dcpAgeFrom(_dcpB.birth_year));
+      if (dn) {
+        const lastB = _dcpB.last ?? {};
+        const pushP  = dcpProgress(lastB.pushups ?? 0, dn.pushups);
+        const situpP = dcpProgress(lastB.situps  ?? 0, dn.situps);
+        const pushS  = dcpBiasStrength(pushP);
+        const coreS  = dcpBiasStrength(situpP);
+        // Both clear of the floor → no bias object at all, so nothing downstream
+        // has to re-check and the trace stays quiet.
+        if (pushS > 0 || coreS > 0) _dcpBias = { push: pushS, core: coreS };
+      }
+    }
+
+    const { targets, biasTrace } = (!ctx.runProgramOverride && !ctx.cyclingProgramOverride && (sportBiasEnabled || _dcpBias))
+      ? computeSportBiasedTargets(baseTargets, _sportPrefs, ctx.runSessionsLast7, ctx.cyclingSessionsLast7, _dcpBias)
       : { targets: baseTargets, biasTrace: null };
     if (biasTrace) {
       const adj = Object.entries(biasTrace.adjustments).filter(([, v]) => v !== 0).map(([ax, v]) => `${ax}${v > 0 ? '+' : ''}${v}`).join(', ');
+      if (biasTrace.dcp) {
+        ctx.trace.push(`R594 — DCP-bias actief (push ${Math.round(biasTrace.dcp.push * 100)}%, core ${Math.round(biasTrace.dcp.core * 100)}%) — doel +20% boven de norm`);
+      }
       const guardrailNote = biasTrace.guardrailApplied
         ? ` [guardrail ×${biasTrace.guardrailFactor} — ${biasTrace.weeklyCount} sport sessions/wk]`
         : '';
@@ -2144,15 +2180,17 @@ function _selectExercises(ctx) {
     }
   }
 
-  // R593 — C-F13: keep the two DCP movements in rotation.
+  // R593 — C-F13: guarantee the two DCP movements specifically.
   //
-  // The DCP is a floor held for the whole of service, not a goal with a finish
-  // line, so the failure mode is silent: push-ups quietly stop being selected,
-  // and months later the standard is gone. This guarantees both patterns appear
-  // weekly and pulls the weaker of the two to the front of the pool.
+  // R594 (the bias) raises the push and core TARGETS, but a raised push target can
+  // be satisfied by a dumbbell press — and the DCP measures push-ups and sit-ups,
+  // not the pattern in general. Target shaping alone would therefore train the
+  // right axis with the wrong movement.
   //
-  // A bias, never a filter — the same rule R590 follows. On a rest day, an injury
-  // day or a pregnancy-mode day it does nothing at all.
+  // So this does one narrow job the bias cannot: make sure the actual test
+  // movements are reachable and preferred. Scoped to whichever of the two is
+  // still below its floor, and it reorders rather than filters — the same
+  // discipline as R590. Silent on rest days and in body-mode sessions.
   const _dcp = prefs?.preferences?.military_coach?.dcp;
   if (_dcp?.enabled && ctx.pool?.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
     const norms = getDcpNorms(bodyProfile?.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
@@ -2160,36 +2198,29 @@ function _selectExercises(ctx) {
       const last = _dcp.last ?? {};
       const push  = dcpProgress(last.pushups ?? 0, norms.pushups);
       const situp = dcpProgress(last.situps  ?? 0, norms.situps);
-      // Whichever movement sits further below its next tier gets priority. Both
-      // at capacity → neither is urgent and the pool is left alone.
-      const pushNeed  = push.gap  / Math.max(1, push.next);
-      const situpNeed = situp.gap / Math.max(1, situp.next);
-      const wantPush  = pushNeed  > 0;
-      const wantSitup = situpNeed > 0;
+      // Only the movement(s) still short of +20%. Clear of the floor → leave alone.
+      const wantPush  = dcpBiasStrength(push)  > 0;
+      const wantSitup = dcpBiasStrength(situp) > 0;
 
       if (wantPush || wantSitup) {
-        const isDcpEx = (ex, kind) => {
-          const tags = (() => { try { return JSON.parse(ex.tags_json ?? '[]'); } catch { return []; } })();
-          if (!tags.includes('dcp') && !/push-up|sit-up/.test(ex.slug ?? '')) return false;
-          return kind === 'push' ? /push-up/.test(ex.slug ?? '') : /sit-up/.test(ex.slug ?? '');
+        const kindOf = (ex) => {
+          const slug = ex.slug ?? '';
+          if (/push-up/.test(slug)) return 'push';
+          if (/sit-up/.test(slug))  return 'situp';
+          return null;
         };
-        const priority = [];
-        const rest = [];
+        const priority = [], rest = [];
         for (const ex of ctx.pool) {
-          const p = wantPush  && isDcpEx(ex, 'push');
-          const t = wantSitup && isDcpEx(ex, 'situp');
-          (p || t ? priority : rest).push(ex);
+          const k = kindOf(ex);
+          const wanted = (k === 'push' && wantPush) || (k === 'situp' && wantSitup);
+          (wanted ? priority : rest).push(ex);
         }
         if (priority.length && priority.length < ctx.pool.length) {
           // Weaker movement first, so a short session still trains the right one.
-          const firstKind = situpNeed > pushNeed ? 'situp' : 'push';
-          priority.sort((a, b) => {
-            const av = isDcpEx(a, firstKind) ? 0 : 1;
-            const bv = isDcpEx(b, firstKind) ? 0 : 1;
-            return av - bv;
-          });
+          const firstKind = dcpBiasStrength(situp) > dcpBiasStrength(push) ? 'situp' : 'push';
+          priority.sort((a, b) => (kindOf(a) === firstKind ? 0 : 1) - (kindOf(b) === firstKind ? 0 : 1));
           ctx.pool = [...priority, ...rest];
-          ctx.trace.push(`R593 — DCP actief: ${priority.length} oefening(en) vooraan, ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.next}, sit-up ${situp.value}/${situp.next})`);
+          ctx.trace.push(`R593 — DCP-beweging gegarandeerd: ${priority.length} oefening(en) vooraan, ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.safe}, sit-up ${situp.value}/${situp.safe})`);
           if (push.tier === 'below' || situp.tier === 'below') {
             _addNote(ctx, `DCP-norm nog niet gehaald — ${push.tier === 'below' ? `push-ups ${push.value}/${push.minimum}` : `sit-ups ${situp.value}/${situp.minimum}`}. Deze sessie werkt daar naartoe.`);
           }
