@@ -2088,7 +2088,7 @@ function _selectExercises(ctx) {
     let _dcpBias = null;
     const _dcpB = prefs?.preferences?.military_coach?.dcp;
     if (_dcpB?.enabled && _dcpB?.bias_enabled) {
-      const dn = getDcpNorms(bodyProfile?.sex ?? prefs?.sex, dcpAgeFrom(_dcpB.birth_year));
+      const dn = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcpB.birth_year));
       if (dn) {
         const lastB = _dcpB.last ?? {};
         const pushP  = dcpProgress(lastB.pushups ?? 0, dn.pushups);
@@ -2193,7 +2193,7 @@ function _selectExercises(ctx) {
   // discipline as R590. Silent on rest days and in body-mode sessions.
   const _dcp = prefs?.preferences?.military_coach?.dcp;
   if (_dcp?.enabled && ctx.pool?.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
-    const norms = getDcpNorms(bodyProfile?.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
+    const norms = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
     if (norms) {
       const last = _dcp.last ?? {};
       const push  = dcpProgress(last.pushups ?? 0, norms.pushups);
@@ -2220,7 +2220,9 @@ function _selectExercises(ctx) {
           const firstKind = dcpBiasStrength(situp) > dcpBiasStrength(push) ? 'situp' : 'push';
           priority.sort((a, b) => (kindOf(a) === firstKind ? 0 : 1) - (kindOf(b) === firstKind ? 0 : 1));
           ctx.pool = [...priority, ...rest];
-          ctx.trace.push(`R593 — DCP-beweging gegarandeerd: ${priority.length} oefening(en) vooraan, ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.safe}, sit-up ${situp.value}/${situp.safe})`);
+          // `priority.length` counts the POOL, not the session — reporting it read as
+          // "12 exercises" on a 4-exercise session. The movement is the useful fact.
+          ctx.trace.push(`R593 — DCP-beweging gegarandeerd: ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.safe}, sit-up ${situp.value}/${situp.safe})`);
           if (push.tier === 'below' || situp.tier === 'below') {
             _addNote(ctx, `DCP-norm nog niet gehaald — ${push.tier === 'below' ? `push-ups ${push.value}/${push.minimum}` : `sit-ups ${situp.value}/${situp.minimum}`}. Deze sessie werkt daar naartoe.`);
           }

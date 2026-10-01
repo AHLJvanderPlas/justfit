@@ -1262,6 +1262,24 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Fixed 2026-10-01 — PLAN-500 (plan generation down in production)
+
+`_selectExercises(ctx)` destructures `checkIn, exercises, prefs, date, pregnancyContext`
+from `ctx`, but **not** `bodyProfile`. The two DCP rules added in C-F13/C-F15 (R593
+movement guarantee, R594 target bias) both read `bodyProfile?.sex`, which resolved to
+nothing in that scope → `ReferenceError` → caught by the handler → `{error:"Internal
+error"}` → PLAN-500 on every plan generation. Fixed by reading `ctx.sex`, which
+`_initPlannerContext` already derives from the same `bodyProfile.sex`.
+
+**Root cause was not the typo — it was that `functions/` has never been linted.**
+`npm run lint` only ever ran `--workspace=client-app`, so the entire API, planner
+included, had no `no-undef` check. Added root `eslint.config.js` covering
+`functions/**/*.js` with Workers globals; `no-undef` and the other
+will-throw-at-runtime rules are errors, the rest of `recommended` is a warning so a
+retrofit does not bury real failures. Wired in as `npm run lint:functions`, which
+`npm run lint` (and therefore `npm run smoke`) now runs. Guard verified by
+reintroducing the exact bug: 2 errors, exit 1.
+
 ## Shipped 2026-08-11 — all items below LIVE and verified
 
 | Item | Commit | Status |
