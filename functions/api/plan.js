@@ -1216,22 +1216,26 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
 // push-up all reduce to "push+up", and the 15 marsen-* entries to "marsen".
 // Across the live library this yields 403 families, only 21 with more than one
 // member — it groups the duplicates without collapsing distinct work.
-const _FAMILY_STOP = new Set([
-  'knee','knees','incline','decline','wall','seated','standing','assisted','weighted','single',
-  'leg','legged','arm','alternating','modified','easy','hard','slow','fast','low','high','mini',
-  'km','u','minuten','minuut','min','rugzak','kg','meter','zone','sec','x','met','de','van','op',
-  'the','a','to','and','with','level','links','rechts','variatie','simulated',
+// Units, loads and rep-schemes say how much, never what movement.
+const _FAMILY_NOISE = new Set([
+  'km', 'u', 'kg', 'minuten', 'minuut', 'min', 'sec', 'seconden', 'meter', 'zone',
+  'rugzak', 'level', 'x',
 ]);
 
 export function movementFamily(slug) {
-  const toks = String(slug ?? '').toLowerCase().split(/[-_]/)
-    .filter(t => t
-      && !/^\d+$/.test(t)
-      && !/^\d+x\d+$/.test(t)
-      && !/^\d+[a-z]*$/.test(t)
-      && !_FAMILY_STOP.has(t));
-  const uniq = [...new Set(toks)].sort();
-  return uniq.length ? uniq.join('+') : String(slug ?? '');
+  const toks = String(slug ?? '').toLowerCase().split(/[-_]/).filter(t => t
+    && !/^\d+$/.test(t)
+    && !/^\d+x\d+$/.test(t)
+    && !/^\d+[a-z]+$/.test(t)
+    && !_FAMILY_NOISE.has(t));
+  if (!toks.length) return String(slug ?? '');
+  // The movement is the TRAILING noun; everything before it is a qualifier.
+  // A stop-list of qualifiers cannot keep up — it grouped the push-up variants
+  // and silently missed bent-knee-sit-up and anchored-sit-up, which is how three
+  // sit-ups reached one session. Taking the last two tokens needs no list and
+  // reaches the same answer: 323 families across the live library, 54 with more
+  // than one member, with burpee/squat and interval/continuous runs still apart.
+  return toks.slice(-2).sort().join('+');
 }
 
 /**
@@ -2347,48 +2351,6 @@ function _selectExercises(ctx) {
     }
   }
 
-  // R598 — C-F17: the self-assessment belongs IN the training, not beside it.
-  //
-  // The DCP numbers drive R593 and R594, and nothing ever wrote them: dcp.last
-  // was read in four places and set by no code path, so the card sat at 0/19
-  // forever and the bias aimed at a baseline that did not exist. The separate
-  // "nulmeting" screen was the intended writer and was both unreachable (it was
-  // handed a click event instead of its config) and the wrong shape — a second
-  // thing to remember, gated off on exactly the tired days when it is most
-  // needed.
-  //
-  // So it is measured the way it is tested: two max-effort sets inside a normal
-  // session. Fires when the DCP is a target in any way AND the last measurement
-  // is missing or older than DCP_RETEST_DAYS, or when the user forces it from
-  // the Recalibrate button. The 2-minute window is the DCP protocol itself, not
-  // an open-ended set to failure — a capped window is what the standard scores.
-  const _dcpA = prefs?.preferences?.military_coach?.dcp;
-  const _dcpAIsTarget = dcpCardVisible(_dcpA, !!prefs?.preferences?.military_coach?.active);
-  if (_dcpAIsTarget && ctx.slot_type !== 'rest' && ctx.isStandardMode && !ctx.bonusSession) {
-    const lastAt = _dcpA.last?.at_ms ?? null;
-    const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
-    if (due) {
-      const find = (...slugs) => {
-        for (const sl of slugs) {
-          const hit = exercises.find(ex => ex.slug === sl);
-          if (hit) return hit;
-        }
-        return null;
-      };
-      const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
-      const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
-      if (pushEx && situpEx) {
-        ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: 120 };
-        const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
-        shuffled = [pushEx, situpEx, ...others];
-        ctx.trace.push(ctx.forceAssessment
-          ? 'R598 — Zelfmeting op verzoek ingepland: max push-ups en sit-ups (2 min per oefening)'
-          : `R598 — Zelfmeting ingepland: ${lastAt ? 'laatste meting is verlopen' : 'nog geen nulmeting'} — max push-ups en sit-ups (2 min per oefening)`);
-        _addNote(ctx, 'Vandaag meten we je DCP-uitgangspunt: twee sets op maximaal aantal herhalingen in 2 minuten. Stop bij vormverlies, niet bij pijn.');
-      }
-    }
-  }
-
   // R593 — C-F13: put the two DCP movements in front, when the DCP is actually a target.
   //
   // R594 (the bias) raises the push and core TARGETS, but a raised push target can
@@ -2445,6 +2407,53 @@ function _selectExercises(ctx) {
     }
   }
 
+
+  // Ordered last on purpose: R593 also reorders push-ups and sit-ups, and it
+  // would otherwise front a same-family sibling (anchored-sit-up) ahead of the
+  // exact row pinned here. R597 then drops the pinned one as a duplicate and the
+  // session measures one movement instead of two. The pin is the more specific
+  // instruction, so it goes last and wins.
+  // R598 — C-F17: the self-assessment belongs IN the training, not beside it.
+  //
+  // The DCP numbers drive R593 and R594, and nothing ever wrote them: dcp.last
+  // was read in four places and set by no code path, so the card sat at 0/19
+  // forever and the bias aimed at a baseline that did not exist. The separate
+  // "nulmeting" screen was the intended writer and was both unreachable (it was
+  // handed a click event instead of its config) and the wrong shape — a second
+  // thing to remember, gated off on exactly the tired days when it is most
+  // needed.
+  //
+  // So it is measured the way it is tested: two max-effort sets inside a normal
+  // session. Fires when the DCP is a target in any way AND the last measurement
+  // is missing or older than DCP_RETEST_DAYS, or when the user forces it from
+  // the Recalibrate button. The 2-minute window is the DCP protocol itself, not
+  // an open-ended set to failure — a capped window is what the standard scores.
+  const _dcpA = prefs?.preferences?.military_coach?.dcp;
+  const _dcpAIsTarget = dcpCardVisible(_dcpA, !!prefs?.preferences?.military_coach?.active);
+  if (_dcpAIsTarget && ctx.slot_type !== 'rest' && ctx.isStandardMode && !ctx.bonusSession) {
+    const lastAt = _dcpA.last?.at_ms ?? null;
+    const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
+    if (due) {
+      const find = (...slugs) => {
+        for (const sl of slugs) {
+          const hit = exercises.find(ex => ex.slug === sl);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
+      const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
+      if (pushEx && situpEx) {
+        ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: 120 };
+        const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
+        shuffled = [pushEx, situpEx, ...others];
+        ctx.trace.push(ctx.forceAssessment
+          ? 'R598 — Zelfmeting op verzoek ingepland: max push-ups en sit-ups (2 min per oefening)'
+          : `R598 — Zelfmeting ingepland: ${lastAt ? 'laatste meting is verlopen' : 'nog geen nulmeting'} — max push-ups en sit-ups (2 min per oefening)`);
+        _addNote(ctx, 'Vandaag meten we je DCP-uitgangspunt: twee sets op maximaal aantal herhalingen in 2 minuten. Stop bij vormverlies, niet bij pijn.');
+      }
+    }
+  }
 
   // Exercise count
   const postnatalPhase = pregnancyContext?.postnatal_phase;
@@ -2996,7 +3005,7 @@ function _applySupersets(ctx, steps) {
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────
-function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+export function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false,
   cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0,
   crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null, opts = {}) {

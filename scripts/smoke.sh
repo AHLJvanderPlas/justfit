@@ -437,6 +437,19 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── C-F18 — behavioural: run the planner and inspect the SESSION ───────────
+# Every guard above reads source text. That is exactly what let R590 and R593
+# ship inert for weeks: they printed their trace lines, their own unit guards
+# passed, and no session changed. This runs the real planner over a fixture of
+# real library rows and asserts on the steps it produces, which is the only
+# thing a user ever sees.
+BEHAV=$(node scripts/planner-behaviour.mjs 2>&1)
+if [ "$BEHAV" = "OK" ]; then
+  ok "planner behaviour: measurement, civilian pool, variety and budget all hold end-to-end"
+else
+  fail "planner behaviour: ${BEHAV}"
+fi
+
 # ── C-F17 — the self-assessment must be measurable and recordable ──────────
 # dcp.last was read in four places and written by none, so the card sat at 0/19
 # and R593/R594 biased toward a baseline that never existed. R598 schedules the
