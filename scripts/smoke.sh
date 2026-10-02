@@ -437,6 +437,38 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── C-F17 — the self-assessment must be measurable and recordable ──────────
+# dcp.last was read in four places and written by none, so the card sat at 0/19
+# and R593/R594 biased toward a baseline that never existed. R598 schedules the
+# measurement into the session; execution.js must write the result back, or the
+# loop is open again and nothing downstream will ever see a number.
+if grep -q "R598 —" functions/api/plan.js \
+   && grep -q "recordDcpMeasurement" functions/api/execution.js \
+   && grep -q "dcp.last = {" functions/api/execution.js; then
+  ok "R598 schedules the self-assessment and execution.js writes dcp.last back"
+else
+  fail "the DCP measurement loop is open — nothing writes dcp.last, so the bias aims at a baseline that never updates"
+fi
+
+# A forced assessment must bypass the free daily plan cap. The cap exists so
+# re-rolling for a nicer session is paid; measuring yourself is the input the
+# whole DCP bias depends on, and gating it behind Pro would leave free users
+# permanently biased toward a stale baseline.
+if grep -q "!isPro && !bonus_session && !force_assessment" functions/api/plan.js; then
+  ok "a forced self-assessment is exempt from the free daily plan cap"
+else
+  fail "force_assessment is not exempt from the C-G4 daily cap — free users could never re-measure"
+fi
+
+# The measurement set must not be volume-scaled: a number that has been scaled
+# by sleep and experience is not comparable to a published norm.
+if grep -q "measures" functions/api/plan.js \
+   && grep -q "max_effort: true" functions/api/plan.js; then
+  ok "measurement sets are emitted as max-effort, unscaled"
+else
+  fail "measurement steps are not marked max_effort — the recorded number would be a scaled target"
+fi
+
 # ── C-F16 — civilian sessions must not get Defence protocol work ───────────
 # A fat_loss user with no equipment and primary_intent=general was handed three
 # rucksack marches, because nothing ever filtered the `military` tag OUT — R572

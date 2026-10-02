@@ -29,7 +29,7 @@ import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpIsStale, dcpCardVisible, DCP_R
  * @param {func}    onMeasure      opens the DCP baseline assessment
  * @param {boolean} compact        drops the header when the host screen already titles it
  */
-export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, compact = false }) {
+export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, compact = false, measurePlanned = false }) {
   if (!dcpCardVisible(dcp, militaryActive)) return null;
 
   const age = dcpAgeFrom(dcp.birth_year, nowMs);
@@ -129,11 +129,15 @@ export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, co
 
       {onMeasure && (
         <button
-          onClick={onMeasure}
-          style={{ marginTop: 12, width: "100%", minHeight: 44, borderRadius: 12, cursor: "pointer",
+          onClick={measurePlanned ? undefined : onMeasure}
+          disabled={measurePlanned}
+          style={{ marginTop: 12, width: "100%", minHeight: 44, borderRadius: 12,
+            cursor: measurePlanned ? "default" : "pointer", opacity: measurePlanned ? 0.65 : 1,
             border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald,
             fontSize: 13, fontWeight: 800, touchAction: "manipulation" }}>
-          {never ? t("Do baseline") : t("Measure again")}
+          {measurePlanned
+            ? t("Self-assessment planned")
+            : never ? t("Do baseline") : t("Measure again")}
         </button>
       )}
     </Glass>

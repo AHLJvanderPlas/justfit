@@ -2673,6 +2673,16 @@ export default function App() {
   // Fitness assessment overlay. Config is fetched by HistoryView and handed over,
   // so the runner never renders before it knows the battery.
   const [assessmentConfig, setAssessmentConfig] = useState(null);
+
+  // R598 — the self-assessment is measured inside a session, so "recalibrate"
+  // schedules it into today's training rather than opening a separate flow.
+  const handleForceAssessment = async () => {
+    const fresh = await api.forceAssessment(userId, today);
+    setPlan(fresh);
+    setView("today");
+    return fresh;
+  };
+
   // The Trophy room is reachable from Progress and from Settings, so its back
   // control has to return to whichever one you actually came from.
   const [awardsOrigin, setAwardsOrigin] = useState("history");
@@ -3874,6 +3884,8 @@ export default function App() {
                 onUpgrade={() => setView("upgrade")}
                 setView={setView}
                 onStartAssessment={(cfg) => setAssessmentConfig(cfg)}
+                assessmentPlanned={!!plan?.assessment_planned}
+                onForceAssessment={handleForceAssessment}
                 onOpenAwards={() => openAwards("history")}
               />
             )}

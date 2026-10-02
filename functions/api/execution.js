@@ -320,6 +320,13 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // ── 4d. R598 — record a DCP self-assessment taken inside the session ─────
+    try {
+      await recordDcpMeasurement(user_id, steps, env, now);
+    } catch (err) {
+      console.error('DCP measurement capture failed (non-fatal):', err.message);
+    }
+
     // ── 5. Track polarised endurance type (zone2 / hiit) for R568 balance ────
     try {
       await updatePolarisedEnduranceType(user_id, steps, env, now);
@@ -845,4 +852,52 @@ export async function onRequestDelete({ request, env }) {
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
+}
+
+/**
+ * R598 — write the DCP baseline from max-effort sets performed in the session.
+ *
+ * dcp.last was read in four places and written by none, so the card showed 0/19
+ * forever and R593/R594 biased toward a baseline that did not exist. The planner
+ * marks the two measurement steps with `measures`; whatever the user actually
+ * completed in the 2-minute window is the measurement.
+ *
+ * Only ever raises or records — a set abandoned at 2 reps because someone felt
+ * unwell should not overwrite a genuine 30 with a 2 and then drive six weeks of
+ * training off it. A real decline is captured by the next deliberate retest,
+ * which the user can force from Recalibrate at any time.
+ */
+async function recordDcpMeasurement(userId, steps, env, now) {
+  const measured = {};
+  for (const step of (steps ?? [])) {
+    const kind = step.measures ?? step.prescribed?.measures ?? null;
+    if (kind !== 'dcp_pushups' && kind !== 'dcp_situps') continue;
+    const actual = step.actual ?? {};
+    if (actual.skipped) continue;
+    const reps = Array.isArray(actual.reps_per_set) && actual.reps_per_set.length
+      ? Math.max(...actual.reps_per_set.map(Number).filter(Number.isFinite))
+      : null;
+    if (reps == null || !(reps > 0)) continue;
+    measured[kind === 'dcp_pushups' ? 'pushups' : 'situps'] = reps;
+  }
+  if (!Object.keys(measured).length) return;
+
+  const row = await env.DB.prepare(
+    'SELECT preferences_json FROM user_preferences WHERE user_id = ? LIMIT 1'
+  ).bind(userId).first();
+  if (!row?.preferences_json) return;
+
+  const prefs = JSON.parse(row.preferences_json);
+  const dcp = prefs?.military_coach?.dcp;
+  if (!dcp?.enabled) return;
+
+  const prev = dcp.last ?? {};
+  dcp.last = {
+    pushups: Math.max(measured.pushups ?? 0, prev.pushups ?? 0),
+    situps:  Math.max(measured.situps  ?? 0, prev.situps  ?? 0),
+    at_ms:   now,
+  };
+  await env.DB.prepare(
+    'UPDATE user_preferences SET preferences_json = ?, updated_at_ms = ? WHERE user_id = ?'
+  ).bind(JSON.stringify(prefs), now, userId).run();
 }

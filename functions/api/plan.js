@@ -4,7 +4,7 @@ import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolum
 
 import { getAuthUserId } from './_shared/auth.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
-import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible } from './_shared/military.js';
+import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, dcpIsStale } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
 
 // ---------------------------------------------------------------------------
@@ -79,7 +79,7 @@ function adaptExistingPlan(basePlan, checkin) {
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, adapt_mode, base_plan } = body;
+    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, adapt_mode, base_plan, force_assessment } = body;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
@@ -270,8 +270,14 @@ export async function onRequestPost({ request, env }) {
       isPro = !!isProRow;
     }
 
-    // C-G4: Free users get 1 plan per day — return cached plan if already exists
-    if (user_id && !isPro && !bonus_session) {
+    // C-G4: Free users get 1 plan per day — return cached plan if already exists.
+    //
+    // force_assessment is exempt. The daily cap exists so re-rolling for a nicer
+    // session is a paid feature; asking to measure yourself is neither a re-roll
+    // nor a nicety — it is the input every DCP number downstream depends on, and
+    // charging for it would make the bias aim at a stale baseline. The request
+    // is explicit and user-initiated, so it cannot be used to farm new sessions.
+    if (user_id && !isPro && !bonus_session && !force_assessment) {
       const existingPlan = await env.DB.prepare(
         'SELECT plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
       ).bind(user_id, date).first();
@@ -491,7 +497,7 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms);
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms, { forceAssessment: !!force_assessment });
 
     // Inject trainer-assigned program coaching note
     if (assignedProgramRow?.program_name) {
@@ -1104,7 +1110,7 @@ function _addNote(ctx, note) {
 function _initPlannerContext(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
   cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7,
-  crossRunsLast7, militaryTemplateItems, runPrograms) {
+  crossRunsLast7, militaryTemplateItems, runPrograms, opts = {}) {
 
   const goal     = prefs?.training_goal ?? 'health';
   const expLevel = prefs?.experience_level ?? 'intermediate';
@@ -1188,6 +1194,8 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     militaryMarchSec: 0,
     milWeekComputed: 1,
     r555PinnedEx: null,
+    forceAssessment: !!opts.forceAssessment,
+    dcpMeasure: null,
     selection: null,
     shuffled: null,
     targetCategory: null,
@@ -2339,6 +2347,48 @@ function _selectExercises(ctx) {
     }
   }
 
+  // R598 — C-F17: the self-assessment belongs IN the training, not beside it.
+  //
+  // The DCP numbers drive R593 and R594, and nothing ever wrote them: dcp.last
+  // was read in four places and set by no code path, so the card sat at 0/19
+  // forever and the bias aimed at a baseline that did not exist. The separate
+  // "nulmeting" screen was the intended writer and was both unreachable (it was
+  // handed a click event instead of its config) and the wrong shape — a second
+  // thing to remember, gated off on exactly the tired days when it is most
+  // needed.
+  //
+  // So it is measured the way it is tested: two max-effort sets inside a normal
+  // session. Fires when the DCP is a target in any way AND the last measurement
+  // is missing or older than DCP_RETEST_DAYS, or when the user forces it from
+  // the Recalibrate button. The 2-minute window is the DCP protocol itself, not
+  // an open-ended set to failure — a capped window is what the standard scores.
+  const _dcpA = prefs?.preferences?.military_coach?.dcp;
+  const _dcpAIsTarget = dcpCardVisible(_dcpA, !!prefs?.preferences?.military_coach?.active);
+  if (_dcpAIsTarget && ctx.slot_type !== 'rest' && ctx.isStandardMode && !ctx.bonusSession) {
+    const lastAt = _dcpA.last?.at_ms ?? null;
+    const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
+    if (due) {
+      const find = (...slugs) => {
+        for (const sl of slugs) {
+          const hit = exercises.find(ex => ex.slug === sl);
+          if (hit) return hit;
+        }
+        return null;
+      };
+      const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
+      const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
+      if (pushEx && situpEx) {
+        ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: 120 };
+        const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
+        shuffled = [pushEx, situpEx, ...others];
+        ctx.trace.push(ctx.forceAssessment
+          ? 'R598 — Zelfmeting op verzoek ingepland: max push-ups en sit-ups (2 min per oefening)'
+          : `R598 — Zelfmeting ingepland: ${lastAt ? 'laatste meting is verlopen' : 'nog geen nulmeting'} — max push-ups en sit-ups (2 min per oefening)`);
+        _addNote(ctx, 'Vandaag meten we je DCP-uitgangspunt: twee sets op maximaal aantal herhalingen in 2 minuten. Stop bij vormverlies, niet bij pijn.');
+      }
+    }
+  }
+
   // R593 — C-F13: put the two DCP movements in front, when the DCP is actually a target.
   //
   // R594 (the bias) raises the push and core TARGETS, but a raised push target can
@@ -2550,6 +2600,19 @@ function _assembleSession(ctx) {
 
     if (reps) reps = Math.max(3, Math.min(30, reps));
 
+    // R598 — a measurement set is not a training set: one set, no rep target,
+    // a fixed 2-minute window, and full rest. Scaling it would make the number
+    // incomparable to the published norm, which is the whole point of taking it.
+    const measures = ctx.dcpMeasure
+      ? (ex.id === ctx.dcpMeasure.pushId ? 'dcp_pushups'
+        : ex.id === ctx.dcpMeasure.situpId ? 'dcp_situps' : null)
+      : null;
+    if (measures) {
+      sets = 1;
+      reps = undefined;
+      duration = ctx.dcpMeasure.windowSec;
+    }
+
     const baseRest    = getDefaultRest(ex, ctx.slot_type);
     const adjustedRest = Math.round(baseRest * goalRestMult / 5) * 5;
 
@@ -2565,6 +2628,7 @@ function _assembleSession(ctx) {
       target_duration_sec:  duration,
       sets,
       rest_sec:             adjustedRest,
+      ...(measures ? { max_effort: true, measures, measure_window_sec: ctx.dcpMeasure.windowSec } : {}),
       instructions_json:    ex.instructions_json ?? null,
       alternatives_json:    ex.alternatives_json ?? null,
       // Carried so R592 can avoid pairing two exercises that share a primary muscle,
@@ -2809,6 +2873,9 @@ function _assembleSession(ctx) {
     steps:            orderedSteps,
     experience_level: ctx.expLevel ?? 'intermediate',
     coach_priority:   COACH_PRIORITY,
+    // R598 — lets the client label the Recalibrate control "zelfmeting gepland"
+    // instead of offering to schedule something already in today's session.
+    assessment_planned: !!ctx.dcpMeasure,
     rule_trace:       ctx.trace,
     run_program: ctx.runProgramOverride
       ? { week: ctx.runProgramOverride.week, level: ctx.runProgramOverride.level, target_km: ctx.runCoach?.target_km ?? 5, session_type: ctx.runProgramOverride.sessionType }
@@ -2932,12 +2999,12 @@ function _applySupersets(ctx, steps) {
 function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false,
   cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0,
-  crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null) {
+  crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null, opts = {}) {
   const ctx = _initPlannerContext(
     date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
     cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
     cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7,
-    crossRunsLast7, militaryTemplateItems, runPrograms
+    crossRunsLast7, militaryTemplateItems, runPrograms, opts
   );
   _applySafetyPolicies(ctx);
   _applyBodyModePolicies(ctx);

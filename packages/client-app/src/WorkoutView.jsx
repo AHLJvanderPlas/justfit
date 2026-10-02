@@ -93,10 +93,15 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const timerTotalRef = useRef(0);      // total duration (sec) when exercise timer starts
   const backgroundedAtRef = useRef(0); // ms timestamp when page was hidden during rest
   // Track actual data per exercise for saving
+  const repCountRef = useRef(0);
   const stepsActualRef = useRef(
     exercises.map((ex) => ({
       exercise_id: ex.exercise_id,
-      prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec },
+      prescribed: { sets: ex.sets, reps: ex.target_reps, duration_sec: ex.target_duration_sec, rest_sec: ex.rest_sec,
+                    ...(ex.measures ? { measures: ex.measures } : {}) },
+      // Surfaced at the top level too, so execution.js can find the measurement
+      // without reaching into prescribed — see recordDcpMeasurement.
+      ...(ex.measures ? { measures: ex.measures } : {}),
       actual: {
         sets_completed: 0,
         reps_per_set: [],          // actual reps per set (or seconds for time-based)
@@ -117,7 +122,12 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
   const cur = exerciseOverrides[exIdx] ?? exercises[exIdx];
   const totalSets = cur?.sets ?? 3;
-  const isTimeBased = !cur?.target_reps && !!cur?.target_duration_sec;
+  // R598 — a measurement set: count reps against a fixed clock. Not isTimeBased
+  // (that hides the tap zone) and not plain rep-based (there is no target to
+  // reach). The 2-minute window is the DCP protocol; the clock ends the set.
+  const isMaxEffort = !!cur?.max_effort;
+  const measureWindow = cur?.measure_window_sec ?? 120;
+  const isTimeBased = !isMaxEffort && !cur?.target_reps && !!cur?.target_duration_sec;
   // ── C-F10 — superset geometry ────────────────────────────────────────────────
   // Steps sharing a group_id are performed A → B → rest → A → B rather than
   // completing A entirely first. Everything below derives from the step list, so a
@@ -208,7 +218,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       : 0;
     stepsActualRef.current[exIdx]?.actual?.rest_taken_seconds?.push(actualRest);
     setCurrentSet((s) => s + 1);
-    setRepCount(0);
+    setRepCount(0); repCountRef.current = 0;
     // C-F10 — a superset rests after its LAST member, so the next round starts back
     // at the first. Ungrouped exercises stay where they are.
     if (isGrouped) setExIdx(groupMembers[0]);
@@ -227,12 +237,23 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   useEffect(() => {
     if (!timerRunning || timerRemaining > 0) return;
     setTimerRunning(false);
-    // Pass full timer duration so actual_json records correct seconds completed
-    handleSetDone(timerTotalRef.current);
+    // A measurement set records what was achieved in the window, not the window.
+    handleSetDone(isMaxEffort ? repCountRef.current : timerTotalRef.current);
   // handleSetDone is a stable function reference that changes with exIdx/currentSet;
   // adding it would cause this effect to re-fire on every set transition, not just timer expiry.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [timerRunning, timerRemaining]);
+
+  // R598 — a measurement set starts its own clock: the user is counting reps, not
+  // managing a timer, and a forgotten Start would silently invalidate the number.
+  useEffect(() => {
+    if (phase !== "working" || !isMaxEffort) return;
+    if (timerRunning) return;
+    timerTotalRef.current = measureWindow;
+    setTimerRemaining(measureWindow);
+    setTimerRunning(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, exIdx, currentSet, isMaxEffort]);
 
   // Auto-advance removed — user reads instructions at their own pace
 
@@ -248,7 +269,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     if (exIdx <= 0) return;
     setExIdx((i) => i - 1);
     setCurrentSet(1);
-    setRepCount(0);
+    setRepCount(0); repCountRef.current = 0;
     setAdjustedReps(null);
     setAdjustedDuration(null);
     setPhase("instruction");
@@ -296,7 +317,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     // That is the point of a superset; resting here would make it two exercises.
     if (isGrouped && !isLastInGroup) {
       setExIdx(groupMembers[posInGroup + 1]);
-      setRepCount(0);
+      setRepCount(0); repCountRef.current = 0;
       setAdjustedReps(null);
       setAdjustedDuration(null);
       // Show the instruction card only on the first round, so the athlete meets each
@@ -320,7 +341,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       if (exIdx < totalExercises - 1) {
         setExIdx((i) => i + 1);
         setCurrentSet(1);
-        setRepCount(0);
+        setRepCount(0); repCountRef.current = 0;
         setAdjustedReps(null);
         setAdjustedDuration(null);
         setPhase("instruction");
@@ -336,7 +357,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     setTimeout(() => setTapFlash(false), 180);
     const next = repCount + 1;
     setRepCount(next);
-    if (next >= targetReps) {
+    repCountRef.current = next;
+    // A measurement set has no target to hit — the clock ends it, not a count.
+    if (!isMaxEffort && next >= targetReps) {
       setTimeout(() => handleSetDone(next), 220);
     }
   }
@@ -350,7 +373,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     restStartedAtRef.current = 0;
     setRestRemaining(0);
     setCurrentSet((s) => s + 1);
-    setRepCount(0);
+    setRepCount(0); repCountRef.current = 0;
     if (isGrouped) setExIdx(groupMembers[0]);
     setPhase("working");
   }
@@ -361,7 +384,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     if (exIdx < totalExercises - 1) {
       setExIdx((i) => i + 1);
       setCurrentSet(1);
-      setRepCount(0);
+      setRepCount(0); repCountRef.current = 0;
       setAdjustedReps(null);
       setAdjustedDuration(null);
       setPhase("instruction");
@@ -446,7 +469,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       },
     };
     setShowAlternatives(false);
-    setRepCount(0);
+    setRepCount(0); repCountRef.current = 0;
     setCurrentSet(1);
     setAdjustedReps(null);
     setAdjustedDuration(null);
@@ -1107,8 +1130,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             ) : (
               /* ── Rep-based exercise ── */
               (() => {
-                const isComplete = repCount >= targetReps;
-                const dotCount = Math.min(10, targetReps);
+                const isComplete = !isMaxEffort && repCount >= targetReps;
+                const dotCount = isMaxEffort ? 0 : Math.min(10, targetReps);
                 const tapBg = tapFlash
                   ? "rgba(var(--accent-rgb),0.25)"
                   : isComplete
@@ -1120,9 +1143,23 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   ? "rgba(var(--accent-rgb),0.4)"
                   : "rgba(var(--accent-rgb),0.2)";
                 const tapLabel = isComplete ? t("SET COMPLETE") : tapFlash ? t("COUNTED!") : t("TAP TO COUNT REP");
+                const mmss = `${Math.floor(timerRemaining / 60)}:${String(timerRemaining % 60).padStart(2, "0")}`;
+                const clockColor = timerRemaining <= 10 ? C.amber : C.emerald;
 
                 return (
                   <div>
+                    {/* R598 — the measurement clock. Replaces the rep dots: there is
+                        no target to tick off, the only limit is the window. */}
+                    {isMaxEffort && (
+                      <div style={{ textAlign: "center", marginBottom: 14 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
+                          {t("Max reps — time remaining")}
+                        </div>
+                        <div style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: clockColor, fontVariantNumeric: "tabular-nums" }}>
+                          {mmss}
+                        </div>
+                      </div>
+                    )}
                     {/* Rep dots */}
                     <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
                       {Array.from({ length: dotCount }).map((_, i) => (
@@ -1138,7 +1175,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       <span style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: isComplete ? C.emerald : C.text, fontVariantNumeric: "tabular-nums", transition: "color 0.2s" }}>
                         {repCount}
                       </span>
-                      <span style={{ fontSize: 24, fontWeight: 700, color: C.muted, marginLeft: 6 }}>/ {targetReps}</span>
+                      {!isMaxEffort && (
+                        <span style={{ fontSize: 24, fontWeight: 700, color: C.muted, marginLeft: 6 }}>/ {targetReps}</span>
+                      )}
                     </div>
 
                     {/* Big tap zone */}
@@ -1166,8 +1205,17 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       </button>
                     </div>
 
-                    {/* All reps done shortcut */}
-                    {!isComplete && (
+                    {/* All reps done shortcut. On a measurement set there is no
+                        target to shortcut to, so it becomes "stop here" — form
+                        failure ends the set, and that count is the measurement. */}
+                    {isMaxEffort ? (
+                      <button
+                        onClick={() => { setTimerRunning(false); handleSetDone(repCount); }}
+                        style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}
+                      >
+                        {t('Stop — form is going ({n})', { n: repCount })}
+                      </button>
+                    ) : !isComplete && (
                       <button
                         onClick={() => handleSetDone(targetReps)}
                         style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}

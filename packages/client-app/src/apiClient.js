@@ -4,6 +4,20 @@
 // Legacy `token` params are accepted but unused — kept to avoid churning every call site.
 
 const api = {
+  // R598 — force today's session to include the DCP self-assessment. Separate
+  // from generatePlan because the server exempts this from the free daily cap:
+  // measuring yourself is an input the bias depends on, not a session re-roll.
+  async forceAssessment(userId, date) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ user_id: userId, date, checkin: null, force_assessment: true }),
+    });
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error ?? "Could not schedule the self-assessment");
+    return data.plan ?? data;
+  },
+
   async generatePlan(userId, date, checkin, coachSim, isPro) {
     let res, data;
     try {

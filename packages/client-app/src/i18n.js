@@ -82,6 +82,13 @@ const NL = {
   'Last measured over': 'Laatst gemeten meer dan',
   'days ago — time to retest.': 'dagen geleden — tijd om opnieuw te meten.',
   'Do baseline': 'Nulmeting doen',
+  // R598 — the nulmeting happens inside a session now, so these describe a
+  // scheduled measurement rather than a separate screen.
+  'Self-assessment planned': 'Zelfmeting gepland',
+  'Max reps — time remaining': 'Max herhalingen — resterende tijd',
+  'Stop — form is going ({n})': 'Stoppen — vorm gaat achteruit ({n})',
+  'Re-test': 'Opnieuw testen',
+  'Measure me': 'Meet mij',
   'Measure again': 'Opnieuw meten',
   'Stay DCP-ready': 'Altijd DCP-klaar',
   'Planner keeps you 20% above the DCP minimum, and stops pushing once you are.':

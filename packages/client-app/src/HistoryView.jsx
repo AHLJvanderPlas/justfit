@@ -7,6 +7,7 @@ import { t, useLang } from "./i18n.js";
 // C-F13 — the DCP is a standing requirement, so it belongs on the screen where
 // someone asks "where am I", not only inside the military programme.
 import { DcpCard } from "./DcpCard.jsx";
+import { dcpCardVisible } from "../../../functions/api/_shared/military.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -581,7 +582,7 @@ const GOAL_LABELS_MAP = {
   muscle_gain: "Build Muscle", endurance: "Endurance", mobility: "Mobility & Flex",
 };
 
-export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView, onStartAssessment, onOpenAwards }) {
+export default function HistoryView({ progression, isLoading, token, userId, prefs, onProgressionUpdate, history = [], historyTruncated, onUpgrade, setView, onStartAssessment, onOpenAwards, assessmentPlanned = false, onForceAssessment }) {
   useLang();
   const accentHex = prefs?.preferences?.accent ?? localStorage.getItem("jf_accent") ?? "#10b981";
   const [showCompare, setShowCompare] = useState(true);
@@ -631,6 +632,25 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   }, [userId]);
 
   const effectiveChartMode = chartMode ?? progression?.chart_mode ?? "balanced";
+  // R598 — "nulmeting" is no longer a separate screen: it schedules the two
+  // max-effort sets into today's session. This also fixes a dead control —
+  // onMeasure was wired straight to onStartAssessment, and DcpCard calls it as
+  // onClick, so React passed a click event where a config object was expected
+  // and the assessment screen rendered with an empty preset list.
+  // Same predicate as the card and as R593, so the three can never disagree
+  // about whether the DCP is a target.
+  const dcpIsTarget = dcpCardVisible(
+    prefs?.preferences?.military_coach?.dcp,
+    !!prefs?.preferences?.military_coach?.active,
+  );
+  const [measureBusy, setMeasureBusy] = useState(false);
+  const handleMeasure = async () => {
+    if (measureBusy || assessmentPlanned || !onForceAssessment) return;
+    setMeasureBusy(true);
+    try { await onForceAssessment(); }
+    finally { setMeasureBusy(false); }
+  };
+
   const goal = prefs?.training_goal ?? progression?.goal ?? "health";
 
   // Get display scores for the selected chart mode
@@ -892,7 +912,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         militaryActive={!!prefs?.preferences?.military_coach?.active}
         sex={prefs?.sex ?? 'male'}
         nowMs={nowMs}
-        onMeasure={onStartAssessment}
+        onMeasure={handleMeasure}
+        measurePlanned={assessmentPlanned}
       />
 
       <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
@@ -1014,12 +1035,16 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           </div>
                         </div>
                         <button
-                          onClick={() => onStartAssessment?.(assessment)}
+                          onClick={() => (dcpIsTarget ? handleMeasure() : onStartAssessment?.(assessment))}
+                          disabled={dcpIsTarget && (assessmentPlanned || measureBusy)}
                           style={{ flexShrink: 0, padding: "9px 15px", borderRadius: 12, fontSize: 13, fontWeight: 800,
-                                   cursor: "pointer", border: `1px solid ${accentHex}55`,
+                                   cursor: dcpIsTarget && assessmentPlanned ? "default" : "pointer",
+                                   border: `1px solid ${accentHex}55`, opacity: dcpIsTarget && assessmentPlanned ? 0.65 : 1,
                                    background: `${accentHex}14`, color: accentHex, whiteSpace: "nowrap" }}
                         >
-                          {assessment.last ? "Re-test" : "Measure me"}
+                          {dcpIsTarget && assessmentPlanned
+                            ? t("Self-assessment planned")
+                            : assessment.last ? t("Re-test") : t("Measure me")}
                         </button>
                       </div>
 
