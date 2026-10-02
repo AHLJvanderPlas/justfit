@@ -2057,6 +2057,35 @@ function _selectExercises(ctx) {
   }
   ctx.targetCategory = targetCategory;
 
+  // R595 — C-F16: an exercise cannot be longer than the session it is in.
+  //
+  // Until migration 0112 every timed exercise looked like 30 seconds, so this
+  // could not be checked and a 40-minute march sat happily inside a 30-minute
+  // budget. Now that durations are real, a single step that exceeds the whole
+  // budget is a straight contradiction between the plan and the user's settings.
+  //
+  // Drops rather than scales, because the long entries are exactly the ones
+  // migration 0112 marked fixed_duration. Never empties the pool: if nothing
+  // survives, the budget is smaller than anything available and the shorter-is-
+  // better fallback is to keep what we had — same discipline as R518.
+  if (ctx.budget && ctx.pool?.length && !ctx.unlimited) {
+    const budgetSec = ctx.budget * 60;
+    const lenOf = (ex) => {
+      let m = {}; try { m = JSON.parse(ex.metrics_json || '{}'); } catch { /* treat as unknown */ }
+      const base = m.base_duration_sec;
+      if (!base) return 0;                       // unknown length cannot be judged
+      return base * (m.fixed_sets ?? 1);
+    };
+    const fits = ctx.pool.filter(ex => lenOf(ex) <= budgetSec);
+    const dropped = ctx.pool.length - fits.length;
+    if (dropped > 0 && fits.length >= 3) {
+      ctx.pool = fits;
+      ctx.trace.push(`R595 — ${dropped} exercise(s) longer than the ${ctx.budget}-min session removed`);
+    } else if (dropped > 0) {
+      ctx.trace.push(`R595 — ${dropped} over-length exercise(s) kept: nothing shorter is available for a ${ctx.budget}-min session`);
+    }
+  }
+
   // Filter + seed-shuffle
   let filtered = ctx.pool.filter(ex => ex.category === targetCategory);
   if (!filtered.length) filtered = ctx.pool;
@@ -2385,7 +2414,12 @@ function _assembleSession(ctx) {
     let duration = !supportsReps ? baseDuration : undefined;
 
     const isLongCardio   = !supportsReps && baseDuration > 300;
-    const isFixedDuration = ex.slug === '12-minute-cooper-test'
+    // A name-declared duration is the prescription: "Marsen (6 km/u) - 40 minuten"
+    // IS 40 minutes. Scaling it makes the card contradict the exercise title, so
+    // migration 0112 marks those metrics.fixed_duration and they are exempt here,
+    // alongside the three slugs that were hardcoded before the flag existed.
+    const isFixedDuration = metrics.fixed_duration === true
+      || ex.slug === '12-minute-cooper-test'
       || ex.slug === 'easy-jog-warmup'
       || ex.slug === 'cooldown-walk';
 

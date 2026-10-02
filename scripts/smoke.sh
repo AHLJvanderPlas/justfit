@@ -437,6 +437,27 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── C-F16 — a declared duration must survive the planner ───────────────────
+# Migration 0112 gave every timed exercise a real base_duration_sec and marked
+# the 70 whose NAME states the prescription as fixed_duration. If plan.js stops
+# honouring that flag, "Marsen (6 km/u) - 40 minuten" gets volume-scaled again
+# and the card contradicts the exercise title it is printing.
+if grep -q "metrics.fixed_duration === true" functions/api/plan.js; then
+  ok "named durations are exempt from volume scaling (metrics.fixed_duration)"
+else
+  fail "plan.js ignores metrics.fixed_duration — a 40-minute march will be scaled again"
+fi
+
+# R595 drops exercises longer than the whole session, but must never empty the
+# pool: same discipline as R518. A budget smaller than anything available has to
+# degrade to "keep what we had", not "no session".
+if grep -q "R595 —" functions/api/plan.js \
+   && grep -q "fits.length >= 3" functions/api/plan.js; then
+  ok "R595 removes over-length exercises without ever starving the pool"
+else
+  fail "R595 missing or has no floor — a short budget could empty the exercise pool"
+fi
+
 # ── A-F1 — a planner rule's reorder must reach the session ─────────────────
 # The session is `shuffled.slice(0, count)`. `shuffled` is derived from ctx.pool
 # once; any write to ctx.pool after that derivation is read by nobody. R590 and
