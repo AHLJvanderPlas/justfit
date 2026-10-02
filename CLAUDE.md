@@ -1262,6 +1262,48 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Fixed 2026-10-02 — planner audit (C-F16 / C-F17): five contradictions
+
+Triggered by a `fat_loss` session of three rucksack marches, each prescribed as
+2 x 18s although their names say 25, 30 and 40 minutes.
+
+1. **R590 and R593 were inert.** `shuffled` is derived from `ctx.pool` once and
+   the session is sliced from `shuffled`; both rules rewrote `ctx.pool` after
+   that point. They printed their trace lines and changed nothing. Guard `A-F1`
+   now fails on any `ctx.pool` write after the selection list is derived.
+2. **153 of 247 timed exercises had no duration** (`metrics_json.base_duration_sec`),
+   so all fell back to `?? 30`. 57 stated minutes only in their name — 731 min
+   the planner could not see. It also disabled `isLongCardio` (`> 300`), so a
+   50-minute run never had its sets clamped. Migration **0112** seeds all 153 and
+   marks the 70 name-declared ones `fixed_duration` (never volume-scaled).
+   **R595** drops any exercise longer than the whole session.
+3. **DCP steered a plan the user had switched off.** R593 gated on `dcp.enabled`
+   alone while the card used `dcpCardVisible`. Both now use `dcpCardVisible`.
+4. **No variety guard.** Selection was a flat top-N. **R597** allows one exercise
+   per movement family; the key is the trailing noun of the slug (last two tokens
+   after dropping digits/units), which groups `knee-push-up`/`bent-knee-sit-up`
+   where a qualifier stop-list did not.
+5. **`military` was never filtered OUT.** R572 filters *to* military for military
+   sessions; the mirror case did not exist. **R596** removes military cardio,
+   skill tests, rucksack work and name-declared protocol prescriptions from
+   civilian sessions — 76 exercises, keeping the 26 general strength movements.
+
+**C-F17 — the nulmeting moved into training.** `dcp.last` was read in four places
+and written by none, so the card sat at 0/19 and the bias aimed at a baseline
+that never existed. The separate assessment screen was its intended writer and
+was unreachable: `HistoryView` passed `onStartAssessment` straight to `DcpCard`'s
+`onMeasure`, which is called as `onClick`, so React handed it a click event and
+the screen rendered an empty preset list. **R598** now schedules two max-effort
+sets (2-minute DCP protocol window, exempt from volume scaling) inside a normal
+session when the DCP is a target and the baseline is missing or older than
+`DCP_RETEST_DAYS`; `execution.js` writes the result back. Both entry points force
+it into today's session and read "Zelfmeting gepland" once it is there.
+
+**Lint and guards.** `functions/` had never been linted (see below).
+`scripts/planner-behaviour.mjs` now runs the real planner over a fixture of real
+library rows and asserts on the produced steps — every other guard reads source
+text, which is how R590/R593 shipped inert. Smoke: 53 -> 62 checks.
+
 ### Fixed 2026-10-01 — PLAN-500 (plan generation down in production)
 
 `_selectExercises(ctx)` destructures `checkIn, exercises, prefs, date, pregnancyContext`
