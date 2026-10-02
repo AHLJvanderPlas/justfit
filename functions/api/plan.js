@@ -1194,6 +1194,67 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
   };
 }
 
+
+// ── Movement family, for R597 ────────────────────────────────────────────────
+//
+// Three variants of one movement is not a session. The library has no family
+// column and the two signals that look like one both fail: alternatives_json
+// covers 29% and is asymmetric, and primary_muscles is empty on all 70 military
+// cardio entries while push-up and knee-push-up differ by a single muscle.
+//
+// The slug carries it reliably. Strip digits, units, rep-schemes and the
+// qualifiers that mark a variant rather than a different movement, and what is
+// left is the movement itself: push-up / knee-push-up / incline-push-up / wall-
+// push-up all reduce to "push+up", and the 15 marsen-* entries to "marsen".
+// Across the live library this yields 403 families, only 21 with more than one
+// member — it groups the duplicates without collapsing distinct work.
+const _FAMILY_STOP = new Set([
+  'knee','knees','incline','decline','wall','seated','standing','assisted','weighted','single',
+  'leg','legged','arm','alternating','modified','easy','hard','slow','fast','low','high','mini',
+  'km','u','minuten','minuut','min','rugzak','kg','meter','zone','sec','x','met','de','van','op',
+  'the','a','to','and','with','level','links','rechts','variatie','simulated',
+]);
+
+export function movementFamily(slug) {
+  const toks = String(slug ?? '').toLowerCase().split(/[-_]/)
+    .filter(t => t
+      && !/^\d+$/.test(t)
+      && !/^\d+x\d+$/.test(t)
+      && !/^\d+[a-z]*$/.test(t)
+      && !_FAMILY_STOP.has(t));
+  const uniq = [...new Set(toks)].sort();
+  return uniq.length ? uniq.join('+') : String(slug ?? '');
+}
+
+/**
+ * R597 — take `count` exercises, at most one per movement family.
+ *
+ * Walks in order, so every upstream priority (R551 gap axis, R590 fatigue,
+ * R593 DCP) is preserved — this only skips a candidate whose family is already
+ * represented. If the varied pass cannot fill the session it relaxes and takes
+ * the remainder in order, because a short session beats a blocked one.
+ */
+function _takeVaried(list, count, ctx) {
+  const seen = new Set();
+  const out = [], spare = [];
+  for (const ex of list) {
+    if (out.length >= count) break;
+    const fam = movementFamily(ex.slug);
+    if (seen.has(fam)) { spare.push(ex); continue; }
+    seen.add(fam);
+    out.push(ex);
+  }
+  const skipped = spare.length;
+  if (out.length < count && spare.length) {
+    out.push(...spare.slice(0, count - out.length));
+  }
+  if (skipped > 0 && ctx?.trace) {
+    const filled = out.length;
+    ctx.trace.push(`R597 — variety: ${skipped} same-family duplicate(s) skipped, ${filled} exercise(s) selected`);
+  }
+  return out;
+}
+
 // ── Stage 2: Safety policies ──────────────────────────────────────────────────
 function _applySafetyPolicies(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext, bmi, expLevel } = ctx;
@@ -1209,6 +1270,43 @@ function _applySafetyPolicies(ctx) {
   const _primaryIntent0 = prefs?.preferences?.primary_intent ?? null;
   const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active)
     && (_primaryIntent0 === null || _primaryIntent0 === 'military');
+
+  // R596 — C-F16: military protocol work does not belong in a civilian session.
+  //
+  // 102 exercises carry the `military` tag, but the tag alone is the wrong
+  // discriminator: push-up, plank, squat, lunge and sit-up carry it too, and
+  // excluding those would gut the general library. The real split is protocol vs
+  // movement. A rucksack march, a zone-paced run, the Cooper test and the
+  // lift/carry/dig tests are prescriptions owned by the Defence programme; a
+  // push-up is just a push-up.
+  //
+  // So: drop military-tagged cardio and skill tests, plus anything needing a
+  // rucksack or carrying a fixed, name-declared prescription. 76 exercises go,
+  // 26 general strength movements stay, and 35 no-equipment cardio options
+  // remain for a civilian user, so the pool cannot starve.
+  //
+  // This is why a fat_loss user with primary_intent=general and no equipment was
+  // handed a session of three rucksack marches: nothing filtered military OUT.
+  // R572 filters the pool TO military for military sessions, which is the
+  // mirror case and stays untouched.
+  if (!isMilCoachActive && ctx.slot_type !== 'rest') {
+    const isProtocol = (ex) => {
+      const tags = JSON.parse(ex.tags_json || '[]');
+      if (!tags.includes('military')) return false;
+      if (ex.category === 'cardio' || ex.category === 'skill') return true;
+      const equip = JSON.parse(ex.equipment_required_json || '[]');
+      if (equip.includes('rucksack')) return true;
+      try { if (JSON.parse(ex.metrics_json || '{}').fixed_duration) return true; } catch { /* not fixed */ }
+      return false;
+    };
+    const before = ctx.pool.length;
+    const civilian = ctx.pool.filter(ex => !isProtocol(ex));
+    if (civilian.length >= 3) {
+      ctx.pool = civilian;
+      const removed = before - civilian.length;
+      if (removed > 0) ctx.trace.push(`R596 — ${removed} Defensie-protocoloefening(en) buiten beschouwing gelaten (geen militaire coach actief)`);
+    }
+  }
 
   // R510
   if (ctx.budget <= 10 || checkIn?.no_time) {
@@ -2351,7 +2449,7 @@ function _selectExercises(ctx) {
       ]
     : ctx.militaryDbSelection
     ? ctx.militaryDbSelection
-    : shuffled.slice(0, count);
+    : _takeVaried(shuffled, count, ctx);
 
   // R561 sport mobility injection
   let selection = baseSelection;

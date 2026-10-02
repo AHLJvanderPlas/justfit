@@ -437,6 +437,36 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── C-F16 — civilian sessions must not get Defence protocol work ───────────
+# A fat_loss user with no equipment and primary_intent=general was handed three
+# rucksack marches, because nothing ever filtered the `military` tag OUT — R572
+# only filters the pool TO military for military sessions. The tag alone is not
+# the discriminator (push-up, plank, squat and sit-up carry it), so R596 splits
+# on protocol vs movement and must keep a floor so the pool cannot starve.
+if grep -q "R596 —" functions/api/plan.js \
+   && grep -q "civilian.length >= 3" functions/api/plan.js \
+   && grep -q "!isMilCoachActive" functions/api/plan.js; then
+  ok "R596 keeps Defence protocol work out of civilian sessions, with a pool floor"
+else
+  fail "R596 missing, ungated, or has no floor — military marches can reach a civilian plan"
+fi
+
+# R597 — one exercise per movement family. Three push-up variants is not a
+# session. The family key must group the two shapes that actually went wrong.
+FAM=$(node --input-type=module -e '
+const { movementFamily: f } = await import("./functions/api/plan.js");
+const errs = [];
+if (f("push-up") !== f("knee-push-up"))   errs.push("push-up family not grouped");
+if (f("push-up") !== f("incline-push-up"))errs.push("incline push-up not grouped");
+if (f("marsen-6-km-u-30-minuten") !== f("marsen-6-km-u-40-minuten")) errs.push("marsen family not grouped");
+if (f("burpee") === f("squat"))           errs.push("distinct movements collapsed");
+process.stdout.write(errs.length ? errs.join("; ") : "OK");' 2>&1)
+if [ "$FAM" = "OK" ]; then
+  ok "R597 movement families group variants without collapsing distinct work"
+else
+  fail "R597 family key: ${FAM}"
+fi
+
 # ── C-F16 — a declared duration must survive the planner ───────────────────
 # Migration 0112 gave every timed exercise a real base_duration_sec and marked
 # the 70 whose NAME states the prescription as fixed_duration. If plan.js stops
@@ -459,7 +489,7 @@ else
 fi
 
 # ── A-F1 — a planner rule's reorder must reach the session ─────────────────
-# The session is `shuffled.slice(0, count)`. `shuffled` is derived from ctx.pool
+# The session is _takeVaried(shuffled, count). `shuffled` is derived from ctx.pool
 # once; any write to ctx.pool after that derivation is read by nobody. R590 and
 # R593 both did exactly that and shipped inert for weeks: they printed their
 # trace lines, their own unit guards passed, and they changed no session. A rule
@@ -468,7 +498,7 @@ fi
 # rule's internal logic.
 PLAN=functions/api/plan.js
 SHUF=$(grep -n 'let shuffled = seededShuffle' "$PLAN" | head -1 | cut -d: -f1)
-SLICE=$(grep -n 'shuffled.slice(0, count)' "$PLAN" | head -1 | cut -d: -f1)
+SLICE=$(grep -n '_takeVaried(shuffled, count' "$PLAN" | head -1 | cut -d: -f1)
 if [ -z "$SHUF" ] || [ -z "$SLICE" ]; then
   fail "planner selection shape changed — cannot locate shuffled derivation or slice"
 else
