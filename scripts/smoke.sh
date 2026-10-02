@@ -261,12 +261,18 @@ else
   fail "DCP bias: ${BIAS}"
 fi
 
-# R593 guarantees the test MOVEMENTS; R594 shapes the axis targets. Target shaping
+# R593 fronts the test MOVEMENTS; R594 shapes the axis targets. Target shaping
 # alone would let a dumbbell press satisfy a raised push target, which is not what
-# the DCP measures. Both must exist.
-if grep -q "R593 — DCP-beweging gegarandeerd" functions/api/plan.js \
+# the DCP measures. Both must exist — and R593 must be gated on the SAME predicate
+# as the card (dcpCardVisible), or the planner gets steered by a DCP the user has
+# switched off and cannot see. `dcp.enabled` alone only records that a baseline exists.
+if grep -q "R593 — DCP-beweging vooraan" functions/api/plan.js \
    && grep -q "R594 — DCP-bias actief" functions/api/plan.js; then
-  ok "DCP has both a movement guarantee (R593) and a target bias (R594)"
+  if grep -q "dcpCardVisible(_dcp" functions/api/plan.js; then
+    ok "DCP has both rules, and R593 is gated on the same predicate as the card"
+  else
+    fail "R593 is not gated on dcpCardVisible — a switched-off DCP would still bias the plan"
+  fi
 else
   fail "DCP is missing either the movement guarantee or the target bias"
 fi
@@ -431,6 +437,28 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── A-F1 — a planner rule's reorder must reach the session ─────────────────
+# The session is `shuffled.slice(0, count)`. `shuffled` is derived from ctx.pool
+# once; any write to ctx.pool after that derivation is read by nobody. R590 and
+# R593 both did exactly that and shipped inert for weeks: they printed their
+# trace lines, their own unit guards passed, and they changed no session. A rule
+# that cannot fail looks like coverage while providing none — so this asserts the
+# structural property (does the write reach the selection?) rather than the
+# rule's internal logic.
+PLAN=functions/api/plan.js
+SHUF=$(grep -n 'let shuffled = seededShuffle' "$PLAN" | head -1 | cut -d: -f1)
+SLICE=$(grep -n 'shuffled.slice(0, count)' "$PLAN" | head -1 | cut -d: -f1)
+if [ -z "$SHUF" ] || [ -z "$SLICE" ]; then
+  fail "planner selection shape changed — cannot locate shuffled derivation or slice"
+else
+  DEADW=$(awk -v a="$SHUF" -v b="$SLICE" 'NR>a && NR<b && /ctx\.pool[[:space:]]*=/ {print NR}' "$PLAN")
+  if [ -n "$DEADW" ]; then
+    fail "ctx.pool written at line(s) $(echo $DEADW | tr '\n' ' ')— after shuffled is derived (L${SHUF}), so the session (L${SLICE}) never sees it"
+  else
+    ok "no planner rule writes ctx.pool after the selection list is derived"
+  fi
+fi
+
 # ── A-E2 — a config-driven cap must fail closed ────────────────────────────
 # The early-bird cap moved from a constant into platform_config. If that row is
 # missing or unreadable the offer must fall back to a finite number, never to
@@ -550,35 +578,39 @@ else
   fail "R518 dropped gym_today back-compat — an offline client would silently lose gym access"
 fi
 
-# ── R590 — recovery bias must never starve the pool ────────────────────────
+# ── R590 — recovery bias must never starve the selection ───────────────────
 # On a day when every muscle is fatigued the right answer is "train the least
 # fatigued thing", not "train nothing". R590 is a reorder, never a filter; if it
-# ever becomes a filter, a consistent trainer gets an empty session.
+# ever becomes a filter, a consistent trainer gets an empty session. It reorders
+# `shuffled` (the list the session is sliced from), not ctx.pool — see A-F1.
 R590=$(node --input-type=module -e '
 import fs from "node:fs";
 const src = fs.readFileSync("functions/api/plan.js","utf8");
 const m = src.match(/  \/\/ R590 — C-F7[\s\S]*?\n  \}\n/);
 if (!m) { process.stdout.write("MISSING"); }
 else {
+  if (!/shuffled\s*=/.test(m[0])) { process.stdout.write("R590 no longer writes `shuffled` — its reorder cannot reach the session"); }
+  else {
   fs.writeFileSync("/tmp/_r590_guard.mjs",
-   "export function r590(ctx){ const FATIGUE_THRESHOLD=40; const _addNote=(c,n)=>(c.sessionNotes??=[]).push(n);\n"
-   + m[0] + "\n}");
+   "export function r590(ctx, shuffled){ const FATIGUE_THRESHOLD=40; const _addNote=(c,n)=>(c.sessionNotes??=[]).push(n);\n"
+   + m[0] + "\nreturn { shuffled, fatiguedIds };\n}");
   const { r590 } = await import("/tmp/_r590_guard.mjs?t=" + Date.now());
   const ex = (id,f) => ({id,name:"e"+id,muscle_freshness:f,category:"strength"});
   const errs = [];
-  const allTired = {pool:[ex(1,5),ex(2,9),ex(3,14)],slot_type:"main",trace:[],sessionNotes:[]};
-  r590(allTired);
-  if (allTired.pool.length !== 3) errs.push("pool shrank when everything was fatigued");
-  const mixed = {pool:[ex(1,12),ex(2,90)],slot_type:"main",trace:[],sessionNotes:[]};
-  r590(mixed);
-  if (mixed.pool.length !== 2) errs.push("pool shrank on mixed fatigue");
-  if (mixed.pool[0].muscle_freshness !== 90) errs.push("fresh exercise was not promoted");
+  const ctx = () => ({slot_type:"main",trace:[],sessionNotes:[]});
+  const a = r590(ctx(), [ex(1,5),ex(2,9),ex(3,14)]);
+  if (a.shuffled.length !== 3) errs.push("selection shrank when everything was fatigued");
+  const b = r590(ctx(), [ex(1,12),ex(2,90)]);
+  if (b.shuffled.length !== 2) errs.push("selection shrank on mixed fatigue");
+  if (b.shuffled[0].muscle_freshness !== 90) errs.push("fresh exercise was not promoted");
+  if (!b.fatiguedIds.has(1)) errs.push("fatiguedIds not exported for R593 to respect");
   process.stdout.write(errs.length ? errs.join("; ") : "OK");
+  }
 }' 2>&1)
 if [ "$R590" = "OK" ]; then
-  ok "R590 reorders by fatigue without ever shrinking the exercise pool"
+  ok "R590 reorders the selection by fatigue without ever shrinking it"
 else
-  fail "R590 regression: ${R590}"
+  fail "R590: ${R590}"
 fi
 
 # ── C-F10 — superset pairing guard ─────────────────────────────────────────

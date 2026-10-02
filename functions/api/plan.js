@@ -4,7 +4,7 @@ import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolum
 
 import { getAuthUserId } from './_shared/auth.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
-import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength } from './_shared/military.js';
+import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
 
 // ---------------------------------------------------------------------------
@@ -2180,19 +2180,56 @@ function _selectExercises(ctx) {
     }
   }
 
-  // R593 — C-F13: guarantee the two DCP movements specifically.
+  // R590 — C-F7: bias selection away from muscles that have not recovered.
+  //
+  // A soft reorder, never a filter. Removing fatigued exercises outright would
+  // empty the pool for anyone training consistently, and on a day when everything
+  // is fatigued the right answer is "train the least-fatigued thing", not "train
+  // nothing". Only strength work is affected; cardio and mobility are how you
+  // train *around* fatigue, not into it.
+  //
+  // This reorders `shuffled`, NOT ctx.pool. `shuffled` is derived from ctx.pool
+  // further up and is what the session is sliced from; anything written to
+  // ctx.pool after that point is read by nobody. This rule and R593 both did
+  // exactly that and were silently inert — they printed their trace lines and
+  // changed nothing. Do not "tidy" these back onto ctx.pool.
+  const fatiguedIds = new Set();
+  if (shuffled.length && ctx.slot_type !== 'rest') {
+    const fatigued = shuffled.filter(ex =>
+      ex.muscle_freshness != null && ex.muscle_freshness < FATIGUE_THRESHOLD
+      && ex.category !== 'mobility' && ex.category !== 'recovery' && ex.category !== 'cardio');
+    if (fatigued.length && fatigued.length < shuffled.length) {
+      for (const e of fatigued) fatiguedIds.add(e.id);
+      shuffled = [
+        ...shuffled.filter(e => !fatiguedIds.has(e.id)),
+        ...fatigued.sort((a, b) => (b.muscle_freshness ?? 100) - (a.muscle_freshness ?? 100)),
+      ];
+      const worst = fatigued.reduce((w, e) => (e.muscle_freshness < (w?.muscle_freshness ?? 101) ? e : w), null);
+      ctx.trace.push(`R590 — ${fatigued.length} exercise(s) deprioritised for muscle fatigue (lowest: ${worst?.name} at ${worst?.muscle_freshness}% recovered)`);
+      if (worst && worst.muscle_freshness <= 20) {
+        _addNote(ctx, 'Sommige spiergroepen zijn nog niet hersteld — de planner kiest vandaag bewust ander werk.');
+      }
+    }
+  }
+
+  // R593 — C-F13: put the two DCP movements in front, when the DCP is actually a target.
   //
   // R594 (the bias) raises the push and core TARGETS, but a raised push target can
   // be satisfied by a dumbbell press — and the DCP measures push-ups and sit-ups,
   // not the pattern in general. Target shaping alone would therefore train the
   // right axis with the wrong movement.
   //
-  // So this does one narrow job the bias cannot: make sure the actual test
-  // movements are reachable and preferred. Scoped to whichever of the two is
-  // still below its floor, and it reorders rather than filters — the same
-  // discipline as R590. Silent on rest days and in body-mode sessions.
+  // Gated on dcpCardVisible, the same predicate the card uses, so the planner can
+  // never be steered by a DCP the user has switched off and cannot see. `enabled`
+  // alone only records that a baseline exists.
+  //
+  // Runs AFTER R590 and skips anything R590 marked fatigued: a published standard
+  // is still ambition, and Principle 3 puts safety above it. If every candidate is
+  // fatigued it promotes nothing and says so, rather than claiming a guarantee it
+  // did not deliver.
   const _dcp = prefs?.preferences?.military_coach?.dcp;
-  if (_dcp?.enabled && ctx.pool?.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
+  const _dcpIsTarget = dcpCardVisible(_dcp, !!prefs?.preferences?.military_coach?.active);
+  if (_dcpIsTarget && shuffled.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
     const norms = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
     if (norms) {
       const last = _dcp.last ?? {};
@@ -2210,51 +2247,27 @@ function _selectExercises(ctx) {
           return null;
         };
         const priority = [], rest = [];
-        for (const ex of ctx.pool) {
+        for (const ex of shuffled) {
           const k = kindOf(ex);
           const wanted = (k === 'push' && wantPush) || (k === 'situp' && wantSitup);
-          (wanted ? priority : rest).push(ex);
+          (wanted && !fatiguedIds.has(ex.id) ? priority : rest).push(ex);
         }
-        if (priority.length && priority.length < ctx.pool.length) {
+        if (priority.length && priority.length < shuffled.length) {
           // Weaker movement first, so a short session still trains the right one.
           const firstKind = dcpBiasStrength(situp) > dcpBiasStrength(push) ? 'situp' : 'push';
           priority.sort((a, b) => (kindOf(a) === firstKind ? 0 : 1) - (kindOf(b) === firstKind ? 0 : 1));
-          ctx.pool = [...priority, ...rest];
-          // `priority.length` counts the POOL, not the session — reporting it read as
-          // "12 exercises" on a 4-exercise session. The movement is the useful fact.
-          ctx.trace.push(`R593 — DCP-beweging gegarandeerd: ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.safe}, sit-up ${situp.value}/${situp.safe})`);
+          shuffled = [...priority, ...rest];
+          ctx.trace.push(`R593 — DCP-beweging vooraan: ${firstKind === 'push' ? 'push-ups' : 'sit-ups'} eerst (push ${push.value}/${push.safe}, sit-up ${situp.value}/${situp.safe})`);
           if (push.tier === 'below' || situp.tier === 'below') {
             _addNote(ctx, `DCP-norm nog niet gehaald — ${push.tier === 'below' ? `push-ups ${push.value}/${push.minimum}` : `sit-ups ${situp.value}/${situp.minimum}`}. Deze sessie werkt daar naartoe.`);
           }
+        } else if (!priority.length) {
+          ctx.trace.push('R593 — DCP-bewegingen overgeslagen: spiergroep nog niet hersteld (R590 gaat voor)');
         }
       }
     }
   }
 
-  // R590 — C-F7: bias selection away from muscles that have not recovered.
-  //
-  // A soft reorder, never a filter. Removing fatigued exercises outright would
-  // empty the pool for anyone training consistently, and on a day when everything
-  // is fatigued the right answer is "train the least-fatigued thing", not "train
-  // nothing". Only strength work is affected; cardio and mobility are how you
-  // train *around* fatigue, not into it.
-  if (ctx.pool?.length && ctx.slot_type !== 'rest') {
-    const fatigued = ctx.pool.filter(ex =>
-      ex.muscle_freshness != null && ex.muscle_freshness < FATIGUE_THRESHOLD
-      && ex.category !== 'mobility' && ex.category !== 'recovery' && ex.category !== 'cardio');
-    if (fatigued.length && fatigued.length < ctx.pool.length) {
-      const fatiguedSet = new Set(fatigued.map(e => e.id));
-      ctx.pool = [
-        ...ctx.pool.filter(e => !fatiguedSet.has(e.id)),
-        ...fatigued.sort((a, b) => (b.muscle_freshness ?? 100) - (a.muscle_freshness ?? 100)),
-      ];
-      const worst = fatigued.reduce((w, e) => (e.muscle_freshness < (w?.muscle_freshness ?? 101) ? e : w), null);
-      ctx.trace.push(`R590 — ${fatigued.length} exercise(s) deprioritised for muscle fatigue (lowest: ${worst?.name} at ${worst?.muscle_freshness}% recovered)`);
-      if (worst && worst.muscle_freshness <= 20) {
-        _addNote(ctx, 'Sommige spiergroepen zijn nog niet hersteld — de planner kiest vandaag bewust ander werk.');
-      }
-    }
-  }
 
   // Exercise count
   const postnatalPhase = pregnancyContext?.postnatal_phase;
