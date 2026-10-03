@@ -137,7 +137,8 @@ long-but-fits case, not a live incident.
 **W3.2 — bound the volume stack.** `ctx.volumeFloor = 0.5`. Clamp, and when clamped, say so.
 A very light day is a legitimate coaching decision; a silent quarter-session is not.
 
-**W3.3 — decide R524.** *(needs your call — see §4)*
+**W3.3 — R524 as designed in §4:** keep, trace as protection, leave inside the floored stack,
+and prefer measured conditioning over the weight proxy where a measurement exists.
 
 *Acceptance:* properties 1, 2 and 7 hold across all 20 personas; no persona receives a
 continuous effort above its conditioning band.
@@ -204,27 +205,31 @@ section exists in D1, so this cannot drift again.
 
 ---
 
-## 4. The one decision I need from you
+## 4. R524 — decided
 
-**G8 / W3.3 — what is R524 for?**
+**Intent (product owner, 2026-10-03):** *"The weight cut was to protect obese or heavy users
+from unachievable goals and injuries. The weight indicates a lack of fitness, so a slow start
+is recommended."*
 
-It rescales bodyweight reps by `1/√(weight/70)`, clamped 0.7–1.3. At 110 kg that is ×0.80,
-applied *on top of* experience (×0.8), poor sleep (×0.85) and return-to-training (×0.75).
+So R524 is a **protective de-load, not a performance adjustment.** That settles the design:
 
-- **Argument to keep:** bodyweight work genuinely is harder at higher mass, so equal reps are
-  not equal effort.
-- **Argument to drop:** it compounds with three de-load rules that already fired for the same
-  user, it is invisible, and it cuts volume hardest for exactly the user whose goal is
-  `fat_loss`.
+- **Keep it.** The intent is sound and it is the only rule that slows the start for a
+  deconditioned user who has not told the app anything else.
+- **Trace it** (Wave 2), worded as a protective slow start rather than a penalty. The copy a
+  heavier user reads matters.
+- **Do not exempt it from the stack** — my earlier recommendation. If its job is protection,
+  carving it out of the volume floor would defeat the point. Instead, **put the floor under
+  the whole stack** (W3.2) so protection cannot silently become a quarter-session.
 
-Three options: **(a)** keep and trace it, but exempt it from the volume stack so it is not
-multiplied twice; **(b)** keep, trace, and let the Wave 3 floor bound it; **(c)** remove it.
+**One refinement worth making while in there.** Body weight is a *proxy* for deconditioning,
+and it is the weakest signal available. The app now has two better ones: measured conditioning
+from the progression model, and the self-assessment (R598). Where a real measurement exists,
+prefer it; fall back to the weight proxy only when it does not. That honours the stated intent
+(protect the deconditioned) while removing the case the proxy gets wrong — a heavy, genuinely
+fit user being de-loaded for their mass alone.
 
-My recommendation is **(a)** — the physiological argument is sound, but it should adjust the
-*baseline*, not stack with situational de-loads. Say the word and I will implement whichever
-you prefer; it is a small change in all three cases.
-
----
+Scope: small, lands with W3.2. Flagged rather than assumed, because it is a change of
+behaviour and not merely of wording.
 
 ## 5. Recommended order
 
