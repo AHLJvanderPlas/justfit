@@ -1072,13 +1072,13 @@ fi
 # CLAUDE.md documented auth_users, support_tokens and user_profile as live tables
 # long after they were dropped; 69 real tables went unmentioned. Every table named
 # in the "Database Schema" section (a bolded name followed by " — ") must be in the
-# live table list. Runs offline against scripts/fixtures/live-tables.json.
+# live table list. Runs offline against scripts/known-tables.txt.
 # To regenerate the fixture after a migration adds/drops a table (read-only):
 #   npx wrangler d1 execute justfit-db --remote --json --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
-#   then write the sorted names as a JSON array to scripts/fixtures/live-tables.json
+#   then write the sorted names as a JSON array to scripts/known-tables.txt
 SCHEMA_GHOSTS=$(node --input-type=module -e '
 import fs from "node:fs";
-const live = new Set(JSON.parse(fs.readFileSync("scripts/fixtures/live-tables.json","utf8")));
+const live = new Set(fs.readFileSync("scripts/known-tables.txt","utf8").split("\n").map(s=>s.trim()).filter(Boolean));
 const doc = fs.readFileSync("CLAUDE.md","utf8");
 const start = doc.indexOf("## Database Schema (D1");
 const end = doc.indexOf("\n## ", start + 5);
@@ -1091,7 +1091,7 @@ console.log(named.filter(t => !live.has(t)).join(", "));
 if [ -z "$SCHEMA_GHOSTS" ]; then
   ok "CLAUDE.md schema section names only live tables"
 else
-  fail "CLAUDE.md schema section names tables not in scripts/fixtures/live-tables.json: ${SCHEMA_GHOSTS}"
+  fail "CLAUDE.md schema section names tables not in scripts/known-tables.txt: ${SCHEMA_GHOSTS}"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
