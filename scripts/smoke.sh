@@ -464,6 +464,48 @@ else
   fail "alternatives: ${ALTS}"
 fi
 
+# ── W5 — library data: muscles, symmetric swaps, protocol/measurable tags ──
+# Three data migrations carry the Wave 5 work (0114 primary muscles, 0115 mirrored
+# substitutions, 0116 protocol + measurable tags). The `protocol` tag marks a
+# Defence programme PRESCRIPTION; R596 and R598 will read it. If it ever lands on
+# a general movement that merely carries `military` (push-up, plank, squat, lunge,
+# sit-up ...), civilian users lose that movement from their sessions with no error
+# anywhere, so the property is asserted from the source of every migration >= 0114.
+W5=$(node --input-type=module -e '
+import fs from "node:fs";
+const need = [
+  ["migrations/0114_cardio_primary_muscles.sql", /UPDATE exercises SET primary_muscles_json/],
+  ["migrations/0115_mirror_substitutions.sql", /UPDATE exercises SET alternatives_json/],
+  ["migrations/0116_protocol_measurable_tags.sql", /UPDATE exercises SET tags_json/],
+];
+for (const [f, re] of need) {
+  if (!fs.existsSync(f)) { process.stdout.write("missing " + f); process.exit(0); }
+  if (!re.test(fs.readFileSync(f, "utf8"))) { process.stdout.write(f + " has no matching UPDATE"); process.exit(0); }
+}
+const GENERAL = new Set(["push-up","knee-push-up","wall-push-up","hand-release-push-up","plyometric-push-up","plyo-push-up","plank","squat","back-squat","front-squat","squat-jump","lunge","walking-lunges","sit-up","bent-knee-sit-up","anchored-sit-up","weighted-sit-up","bicycle-crunch","flutter-kicks","scissor-jump","mountain-climber","clean-pull","high-pull","counter-movement-jump","single-leg-deadlift","deadlift","wissel-sprongen"]);
+const protocol = new Set(); const measurable = new Set();
+for (const f of fs.readdirSync("migrations")) {
+  const m = /^(\d{4})_.*\.sql$/.exec(f);
+  if (!m || Number(m[1]) < 114) continue;
+  const sql = fs.readFileSync("migrations/" + f, "utf8");
+  for (const u of sql.matchAll(/UPDATE exercises SET tags_json = \x27(.*?)\x27, updated_at_ms = \d+ WHERE slug = \x27(.*?)\x27;/g)) {
+    const tags = JSON.parse(u[1]);
+    if (tags.includes("protocol")) protocol.add(u[2]);
+    if (tags.includes("measurable")) measurable.add(u[2]);
+  }
+}
+const leaked = [...protocol].filter(s => GENERAL.has(s));
+if (leaked.length) { process.stdout.write("general movement(s) tagged protocol: " + leaked.join(", ")); process.exit(0); }
+if (protocol.size === 0) { process.stdout.write("no protocol tags seeded"); process.exit(0); }
+const lost = ["push-up","knee-push-up","wall-push-up","sit-up","bent-knee-sit-up","anchored-sit-up","12-minute-cooper-test"].filter(s => !measurable.has(s));
+if (lost.length) { process.stdout.write("self-assessment exercise(s) not tagged measurable: " + lost.join(", ")); process.exit(0); }
+process.stdout.write("OK");' 2>&1)
+if [ "$W5" = "OK" ]; then
+  ok "library data migrations present (0114-0116); no general movement tagged protocol"
+else
+  fail "wave 5 data: ${W5}"
+fi
+
 # ── W2.1 — a rule that traces must be explainable, in Dutch ────────────────
 # parseRuleTrace iterates RULE_LABELS and matches the trace against it, so a code
 # with no label is dropped SILENTLY: the user is not shown a raw code, they are
