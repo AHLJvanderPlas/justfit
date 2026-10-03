@@ -1827,7 +1827,10 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
 
   // ── Weekly outcome summary ───────────────────────────────────────────────
   const weekSummary = (() => {
-    const goal = prefs?.preferences?.training_goal ?? 'health';
+    // training_goal is a COLUMN on user_preferences, not a key in preferences_json.
+    // Reading it from the blob always missed and silently fell back to 'health',
+    // so the weekly summary described a goal the user had not set.
+    const goal = prefs?.training_goal ?? 'health';
     const targetMap = { health: 3, strength: 4, muscle: 4, fat_loss: 4, endurance: 5, mobility: 3 };
     const target = targetMap[goal] ?? 3;
     const now = new Date();

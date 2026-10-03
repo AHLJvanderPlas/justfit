@@ -437,6 +437,33 @@ if grep -q "function buildAxisHistory" functions/api/progression.js; then
   fi
 fi
 
+# ── W0.1 — column-backed settings must be read from the column ─────────────
+# training_goal, experience_level, sex, weight_kg, height_cm, session_duration_min
+# and intensity_pref are COLUMNS on user_preferences. Reading one from
+# preferences_json always misses and falls back to a default, which is how the
+# weekly summary described a goal the user had never set.
+BLOB=$(grep -rn --include='*.js' --include='*.jsx' -E "preferences\??\.(training_goal|experience_level|sex|weight_kg|height_cm|session_duration_min|intensity_pref)\b" packages/client-app/src functions/api 2>/dev/null || true)
+if [ -z "$BLOB" ]; then
+  ok "column-backed settings are never read from preferences_json"
+else
+  fail "a column-backed setting is read from the JSON blob (always misses): ${BLOB}"
+fi
+
+# ── W0.2 — every advertised alternative must actually exist ────────────────
+# WorkoutView fetches alternatives by slug. 29 targets did not exist, so 16
+# exercises offered fewer than advertised and 5 opened an empty sheet. A button
+# that opens nothing is the same defect class as the unreachable self-assessment.
+ALTS=$(node --input-type=module -e '
+import fs from "node:fs";
+const mig = fs.readFileSync("migrations/0113_repair_alternatives.sql","utf8");
+if (!/UPDATE exercises SET alternatives_json/.test(mig)) { process.stdout.write("migration 0113 missing"); }
+else process.stdout.write("OK");' 2>&1)
+if [ "$ALTS" = "OK" ]; then
+  ok "substitution repair migration is present (0113)"
+else
+  fail "alternatives: ${ALTS}"
+fi
+
 # ── C-F18 — behavioural: run the planner and inspect the SESSION ───────────
 # Every guard above reads source text. That is exactly what let R590 and R593
 # ship inert for weeks: they printed their trace lines, their own unit guards

@@ -732,7 +732,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
         // ── C-F13: DCP state. The card derives its own norms and tiers. ──
         const dcp    = mil.dcp ?? {};
-        const dcpSex = prefs?.sex ?? prefs?.preferences?.sex ?? 'male';
+        const dcpSex = prefs?.sex ?? 'male';   // column-backed; the blob never holds it
 
         const sortedAxes = RADAR_AXES_CC.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
         const weakest = sortedAxes[0];
