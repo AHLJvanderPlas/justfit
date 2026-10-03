@@ -1,125 +1,5 @@
 [
  {
-  "slug": "weighted-march",
-  "name": "Weighted March",
-  "category": "cardio",
-  "tags_json": "[\"cardio\",\"outdoor\",\"military\",\"weighted\",\"low_impact\",\"loads_lower_back\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 60}"
- },
- {
-  "slug": "12-minute-cooper-test",
-  "name": "12-Minute Cooper Test",
-  "category": "cardio",
-  "tags_json": "[\"cardio\",\"outdoor\",\"assessment\",\"military\",\"running\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":720}"
- },
- {
-  "slug": "hardlopen-zone-2-30-minuten",
-  "name": "Hardlopen zone 2 - 30 minuten",
-  "category": "cardio",
-  "tags_json": "[\"running\", \"zone-2\", \"steady-state\", \"military\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1800, \"fixed_duration\": true}"
- },
- {
-  "slug": "marsen-5-5-km-u-25-minuten",
-  "name": "Marsen (5,5 km/u) - 25 minuten",
-  "category": "cardio",
-  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"military\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1500, \"fixed_duration\": true}"
- },
- {
-  "slug": "marsen-6-km-u-30-minuten",
-  "name": "Marsen (6 km/u) - 30 minuten",
-  "category": "cardio",
-  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"military\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1800, \"fixed_duration\": true}"
- },
- {
-  "slug": "marsen-6-km-u-40-minuten",
-  "name": "Marsen (6 km/u) - 40 minuten",
-  "category": "cardio",
-  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"long-duration\", \"military\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 2400, \"fixed_duration\": true}"
- },
- {
-  "slug": "push-up",
-  "name": "Push-up",
-  "category": "strength",
-  "tags_json": "[\"strength\",\"bodyweight\",\"upper_body\",\"push\",\"floor\",\"classic\",\"quiet\",\"low_impact\",\"loads_shoulder\",\"military\",\"loads_shoulder\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"tempo\",\"time_under_tension\"]}"
- },
- {
-  "slug": "wall-push-up",
-  "name": "Wall Push-up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"loads_shoulder\",\"loads_shoulder\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
- },
- {
-  "slug": "incline-push-up",
-  "name": "Incline Push-up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_shoulder\",\"loads_shoulder\"]",
-  "equipment_required_json": "[\"chair\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
- },
- {
-  "slug": "knee-push-up",
-  "name": "Knee Push-up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
- },
- {
-  "slug": "hand-release-push-up",
-  "name": "Hand Release Push-Up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"floor\",\"high_impact\",\"push\",\"military\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
- },
- {
-  "slug": "sit-up",
-  "name": "Sit-Up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"],\"base_duration_sec\":120}"
- },
- {
-  "slug": "anchored-sit-up",
-  "name": "Anchored Sit-Up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"],\"base_duration_sec\":120}"
- },
- {
-  "slug": "bent-knee-sit-up",
-  "name": "Bent-Knee Sit-Up",
-  "category": "strength",
-  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
-  "equipment_required_json": "[\"none\"]",
-  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
- },
- {
-  "slug": "weighted-sit-up",
-  "name": "Weighted Sit-Up",
-  "category": "strength",
-  "tags_json": "[\"core\",\"military\",\"dcp\",\"weighted\"]",
-  "equipment_required_json": "[\"dumbbell\"]",
-  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\"],\"load_type\":\"dumbbell_single\"}"
- },
- {
   "slug": "burpee",
   "name": "Burpee",
   "category": "cardio",
@@ -262,6 +142,254 @@
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loud\"]",
   "equipment_required_json": "[\"none\"]",
   "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 30}"
+ },
+ {
+  "slug": "steady-indoor-cycle",
+  "name": "Steady Indoor Cycling",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"low_impact\",\"quiet\",\"indoor\"]",
+  "equipment_required_json": "[\"indoor_bike\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1200}"
+ },
+ {
+  "slug": "stationary-bike-steady",
+  "name": "Stationary Bike — Steady Ride",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"low_impact\",\"quiet\",\"indoor\"]",
+  "equipment_required_json": "[\"exercise_bike\",\"indoor_bike\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1200}"
+ },
+ {
+  "slug": "rowing-steady-state",
+  "name": "Rowing — Steady State",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"strength\",\"low_impact\",\"indoor\",\"full_body\",\"zone2\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"rowing_machine\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1200}"
+ },
+ {
+  "slug": "rowing-intervals",
+  "name": "Rowing Intervals",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"strength\",\"low_impact\",\"indoor\",\"full_body\",\"high_intensity\",\"hiit\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"rowing_machine\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1080}"
+ },
+ {
+  "slug": "easy-run-outdoor",
+  "name": "Easy Run (Outdoor)",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1500}"
+ },
+ {
+  "slug": "tempo-run-outdoor",
+  "name": "Tempo Run (Outdoor)",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1800}"
+ },
+ {
+  "slug": "run-intervals-outdoor",
+  "name": "Running Intervals (Outdoor)",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"high_intensity\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1200}"
+ },
+ {
+  "slug": "treadmill-run-steady",
+  "name": "Treadmill Run — Steady Pace",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"indoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"treadmill\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1500}"
+ },
+ {
+  "slug": "run-interval-level-1",
+  "name": "Run/Walk — Gentle Start",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":30,\"custom_rest_sec\":90,\"fixed_sets\":6,\"run_level\":1}"
+ },
+ {
+  "slug": "run-interval-level-2",
+  "name": "Run/Walk — 1 Min Intervals",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":60,\"custom_rest_sec\":60,\"fixed_sets\":6,\"run_level\":2}"
+ },
+ {
+  "slug": "run-interval-level-3",
+  "name": "Run/Walk — Build 1",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":90,\"custom_rest_sec\":60,\"fixed_sets\":6,\"run_level\":3}"
+ },
+ {
+  "slug": "run-interval-level-4",
+  "name": "Run/Walk — Build 2",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":120,\"custom_rest_sec\":60,\"fixed_sets\":5,\"run_level\":4}"
+ },
+ {
+  "slug": "run-interval-level-5",
+  "name": "Run/Walk — Tempo Build",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":180,\"custom_rest_sec\":60,\"fixed_sets\":5,\"run_level\":5}"
+ },
+ {
+  "slug": "run-interval-level-6",
+  "name": "Run/Walk — Extended Intervals",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":300,\"custom_rest_sec\":60,\"fixed_sets\":4,\"run_level\":6}"
+ },
+ {
+  "slug": "run-continuous-level-7",
+  "name": "Continuous Run — 20 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1200,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-continuous-level-8",
+  "name": "Continuous Run — 25 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1500,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-continuous-level-9",
+  "name": "Continuous Run — 30 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1800,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-continuous-level-10",
+  "name": "Continuous Run — 35 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":2100,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-continuous-level-11",
+  "name": "Continuous Run — 40 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":2400,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-continuous-level-12",
+  "name": "Continuous Run — 45 min",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":2700,\"custom_rest_sec\":0,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "brisk-walk",
+  "name": "Brisk Walking",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"low_impact\",\"zone2\",\"conditioning\",\"outdoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"running_shoes\",\"treadmill\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":1800}"
+ },
+ {
+  "slug": "weighted-march",
+  "name": "Weighted March",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"outdoor\",\"military\",\"weighted\",\"low_impact\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "12-minute-cooper-test",
+  "name": "12-Minute Cooper Test",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"outdoor\",\"assessment\",\"military\",\"running\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":720}"
+ },
+ {
+  "slug": "easy-jog-warmup",
+  "name": "Easy Jog Warm-up",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"low_impact\",\"outdoor\",\"no_floor\",\"zone1\",\"session_phase\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":420,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "cooldown-walk",
+  "name": "Cool-down Walk",
+  "category": "cardio",
+  "tags_json": "[\"cardio\",\"low_impact\",\"outdoor\",\"no_floor\",\"recovery\",\"session_phase\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":300,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "hardlopen-zone-2-30-minuten",
+  "name": "Hardlopen zone 2 - 30 minuten",
+  "category": "cardio",
+  "tags_json": "[\"running\", \"zone-2\", \"steady-state\", \"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1800, \"fixed_duration\": true}"
+ },
+ {
+  "slug": "marsen-5-5-km-u-25-minuten",
+  "name": "Marsen (5,5 km/u) - 25 minuten",
+  "category": "cardio",
+  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1500, \"fixed_duration\": true}"
+ },
+ {
+  "slug": "marsen-5-5-km-u-20-minuten-rugzak-25kg",
+  "name": "Marsen (5,5 km/u) - 20 minuten (rugzak 25 kg)",
+  "category": "cardio",
+  "tags_json": "[\"walking\", \"march\", \"weighted\", \"military\"]",
+  "equipment_required_json": "[\"rucksack\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1200, \"fixed_duration\": true}"
+ },
+ {
+  "slug": "marsen-6-km-u-30-minuten",
+  "name": "Marsen (6 km/u) - 30 minuten",
+  "category": "cardio",
+  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1800, \"fixed_duration\": true}"
+ },
+ {
+  "slug": "marsen-6-km-u-20-minuten-rugzak-10kg",
+  "name": "Marsen (6 km/u) - 20 minuten (rugzak 10 kg)",
+  "category": "cardio",
+  "tags_json": "[\"walking\", \"march\", \"weighted\", \"military\"]",
+  "equipment_required_json": "[\"rucksack\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 1200, \"fixed_duration\": true}"
+ },
+ {
+  "slug": "marsen-6-km-u-40-minuten",
+  "name": "Marsen (6 km/u) - 40 minuten",
+  "category": "cardio",
+  "tags_json": "[\"walking\", \"march\", \"steady-state\", \"long-duration\", \"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 2400, \"fixed_duration\": true}"
  },
  {
   "slug": "cat-cow",
@@ -408,6 +536,310 @@
   "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
  },
  {
+  "slug": "heel-slides",
+  "name": "Heel Slides",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "clamshell",
+  "name": "Clamshell",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "side-lying-hip-abduction",
+  "name": "Side-Lying Hip Abduction",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "pelvic-tilt-standing",
+  "name": "Standing Pelvic Tilt",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "inner-thigh-squeeze",
+  "name": "Inner Thigh Squeeze",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"]}"
+ },
+ {
+  "slug": "deep-core-activation",
+  "name": "Deep Core Activation",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "supported-glute-bridge",
+  "name": "Supported Glute Bridge",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "single-leg-glute-bridge",
+  "name": "Single Leg Glute Bridge",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"quiet\",\"supine\",\"postnatal_safe\",\"sport_support:running\",\"sport_support:football\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "exhalation-core-engagement",
+  "name": "Exhalation Core Engagement",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"breathing\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "prone-hip-extension",
+  "name": "Prone Hip Extension",
+  "category": "mobility",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"prone\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "cat-cow-pregnancy",
+  "name": "Cat-Cow (Pregnancy-Friendly)",
+  "category": "mobility",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"pelvic_floor\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "standing-pelvic-rock",
+  "name": "Standing Pelvic Rock",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\",\"reps\"]}"
+ },
+ {
+  "slug": "seated-pelvic-roll",
+  "name": "Seated Pelvic Roll",
+  "category": "mobility",
+  "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"chair\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "run-warmup-leg-swings",
+  "name": "Leg Swings",
+  "category": "mobility",
+  "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":30,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-warmup-calf-raises",
+  "name": "Calf Raises",
+  "category": "mobility",
+  "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":30,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-warmup-high-knees-march",
+  "name": "High Knees March",
+  "category": "mobility",
+  "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":30,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "run-warmup-hip-circles",
+  "name": "Hip Circles",
+  "category": "mobility",
+  "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":45,\"fixed_sets\":1}"
+ },
+ {
+  "slug": "childs-pose",
+  "name": "Child's Pose",
+  "category": "recovery",
+  "tags_json": "[\"mobility\",\"stretch\",\"recovery\",\"low_impact\",\"quiet\",\"floor\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "box-breathing",
+  "name": "Box Breathing",
+  "category": "recovery",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "progressive-muscle-relaxation",
+  "name": "Progressive Muscle Relaxation",
+  "category": "recovery",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "body-scan-meditation",
+  "name": "Body Scan",
+  "category": "recovery",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"recovery\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "gentle-hip-circles",
+  "name": "Gentle Hip Circles",
+  "category": "recovery",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "wrist-ankle-circles",
+  "name": "Wrist & Ankle Circles",
+  "category": "recovery",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "4-7-8-breathing",
+  "name": "4-7-8 Breathing",
+  "category": "recovery",
+  "tags_json": "[\"breathing\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "alternate-nostril-breathing",
+  "name": "Alternate Nostril Breathing",
+  "category": "recovery",
+  "tags_json": "[\"breathing\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"time\"]}"
+ },
+ {
+  "slug": "savasana",
+  "name": "Savasana (Corpse Pose)",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "supported-side-lying-rest",
+  "name": "Supported Side-Lying Rest",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "legs-up-wall",
+  "name": "Legs Up the Wall",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"inversion\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "labour-breathing-prep",
+  "name": "Labour Breathing Preparation",
+  "category": "recovery",
+  "tags_json": "[\"breathing\",\"pelvic_floor\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\"], \"base_duration_sec\": 60}"
+ },
+ {
+  "slug": "foam-roll-quads",
+  "name": "Foam Roll: Quads",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
+  "equipment_required_json": "[\"foam_roller\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":90}"
+ },
+ {
+  "slug": "foam-roll-upper-back",
+  "name": "Foam Roll: Upper Back",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
+  "equipment_required_json": "[\"foam_roller\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":90}"
+ },
+ {
+  "slug": "foam-roll-calves",
+  "name": "Foam Roll: Calves",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
+  "equipment_required_json": "[\"foam_roller\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":90}"
+ },
+ {
+  "slug": "supine-knee-to-chest",
+  "name": "Supine Knee-to-Chest",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"mobility\",\"low_impact\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":60}"
+ },
+ {
+  "slug": "happy-baby-pose",
+  "name": "Happy Baby Pose",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"mobility\",\"low_impact\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":60}"
+ },
+ {
+  "slug": "progressive-relaxation-body",
+  "name": "Progressive Muscle Relaxation",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"breathing\",\"quiet\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":600}"
+ },
+ {
+  "slug": "478-breathing",
+  "name": "4-7-8 Breathing",
+  "category": "recovery",
+  "tags_json": "[\"recovery\",\"breathing\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":180}"
+ },
+ {
+  "slug": "graaftest",
+  "name": "Graaftest",
+  "category": "skill",
+  "tags_json": "[\"rotation\",\"core\",\"military\",\"functional\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "push-up",
+  "name": "Push-up",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"bodyweight\",\"upper_body\",\"push\",\"floor\",\"classic\",\"quiet\",\"low_impact\",\"loads_shoulder\",\"military\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"tempo\",\"time_under_tension\"]}"
+ },
+ {
   "slug": "air-squat",
   "name": "Air Squat",
   "category": "strength",
@@ -438,6 +870,38 @@
   "tags_json": "[\"strength\",\"bodyweight\",\"posterior_chain\",\"floor\",\"quiet\",\"low_impact\",\"supine\",\"postnatal_safe\",\"sport_support:running\",\"sport_support:swimming\",\"sport_support:rowing\",\"sport_support:football\",\"sport_support:climbing\"]",
   "equipment_required_json": "[\"none\"]",
   "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"tempo\",\"time_under_tension\"]}"
+ },
+ {
+  "slug": "goblet-squat",
+  "name": "Goblet Squat",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"dumbbell\",\"lower_body\",\"squat\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"dumbbell_single\"}"
+ },
+ {
+  "slug": "dumbbell-floor-press",
+  "name": "Dumbbell Floor Press",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"dumbbell\",\"upper_body\",\"push\",\"floor\",\"quiet\",\"low_impact\",\"supine\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "dumbbell-row",
+  "name": "Dumbbell Row",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"dumbbell\",\"upper_body\",\"pull\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "wall-push-up",
+  "name": "Wall Push-up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
  },
  {
   "slug": "calf-raise",
@@ -488,12 +952,52 @@
   "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
  },
  {
+  "slug": "incline-push-up",
+  "name": "Incline Push-up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"chair\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "dumbbell-bicep-curl",
+  "name": "Dumbbell Bicep Curl",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "dumbbell-shoulder-press",
+  "name": "Dumbbell Shoulder Press",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "dumbbell-deadlift",
+  "name": "Dumbbell Deadlift",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
   "slug": "side-plank",
   "name": "Side Plank",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"none\"]",
   "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "knee-push-up",
+  "name": "Knee Push-up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
  },
  {
   "slug": "sumo-squat",
@@ -550,5 +1054,413 @@
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:rowing\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"none\"]",
   "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "modified-plank",
+  "name": "Modified Plank (Knees)",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "single-leg-calf-raise",
+  "name": "Single Leg Calf Raise",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_ankle\",\"loads_ankle\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "cobra-press-up",
+  "name": "Cobra Press-up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"prone\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"]}"
+ },
+ {
+  "slug": "sphinx-hold",
+  "name": "Sphinx Hold",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"prone\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "dumbbell-romanian-deadlift",
+  "name": "Dumbbell Romanian Deadlift",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"pregnancy_safe\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:rowing\",\"sport_support:football\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "dumbbell-sumo-deadlift",
+  "name": "Dumbbell Sumo Deadlift",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"pregnancy_safe\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "dumbbell-seated-overhead-press",
+  "name": "Dumbbell Seated Overhead Press",
+  "category": "strength",
+  "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"dumbbell\",\"chair\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "band-row-seated",
+  "name": "Resistance Band Seated Row",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\"]",
+  "equipment_required_json": "[\"resistance_bands\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "band-pull-apart",
+  "name": "Resistance Band Pull-Apart",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"shoulder_health\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"resistance_bands\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "band-overhead-press",
+  "name": "Resistance Band Overhead Press",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"push\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"resistance_bands\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "band-squat",
+  "name": "Resistance Band Squat",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"low_impact\",\"no_floor\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"resistance_bands\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "kettlebell-swing",
+  "name": "Kettlebell Swing",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"cardio\",\"low_impact\",\"full_body\",\"posterior_chain\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:football\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"kettlebell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_single\"}"
+ },
+ {
+  "slug": "kettlebell-goblet-squat",
+  "name": "Kettlebell Goblet Squat",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"low_impact\",\"full_body\",\"loads_knee\",\"loads_knee\"]",
+  "equipment_required_json": "[\"kettlebell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_single\"}"
+ },
+ {
+  "slug": "kettlebell-deadlift",
+  "name": "Kettlebell Deadlift",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"low_impact\",\"posterior_chain\",\"full_body\",\"loads_lower_back\",\"loads_lower_back\"]",
+  "equipment_required_json": "[\"kettlebell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_single\"}"
+ },
+ {
+  "slug": "pull-up",
+  "name": "Pull-Up",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"pull_up_bar\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "chin-up",
+  "name": "Chin-Up",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"pull_up_bar\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "dead-hang",
+  "name": "Dead Hang",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"mobility\",\"low_impact\",\"no_floor\",\"shoulder_health\",\"loads_shoulder\",\"loads_shoulder\"]",
+  "equipment_required_json": "[\"pull_up_bar\"]",
+  "metrics_json": "{\"supports\":[\"time\"],\"base_duration_sec\":30}"
+ },
+ {
+  "slug": "squat",
+  "name": "Squat",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "lunge",
+  "name": "Lunge",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"unilateral\",\"loads_knee\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "bicycle-crunch",
+  "name": "Bicycle Crunch",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "flutter-kicks",
+  "name": "Flutter Kicks",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "hand-release-push-up",
+  "name": "Hand Release Push-Up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"high_impact\",\"push\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "back-squat",
+  "name": "Back Squat",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loads_knee\",\"loads_lower_back\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "front-squat",
+  "name": "Front Squat",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "high-pull",
+  "name": "High Pull",
+  "category": "strength",
+  "tags_json": "[\"strength\",\"no_floor\",\"high_impact\",\"military\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"dumbbell_pair\"}"
+ },
+ {
+  "slug": "optillen-vanaf-de-grond",
+  "name": "Optillen vanaf de grond",
+  "category": "strength",
+  "tags_json": "[\"power\",\"lower-body\",\"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "deadlift",
+  "name": "Deadlift",
+  "category": "strength",
+  "tags_json": "[\"lower-body\", \"compound\", \"military\"]",
+  "equipment_required_json": "[\"barbell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"barbell\"}"
+ },
+ {
+  "slug": "heup-brug",
+  "name": "Heup brug",
+  "category": "strength",
+  "tags_json": "[\"lower-body\", \"glutes\", \"bodyweight\", \"supine\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "optillen-vanaf-de-grond-rugzak",
+  "name": "Optillen vanaf de grond (rugzak)",
+  "category": "strength",
+  "tags_json": "[\"power\", \"lower-body\", \"weighted\", \"military\"]",
+  "equipment_required_json": "[\"rucksack\"]",
+  "metrics_json": "{\"supports\": [\"time\", \"sets\"], \"base_duration_sec\": 40}"
+ },
+ {
+  "slug": "walking-lunges",
+  "name": "Walking Lunges",
+  "category": "strength",
+  "tags_json": "[\"lower-body\", \"unilateral\", \"bodyweight\", \"military\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"reps\", \"time\"]}"
+ },
+ {
+  "slug": "lat-pulldown",
+  "name": "Lat Pulldown",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"lat_pulldown\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "seated-cable-row",
+  "name": "Seated Cable Row",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_lower_back\"]",
+  "equipment_required_json": "[\"seated_row_machine\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "barbell-bench-press",
+  "name": "Barbell Bench Press",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"barbell\", \"gym\", \"no_floor\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"barbell\", \"bench_press_rack\", \"bench\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"barbell\"}"
+ },
+ {
+  "slug": "leg-press",
+  "name": "Leg Press",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_knee\"]",
+  "equipment_required_json": "[\"leg_press\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "leg-curl-machine",
+  "name": "Leg Curl (Machine)",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\"]",
+  "equipment_required_json": "[\"leg_curl_machine\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "leg-extension-machine",
+  "name": "Leg Extension (Machine)",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_knee\"]",
+  "equipment_required_json": "[\"leg_extension_machine\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "chest-press-machine",
+  "name": "Chest Press (Machine)",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"chest_press_machine\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "pec-deck-fly",
+  "name": "Pec Deck Fly",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"pec_deck\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "cable-biceps-curl",
+  "name": "Cable Biceps Curl",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"quiet\"]",
+  "equipment_required_json": "[\"cable\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "cable-triceps-pushdown",
+  "name": "Cable Triceps Pushdown",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"quiet\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"cable\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "dip-station-dip",
+  "name": "Dip (Parallel Bars)",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"gym\", \"no_floor\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"dip_station\"]",
+  "metrics_json": "{\"supports\": [\"reps\", \"sets\"]}"
+ },
+ {
+  "slug": "machine-shoulder-press",
+  "name": "Shoulder Press (Machine)",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"multi_gym\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"tempo\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "bench-step-up",
+  "name": "Bench Step-Up",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"legs\", \"bench\", \"no_floor\", \"unilateral\", \"loads_knee\"]",
+  "equipment_required_json": "[\"bench\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"weight\"],\"load_type\":\"bodyweight_plus\"}"
+ },
+ {
+  "slug": "cable-pallof-press",
+  "name": "Cable Pallof Press",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"core\", \"anti_rotation\", \"machine\", \"gym\", \"no_floor\", \"low_impact\"]",
+  "equipment_required_json": "[\"cable\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\",\"time\"],\"load_type\":\"machine_stack\"}"
+ },
+ {
+  "slug": "reverse-crunch",
+  "name": "Reverse Crunch",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"core\", \"flexion\", \"bodyweight\", \"floor\", \"low_impact\", \"crunch\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\": [\"reps\", \"sets\"]}"
+ },
+ {
+  "slug": "hanging-knee-raise",
+  "name": "Hanging Knee Raise",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"core\", \"flexion\", \"pull_up_bar\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
+  "equipment_required_json": "[\"pull_up_bar\"]",
+  "metrics_json": "{\"supports\": [\"reps\", \"sets\"]}"
+ },
+ {
+  "slug": "kettlebell-row",
+  "name": "Kettlebell Row",
+  "category": "strength",
+  "tags_json": "[\"strength\", \"kettlebell\", \"pull\", \"upper_body\", \"no_floor\", \"low_impact\", \"loads_lower_back\"]",
+  "equipment_required_json": "[\"kettlebell\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"tempo\",\"weight\"],\"load_type\":\"dumbbell_single\"}"
+ },
+ {
+  "slug": "sit-up",
+  "name": "Sit-Up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"],\"base_duration_sec\":120}"
+ },
+ {
+  "slug": "anchored-sit-up",
+  "name": "Anchored Sit-Up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\",\"time\"],\"base_duration_sec\":120}"
+ },
+ {
+  "slug": "bent-knee-sit-up",
+  "name": "Bent-Knee Sit-Up",
+  "category": "strength",
+  "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\"]",
+  "equipment_required_json": "[\"none\"]",
+  "metrics_json": "{\"supports\":[\"reps\",\"sets\"]}"
+ },
+ {
+  "slug": "weighted-sit-up",
+  "name": "Weighted Sit-Up",
+  "category": "strength",
+  "tags_json": "[\"core\",\"military\",\"dcp\",\"weighted\"]",
+  "equipment_required_json": "[\"dumbbell\"]",
+  "metrics_json": "{\"supports\":[\"weight\",\"reps\",\"sets\"],\"load_type\":\"dumbbell_single\"}"
  }
 ]

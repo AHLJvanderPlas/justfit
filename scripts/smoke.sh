@@ -464,15 +464,21 @@ else
   fail "alternatives: ${ALTS}"
 fi
 
-# ── C-F18 — behavioural: run the planner and inspect the SESSION ───────────
+# ── C-F18 / W1.1 — behavioural: run the planner and inspect the SESSION ────
 # Every guard above reads source text. That is exactly what let R590 and R593
 # ship inert for weeks: they printed their trace lines, their own unit guards
 # passed, and no session changed. This runs the real planner over a fixture of
 # real library rows and asserts on the steps it produces, which is the only
 # thing a user ever sees.
+#
+# W1.1 widened it to a persona x property matrix: 35 personas (pregnancy T1-T3,
+# postnatal incl. caesarean, perimenopause, military, run/cycling coach, BMI
+# bands, injury, pain, recovery, time and kit extremes, DCP, de-load stack) x 8
+# properties, each replanned across 60 dates because selection is a seeded
+# shuffle. Run `node scripts/planner-behaviour.mjs --verbose` for the matrix.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1)
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: measurement, civilian pool, variety and budget all hold end-to-end"
+  ok "planner behaviour: 35 personas x 8 properties x 60 dates hold end-to-end"
 else
   fail "planner behaviour: ${BEHAV}"
 fi
