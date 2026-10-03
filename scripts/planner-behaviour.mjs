@@ -18,7 +18,7 @@
 //
 import { runPlanner, movementFamily } from '../functions/api/plan.js';
 import { estimateMins } from '../packages/client-app/src/planUtils.js';
-import { RULE_LABELS } from '../packages/client-app/src/messagePolicy.js';
+import { RULE_LABELS, INTERNAL_RULE_CODES } from '../packages/client-app/src/messagePolicy.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,7 @@ const exercises = rows.map((r, i) => ({
 // (every emitted R-code has a RULE_LABELS entry) for W2.1. Both are implemented
 // in full here and reported as SKIP until the work they verify ships.
 const PENDING = new Set();
-for (const p of ['volume-floor', 'trace-labels']) PENDING.add(p);  // ← DELETE THIS LINE when W2.1 and W3.2 land
+PENDING.add('volume-floor');  // ← DELETE THIS LINE when W3.2 lands (trace-labels switched on with Wave 2, 2026-10-03)
 
 const DAY = 86400000;
 const TODAY = '2026-10-02';                       // a Friday; nothing is weekday-gated except R999
@@ -304,6 +304,11 @@ const PERSONAS = [
   // ── Standing standards and return — R558, R593, R598 ──
   { id: 'dcp-due', militaryCoach: { active: false, dcp: DCP }, sportPrefs: DCP_SPORT,
     expectAssessment: true },                                                                   // R593, R594, R598
+  // The DCP switch on with NO sport selected. This was a live 500: R594 ran the
+  // sport-bias path with no sport, indexed SPORT_DEMAND[undefined], and threw.
+  // The matrix's own first run found it; this persona keeps it found.
+  { id: 'dcp-no-sport', militaryCoach: { active: false, dcp: DCP },
+    expectAssessment: true },                                                                   // R594 without R560
   // ── Remaining rule paths the personas above never reach ──
   // Every weekday blocked, so the sweep always lands on a rest day: the rest
   // path has to hold on every date, not on the one in seven a single blocked
@@ -518,15 +523,19 @@ for (const p of PERSONAS) {
       }
     }
 
-    // ── 8. Every emitted R-code has a RULE_LABELS entry (W2.1) ──
+    // ── 8. Every emitted R-code is explainable (W2.1) ──
+    // Same contract as the W2.1 smoke guard: a code is explainable when it has a
+    // RULE_LABELS entry OR is declared in INTERNAL_RULE_CODES with a written
+    // reason (R501 exercise-count arithmetic, R573 military pool diagnostics).
+    // Codes with a variant suffix (R500a, R557b) are judged on the base code.
     {
       const codes = [...new Set(trace.flatMap(t => t.match(/R\d{3}/g) ?? []))];
-      const unlabelled = codes.filter(c => !RULE_LABELS[c]);
+      const unlabelled = codes.filter(c => !RULE_LABELS[c] && !INTERNAL_RULE_CODES[c]);
       for (const c of unlabelled) unlabelledSeen.add(c);
       if (PENDING.has('trace-labels')) say('trace-labels', 'SKIP',
         `lands with W2.1 (${unlabelled.length} unlabelled in this session)`);
       else say('trace-labels', unlabelled.length ? 'FAIL' : 'PASS',
-        unlabelled.length ? `emitted with no RULE_LABELS entry, so parseRuleTrace drops them: ${unlabelled.join(', ')}`
+        unlabelled.length ? `emitted with no RULE_LABELS entry and no INTERNAL_RULE_CODES reason, so parseRuleTrace drops them: ${unlabelled.join(', ')}`
           : `${codes.length} code(s) all labelled`);
     }
   }  // ── end of the date sweep ──

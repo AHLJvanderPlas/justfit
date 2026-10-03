@@ -60,7 +60,7 @@ Reps and durations are scaled in four independent places, multiplicatively:
 | 1 | R512 | ×0.6 when energy ≤ 3 | reps + duration | yes |
 | 2 | R502 | ×0.8 beginner / ×1.0 / ×1.2 advanced | reps + duration | reps only — **duration leg is silent** |
 | 3 | R521 | `ctx.volumeMultiplier` (accumulates R511 ×0.85, R558 ×0.75, R520, R536) | reps + duration | contributors trace, **the application does not** |
-| 4 | R524 | `1/√(weight/70)`, clamped 0.7–1.3 | bodyweight reps only | **entirely silent** |
+| 4 | R524 | `1/√(weight/70)`, clamped 0.7–1.3 | bodyweight reps only | **entirely silent** — and it runs AFTER `reps = clamp(3, 30)`, so it can prescribe 2 reps |
 
 R525 is a fifth silent modifier of a different kind: it *appends* a mobility exercise to
 every female user's main session, changing the session's shape with no trace at all.
@@ -73,17 +73,24 @@ sleep ≤ 5 h, returning from a 17-day break):
 
 ```
 R502 experience   × 0.80
-R511 poor sleep   × 0.85  ┐ accumulated into
-R558 return ramp  × 0.75  ┘ ctx.volumeMultiplier = 0.6375
+R511 poor sleep   ≤ 0.85  ┐ combined with Math.min, NOT multiplied:
+R558 return ramp  ≤ 0.75  ┘ ctx.volumeMultiplier = 0.75 (the lower wins)
 R524 body weight  × 0.80   (1/√(110/70) = 0.798)
                   ─────────
-total on reps     × 0.41
+total on reps     × 0.48
 ```
 
-A prescribed 10 reps becomes 4. The user is told about **two** of the four factors. R502's
-duration leg and R524 are invisible, and R524 is the one with a counter-intuitive sign: it
-*reduces* volume precisely for the heavier user who is already being de-loaded by three other
-rules. Nothing caps the stack.
+A prescribed 10 reps becomes 5. The user is told about **two** of the three multiplicative
+layers. R502's duration leg and R524 are invisible, and R524 is the one with a counter-intuitive
+sign: it *reduces* volume precisely for the heavier user who is already being de-loaded by two
+other rules. Nothing caps the stack — add R512 (energy ≤ 3, ×0.6) and it reaches ×0.29.
+
+> **Correction (2026-10-03).** The first version of this section multiplied R511 and R558
+> (×0.6375) and gave ×0.41. The code combines the situational de-loads with `Math.min`
+> (`plan.js`: R511 and R558 both write `Math.min(ctx.volumeMultiplier, …)`), so the lower one
+> wins and they never stack with each other. Three multiplicative layers, not four. Both
+> Wave 1 and Wave 2 agents caught this independently when they ran the real planner.
+> The structural finding — a stack with no floor and two silent layers — is unchanged.
 
 **Recommendation (§4.2): make the stack visible and bounded.**
 

@@ -19,7 +19,7 @@ ships in.
 | **G1** | Settings split-brain | 1 real bug (`App.jsx:1830` reads `prefs.preferences.training_goal`, never written → always `health`); 1 harmless redundancy (`CoachView.jsx:735`) | Yes — wrong goal copy on the weekly summary |
 | **G2** | Broken alternatives | 144 exercises offer alternatives; **16 have broken links**, **5 open a completely empty sheet**; 29 substitution targets do not exist in the library at all | **Yes — a control that does nothing** |
 | **G3** | Explainability | 23 rules emit a trace with no `RULE_LABELS` entry → `parseRuleTrace` drops them silently; 4 modifiers change volume or session shape with no trace at all (R502 duration leg, R521 application, R524, R525) | Yes — "Why this plan?" is incomplete |
-| **G4** | Unbounded volume stack | 4 multiplicative scalers, no combined floor. Observed ×0.41; worst case ×0.245 | Yes — half-sessions with no explanation |
+| **G4** | Unbounded volume stack | 3 multiplicative layers (situational de-loads combine with `Math.min` among themselves), no combined floor. Observed ×0.48; worst case ×0.29. **R524 runs after the rep floor and can prescribe 2 reps** | Yes — half-sessions with no explanation |
 | **G5** | Tag-based safety | A duration-property test catches **36 long efforts** the `running` tag test misses. R595 already covers the over-budget subset, so the residual is "long effort that fits the budget but not the user's conditioning" | Latent |
 | **G6** | Library structural data | 74 rows have no `primary_muscles_json` (70 of them cardio); substitution graph is 400 links, **21% reciprocated** | Degrades R592, muscle map, future family logic |
 | **G7** | Behavioural test coverage | `planner-behaviour.mjs` asserts 4 properties over ~6 personas | No — but it is why bugs reach production |
@@ -136,6 +136,8 @@ long-but-fits case, not a live incident.
 
 **W3.2 — bound the volume stack.** `ctx.volumeFloor = 0.5`. Clamp, and when clamped, say so.
 A very light day is a legitimate coaching decision; a silent quarter-session is not.
+**Also re-apply `reps = clamp(3, 30)` after R524** — today the floor runs first, so R524's
+protective scaling can take a 3-rep floor to 2, which is the opposite of protection.
 
 **W3.3 — R524 as designed in §4:** keep, trace as protection, leave inside the floored stack,
 and prefer measured conditioning over the weight proxy where a measurement exists.

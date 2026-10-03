@@ -714,10 +714,14 @@ function computeSportBiasedTargets(baseTargets, sportPrefs, weeklyRunCount, week
   const others  = knownSports.filter(s => s !== primary);
   const otherW  = others.length > 0 ? 0.4 / others.length : 0;
 
-  // Build weighted sport vector
+  // Build weighted sport vector. With no sport at all — the DCP-bias-only path
+  // this function explicitly admits above — the vector is neutral (0.5 on every
+  // axis, i.e. no sport nudge) and only the DCP lift below applies. Indexing
+  // SPORT_DEMAND[undefined] here was a live 500 for any user with a progression
+  // row, the DCP switch on, and no sport selected.
   const vec = {};
   SPORT_AXES.forEach(ax => {
-    vec[ax] = (SPORT_DEMAND[primary][ax] ?? 0.5) * 0.6;
+    vec[ax] = primary ? (SPORT_DEMAND[primary][ax] ?? 0.5) * 0.6 : 0.5;
     for (const s of others) vec[ax] += (SPORT_DEMAND[s][ax] ?? 0.5) * otherW;
   });
 
@@ -2265,7 +2269,11 @@ function _selectExercises(ctx) {
       const guardrailNote = biasTrace.guardrailApplied
         ? ` [guardrail ×${biasTrace.guardrailFactor} — ${biasTrace.weeklyCount} sport sessions/wk]`
         : '';
-      ctx.trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${guardrailNote}`);
+      // R560 is a statement about a sport; with none selected the DCP line (R594)
+      // above is the whole explanation and "adjusted for undefined" is not one.
+      if (biasTrace.primary) {
+        ctx.trace.push(`R560 — Sport bias: targets adjusted for ${biasTrace.primary} (${adj || 'no change'})${guardrailNote}`);
+      }
     }
     const axes = ['push', 'pull', 'legs', 'core', 'conditioning', 'mobility'];
     ctx.trace.push('R550 — Progression profile loaded');

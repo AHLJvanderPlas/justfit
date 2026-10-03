@@ -156,6 +156,13 @@ export const REFERENCE_CURVES = {
   legs_60s:  [[0, 0], [10, 20], [20, 35], [30, 55], [40, 70], [50, 85], [60, 100]],
   core_hold: [[0, 0], [20, 20], [45, 35], [75, 55], [120, 70], [180, 85], [240, 100]],
   cond_3min: [[0, 0], [60, 20], [100, 35], [140, 55], [180, 70], [220, 85], [260, 100]],
+  // Sit-ups in 2 minutes. Anchored to the published DCP minimums in
+  // military.js so the score and the standard cannot disagree: the oldest
+  // band's minimum (9) sits at the first step, the under-30 minimum (30)
+  // lands at 55 — "cleared" — and its +20% target (36) just above 60. The
+  // upper end follows the same shape as the other curves rather than a
+  // separate elite table, which Defence does not publish for this test.
+  situp_max: [[0, 0], [9, 20], [18, 35], [30, 55], [42, 70], [56, 85], [75, 100]],
 };
 
 /** Linear interpolation across a curve, clamped at both ends. */
