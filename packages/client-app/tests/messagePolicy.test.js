@@ -2,7 +2,11 @@ import { describe, it, expect } from 'vitest';
 import {
   RULE_POLICY,
   RULE_LABELS,
+  INTERNAL_RULE_CODES,
+  VOLUME_REASON_TEXT,
   parseRuleTrace,
+  parseVolumeTrace,
+  buildVolumeSentence,
   hasBlockingSafety,
   deriveCoachSentence,
   deriveChipLabel,
@@ -254,5 +258,114 @@ describe('R561 (sport mobility injection)', () => {
   it('is suppressed on rest days by deriveCoachSentence', () => {
     const s = deriveCoachSentence(['R561 — mobility injection'], null, 'standard', 'rest');
     expect(s).toBeNull();
+  });
+});
+
+// ── W2 — explainability: the internal registry and the volume sentence ───────
+
+describe('INTERNAL_RULE_CODES', () => {
+  it('never overlaps RULE_LABELS — a rule is explained or internal, not both', () => {
+    const both = Object.keys(INTERNAL_RULE_CODES).filter((c) => RULE_LABELS[c]);
+    expect(both).toEqual([]);
+  });
+
+  it('states a reason for every internal code', () => {
+    for (const [code, why] of Object.entries(INTERNAL_RULE_CODES)) {
+      expect(typeof why, code).toBe('string');
+      expect(why.trim().length, code).toBeGreaterThan(20);
+    }
+  });
+});
+
+describe('parseVolumeTrace', () => {
+  const line = 'R519 — Volume 48% of baseline · factors: experience ×0.80, situational ×0.75, bodyweight ×0.80 · reasons: experience,sleep,return,bodyweight';
+
+  it('returns null for anything that is not an R519 line', () => {
+    expect(parseVolumeTrace('R511 — Poor sleep')).toBeNull();
+    expect(parseVolumeTrace(null)).toBeNull();
+  });
+
+  it('reads the percentage, the factors and the reasons', () => {
+    const v = parseVolumeTrace(line);
+    expect(v.pct).toBe(48);
+    expect(v.factors).toEqual({ experience: 0.8, situational: 0.75, bodyweight: 0.8 });
+    expect(v.reasons).toEqual(['sleep', 'return', 'bodyweight', 'experience']);
+  });
+
+  it('recomputes the product so the stated percentage can be verified', () => {
+    const v = parseVolumeTrace(line);
+    expect(Math.abs(v.pct / 100 - v.product)).toBeLessThan(0.01);
+  });
+
+  it('orders reasons for reading, not by emission', () => {
+    const v = parseVolumeTrace('R519 — Volume 90% of baseline · factors: experience ×0.90 · reasons: experience,sleep');
+    expect(v.reasons[0]).toBe('sleep');
+    expect(v.reasons[v.reasons.length - 1]).toBe('experience');
+  });
+});
+
+describe('buildVolumeSentence', () => {
+  const entryFor = (trace) => parseRuleTrace([trace]).training.find((e) => e.code === 'R519');
+
+  it('builds one sentence from the real factors', () => {
+    const entry = entryFor('R519 — Volume 48% of baseline · factors: experience ×0.80, situational ×0.75, bodyweight ×0.80 · reasons: experience,sleep,return,bodyweight');
+    expect(buildVolumeSentence(entry)).toBe(
+      'Today 48% of your normal volume: less sleep, back after a break, a calm build-up, and your experience level.'
+    );
+  });
+
+  it('joins two reasons without a list comma', () => {
+    const entry = entryFor('R519 — Volume 64% of baseline · factors: experience ×0.80, situational ×0.80 · reasons: experience,sleep');
+    expect(buildVolumeSentence(entry)).toBe('Today 64% of your normal volume: less sleep and your experience level.');
+  });
+
+  it('goes through the translator it is given', () => {
+    const nl = { 'less sleep': 'minder geslapen', and: 'en', 'Today {pct}% of your normal volume: {reasons}.': 'Vandaag {pct}% van je normale volume: {reasons}.' };
+    const t = (key, vars) => {
+      const str = nl[key] ?? key;
+      return vars ? str.replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : `{${k}}`)) : str;
+    };
+    const entry = entryFor('R519 — Volume 85% of baseline · factors: situational ×0.85 · reasons: sleep');
+    expect(buildVolumeSentence(entry, t)).toBe('Vandaag 85% van je normale volume: minder geslapen.');
+  });
+
+  it('returns null for an advisory that carries no numbers', () => {
+    expect(buildVolumeSentence({ code: 'R511', text: 'x' })).toBeNull();
+    expect(buildVolumeSentence(null)).toBeNull();
+  });
+
+  it('every reason key the planner can emit has a fragment', () => {
+    for (const key of Object.keys(VOLUME_REASON_TEXT)) {
+      expect(typeof VOLUME_REASON_TEXT[key], key).toBe('string');
+    }
+  });
+});
+
+describe('parseRuleTrace — dynamic advisories', () => {
+  it('carries the volume numbers on the R519 entry', () => {
+    const r = parseRuleTrace(['R519 — Volume 48% of baseline · factors: experience ×0.80, situational ×0.60 · reasons: experience,energy']);
+    const entry = r.training.find((e) => e.code === 'R519');
+    expect(entry.volume.pct).toBe(48);
+    expect(entry.volume.reasons).toContain('energy');
+  });
+
+  it('says nothing rather than rendering empty placeholders', () => {
+    const r = parseRuleTrace(['R519 — volume summary unavailable']);
+    expect(r.training.find((e) => e.code === 'R519')).toBeUndefined();
+  });
+
+  it('R524 reads as a gentle start downwards and as a higher count upwards', () => {
+    const down = parseRuleTrace(['R524 — Bodyweight reps ×0.80 on 2 exercise(s) · direction: down'])
+      .training.find((e) => e.code === 'R524');
+    const up = parseRuleTrace(['R524 — Bodyweight reps ×1.08 on 2 exercise(s) · direction: up'])
+      .training.find((e) => e.code === 'R524');
+    expect(down.text).toMatch(/start gently/);
+    expect(up.text).toMatch(/a little higher/);
+    expect(up.text).not.toMatch(/gently/);
+  });
+
+  it('falls back to the default text when no direction is stated', () => {
+    const entry = parseRuleTrace(['R524 — Bodyweight reps rescaled']).training.find((e) => e.code === 'R524');
+    expect(entry.text).toBe(RULE_LABELS.R524.text);
   });
 });

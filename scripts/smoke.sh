@@ -464,6 +464,130 @@ else
   fail "alternatives: ${ALTS}"
 fi
 
+# ── W2.1 — a rule that traces must be explainable, in Dutch ────────────────
+# parseRuleTrace iterates RULE_LABELS and matches the trace against it, so a code
+# with no label is dropped SILENTLY: the user is not shown a raw code, they are
+# shown nothing. 23 rules were invisible that way, and three more changed volume
+# or session shape with no trace at all. Fixing 23 instances without a guard just
+# means a 24th next month, so this asserts the property:
+#
+#   every R-code the planner traces is either in RULE_LABELS or declared in
+#   INTERNAL_RULE_CODES with a reason, every label has an NL translation, and
+#   the single R519 volume sentence really is the product of its own factors.
+#
+# Codes carrying a variant suffix (R500a, R557b, R573a) are checked on their base
+# code. Diagnostics that do not start with a code (WARN …, BMI: …) are out of scope
+# by design — they are not statements to a user.
+EXPL=$(node --input-type=module -e '
+import fs from "node:fs";
+import { RULE_LABELS, INTERNAL_RULE_CODES, VOLUME_REASON_TEXT, parseVolumeTrace } from "./packages/client-app/src/messagePolicy.js";
+import { runPlanner } from "./functions/api/plan.js";
+
+const errs = [];
+const src = fs.readFileSync("functions/api/plan.js", "utf8");
+const lines = src.split("\n");
+const balance = (t) => [...t].reduce((n, c) => n + (c === "(" ? 1 : c === ")" ? -1 : 0), 0);
+
+// ── 1. every traced R-code is labelled or explicitly internal ──
+const traced = new Map();
+for (let i = 0; i < lines.length; i++) {
+  const at = lines[i].indexOf("trace.push(");
+  if (at < 0) continue;
+  let stmt = lines[i].slice(at);
+  let j = i;
+  while (balance(stmt) > 0 && j < lines.length - 1) { j++; stmt += "\n" + lines[j]; }
+  for (const m of stmt.matchAll(/["\x27`]\s*(R\d{3})/g)) {
+    if (!traced.has(m[1])) traced.set(m[1], i + 1);
+  }
+}
+if (traced.size < 40) errs.push("only " + traced.size + " traced rule codes found - the trace.push scan is not seeing the planner");
+const unexplained = [...traced].filter(([c]) => !RULE_LABELS[c] && !INTERNAL_RULE_CODES[c]);
+if (unexplained.length) {
+  errs.push("rule(s) trace with no RULE_LABELS entry and no INTERNAL_RULE_CODES declaration: "
+    + unexplained.map(([c, ln]) => c + " (plan.js:" + ln + ")").join(", "));
+}
+const bothWays = Object.keys(INTERNAL_RULE_CODES).filter(c => RULE_LABELS[c]);
+if (bothWays.length) errs.push("declared internal AND labelled: " + bothWays.join(", "));
+for (const [code, why] of Object.entries(INTERNAL_RULE_CODES)) {
+  if (typeof why !== "string" || why.trim().length < 20) errs.push(code + " is declared internal with no real reason");
+}
+
+// ── 2. every volume reason key the planner emits can be rendered ──
+for (const m of src.matchAll(/_volumeReason\(\s*ctx\s*,\s*["\x27]([a-z_]+)["\x27]\s*\)/g)) {
+  if (!VOLUME_REASON_TEXT[m[1]]) errs.push("volume reason \"" + m[1] + "\" has no VOLUME_REASON_TEXT fragment");
+}
+
+// ── 3. Dutch-first: every label the panel can render has an NL entry ──
+const i18n = fs.readFileSync("packages/client-app/src/i18n.js", "utf8");
+const unesc = (x) => x.replace(/\\u([0-9a-fA-F]{4})/g, (_, h) => String.fromCharCode(parseInt(h, 16)))
+                      .replace(/\\(["\x27\\])/g, "$1");
+const nlKeys = new Set();
+for (const m of i18n.matchAll(/^ {2}(["\x27])((?:\\.|(?!\1)[^\\])*)\1\s*:/gm)) nlKeys.add(unesc(m[2]));
+const needNl = [];
+for (const [code, label] of Object.entries(RULE_LABELS)) {
+  if (!nlKeys.has(label.text)) needNl.push(code);
+  if (label.cta && !nlKeys.has(label.cta)) needNl.push(code + " (cta)");
+  for (const v of Object.values(label.variants ?? {})) if (!nlKeys.has(v)) needNl.push(code + " (variant)");
+}
+for (const [key, text] of Object.entries(VOLUME_REASON_TEXT)) if (!nlKeys.has(text)) needNl.push("reason:" + key);
+for (const c of ["Safety adaptation", "Training adaptation", "Suggested action"]) if (!nlKeys.has(c)) needNl.push("header:" + c);
+if (needNl.length) errs.push("no NL translation in i18n.js for: " + needNl.join(", "));
+
+// ── 4. the volume sentence must be the product of the factors that fired ──
+// Source scanning cannot answer this, so the planner is run for real: a beginner at
+// 110 kg, five hours of sleep, back after a 17-day break - the account that hit the
+// stack. Checked against the rules that actually fired, not against a fixed number.
+const ex = (slug, name, category, tags, metrics) => ({
+  id: slug, slug, name, category,
+  tags_json: JSON.stringify(tags), equipment_required_json: JSON.stringify(["none"]),
+  metrics_json: JSON.stringify(metrics), instructions_json: null, alternatives_json: null,
+  primary_muscles_json: "[]", secondary_muscles_json: "[]", media_json: null,
+});
+const pool = [
+  ex("push-up", "Push-up", "strength", ["bodyweight", "push"], { supports: ["reps", "sets"] }),
+  ex("bodyweight-squat", "Bodyweight Squat", "strength", ["bodyweight", "legs"], { supports: ["reps", "sets"] }),
+  ex("glute-bridge", "Glute Bridge", "strength", ["bodyweight", "hips"], { supports: ["reps", "sets"] }),
+  ex("plank", "Plank", "strength", ["bodyweight", "core"], { supports: ["time", "sets"], base_duration_sec: 45 }),
+  ex("cat-cow", "Cat Cow", "mobility", ["mobility", "low_impact"], { supports: ["time", "sets"], base_duration_sec: 40 }),
+];
+const date = "2026-10-02";
+const gapStart = new Date(Date.parse(date + "T12:00:00Z") - 17 * 86400000).toISOString().slice(0, 10);
+const plan = runPlanner(date, { sleep_hours: 5, energy: 7, stress: 2 }, pool,
+  { training_goal: "strength", experience_level: "beginner", session_duration_min: 40, preferences: {} },
+  [], [], { sex: "female", weight_kg: 110, height_cm: 190 }, null, null, false,
+  { last_workout_date: gapStart }, false, [], null, 0, 0, 0, null, null, {});
+const trace = plan.rule_trace ?? [];
+const has = (code) => trace.some(t => String(t).startsWith(code));
+
+if (!has("R502")) errs.push("R502 scaled reps and durations without a trace (the duration leg was silent for weeks)");
+if (!has("R524")) errs.push("R524 rescaled bodyweight reps without a trace");
+if (!has("R525")) errs.push("R525 appended a mobility exercise without a trace - the session shown does not match the session explained");
+
+const volLines = trace.filter(t => String(t).startsWith("R519"));
+if (volLines.length !== 1) {
+  errs.push("expected exactly one accumulated volume sentence, found " + volLines.length);
+} else {
+  const v = parseVolumeTrace(volLines[0]);
+  if (!v) errs.push("the R519 volume line is not parsable by parseVolumeTrace");
+  else {
+    const drift = Math.abs(v.pct / 100 - v.product) / (v.product || 1);
+    if (drift > 0.01) errs.push("volume sentence says " + v.pct + "% but its own factors multiply to "
+      + Math.round(v.product * 100) + "% (" + Math.round(drift * 1000) / 10 + "% off)");
+    if (has("R502") && v.factors.experience == null) errs.push("R502 fired but is missing from the volume sentence");
+    if (has("R524") && v.factors.bodyweight == null) errs.push("R524 fired but is missing from the volume sentence");
+    if ((has("R511") || has("R558")) && v.factors.situational == null) errs.push("a de-load rule fired but is missing from the volume sentence");
+    if (!v.reasons.length) errs.push("the volume sentence states a percentage with no reasons");
+    for (const r of v.reasons) if (!VOLUME_REASON_TEXT[r]) errs.push("volume sentence names unknown reason \"" + r + "\"");
+  }
+}
+process.stdout.write(errs.length ? errs.join("; ") : "OK (" + traced.size + " traced codes, "
+  + Object.keys(INTERNAL_RULE_CODES).length + " internal)");
+' 2>&1)
+case "$EXPL" in
+  OK*) ok "every planner rule that traces is explainable and translated — $EXPL" ;;
+  *)   fail "explainability: ${EXPL}" ;;
+esac
+
 # ── C-F18 — behavioural: run the planner and inspect the SESSION ───────────
 # Every guard above reads source text. That is exactly what let R590 and R593
 # ship inert for weeks: they printed their trace lines, their own unit guards
