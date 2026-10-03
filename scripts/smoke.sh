@@ -677,9 +677,26 @@ fi
 # shuffle. Run `node scripts/planner-behaviour.mjs --verbose` for the matrix.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1)
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 38 personas x 8 properties x 60 dates hold end-to-end, nothing waived"
+  ok "planner behaviour: 41 personas x 9 properties x 60 dates hold end-to-end, nothing waived"
 else
   fail "planner behaviour: ${BEHAV}"
+fi
+
+# ── W4 — the user override, at the request level ───────────────────────────
+# "Being able to adapt to the user's preferences or circumstances is the core
+# value of the app." The matrix proves what the planner does with custom steps
+# and pins; this proves what POST /api/plan does with them, against an
+# in-memory SQLite carrying the production day_plans DDL: unknown/inactive ids
+# are 400, values are stored clamped, a user-authored plan survives every
+# automatic regeneration (app open, check-in, adapt, force_assessment), an
+# explicit replace relabels the row (every upsert writes generated_by), blocking
+# safety notes are 409 until acknowledged, custom_steps are exempt from the
+# C-G4 cap and pins are not.
+OVERRIDE=$(node --no-warnings scripts/plan-override-requests.mjs 2>&1)
+if [ "$OVERRIDE" = "OK" ]; then
+  ok "user override (W4.1/W4.4): validation, clamping, survival, upsert relabel, safety ack, cap exemption hold over HTTP"
+else
+  fail "user override: ${OVERRIDE}"
 fi
 
 # ── C-F17 — the self-assessment must be measurable and recordable ──────────
