@@ -1262,6 +1262,23 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-03 — remediation Waves 0–2 (see `docs/PLANNER_REMEDIATION_PLAN.md`)
+
+- **W0** — goal read fixed (`App.jsx` read a column from the JSON blob); migration **0113**
+  repaired the substitution graph (29 non-existent targets, 5 empty sheets). Ledger → 0114.
+- **W1** — `scripts/planner-behaviour.mjs`: 36 personas × 8 properties × 60 dates, runs the
+  real planner, asserts on steps. Found a live 500 (DCP bias with no sport) on first run.
+- **W2** — every planner adaptation is explainable: 24 new labels, `INTERNAL_RULE_CODES`,
+  R502/R524/R525 now trace, one accumulated volume sentence (**R519**), 81 NL entries.
+  Guard W2.1 closes the category.
+- **Also:** `situp_max` scoring curve (npm test was red); audit figure corrected to ×0.48.
+- Smoke 64 → 65; `npm test` 206/206.
+
+**Open from the matrix, queued for W3:** pool rebuilds (R518/R535/R540/R545/R561/R564) re-read
+the unfiltered library and can put a rucksack lift test in a caesarean-recovery session;
+R574 re-appends `weighted-march` unscaled; R524 runs after the rep floor; advanced strength
+overruns the budget by 20–30 min; `optillen-vanaf-de-grond` leaks past R596.
+
 ### Fixed 2026-10-02 — planner audit (C-F16 / C-F17): five contradictions
 
 Triggered by a `fat_loss` session of three rucksack marches, each prescribed as
