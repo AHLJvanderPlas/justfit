@@ -127,7 +127,12 @@ export const RULE_LABELS = {
     category: 'Training adaptation',
     text: 'Bodyweight exercises start gently — a gradual build-up keeps it doable and protects your joints.',
     dynamic: 'variant',
-    variants: { up: 'Bodyweight reps are set a little higher so the effort matches the movement.' },
+    // W3.3 — `measured`: the weight proxy would have cut reps, but a real
+    // measurement (DCP self-test or progression) said no slow start is needed.
+    variants: {
+      up: 'Bodyweight reps are set a little higher so the effort matches the movement.',
+      measured: 'Bodyweight reps follow your measured fitness level, not your body weight.',
+    },
   },
   R525: { category: 'Training adaptation', text: 'One mobility exercise added at the end of your session to keep your movement quality up.' },
   R530: { category: 'Safety adaptation',   text: 'Intensity capped for this pregnancy trimester.' },
@@ -214,6 +219,8 @@ export const VOLUME_REASON_TEXT = {
   bodyweight_up:  'your body weight',
   experience:     'your experience level',
   situational:    'the circumstances of today',
+  // W3.2 — the stack would have gone below ctx.volumeFloor and was held there.
+  floor:          'held at half, so it is still a real training day',
 };
 
 const VOLUME_REASON_ORDER = Object.keys(VOLUME_REASON_TEXT);

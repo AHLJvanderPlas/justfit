@@ -692,6 +692,7 @@ const NL = {
   'Intensity eased — winding down for your late luteal phase.': 'Intensiteit verlaagd — rustig afbouwen in je late luteale fase.',
   'Bodyweight exercises start gently — a gradual build-up keeps it doable and protects your joints.': 'Oefeningen met je eigen lichaamsgewicht beginnen rustig — stap voor stap opbouwen houdt het haalbaar en spaart je gewrichten.',
   'Bodyweight reps are set a little higher so the effort matches the movement.': 'Bij oefeningen met je eigen lichaamsgewicht staan de herhalingen iets hoger, zodat de inspanning bij de beweging past.',
+  'Bodyweight reps follow your measured fitness level, not your body weight.': 'Herhalingen bij oefeningen met je eigen lichaamsgewicht volgen je gemeten fitheid, niet je lichaamsgewicht.',
   'One mobility exercise added at the end of your session to keep your movement quality up.': 'Eén mobiliteitsoefening toegevoegd aan het einde van je sessie om je bewegingskwaliteit op peil te houden.',
   'Intensity capped for this pregnancy trimester.': 'Intensiteit begrensd voor dit zwangerschapstrimester.',
   'Lying-on-back exercises removed (from week 16).': 'Oefeningen op je rug verwijderd (vanaf week 16).',
@@ -762,4 +763,5 @@ const NL = {
   'your body weight': 'je lichaamsgewicht',
   'your experience level': 'je niveau',
   'the circumstances of today': 'de omstandigheden van vandaag',
+  'held at half, so it is still a real training day': 'vastgehouden op de helft, zodat het nog steeds een echte training is',
 };
