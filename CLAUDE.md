@@ -361,7 +361,7 @@ justfit/                             ← monorepo root (npm workspaces)
 │   ├── 0032b_run_interval_instructions.sql ← removes hardcoded durations from all 6 run-interval-level-* instruction steps (json_patch)
 │   ├── 0033_running_milestone_awards.sql ← seeds 5 running milestone awards (run-5k/10k/15k/hm/30k); criteria_json type=run_distance
 │   ├── 0034_exercise_instructions_enrichment.sql ← enriched instructions with 💡 coaching cues for 30 exercises (dumbbell/band/kettlebell/mobility/recovery)
-│   ├── 0013_height.sql        ← height_cm column on user_profile
+│   ├── 0013_height.sql        ← height_cm column on user_preferences
 │   ├── 0014_progression.sql   ← user_progression + user_progression_events tables
 │   ├── 0015_run_intervals.sql ← 6 run/walk interval exercises (levels 1–6) for R555 safe running
 │   ├── 0016_run_program.sql   ← 4 run warm-up exercises + 15 continuous run levels (7–21) for R556 Running Coach
@@ -379,47 +379,73 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0107`; never reuse a number. **Verify against `ls migrations/ | tail -1` — never copy this number from a document.** Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See also: **Database Migration Policy** section below.
+Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0117` (0116 applied; 0112–0116 applied, 0114 on 2026-10-03 with the axis-mapper fix); never reuse a number. **Verify against `ls migrations/ | tail -1` — never copy this number from a document.** Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See also: **Database Migration Policy** section below.
 
 ---
 
 ## Database Schema (D1 — justfit-db)
 
-All tables use `id TEXT PRIMARY KEY` (UUID), timestamps as `INTEGER` milliseconds (`*_at_ms`),
-and are `STRICT`. Foreign keys reference `users(id)`.
+> **Regenerated 2026-10-03 from the LIVE database** (`PRAGMA table_info` per table — 69 tables
+> incl. `_cf_KV` and `sqlite_sequence`). Migration files are not a reliable source of truth; if this
+> section and `PRAGMA table_info` disagree, the database wins — fix this section. The smoke check
+> in `scripts/smoke.sh` fails when a bolded table name below is not in
+> `scripts/fixtures/live-tables.json` (regenerate that fixture after any migration that adds or
+> drops a table — command is in the check's comment).
+>
+> **Tables that do NOT exist** (earlier versions of this file documented them): `auth_users`,
+> `user_contact` (both merged into `users` by migrations 0082–0088 — credentials are now
+> `users.password_hash` / `password_algo`), `support_tokens`, `user_profile` (height, weight and sex
+> live on `user_preferences`), `user_availability`.
 
-### Key tables
+Conventions: timestamps are `INTEGER` milliseconds (`*_at_ms`); ids are UUID `TEXT`. The 50 STRICT
+tables include all twelve core tables below; 21 older tables are not STRICT (e.g. `cycle_profile`,
+`cycling_workouts`, `app_events`, `appointments`, `trainer_profiles`). Foreign keys are by
+convention (`user_id` → `users.id`); most are not enforced by D1.
 
-**users** — core identity, minimal fields
+### Core tables (full column detail)
+
+**users** — identity and credentials in one row (auth_users/user_contact were merged in here)
 ```sql
-id TEXT PK, status TEXT, primary_email TEXT, created_at_ms INT, updated_at_ms INT
+id TEXT PK, status TEXT NOT NULL DEFAULT 'active',
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL, deleted_at_ms INT,
+primary_email TEXT, primary_phone TEXT,
+accepted_terms_version TEXT, accepted_terms_at_ms INT,
+accepted_privacy_version TEXT, accepted_privacy_at_ms INT,
+token_invalidated_at_ms INT DEFAULT NULL,   -- JWTs issued before this are rejected
+email_verified INT NOT NULL DEFAULT 0,
+password_hash TEXT, password_algo TEXT, last_login_at_ms INT,
+locale TEXT, timezone TEXT, country_code TEXT
 ```
+Password stored as `salt:hash` where hash = SHA-256(salt + password + JWT_SECRET).
 
-**auth_users** — credentials, separate from identity
+**user_preferences** — profile + planner preferences (one row per user; replaces the old `user_profile`)
 ```sql
-id TEXT PK, user_id TEXT FK→users(id), provider TEXT, email TEXT,
-password_hash TEXT, password_algo TEXT, last_login_at_ms INT, created_at_ms INT, updated_at_ms INT
+user_id TEXT PK, units TEXT NOT NULL DEFAULT 'metric', training_goal TEXT, experience_level TEXT,
+intensity_pref INT, session_duration_min INT, days_per_week_target INT,
+preferences_json TEXT,          -- coach toggles (military_coach, running_coach, ...), equipment, sports
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL,
+sex TEXT, height_cm REAL, weight_kg REAL
 ```
-Password stored as `salt:hash` where hash = SHA-256(salt + password + JWT_SECRET)
 
 **daily_checkins** — one per user per day
 ```sql
-id TEXT PK, user_id TEXT, date TEXT (YYYY-MM-DD),
-mood INT(1-10), energy INT(1-10), sleep_hours REAL, stress INT(1-10),
+id TEXT PK, user_id TEXT NOT NULL, date TEXT NOT NULL (YYYY-MM-DD),
+mood INT, energy INT, soreness INT, sleep_hours REAL, stress INT, weight_kg REAL, notes TEXT,
 checkin_json TEXT (JSON with toggles: no_clothing, no_gear, no_time, gym_today,
                    traveling, recovery_mode, pain_level, pain_scope, pain_areas,
                    free_text, motivation, time_budget, pregnancy_signals, postnatal_signals),
--- Note: UI exposes a 3-state SVG smiley ("feeling": 1/2/3) that maps to stress+motivation at
--- submit time. The `feeling` field is not stored; stress and motivation in DB are derived values.
-created_at_ms INT, updated_at_ms INT
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
-Note: UI uses 1-5 scale, multiplied by 2 before storing (→ 2-10 range in DB)
+Note: UI uses a 1-5 scale, multiplied by 2 before storing (→ 2-10 range in DB).
+Note: UI exposes a 3-state SVG smiley ("feeling": 1/2/3) that maps to stress+motivation at
+submit time. The `feeling` field is not stored; stress and motivation in DB are derived values.
 
 **day_plans** — generated plans, one per user per day
 ```sql
-id TEXT PK, user_id TEXT, date TEXT, plan_status TEXT,
-plan_json TEXT (JSON: session_name, slot_type, intensity, steps[], rule_trace[]),
-generated_by TEXT, engine_version TEXT, seed TEXT, created_at_ms INT, updated_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, date TEXT NOT NULL, plan_status TEXT NOT NULL DEFAULT 'draft',
+plan_json TEXT NOT NULL (JSON: session_name, slot_type, intensity, steps[], rule_trace[]),
+generated_by TEXT NOT NULL DEFAULT 'engine', engine_version TEXT, seed TEXT,
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 
 Each step in `steps[]` contains:
@@ -437,21 +463,31 @@ Each step in `steps[]` contains:
 }
 ```
 
-**executions** — completed workouts
+**executions** — completed workouts (also the landing table for Strava imports and trainer-assigned sessions)
 ```sql
-id TEXT PK, user_id TEXT, date TEXT, day_plan_id TEXT,
-execution_type TEXT, status TEXT, total_duration_sec INT,
-perceived_exertion INT,   ← 3 (too easy) / 5 (just right) / 8 (too hard) / NULL (skipped rating)
-created_at_ms INT, updated_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, date TEXT, day_plan_id TEXT, session_template_id TEXT,
+execution_type TEXT NOT NULL DEFAULT 'workout', status TEXT NOT NULL DEFAULT 'completed',
+started_at_ms INT, ended_at_ms INT, total_duration_sec INT, total_distance_m REAL,
+total_energy_kcal REAL, avg_hr_bpm REAL,
+perceived_exertion INT,   -- 3 (too easy) / 5 (just right) / 8 (too hard) / NULL (skipped rating)
+notes TEXT, execution_json TEXT,
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL,
+-- cycling / Strava (0036, 0038-0042)
+tss_planned REAL, tss_actual REAL, tss_source TEXT, strava_activity_id INT,
+strava_metadata_json TEXT, strava_metadata_expires_at_ms INT,
+strava_upload_activity_id INT, strava_upload_at_ms INT,
+-- trainer portal (0059+)
+program_assignment_id TEXT, assigned_by_trainer_id TEXT, trainer_notes TEXT,
+client_rpe INT, client_feedback TEXT
 ```
 
 **execution_steps** — per-exercise detail within a workout
 ```sql
-id TEXT PK, execution_id TEXT FK→executions(id), step_index INT,
-step_type TEXT, exercise_id TEXT FK→exercises(id),
-prescribed_json TEXT,   ← {sets, reps, duration_sec, rest_sec}
-actual_json TEXT,       ← see rich actual_json structure below
-created_at_ms INT, updated_at_ms INT
+id TEXT PK, execution_id TEXT NOT NULL → executions(id), step_index INT NOT NULL,
+step_type TEXT NOT NULL, exercise_id TEXT → exercises(id),
+prescribed_json TEXT,   -- {sets, reps, duration_sec, rest_sec}
+actual_json TEXT,       -- see rich actual_json structure below
+started_at_ms INT, ended_at_ms INT, created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 
 **Rich `actual_json` structure** (stored per execution_step):
@@ -472,94 +508,140 @@ created_at_ms INT, updated_at_ms INT
 }
 ```
 
-**exercises** — ~150 exercises seeded (migrations 0002–0010)
+**exercises** — the exercise library (482 live rows at 2026-10-03, after migrations 0107–0116)
 ```sql
-id TEXT PK, slug TEXT, name TEXT,
-category TEXT CHECK (category IN ('strength','cardio','mobility','recovery','skill','mixed')),
-tags_json TEXT,               ← ["strength","bodyweight","no_floor","low_impact","quiet",
-                                  "pregnancy_safe","postnatal_safe","pelvic_floor","kegel",
-                                  "breathing","supine","prone","crunch","valsalva","high_impact","inversion",...]
-equipment_required_json TEXT, ← ["none"] or ["dumbbell"] etc
-equipment_advised_json TEXT,  ← optional advisory equipment (migration 0010)
-instructions_json TEXT,       ← {steps:[], cues:[], pregnancy_note?: string, postnatal_note?: string}
-metrics_json TEXT,            ← {supports:["reps","sets","time",...]}
-alternatives_json TEXT,       ← {substitutions:["slug1","slug2"]}
-is_active INT, created_at_ms INT, updated_at_ms INT
+id TEXT PK, slug TEXT NOT NULL, name TEXT NOT NULL, name_nl TEXT,
+category TEXT,                -- CHECK IN ('strength','cardio','mobility','recovery','skill','mixed')
+primary_muscles_json TEXT, secondary_muscles_json TEXT,   -- primary muscle drives progression axis mapping
+tags_json TEXT,               -- ["strength","bodyweight","no_floor","low_impact","quiet",
+                              --  "pregnancy_safe","postnatal_safe","pelvic_floor","kegel",
+                              --  "breathing","supine","prone","crunch","valsalva","high_impact","inversion",...]
+equipment_required_json TEXT, -- ["none"] or ["dumbbell"] etc
+equipment_advised_json TEXT,  -- optional advisory equipment (migration 0010)
+instructions_json TEXT,       -- {steps:[], cues:[], pregnancy_note?: string, postnatal_note?: string}
+instructions_markdown TEXT, instructions_markdown_nl TEXT, contraindications_json TEXT,
+media_json TEXT, image_r2_key TEXT, video_r2_key TEXT,
+metrics_json TEXT,            -- {supports:["reps","sets","time",...]}
+alternatives_json TEXT,       -- {substitutions:["slug1","slug2"]}
+difficulty TEXT, source TEXT, parent_exercise_id TEXT,
+gym_id TEXT, visibility TEXT NOT NULL DEFAULT 'global', created_by_user_id TEXT,   -- trainer-owned custom exercises
+is_active INT NOT NULL DEFAULT 1, created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 Notes:
 - `pelvic_floor` is a TAG (used for planner filtering), not a category. Pelvic floor exercises use category `'mobility'`.
 - `instructions_json.pregnancy_note` — shown in instruction card for pregnant users (amber accent)
 - `instructions_json.postnatal_note` — shown in instruction card for postnatal users (rose accent)
-
-**awards** — 12 seeded awards
-```sql
-id TEXT PK, slug TEXT, name TEXT, description TEXT,
-category TEXT, icon TEXT,
-criteria_json TEXT, ← {type:"session_count", threshold:1} etc
-is_active INT, created_at_ms INT, updated_at_ms INT
-```
+- Progression axis resolution: first primary muscle that maps to an axis, falling back to category; `category = 'cardio'` always resolves to conditioning (see the Planner Engine section).
 
 **entitlements** — subscription/trial access
 ```sql
-id TEXT PK, user_id TEXT, product_code TEXT, source TEXT,
-status TEXT (active/trialing/grace/canceled/expired),
-starts_at_ms INT, ends_at_ms INT, created_at_ms INT, updated_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, product_code TEXT NOT NULL,
+source TEXT NOT NULL DEFAULT 'manual',   -- includes 'trial' (0092)
+status TEXT NOT NULL DEFAULT 'active',   -- active/trialing/grace/canceled/expired
+starts_at_ms INT NOT NULL, ends_at_ms INT, renews_at_ms INT,
+external_ref TEXT, meta_json TEXT, mollie_customer_id TEXT, mollie_sub_id TEXT,
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 
-**passkey_credentials** — WebAuthn/passkey registrations (migration 0006 + 0007)
+**user_progression** — current per-axis progression scores (one row per user)
 ```sql
-id TEXT PK, user_id TEXT FK→users(id), credential_id TEXT UNIQUE,
-public_key TEXT (SPKI base64url), algorithm INTEGER (-7 = ES256),
-device_type TEXT, counter INTEGER NOT NULL DEFAULT 0,
-backed_up INTEGER NOT NULL DEFAULT 0, transports TEXT,
-created_at_ms INT, last_used_at_ms INT, updated_at_ms INT
+user_id TEXT PK, scores_json TEXT NOT NULL, sport_scores_json TEXT,
+last_computed_at_ms INT NOT NULL, created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 
-**password_reset_tokens** — DB-backed single-use reset tokens (migration 0007)
+**user_progression_events** — append-only log of score changes (one per credited execution or assessment)
 ```sql
-token TEXT PK, user_id TEXT FK→users(id), email TEXT,
-expires_at_ms INT (1 hour), used_at_ms INT (NULL = unused), created_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, execution_id TEXT, event_type TEXT NOT NULL,
+scores_before_json TEXT, scores_after_json TEXT, stimulus_json TEXT, created_at_ms INT NOT NULL
 ```
 
-**magic_link_tokens** — DB-backed single-use magic link tokens (migration 0007)
+**fitness_assessments** — self-assessment results (R598 reads these)
 ```sql
-token TEXT PK, user_id TEXT (NULL if email not yet registered), email TEXT,
-expires_at_ms INT (15 min), used_at_ms INT (NULL = unused), created_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, date TEXT NOT NULL, focus TEXT NOT NULL,
+results_json TEXT NOT NULL, scores_json TEXT NOT NULL, created_at_ms INT NOT NULL
 ```
 
-**cycle_profile** — body mode and cycle tracking per user (migrations 0008_body_aware + 0009)
+**strava_connections** — Strava OAuth link per user (tokens are secrets — never log)
 ```sql
-user_id TEXT FK→users(id),
--- Standard cycle (migration 0008)
-tracking_mode TEXT ('off','smart'), cycle_length_days INT, last_period_start TEXT,
--- Body mode + pregnancy (migration 0009)
-mode TEXT NOT NULL DEFAULT 'standard' CHECK (mode IN ('standard','pregnant','postnatal')),
-pregnancy_due_date TEXT, pregnancy_confirmed_at_ms INT, medical_clearance_confirmed INT DEFAULT 0,
--- Postnatal (migration 0009)
-postnatal_birth_date TEXT,
-postnatal_birth_type TEXT CHECK (postnatal_birth_type IN ('vaginal','caesarean','prefer_not_to_say')),
-postnatal_cleared_for_exercise INT DEFAULT 0, postnatal_clearance_date TEXT,
-created_at_ms INT, updated_at_ms INT
+id TEXT PK, user_id TEXT NOT NULL, athlete_id INT NOT NULL,
+access_token TEXT NOT NULL, refresh_token TEXT NOT NULL, expires_at_ms INT NOT NULL,
+scope TEXT, scope_granted TEXT, athlete_name TEXT, athlete_city TEXT, athlete_pic_url TEXT,
+connected_at_ms INT NOT NULL, last_sync_at_ms INT, push_enabled INT NOT NULL DEFAULT 0, last_push_at_ms INT,
+created_at_ms INT NOT NULL, updated_at_ms INT NOT NULL
 ```
 
-**pregnancy_weekly_log** — weekly summary log during pregnancy (migration 0009)
-```sql
-id TEXT PK, user_id TEXT FK→users(id),
-week_number INT, week_start_date TEXT,
-avg_energy REAL, avg_nausea REAL, avg_breathless REAL,
-sessions_done INT DEFAULT 0, notes TEXT, created_at_ms INT
-```
+### All other live tables (one line each)
 
-**period_log** — period start events for smart cycle tracking (migration 0008)
-```sql
-id TEXT PK, user_id TEXT FK→users(id),
-started_on TEXT, noted_at_ms INT, source TEXT ('manual','auto')
-```
+Use `PRAGMA table_info(<table>)` against the live DB for columns of these; do not trust migration files.
 
-**user_preferences, user_profile, user_availability, user_contact** — profile data
-**referrals, referral_codes, vouchers** — growth mechanics
-**user_awards** — unlocked awards per user
-**support_tokens** — time-limited support access
+**Identity and auth**
+- **passkey_credentials** — WebAuthn/passkey registrations (credential_id UNIQUE, SPKI public key, counter)
+- **password_reset_tokens** — single-use reset tokens, 1 hour expiry (`used_at_ms` NULL = unused)
+- **magic_link_tokens** — single-use magic-link / email-change tokens, 15 min expiry; has `purpose`, `new_email`, `code`
+- **deleted_users** — GDPR deletion tombstones (email hash only, no PII)
+- **auth_rate_limits** — rate-limit buckets (`bucket`, `count`, `window_start_ms`)
+- **app_events** — product/diagnostic event log (not STRICT)
+
+**Consumer training**
+- **awards** — award catalogue (12 rows)
+- **user_awards** — awards unlocked per user
+- **session_templates** — reusable session definitions (16 rows)
+- **exercise_aliases** — alternative names for exercises (military/Defensie import)
+- **context_overrides** — per-day user override of the plan context (type + JSON)
+- **cycle_profile** — body mode (standard/pregnant/postnatal) and cycle tracking per user; has pregnancy due date/clearance and postnatal birth/clearance fields (not STRICT)
+- **period_log** — period start events for smart cycle tracking
+- **pregnancy_weekly_log** — weekly pregnancy summary (energy, nausea, breathlessness, sessions)
+- **feedback_items** — in-app feedback and bug reports with status/flag
+- **push_subscriptions** — Web Push endpoints per user (endpoint, p256dh, auth)
+
+**Programmes, protocols and cycling**
+- **program_templates** — coach programme templates (running 5–30 km, military Defensie)
+- **program_template_items** — per-week/day/session items of a programme template
+- **workout_protocols** — structured workout protocols (cycling and others)
+- **workout_protocol_steps** — ordered steps of a protocol (duration, distance, reps, intensity)
+- **cycling_workouts** — structured cycling workouts cw01–cw29 with TSS estimates (not STRICT)
+
+**Billing and growth**
+- **billing_events** — Mollie webhook/event log per user
+- **vouchers** — voucher codes and redemption counters
+- **referrals** — referral relationships and reward status
+- **referral_codes** — one referral code per user
+- **waitlist** — pre-launch email waitlist (not STRICT)
+
+**Trainer portal and gyms**
+- **gyms** — trainer business / gym tenant (billing identity, branding, subscription state)
+- **gym_memberships** — user-in-gym roles, trainer assignment, consent, availability, conversation counters
+- **trainer_profiles** — public trainer profile (bio, specialties, availability) (not STRICT)
+- **trainer_invites** — pending trainer invitations
+- **trainer_disclosures** — per-client disclosure level and encrypted contact/billing fields
+- **trainer_messages** — trainer/client chat messages (not STRICT)
+- **trainer_switch_requests** — client requests to switch trainer
+- **support_requests** — client support/broadcast requests to trainers
+- **client_intake** — structured intake form (goals, injuries, availability, equipment)
+- **client_notes** — trainer notes about a client
+- **client_packages** — sold session packages (sessions total/used, price, VAT)
+- **appointments** — scheduled sessions/classes (not STRICT)
+- **appointment_enrollments** — client RSVPs to appointments
+- **programs** — trainer-authored programmes
+- **program_sessions** — sessions within a trainer programme (week/day structure JSON)
+- **program_assignments** — programme assigned to a client, adherence and status
+- **assigned_sessions** — dated sessions generated from an assignment
+- **trainer_invoices** — trainer-issued invoices (lines, VAT, Mollie payment link)
+- **invoice_counters** — per-gym per-year invoice numbering
+- **invoice_templates** — saved invoice line templates
+- **supplier_invoices** — purchase invoices for the trainer's bookkeeping
+- **audit_log** — gym-scoped audit trail of trainer/admin actions
+
+**Admin and platform**
+- **admin_justfit_users** — operator accounts for the admin console
+- **admin_justfit_sessions** — admin console sessions
+- **admin_justfit_audit** — admin console action audit
+- **admin_login_attempts** — admin login rate limiting
+- **admin_magic_tokens** — admin magic-link tokens
+- **platform_config** — key/value platform settings (`key`, `value`, `updated_by`)
+- **_migrations** — exists but is EMPTY (0 rows) — migrations are applied with `--file` and tracked in the ledger line under Database Migration Policy, not here
+- **_cf_KV** — Cloudflare-internal; cannot be introspected (PRAGMA is refused). Do not use.
+- **sqlite_sequence** — SQLite internal AUTOINCREMENT counters. Do not use.
 
 ---
 
@@ -1108,8 +1190,8 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0106) |
-| Exercise library (478 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
+| D1 schema + migrations | ✅ Live (0002–0116; next valid number **0117**; 0112–0116 applied, 0114 on 2026-10-03 with the axis-mapper fix) |
+| Exercise library (482 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (17 awards in D1, 31 shown in Hall of Fame) | ✅ Seeded in D1; Hall of Fame evaluates all 31 client-side; migration 0033 adds 5 running milestone awards (run-5k/10k/15k/hm/30k) |
 | Pages Functions API | ✅ Live at /api/* |
@@ -1194,7 +1276,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Historical duplicates at 0059/0060/0061/0072/0074/0080 documented in `migrations/legacy/README.md` (X-4 resolved 2026-06-18). Next valid number is `0099`. | Low | Enforce unique monotonic numbering for all new migrations (0099+); never reuse a number. |
+| Operational drift (migration numbering/version hygiene) | Historical duplicates at 0059/0060/0061/0072/0074/0080 documented in `migrations/legacy/README.md` (X-4 resolved 2026-06-18). Next valid number is `0117`. | Low | Enforce unique monotonic numbering for all new migrations (0117+); never reuse a number. |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
@@ -1625,12 +1707,12 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instru
 
 ### Adding a migration
 
-1. Choose the next monotonic number (`0099`, `0100`, …). Never reuse a number, never skip one.
+1. Choose the next monotonic number (`0117`, `0118`, …). Never reuse a number, never skip one.
 2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
 3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
 4. **Update the baseline** — this is mandatory:
    - Schema change → merge new columns/tables into `migrations/baseline/1000_schema_core.sql` or `migrations/baseline/1010_schema_training.sql`
-   - Exercise/awards data → add migration to the apply list in `migrations/baseline/1020_seed_exercises.sql`
+   - Exercise/awards data → regenerate `migrations/baseline/1020_seed_exercises.sql` from live D1: `node scripts/generate-baseline-seeds.mjs` (there is no "apply list"; do not hand-edit rows)
    - Cycling data → add to `migrations/baseline/1030_seed_cycling.sql`
    - Military data → add to `migrations/baseline/1040_seed_military.sql`
 5. Update `docs/training-model-architecture.md` migration order table if it is a training-model change.

@@ -1068,6 +1068,32 @@ else
   ok "migration ledger matches migrations/ (next valid: ${REAL_NEXT})"
 fi
 
+# ── W6.2 — CLAUDE.md schema section names only tables that exist ───────────
+# CLAUDE.md documented auth_users, support_tokens and user_profile as live tables
+# long after they were dropped; 69 real tables went unmentioned. Every table named
+# in the "Database Schema" section (a bolded name followed by " — ") must be in the
+# live table list. Runs offline against scripts/fixtures/live-tables.json.
+# To regenerate the fixture after a migration adds/drops a table (read-only):
+#   npx wrangler d1 execute justfit-db --remote --json --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+#   then write the sorted names as a JSON array to scripts/fixtures/live-tables.json
+SCHEMA_GHOSTS=$(node --input-type=module -e '
+import fs from "node:fs";
+const live = new Set(JSON.parse(fs.readFileSync("scripts/fixtures/live-tables.json","utf8")));
+const doc = fs.readFileSync("CLAUDE.md","utf8");
+const start = doc.indexOf("## Database Schema (D1");
+const end = doc.indexOf("\n## ", start + 5);
+if (start < 0) { console.log("NO-SECTION"); process.exit(0); }
+const section = doc.slice(start, end < 0 ? undefined : end);
+const named = [...section.matchAll(/^(?:- )?\*\*([a-z_][a-z0-9_]*)\*\* — /gm)].map(m => m[1]);
+if (named.length < 10) { console.log("TOO-FEW:" + named.length); process.exit(0); }
+console.log(named.filter(t => !live.has(t)).join(", "));
+')
+if [ -z "$SCHEMA_GHOSTS" ]; then
+  ok "CLAUDE.md schema section names only live tables"
+else
+  fail "CLAUDE.md schema section names tables not in scripts/fixtures/live-tables.json: ${SCHEMA_GHOSTS}"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 

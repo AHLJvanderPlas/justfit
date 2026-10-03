@@ -86,8 +86,8 @@ See `docs/release-checklist.md` for the full manual pre-deploy checklist and `do
 - Database name: `justfit-db`
 - Database ID: `4c6fedf0-b9e2-4441-aa98-71c1420136c1`
 - Binding in wrangler.toml: `DB`
-- Migrations: `migrations/0002_seed.sql` → `0079_switch_requests.sql` (next: `0080+`)
-- Migration prefixes must be unique and monotonic — never reuse a number. Note: historical files 0059/0060/0061/0072/0074 have duplicate prefixes (all already applied; do not rename). New migrations must start at 0080.
+- Migrations: `migrations/0002_seed.sql` → `0116_protocol_measurable_tags.sql` (next: `0117`)
+- Migration prefixes must be unique and monotonic — never reuse a number. Note: historical files 0059/0060/0061/0072/0074 have duplicate prefixes (all already applied; do not rename). New migrations must start at 0117 — verify with `ls migrations | tail`.
 
 ```bash
 # Apply a migration

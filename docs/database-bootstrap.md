@@ -55,8 +55,8 @@ All seed files are **self-contained executable SQL** — no additional migration
 | File | Contents | Derives from |
 |------|----------|-------------|
 | [1010_schema_training.sql](../migrations/baseline/1010_schema_training.sql) | `exercises`, `cycling_workouts`, `exercise_aliases`, `workout_protocols`, `workout_protocol_steps`, `program_templates`, `program_template_items` + indexes | 0001, 0035, 0043, 0044 |
-| [1000_schema_core.sql](../migrations/baseline/1000_schema_core.sql) | All identity, auth, planning, execution, commercial, audit, body/cycle, and integration tables (including `support_tokens`) + indexes | 0001, 0006–0009, 0013–0014, 0017–0019, 0022–0026, 0028, 0036, 0038–0042 |
-| [1020_seed_exercises.sql](../migrations/baseline/1020_seed_exercises.sql) | 411 exercises (308 general library + 103 military from 0045), 16 session templates, 17 awards (12 general + 5 running milestones from 0033) | 0002, 0004–0005, 0010–0012, 0015–0016, 0020–0021, 0027, 0029–0034, 0040, 0045 |
+| [1000_schema_core.sql](../migrations/baseline/1000_schema_core.sql) | All identity, auth, planning, execution, commercial, audit, body/cycle, and integration tables + indexes | 0001, 0006–0009, 0013–0014, 0017–0019, 0022–0026, 0028, 0036, 0038–0042 |
+| [1020_seed_exercises.sql](../migrations/baseline/1020_seed_exercises.sql) | 482 exercises, 16 session templates, 12 awards — a regenerated snapshot of live D1 (2026-10-03), so it reflects every exercise-data migration through 0116 | all of them (generated, not assembled per migration) |
 | [1030_seed_cycling.sql](../migrations/baseline/1030_seed_cycling.sql) | 29 structured cycling workouts (cw01–cw29) + 29 workout_protocols + 101 workout_protocol_steps | 0035, 0037, 0051 |
 | [1040_seed_military.sql](../migrations/baseline/1040_seed_military.sql) | 87 exercise aliases, 13 programme templates, 1919 template items | 0046, 0047, 0048, 0049 |
 | [1050_seed_running.sql](../migrations/baseline/1050_seed_running.sql) | 5 Running Coach programme templates (5km/10km/15km/20km/30km) + 140 schedule items | 0052 |
@@ -99,12 +99,25 @@ There is no `migrations_dir` in `wrangler.toml` — D1 migrations are applied ma
 ## After adding a migration
 
 1. Apply the migration to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
-2. Update the relevant baseline file to reflect the change:
-   - Schema changes → update `1000_schema_core.sql` or `1010_schema_training.sql` (merge the new columns/tables into the CREATE TABLE definitions)
-   - Exercise/awards seed data → append INSERT statements to `1020_seed_exercises.sql`; or re-run `node scripts/generate-baseline-seeds.mjs` for exercises/awards/cycling
-   - Cycling seed data → re-run `node scripts/generate-baseline-seeds.mjs` (updates 1030)
-   - Military seed data → append to `1040_seed_military.sql` (or re-run generator once training model tables exist in production)
+2. Update the baseline to match. There is **no "apply list"** to append to — an earlier version of this
+   policy said to add each data migration to one, nobody did, and by October 2026 the exercise snapshot
+   was 416 rows against 482 live and referenced nothing after migration 0045. Hand-patching reproduces
+   that drift. The procedure is:
+   - **Schema changes** → merge the new columns/tables into the CREATE TABLE definitions in `1000_schema_core.sql` or `1010_schema_training.sql` (still manual — check against `PRAGMA table_info(<table>)` on the live DB, not against the migration file).
+   - **Seed data** (exercises, session_templates, awards, cycling_workouts, aliases, programme templates) → **regenerate from live D1**; never hand-edit rows:
+     ```bash
+     npx wrangler whoami                          # must be the account that owns justfit-db
+     node scripts/generate-baseline-seeds.mjs     # read-only SELECTs; rewrites 1020, 1030 and 1040
+     ```
+     The generator rewrites all three seed files with generic headers. If you only want one, restore the
+     others from version control afterwards. Then update the header of the file you keep: generated date,
+     row counts and "migration coverage" (the last migration number the live DB had when you ran it).
+   - Check row counts against live: `SELECT count(*) FROM exercises` should equal the `INSERT` count in `1020_seed_exercises.sql`.
 3. Update the migration order table in `docs/training-model-architecture.md` (for training-model changes)
+
+Known gap: `1040_seed_military.sql` and `1030_seed_cycling.sql` have not been regenerated since the
+original snapshot (live now has 2059 `program_template_items` and 18 `program_templates`; 1040 reflects
+1919 items). Regenerate them with the same command when next touching the military or cycling data.
 
 ---
 
@@ -116,7 +129,8 @@ There is no `migrations_dir` in `wrangler.toml` — D1 migrations are applied ma
 | 0054 | Sport mobility tags (59 exercises) | ✅ applied |
 | 0055 | `why` + `muscle_target` fields on exercises | ✅ applied |
 | 0056 | Perimenopause mode — `cycle_profile.mode` CHECK extension + R526 rule | ✅ applied |
-| 0057+ | Next available migration slot | — |
+| 0057–0116 | All applied (see `migrations/`) | — |
+| 0117+ | Next available migration slot | — |
 
 ## Military data status (post-0049)
 
