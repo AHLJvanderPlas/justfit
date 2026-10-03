@@ -205,6 +205,22 @@ inferring from category + equipment + `fixed_duration`.
 ghost tables. **W6.2** — add a smoke check that every table named in CLAUDE.md's schema
 section exists in D1, so this cannot drift again.
 
+**W6.3 — regenerate the baseline.** `migrations/baseline/1020_seed_exercises.sql` is a
+May-2026 snapshot of 416 rows and references **no migration after 0045**. The policy's
+"add each data migration to the apply list" has not been followed since, by anyone — there is
+no apply list to add to. Hand-patching the snapshot would reproduce the drift; regenerate it
+from live D1 with the existing generator and add a smoke check that the baseline's row count
+and the live row count agree within the migrations applied since generation.
+
+**Held migration.** `0114_cardio_primary_muscles.sql` is written and reviewed but **not
+applied**. `progGetExerciseAxis` (plan.js) and `progExerciseToAxis` (execution.js) take the
+first primary muscle that maps to an axis before falling back to category, so a run with
+`["quads", …]` credits **Legs**, not Cardio. This is already true today for the three live
+cardio rows that carry leg muscles (`easy-run-outdoor`, `tempo-run-outdoor`,
+`weighted-march`); 0114 would spread it to 72 more. Fix both mappers so `category === 'cardio'`
+always resolves to `conditioning`, add a guard, then apply 0114. Lands with Wave 3's merge,
+because the plan.js mapper is in the file that agent is editing.
+
 ---
 
 ## 4. R524 — decided
