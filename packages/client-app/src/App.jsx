@@ -11,7 +11,7 @@ import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOAR
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, getUserId, getJwtPayload } from "./planUtils.js";
 import api from "./apiClient.js";
-import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence } from "./messagePolicy.js";
+import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
@@ -1563,16 +1563,18 @@ function WhyPlanPanel({ plan }) {
 
   const sectionLabel = (text) => (
     <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginTop: 10, marginBottom: 4 }}>
-      {text}
+      {t(text)}
     </div>
   );
 
+  // R519 carries numbers, so its sentence is composed from the factors the planner
+  // actually applied; every other advisory is a fixed label. Both go through t().
   const advisoryRow = (entry) => (
     <div key={entry.code} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 5 }}>
       <span style={{ color: C.emerald, flexShrink: 0, marginTop: 1 }}>›</span>
       <span style={{ fontSize: 12, color: C.subtle, lineHeight: 1.5 }}>
-        {entry.text}
-        {entry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {entry.cta}</span>}
+        {entry.volume ? buildVolumeSentence(entry, t) : t(entry.text)}
+        {entry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {t(entry.cta)}</span>}
       </span>
     </div>
   );
@@ -2097,8 +2099,8 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                           : null);
                       return whyEntry ? (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
-                          {whyEntry.text}
-                          {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {whyEntry.cta}</span>}
+                          {t(whyEntry.text)}
+                          {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {t(whyEntry.cta)}</span>}
                         </div>
                       ) : null;
                     })()}

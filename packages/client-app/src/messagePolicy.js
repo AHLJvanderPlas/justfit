@@ -36,6 +36,7 @@ export const RULE_POLICY = {
   R534: 'adaptive_safety',
   R535: 'adaptive_safety',
   R536: 'adaptive_safety',
+  R537: 'adaptive_safety',
   R540: 'adaptive_safety',
   R541: 'adaptive_safety',
   R542: 'adaptive_safety',
@@ -61,6 +62,45 @@ export const RULE_POLICY = {
   R565: 'adaptive_safety',
   R568: 'adaptive_safety',
   R526: 'adaptive_safety',
+
+  // W2.1 — rules that pushed a trace nobody could read until Wave 2.
+  R500: 'adaptive_safety',
+  R502: 'adaptive_safety',
+  R517: 'adaptive_safety',
+  R518: 'adaptive_safety',
+  R519: 'adaptive_safety',
+  R570: 'adaptive_safety',
+  R571: 'adaptive_safety',
+  R572: 'adaptive_safety',
+  R574: 'adaptive_safety',
+  R575: 'adaptive_safety',
+  R576: 'adaptive_safety',
+  R577: 'adaptive_safety',
+  R583: 'adaptive_safety',
+  R590: 'adaptive_safety',
+  R591: 'adaptive_safety',
+  R592: 'adaptive_safety',
+  R593: 'adaptive_safety',
+  R594: 'adaptive_safety',
+  R595: 'adaptive_safety',
+  R596: 'adaptive_safety',
+  R597: 'adaptive_safety',
+  R598: 'adaptive_safety',
+  R999: 'adaptive_safety',
+};
+
+/**
+ * Rules whose trace is engine bookkeeping, not a statement to a user (W2.1).
+ *
+ * `parseRuleTrace` drops any code without a RULE_LABELS entry *silently* — the user
+ * is not shown a code, they are shown nothing — so "no label" and "deliberately
+ * internal" used to look identical. They no longer do: smoke check W2.1 requires
+ * every R-code the planner traces to appear in RULE_LABELS or here, with a reason.
+ * Adding a code here is a claim that a user gains nothing from reading it.
+ */
+export const INTERNAL_RULE_CODES = {
+  R501: 'Exercise-count arithmetic (base + goal + experience). The user reads the session; the formula that sized it tells them nothing they can act on.',
+  R573: 'Military pool composition — how many military-tagged rows were available, or that the DB template was too thin and the generic pool was used. A sizing diagnostic; the session itself is explained by R570 and R574–R576.',
 };
 
 // ── Rule code → human-readable label ─────────────────────────────────────────
@@ -75,10 +115,21 @@ export const RULE_LABELS = {
   R516: { category: 'Training adaptation', text: 'Bodyweight session — no equipment or traveling today.' },
   R520: { category: 'Training adaptation', text: 'Intensity eased for your period day — your body is asking for gentleness.' },
   R521: { category: 'Training adaptation', text: 'Volume boost active — follicular energy peak, good sleep confirmed.' },
-  R522: { category: 'Training adaptation', text: "Full-effort session — you're at your ovulation peak. Take an extra minute to warm up." },
+  R522: { category: 'Training adaptation', text: 'Full-effort session — you\u2019re at your ovulation peak. Take an extra minute to warm up.' },
   R523: { category: 'Training adaptation', text: 'Intensity eased — winding down for your late luteal phase.' },
-  R524: { category: 'Training adaptation', text: 'Rep count adjusted for your body weight on bodyweight exercises.' },
-  R525: { category: 'Training adaptation', text: 'Mobility exercise added to keep movement quality balanced.' },
+  // R524 is a protective slow start, not a penalty: moving your own body is harder
+  // at a higher mass, so the first weeks stay achievable and the joints intact.
+  // The copy says that, and nothing about the user's body.
+  // Below 70 kg the same formula raises reps instead, where "start gently" would be
+  // simply untrue, so R524 carries a direction variant. Neither sentence comments on
+  // the user's body; both describe what the session does.
+  R524: {
+    category: 'Training adaptation',
+    text: 'Bodyweight exercises start gently — a gradual build-up keeps it doable and protects your joints.',
+    dynamic: 'variant',
+    variants: { up: 'Bodyweight reps are set a little higher so the effort matches the movement.' },
+  },
+  R525: { category: 'Training adaptation', text: 'One mobility exercise added at the end of your session to keep your movement quality up.' },
   R530: { category: 'Safety adaptation',   text: 'Intensity capped for this pregnancy trimester.' },
   R531: { category: 'Safety adaptation',   text: 'Lying-on-back exercises removed (from week 16).' },
   R532: { category: 'Safety adaptation',   text: 'High-impact exercises removed during pregnancy.' },
@@ -86,7 +137,9 @@ export const RULE_LABELS = {
   R534: { category: 'Safety adaptation',   text: 'Pelvic floor work added to your session.' },
   R535: { category: 'Safety adaptation',   text: 'Gentle session today — nausea signal detected.' },
   R536: { category: 'Safety adaptation',   text: 'Volume reduced — breathlessness reported.' },
-  R539: { category: 'Safety adaptation',   text: 'Exercise on hold — postnatal clearance needed.', cta: 'Update clearance in Settings when you\'re cleared.' },
+  // R537 was not in the audit's list of 23 — the W2.1 guard found it.
+  R537: { category: 'Suggested action',    text: 'Past your due date — switch to postnatal mode in Settings when your baby arrives.' },
+  R539: { category: 'Safety adaptation',   text: 'Exercise on hold — postnatal clearance needed.', cta: 'Update clearance in Settings when you\u2019re cleared.' },
   R540: { category: 'Safety adaptation',   text: 'Immediate postnatal phase — gentle movement only.' },
   R541: { category: 'Safety adaptation',   text: 'Pelvic floor exercises prioritised.' },
   R542: { category: 'Safety adaptation',   text: 'Prone exercises removed — caesarean recovery.' },
@@ -112,7 +165,120 @@ export const RULE_LABELS = {
   R565: { category: 'Safety adaptation',   text: 'Session adjusted for your current injury context. Stop any exercise that causes sharp or worsening pain.' },
   R568: { category: 'Training adaptation', text: 'Polarised training — alternating Zone 2 endurance and HIIT sessions.' },
   R526: { category: 'Training adaptation', text: 'Perimenopause mode: intensity capped at moderate, standard cycle rules paused.' },
+
+  // ── W2.1 — the rules that traced into a void ──────────────────────────────
+  R500: { category: 'Training adaptation', text: 'Session built around your training goal.' },
+  R502: { category: 'Training adaptation', text: 'Reps and durations matched to your experience level.' },
+  R517: { category: 'Training adaptation', text: 'Intensity eased — you reported a low mood today.' },
+  R518: { category: 'Training adaptation', text: 'Exercise choice takes your training location into account.' },
+  // R519 is dynamic: the sentence is built from the factors the planner actually
+  // applied, so the text below is a template and `volume` carries the numbers.
+  // See buildVolumeSentence(); the placeholders are filled through t().
+  R519: { category: 'Training adaptation', text: 'Today {pct}% of your normal volume: {reasons}.', dynamic: 'volume' },
+  R570: { category: 'Training adaptation', text: 'Military programme — today comes from your current training block.' },
+  R571: { category: 'Training adaptation', text: 'Zone 2 endurance run — building your aerobic base.' },
+  R572: { category: 'Training adaptation', text: 'Interval run matched to your current running level.' },
+  R574: { category: 'Training adaptation', text: 'Weighted march included — building the carry capacity your test asks for.' },
+  R575: { category: 'Training adaptation', text: 'Circuit session — timed stations in the military format.' },
+  R576: { category: 'Training adaptation', text: 'Cooper test scheduled — today is a measurement, not a training day.' },
+  R577: { category: 'Safety adaptation',   text: 'Weighted march replaced with a walking lunge — knee pain reported.' },
+  R583: { category: 'Safety adaptation',   text: 'Pace guidance added — a conversational pace builds your base fastest.' },
+  R590: { category: 'Training adaptation', text: 'Order adjusted — muscle groups that are still recovering come later.' },
+  R591: { category: 'Training adaptation', text: 'Warm-up sets added before your heaviest set.' },
+  R592: { category: 'Training adaptation', text: 'Exercises paired into supersets so the session fits your time.' },
+  R593: { category: 'Training adaptation', text: 'Your test movements are placed around muscle recovery.' },
+  R594: { category: 'Training adaptation', text: 'Targets raised on your test movements — aiming above the minimum.' },
+  R595: { category: 'Training adaptation', text: 'Exercise length checked against the time you have.' },
+  R596: { category: 'Training adaptation', text: 'Defence protocol work left out — no military coach is active.' },
+  R597: { category: 'Training adaptation', text: 'Variety check — no two exercises train the same movement today.' },
+  R598: { category: 'Training adaptation', text: 'Self-measurement inside this session: max push-ups and sit-ups over two minutes.' },
+  R999: { category: 'Training adaptation', text: 'Rest day — you set this weekday as a rest day.' },
 };
+
+/**
+ * R519 — reason keys the planner emits, as fragments for the volume sentence.
+ *
+ * Key order is display order: situational reasons first, standing ones last, so the
+ * sentence reads "less sleep, back after a break, and your experience level" rather
+ * than listing four multipliers. Every value needs an NL entry in i18n.js — smoke
+ * check W2.1 enforces that.
+ */
+export const VOLUME_REASON_TEXT = {
+  sleep:          'less sleep',
+  return:         'back after a break',
+  energy:         'low energy today',
+  breathlessness: 'breathlessness today',
+  cycle:          'your cycle phase',
+  programme:      'your programme block',
+  bodyweight:     'a calm build-up',
+  bodyweight_up:  'your body weight',
+  experience:     'your experience level',
+  situational:    'the circumstances of today',
+};
+
+const VOLUME_REASON_ORDER = Object.keys(VOLUME_REASON_TEXT);
+
+/**
+ * Parse the R519 trace line into { pct, factors, product, reasons }.
+ *
+ * Shape emitted by the planner:
+ *   R519 — Volume 48% of baseline · factors: experience ×0.80, situational ×0.75 · reasons: experience,sleep
+ *
+ * `product` is recomputed from the listed factors so a caller (smoke check W2.1)
+ * can assert that the percentage the user reads really is their product.
+ */
+export function parseVolumeTrace(trace) {
+  const text = String(trace ?? '');
+  const pctMatch = /R519[^0-9]*?(\d{1,4})\s*%/.exec(text);
+  if (!pctMatch) return null;
+  const factors = {};
+  let product = 1;
+  const factorSection = /factors:\s*([^·]*)/.exec(text);
+  if (factorSection) {
+    for (const m of factorSection[1].matchAll(/([a-z]+)\s*×\s*([0-9]*\.?[0-9]+)/gi)) {
+      const value = Number(m[2]);
+      if (!Number.isFinite(value)) continue;
+      factors[m[1]] = value;
+      product *= value;
+    }
+  }
+  const reasonSection = /reasons:\s*([a-z_,]+)/i.exec(text);
+  const reasons = reasonSection
+    ? [...new Set(reasonSection[1].split(',').map(r => r.trim()).filter(Boolean))]
+      .sort((a, b) => {
+        const ia = VOLUME_REASON_ORDER.indexOf(a);
+        const ib = VOLUME_REASON_ORDER.indexOf(b);
+        return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      })
+    : [];
+  return { pct: Number(pctMatch[1]), factors, product, reasons };
+}
+
+// Fallback translator: substitutes {vars} exactly as t() does, so the sentence is
+// still correct in tests and in English mode.
+const _subst = (key, vars) => (vars
+  ? String(key).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? vars[k] : `{${k}}`))
+  : key);
+
+/**
+ * Build the single accumulated volume sentence for a parsed R519 advisory.
+ * `translate` is i18n's t(), passed in rather than imported so this module stays
+ * free of browser globals and remains unit-testable.
+ */
+export function buildVolumeSentence(entry, translate) {
+  const tr = translate ?? _subst;
+  if (!entry?.volume) return null;
+  const { pct, reasons } = entry.volume;
+  const keys = reasons.length ? reasons : ['situational'];
+  const frags = keys.map(k => tr(VOLUME_REASON_TEXT[k] ?? VOLUME_REASON_TEXT.situational));
+  const and = tr('and');
+  const joined = frags.length === 1
+    ? frags[0]
+    : frags.length === 2
+      ? `${frags[0]} ${and} ${frags[1]}`
+      : `${frags.slice(0, -1).join(', ')}, ${and} ${frags[frags.length - 1]}`;
+  return tr('Today {pct}% of your normal volume: {reasons}.', { pct, reasons: joined });
+}
 
 /**
  * Parse rule_trace array into grouped advisory buckets.
@@ -127,8 +293,20 @@ export function parseRuleTrace(ruleTrace) {
   for (const trace of ruleTrace) {
     for (const [code, label] of Object.entries(RULE_LABELS)) {
       if (!seen.has(code) && trace.includes(code)) {
-        seen.add(code);
         const entry = { code, ...label };
+        if (label.dynamic === 'variant') {
+          // Same rule, opposite directions: the trace says which one fired.
+          const dir = /direction:\s*([a-z_]+)/.exec(trace)?.[1];
+          if (dir && label.variants?.[dir]) entry.text = label.variants[dir];
+        }
+        if (label.dynamic === 'volume') {
+          // A dynamic advisory with no parsable numbers says nothing, so it is
+          // dropped rather than rendered with empty placeholders.
+          const volume = parseVolumeTrace(trace);
+          if (!volume) continue;
+          entry.volume = volume;
+        }
+        seen.add(code);
         const policy = RULE_POLICY[code];
         if (policy === 'blocking_safety') {
           blocking.push(entry);

@@ -1106,6 +1106,14 @@ function _addNote(ctx, note) {
   ctx.sessionNotes = ctx.sessionNotes ? ctx.sessionNotes + ' ' + note : note;
 }
 
+// W2.3 — every rule that moves ctx.volumeMultiplier records WHY, so the one
+// accumulated volume sentence (R519) can name the real reasons instead of
+// listing four multipliers the user cannot act on. Keys only: the Dutch wording
+// lives in i18n.js, keyed through VOLUME_REASON_TEXT in messagePolicy.js.
+function _volumeReason(ctx, key) {
+  if (!ctx.volumeReasons.includes(key)) ctx.volumeReasons.push(key);
+}
+
 // ── Stage 1: Initialize ───────────────────────────────────────────────────────
 function _initPlannerContext(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
@@ -1179,6 +1187,7 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
 
     pool, intensity, slot_type: 'main',
     volumeMultiplier: 1.0,
+    volumeReasons: [],
     trace, sessionNotes: null,
 
     injuryAreas: [],
@@ -1347,6 +1356,7 @@ function _applySafetyPolicies(ctx) {
   if ((checkIn?.sleep_hours ?? 8) <= T.SLEEP_LOW) {
     ctx.intensity = 'low';
     ctx.volumeMultiplier = Math.min(ctx.volumeMultiplier, 0.85);
+    _volumeReason(ctx, 'sleep');
     ctx.trace.push(`R511 — Poor sleep (≤${T.SLEEP_LOW}h) → intensity capped at low, volume ×0.85`);
   }
 
@@ -1364,6 +1374,7 @@ function _applySafetyPolicies(ctx) {
     const gapDays = Math.floor((planDateMsLocal - lastWorkoutMs) / 86_400_000);
     if (gapDays >= 14) {
       ctx.volumeMultiplier = Math.min(ctx.volumeMultiplier, 0.75);
+      _volumeReason(ctx, 'return');
       ctx.trace.push(`R558 — Back after ${gapDays}-day break → volume ×0.75 (return-to-training re-ramp)`);
     }
   }
@@ -1598,6 +1609,7 @@ function _applyBodyModePolicies(ctx) {
     }
     if (phase === 'follicular' && (checkIn?.energy ?? 10) >= T.ENERGY_FOLLICULAR && (checkIn?.sleep_hours ?? 8) >= T.SLEEP_FOLLICULAR) {
       ctx.volumeMultiplier *= 1.15;
+      _volumeReason(ctx, 'cycle');
       ctx.trace.push('R521 — Your energy is building — time to be strong');
     }
     if (phase === 'ovulation') {
@@ -1661,6 +1673,7 @@ function _applyBodyModePolicies(ctx) {
     }
     if (trimester === 3 && breathlessToday) {
       ctx.volumeMultiplier = 0.8;
+      _volumeReason(ctx, 'breathlessness');
       _addNote(ctx, 'Shorter intervals today — pause when you need to breathe.');
       ctx.trace.push('R536 — T3 breathlessness → volume ×0.8');
     }
@@ -2025,6 +2038,7 @@ function _selectCoachBlueprint(ctx) {
     ctx.milWeekComputed   = milWeek;
     ctx.militarySessionType = sessionType;
     ctx.volumeMultiplier  = Math.min(ctx.volumeMultiplier, milVol);
+    if (milVol !== 1) _volumeReason(ctx, 'programme');
     ctx.trace.push(`R570 — Military Coach: ${milGroup} Block${milWeek}.${blockIdx + 1}/4 [cycle${cyclePosn}] → ${sessionType} (vol ×${milVol.toFixed(2)}${checkInOverride ? ` — check-in override: ${checkInOverride}` : ''})`);
 
     if (sessionType === 'rust') {
@@ -2538,6 +2552,49 @@ function _selectExercises(ctx) {
   ctx.shuffled  = shuffled;
 }
 
+/**
+ * R519 — one accumulated volume sentence (W2.3).
+ *
+ * Reps and durations are scaled in four independent, multiplicative places:
+ * R512 (energy), R502 (experience), the ctx.volumeMultiplier application point
+ * (R521 — itself fed by R511, R558, R520/R521, R536, R570) and R524 (body mass
+ * on bodyweight reps). A real account reached ×0.41 and was told about two of
+ * the four. Four more trace lines would have been four more things to read, so
+ * this emits ONE line carrying the computed product and the reason keys; the
+ * client turns it into a sentence through t() (messagePolicy.buildVolumeSentence).
+ *
+ * The percentage is derived from the factors that actually fired — never a
+ * constant — and the factor list is in the line so the smoke guard can verify
+ * that the stated percentage really is their product.
+ */
+function _traceVolumeSummary(ctx, factors) {
+  const parts = [];
+  const reasons = [];
+  const addReason = (key) => { if (!reasons.includes(key)) reasons.push(key); };
+
+  const add = (name, factor, reasonKeys) => {
+    if (!factor || Math.abs(factor - 1) < 0.005) return;
+    parts.push(`${name} ×${factor.toFixed(2)}`);
+    reasonKeys.forEach(addReason);
+  };
+
+  add('energy',     factors.energy,     ['energy']);
+  add('experience', factors.experience, ['experience']);
+  add('situational', factors.situational,
+    ctx.volumeReasons.length ? ctx.volumeReasons : ['situational']);
+  // Below 70 kg the same formula scales reps UP, and "a calm build-up" would be
+  // the wrong sentence for that, so the reason follows the direction.
+  add('bodyweight', factors.bodyweight,
+    [factors.bodyweight < 1 ? 'bodyweight' : 'bodyweight_up']);
+
+  if (!parts.length) return;
+
+  const product = [factors.energy, factors.experience, factors.situational, factors.bodyweight]
+    .reduce((acc, f) => acc * (f || 1), 1);
+  const pct = Math.round(product * 100);
+  ctx.trace.push(`R519 — Volume ${pct}% of baseline · factors: ${parts.join(', ')} · reasons: ${reasons.join(',')}`);
+}
+
 // ── Stage 6: Assemble session ─────────────────────────────────────────────────
 function _assembleSession(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
@@ -2552,6 +2609,10 @@ function _assembleSession(ctx) {
 
   const postnatalPhase = pregnancyContext?.postnatal_phase;
   const isGentleMode   = postnatalPhase === 'immediate' || postnatalPhase === 'early';
+
+  // R502 — counted per leg so the trace below can state what actually changed.
+  let r502Reps = 0;
+  let r502Dur  = 0;
 
   const steps = ctx.slot_type === 'rest' ? [] : ctx.cyclingProgramOverride ? [ctx.cyclingProgramOverride.step] : selection.map(ex => {
     const metrics   = JSON.parse(ex.metrics_json || '{}');
@@ -2595,13 +2656,18 @@ function _assembleSession(ctx) {
       if (duration && !isFixedDuration) { duration = Math.floor(duration * 0.6); ctx.trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
     }
 
-    // R502: Experience level scales reps AND duration
+    // R502: Experience level scales reps AND duration. The duration leg changed
+    // timed work with no trace anywhere (audit §1); both legs are counted here
+    // and reported once, after the map.
     if (repScale !== 1.0) {
-      if (reps)     reps     = Math.round(reps     * repScale);
-      if (duration && !isLongCardio && !isRunWarmup && !isFixedDuration) duration = Math.round(duration * repScale);
+      if (reps)     { reps     = Math.round(reps     * repScale); r502Reps++; }
+      if (duration && !isLongCardio && !isRunWarmup && !isFixedDuration) { duration = Math.round(duration * repScale); r502Dur++; }
     }
 
-    // Apply volume multiplier (R521, R536)
+    // R521 — the application point of ctx.volumeMultiplier (fed by R511, R558,
+    // R520/R521, R536, R570). The contributors trace, the application did not;
+    // it is now reported as part of the single R519 volume sentence below, which
+    // is the only place the user needs to read a number.
     if (ctx.volumeMultiplier !== 1.0) {
       if (reps)                         reps     = Math.round(reps     * ctx.volumeMultiplier);
       if (duration && !isFixedDuration) duration = Math.round(duration * ctx.volumeMultiplier);
@@ -2665,6 +2731,12 @@ function _assembleSession(ctx) {
     };
   });
 
+  // R502 — one line for both legs. Reported after the map so timed work cannot
+  // be rescaled silently again.
+  if (repScale !== 1.0 && (r502Reps > 0 || r502Dur > 0)) {
+    ctx.trace.push(`R502 — Experience (${expLevel}) → ×${repScale.toFixed(2)} on reps of ${r502Reps} exercise(s) and duration of ${r502Dur} exercise(s)`);
+  }
+
   // R574 — Military kracht+marsen: append weighted march step
   if (ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0 && ctx.slot_type !== 'rest') {
     const marchEx = exercises.find(ex => ex.slug === 'weighted-march');
@@ -2692,20 +2764,48 @@ function _assembleSession(ctx) {
     }
   }
 
-  // R524 — Weight-adjusted volume (bodyweight exercises)
+  // R524 — bodyweight reps scaled by body mass: 1/√(weight/70), clamped 0.7–1.3.
+  //
+  // Intent (product owner): this is a protective slow start, not a penalty. Moving
+  // your own body is genuinely harder at a higher mass, so equal reps are not equal
+  // effort, and starting gently is what keeps the first weeks achievable and the
+  // joints intact. It ran silently until W2.2 — the user saw a shorter set and was
+  // told nothing. It now traces, and the wording the user reads (RULE_LABELS.R524)
+  // speaks about a calm build-up, never about their body.
+  let r524Scale = 1;
+  let r524Count = 0;
   if (ctx.weightKg && steps.length) {
     const weightRatio = ctx.weightKg / 70;
+    const wScale = Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(weightRatio)));
     for (const step of steps) {
       const ex   = exercises.find(e => e.id === step.exercise_id);
       const tags = JSON.parse(ex?.tags_json || '[]');
       if (tags.includes('bodyweight') && step.target_reps) {
-        const wScale = Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(weightRatio)));
         step.target_reps = Math.round(step.target_reps * wScale);
+        r524Count++;
       }
+    }
+    if (r524Count > 0 && Math.abs(wScale - 1) >= 0.005) {
+      r524Scale = wScale;
+      ctx.trace.push(`R524 — Bodyweight reps ×${wScale.toFixed(2)} on ${r524Count} exercise(s) · direction: ${wScale < 1 ? 'down' : 'up'}`);
     }
   }
 
-  // R525 — Female mobility inclusion
+  // R519 — the four scalers above, as one sentence with one number.
+  if (ctx.slot_type !== 'rest' && steps.length) {
+    _traceVolumeSummary(ctx, {
+      energy:      (checkIn?.energy ?? 10) <= T.ENERGY_LOW ? 0.6 : 1,
+      experience:  repScale,
+      situational: ctx.volumeMultiplier,
+      bodyweight:  r524Scale,
+    });
+  }
+
+  // R525 — one mobility exercise appended for female users. The session gained an
+  // exercise with no trace at all, so the session shown did not match the session
+  // explained — the worst of the four silent modifiers (audit §2.3). It now traces.
+  // The sex gate itself is undocumented and unchanged here: that is a product
+  // decision, not an explainability fix (noted in the Wave 2 report).
   if (ctx.sex === 'female' && ctx.slot_type === 'main' && steps.length && ctx.isStandardMode && !ctx.runProgramOverride) {
     const hasMobility = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
@@ -2733,6 +2833,7 @@ function _assembleSession(ctx) {
           alternatives_json:   mobilityEx.alternatives_json ?? null,
           gif_url:             media.gif_url ?? null,
         });
+        ctx.trace.push(`R525 — Mobility exercise appended: ${mobilityEx.name} (session is now ${steps.length} exercises)`);
       }
     }
   }
