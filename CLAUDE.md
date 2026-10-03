@@ -1344,6 +1344,33 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-03 — remediation Waves 3, 4a, 5, 6
+
+- **W3** — pool rebuilds can no longer discard earlier filters (`_safePool` + recorded guards
+  + assembly backstop); long-cardio safety is a duration property, not a tag; volume floor 0.5
+  stated via R519; R524 kept as a protective slow start, DCP → progression → weight as basis
+  order, re-clamped after; R574 march dedupe; total session time bounded; R536/R534 by rule.
+  Matrix 38 personas, `KNOWN_GAPS` empty.
+- **W4a — user override.** `POST /api/plan` accepts `custom_steps` (library ids only, 400 on
+  unknown, clamped), runs safety in ADVISORY mode via the same recorded guards (409 +
+  `safety_ack` for blocking), stores `generated_by='user'`, exempt from C-G4, **protected from
+  auto-regeneration** unless `replace_user_plan`. `pinned_exercise_ids` (1–3) seeds the engine.
+  `SessionBuilder.jsx` reachable from "Can't do this today?" → "Ik doe iets anders". All
+  three `day_plans` upserts now write `generated_by`. Request-level harness
+  `scripts/plan-override-requests.mjs`. Verified live.
+- **W5** — 0114 (72 cardio rows get primary muscles), 0115 (substitutions 23% → 96%
+  reciprocated), 0116 (`protocol` ×77, `measurable` ×7). Both progression axis mappers fixed
+  so cardio always credits Cardio — a pre-existing misroute 0114 would have spread.
+- **W6** — schema section regenerated from live D1 (5 ghost tables removed, STRICT claim
+  corrected), baseline 1020 regenerated 416 → 482, table-name guard.
+- Smoke 65 → **70**; `npm test` 206/206.
+
+**Open follow-ups:** `exercises` has `gym_id`/`visibility` columns but neither the planner's
+base query nor `GET /api/exercises` filters on them — latent leak the day a gym-private
+exercise is created (all 482 are global today). Pins sit under the C-G4 cap (product call).
+R593/R594 call `dcpAgeFrom` without the plan date (determinism). `1040_seed_military.sql`
+stale (1919 vs 2059 live). W4b (saved templates) not started.
+
 ### Shipped 2026-10-03 — remediation Waves 0–2 (see `docs/PLANNER_REMEDIATION_PLAN.md`)
 
 - **W0** — goal read fixed (`App.jsx` read a column from the JSON blob); migration **0113**
