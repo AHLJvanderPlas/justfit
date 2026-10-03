@@ -16,7 +16,9 @@
 //                                                 # + the measured volume ratio
 //                                                 #   per persona per date (W3.2)
 //
-import { runPlanner, movementFamily, isLongContinuousCardio, continuousCardioCapSec } from '../functions/api/plan.js';
+import { runPlanner, movementFamily, isLongContinuousCardio, continuousCardioCapSec,
+  buildPlannerGuardContext, assembleCustomSession, preservesUserPlan, progGetExerciseAxis,
+  CUSTOM_STEP_LIMITS, USER_PLAN_TRACE } from '../functions/api/plan.js';
 import { estimateMins } from '../packages/client-app/src/planUtils.js';
 import { RULE_LABELS, INTERNAL_RULE_CODES, parseVolumeTrace } from '../packages/client-app/src/messagePolicy.js';
 import fs from 'node:fs';
@@ -25,6 +27,11 @@ import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const rows = JSON.parse(fs.readFileSync(path.join(here, 'fixtures/planner-exercises.json'), 'utf8'));
+const idOf = (slug) => {
+  const i = rows.findIndex(r => r.slug === slug);
+  if (i < 0) throw new Error(`fixture has no exercise "${slug}"`);
+  return 'ex' + i;
+};
 const exercises = rows.map((r, i) => ({
   id: 'ex' + i, slug: r.slug, name: r.name, category: r.category,
   tags_json: r.tags_json, equipment_required_json: r.equipment_required_json,
@@ -114,7 +121,8 @@ const build = (p, date = TODAY) => {
     p.isPro ?? false,
     p.cyclingCoach ? CYCLING_WORKOUTS : [],
     p.cyclingTsb ?? null, p.cyclingSessionsLast7 ?? 0, p.runSessionsLast7 ?? 0,
-    p.crossRunsLast7 ?? 0, null, null, p.opts ?? {},
+    p.crossRunsLast7 ?? 0, null, null,
+    { ...(p.opts ?? {}), ...(p.pins ? { pinnedIds: p.pins.map(slug => idOf(slug)) } : {}) },
   ];
 };
 const plan = (p, date = TODAY) => runPlanner(...build(p, date));
@@ -300,13 +308,29 @@ const PERSONAS = [
   // body-weight proxy (130 kg → ×0.73). The old order produced 2-rep sets.
   { id: 'heavy-unmeasured-strength', goal: 'strength', experience: 'beginner', weight_kg: 130,
     height_cm: 180, noProgression: true, checkIn: { energy: 3 } },                                // R524 inside the floor
+
+  // ── W4.4 — pin + fill ──
+  // `pins` are slugs the user pinned; `pinsRemoved` the ones a guard must keep
+  // out. Property 9 asserts kept pins are IN the session on every date, removed
+  // pins are NOT, and each removal is traced and returned in pins_removed.
+  // Two pins from different categories, so the category filter cannot be what
+  // admits them — only the pin can.
+  { id: 'pin-kept', goal: 'strength', pins: ['dead-bug', 'jumping-jacks'] },
+  // A pin is a preference, not a safety override: jump-squat loads the knee the
+  // check-in reported, so R563 must remove it and say so; dead-bug stays.
+  { id: 'pin-unsafe-knee', checkIn: { pain_level: 3, pain_scope: 'specific', pain_areas: ['knee'] },
+    pins: ['jump-squat', 'dead-bug'], pinsRemoved: ['jump-squat'],
+    forbid: { tags: ['loads_knee'] } },                                                        // R563 over a pin
+  { id: 'pin-pregnant-t2', sex: 'female', pregnancyContext: { mode: 'pregnant', week: 20, trimester: 2 },
+    pins: ['burpee', 'glute-bridge', 'wall-push-up'], pinsRemoved: ['burpee', 'glute-bridge'],
+    forbid: { tags: ['high_impact', 'valsalva', 'inversion', 'crunch', 'supine', 'prone'] } }, // R532, R531 over pins
 ];
 
 // ── Assertions ───────────────────────────────────────────────────────────────
 const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
-  'variety', 'step-vs-session', 'volume-floor', 'trace-labels'];
+  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -529,6 +553,29 @@ for (const p of PERSONAS) {
         unlabelled.length ? `emitted with no RULE_LABELS entry and no INTERNAL_RULE_CODES reason, so parseRuleTrace drops them: ${unlabelled.join(', ')}`
           : `${codes.length} code(s) all labelled`);
     }
+
+    // ── 9. Pins are honoured — unless safety removes them, out loud (W4.4) ──
+    {
+      if (!p.pins) say('pins', 'PASS', 'no pins');
+      else {
+        const bad = [];
+        const slugs = new Set(steps.map(s => s.exercise_slug));
+        const removed = new Set(p.pinsRemoved ?? []);
+        const reported = new Set((out.pins_removed ?? []).map(r => r.exercise_slug));
+        for (const slug of p.pins) {
+          if (removed.has(slug)) {
+            if (slugs.has(slug)) bad.push(`${slug} is in the session although safety must remove it`);
+            if (!reported.has(slug)) bad.push(`${slug} removed but not in pins_removed`);
+            const why = (out.pins_removed ?? []).find(r => r.exercise_slug === slug);
+            if (!trace.some(t => t.startsWith(`PIN — ${slug} niet ingepland: ${why?.code ?? '?'}`))) bad.push(`${slug} removed without a PIN trace naming the rule`);
+          } else {
+            if (!slugs.has(slug)) bad.push(`pinned ${slug} missing from the session`);
+            if (!(out.pinned ?? []).includes(idOf(slug))) bad.push(`pinned ${slug} not listed in plan.pinned`);
+          }
+        }
+        say('pins', bad.length ? 'FAIL' : 'PASS', bad.length ? bad.join(', ') : `${p.pins.length - removed.size} kept, ${removed.size} removed by safety`);
+      }
+    }
   }  // ── end of the date sweep ──
 
   for (const n of notes) errs.push(`${p.id}: ${n}`);
@@ -674,6 +721,124 @@ for (const p of PERSONAS) {
       if (leak) { check(false, `R596 ignored the protocol tag: jumping-jacks (tagged protocol) in a civilian session on ${d}`); break; }
     }
     check(seenUntagged, 'protocol-tag regression is vacuous: the untagged row never reaches a civilian session');
+  }
+
+  // ── W4.1 — user-authored sessions ────────────────────────────────────────
+  //
+  // assembleCustomSession is what POST /api/plan runs for `custom_steps`, on a
+  // context built from the same arguments the engine gets. The request-level
+  // half (400/409 over HTTP, the upsert, the override surviving a regeneration
+  // against a real SQLite) lives in scripts/plan-override-requests.mjs.
+  {
+    const ctxFor = (p, opts = {}) => { const a = build(p); a[19] = { ...a[19], ...opts }; return buildPlannerGuardContext(...a); };
+    const custom = (p, steps, o = {}) => assembleCustomSession(ctxFor(p, o.includeAssessment ? { forceAssessment: true } : {}), steps, { nowMs: 1234, ...o });
+    const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
+    const personaOf = (id) => PERSONAS.find(x => x.id === id);
+
+    // Advisory, not silent: a knowingly contraindicated session keeps every step.
+    {
+      const t2 = personaOf('pregnant-t2');
+      const want = ['glute-bridge', 'reverse-crunch', 'burpee', 'push-up'];
+      const noAck = custom(t2, want.map(sl => S(sl)));
+      check(noAck.status === 409, `W4.1 pregnancy hard contraindication without safety_ack must be 409, got ${noAck.status}`);
+      const codes = (noAck.body?.safety_notes ?? []).map(n => `${n.exercise_slug}:${n.code}:${n.blocking ? 'block' : 'advise'}`);
+      for (const exp of ['glute-bridge:R531:advise', 'reverse-crunch:R533:block', 'burpee:R532:block']) {
+        check(codes.includes(exp), `W4.1 advisory pass missed ${exp} (got ${codes.join(', ') || 'nothing'})`);
+      }
+      check(!codes.some(c => c.startsWith('push-up:')), `W4.1 advisory pass flagged a safe step: ${codes.join(', ')}`);
+      const ack = custom(t2, want.map(sl => S(sl)), { safetyAck: true });
+      check(ack.status === 200, `W4.1 acknowledged session must save, got ${ack.status}`);
+      const got = (ack.plan?.steps ?? []).map(s => s.exercise_slug);
+      check(JSON.stringify(got) === JSON.stringify(want),
+        `W4.1 a user-authored session was rewritten by safety: asked ${want.join(',')}, got ${got.join(',')}`);
+      check(ack.plan?.safety_ack_ms === 1234, 'W4.1 an acknowledged blocking note must record safety_ack_ms');
+      check((ack.plan?.safety_notes ?? []).length >= 3, 'W4.1 the saved plan must carry its advisory notes');
+      check(ack.plan?.authored_by_user === true && ack.plan?.rule_trace?.length === 1 && ack.plan.rule_trace[0] === USER_PLAN_TRACE,
+        'W4.1 a user plan carries authored_by_user and exactly one USER trace line');
+    }
+    // Advise-only rules never block; circumstance rules never even note.
+    {
+      const knee = custom(personaOf('injury-knee'), [S('jump-squat'), S('dead-bug')]);
+      check(knee.status === 200, `W4.1 an advisory-only note must not block (knee), got ${knee.status}`);
+      const n = (knee.plan?.safety_notes ?? []).filter(x => x.exercise_slug === 'jump-squat' && x.code === 'R563');
+      check(n.length === 1 && n[0].step_index === 0 && !n[0].blocking, 'W4.1 knee pain must leave an advisory R563 note on jump-squat');
+      check((knee.plan?.steps ?? []).some(s => s.exercise_slug === 'jump-squat'), 'W4.1 the contraindicated step was dropped instead of advised');
+
+      const gymRow = rows.find(r => /barbell/.test(r.equipment_required_json || ''));
+      const kit = custom(personaOf('no-equipment'), [S(gymRow.slug)]);
+      check(kit.status === 200 && (kit.plan?.safety_notes ?? []).length === 0,
+        `W4.1 equipment is the user's circumstance, not a safety note: ${JSON.stringify(kit.plan?.safety_notes)}`);
+
+      const pn = custom(personaOf('postnatal-uncleared'), [S('burpee')]);
+      check(pn.status === 409 && (pn.body?.safety_notes ?? []).some(x => x.code === 'R539' && x.blocking),
+        `W4.1 uncleared postnatal work must be blocked behind R539, got ${pn.status} ${JSON.stringify(pn.body?.safety_notes)}`);
+    }
+    // Never trust the client: unknown ids are rejected, numbers are clamped.
+    {
+      const unk = custom(personaOf('no-equipment'), [S('push-up'), { exercise_id: 'no-such-exercise' }]);
+      check(unk.status === 400 && unk.body?.error === 'unknown_exercise', `W4.1 unknown exercise_id must be 400, got ${unk.status}`);
+      const L = CUSTOM_STEP_LIMITS;
+      const timed = rows.find(r => { const m = JSON.parse(r.metrics_json || '{}'); return !(m.supports ?? []).includes('reps') && m.base_duration_sec; });
+      const c = custom(personaOf('no-equipment'), [
+        S('push-up', { sets: 99, target_reps: 1000, rest_sec: 10000 }),
+        S('sit-up', { sets: 0, target_reps: -4, rest_sec: -5 }),
+        S(timed.slug, { target_duration_sec: 999999 }),
+        S(timed.slug, { target_duration_sec: 1, target_reps: 12 }),
+        S('dead-bug', { sets: 'lots', bogus_field: 'x', name: 'HACKED' }),
+      ]);
+      const st = c.plan?.steps ?? [];
+      check(st[0]?.sets === L.sets[1] && st[0]?.target_reps === L.target_reps[1] && st[0]?.rest_sec === L.rest_sec[1],
+        `W4.1 high values not clamped: ${JSON.stringify(st[0] && { s: st[0].sets, r: st[0].target_reps, rest: st[0].rest_sec })}`);
+      check(st[1]?.sets === L.sets[0] && st[1]?.target_reps === L.target_reps[0] && st[1]?.rest_sec === L.rest_sec[0],
+        `W4.1 low values not clamped: ${JSON.stringify(st[1] && { s: st[1].sets, r: st[1].target_reps, rest: st[1].rest_sec })}`);
+      check(st[2]?.target_duration_sec === L.target_duration_sec[1], `W4.1 duration not clamped high: ${st[2]?.target_duration_sec}`);
+      check(st[3]?.target_duration_sec === L.target_duration_sec[0] && st[3]?.target_reps == null,
+        `W4.1 a timed exercise must keep duration only, clamped low: ${st[3]?.target_duration_sec}/${st[3]?.target_reps}`);
+      check(st[4]?.name !== 'HACKED' && st[4]?.bogus_field === undefined && st[4]?.rest_sec > 0 && st[4]?.sets === 3,
+        'W4.1 client step fields leaked into the plan, or an absent rest was not filled from getDefaultRest');
+    }
+    // R598 — offered, never inserted; appended only on request.
+    {
+      const dcp = personaOf('dcp-due');
+      const off = custom(dcp, [S('dead-bug')]);
+      check(off.status === 200 && off.assessment_offer === true && off.plan?.assessment_offer === true,
+        'W4.1 a due DCP measurement must be OFFERED on a user-authored session');
+      check(!(off.plan?.steps ?? []).some(s => s.max_effort), 'W4.1 a measurement was inserted into a user-authored session without asking');
+      const inc = custom(dcp, [S('dead-bug')], { includeAssessment: true });
+      const m = (inc.plan?.steps ?? []).filter(s => s.max_effort);
+      check(m.length === 2 && new Set(m.map(s => s.measures)).size === 2 && inc.plan?.assessment_planned === true && inc.assessment_offer === false,
+        `W4.1 include_assessment must append both measurement sets, got ${m.length}`);
+      check((inc.plan?.steps ?? [])[0]?.exercise_slug === 'dead-bug', 'W4.1 the measurement must be APPENDED, not put in front of the user\'s session');
+    }
+    // Progression routes on exercise_id. A custom step must carry the library
+    // id and the engine's own step shape, so the radar, streak and awards
+    // credit it exactly like an engine step for the same exercise.
+    {
+      const p = { goal: 'strength', equipment: HOME_KIT };
+      let compared = 0;
+      for (const d of DATES.slice(0, 10)) {
+        const eng = runPlanner(...build(p, d));
+        const engSteps = (eng.steps ?? []).filter(s => !s.max_effort);
+        if (!engSteps.length) continue;
+        const mine = custom(p, engSteps.map(s => ({ exercise_id: s.exercise_id })));
+        for (const [i, cs] of (mine.plan?.steps ?? []).entries()) {
+          const es = engSteps[i];
+          const row = exById.get(cs.exercise_id);
+          check(!!row && cs.exercise_id === es.exercise_id, `W4.1 custom step ${i} does not resolve to its library row (${cs.exercise_id})`);
+          if (!row) continue;
+          check(progGetExerciseAxis(row) === progGetExerciseAxis(exById.get(es.exercise_id)),
+            `W4.1 ${cs.exercise_slug} routes to a different progression axis as a custom step`);
+          const keys = (o) => Object.keys(o).filter(k => !['group_id', 'warmup_sets', 'target_reps', 'target_duration_sec'].includes(k)).sort().join(',');
+          check(keys(cs) === keys(es), `W4.1 custom step shape differs from engine step for ${cs.exercise_slug}: ${keys(cs)} vs ${keys(es)}`);
+          compared++;
+        }
+      }
+      check(compared > 0, 'W4.1 progression-routing regression compared nothing — it would pass vacuously');
+    }
+    // The override survives regeneration (decision half; HTTP half in plan-override-requests.mjs).
+    check(preservesUserPlan({ generated_by: 'user' }, {}) === true, 'W4.1 an auto-generate would overwrite a user-authored plan');
+    check(preservesUserPlan({ generated_by: 'user' }, { replace_user_plan: true }) === false, 'W4.1 replace_user_plan must allow an explicit replacement');
+    check(preservesUserPlan({ generated_by: 'engine' }, {}) === false, 'W4.1 an engine plan must stay replaceable');
   }
 
   // R595 — nothing longer than the session it sits in.

@@ -80,9 +80,27 @@ export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
     const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, adapt_mode, base_plan, force_assessment } = body;
+    // W4.1 / W4.4 — user override. See assembleCustomSession and the W4 notes.
+    const { custom_steps, safety_ack, include_assessment, pinned_exercise_ids, session_name } = body;
+    const isCustom = custom_steps !== undefined && custom_steps !== null;
+    const hasPins  = pinned_exercise_ids !== undefined && pinned_exercise_ids !== null;
 
     if (!date) {
       return Response.json({ error: 'date required' }, { status: 400 });
+    }
+    // Shape checks before any database work. A user-authored session is today's
+    // plan, never an ephemeral bonus or a free-tier adapt, and pinning is an
+    // engine request — the three do not combine.
+    if (isCustom) {
+      const err = customStepsShapeError(custom_steps);
+      if (err) return Response.json({ ok: false, error: 'invalid_custom_steps', detail: err }, { status: 400 });
+      if (bonus_session || adapt_mode || hasPins) {
+        return Response.json({ ok: false, error: 'invalid_custom_steps', detail: 'custom_steps cannot be combined with bonus_session, adapt_mode or pinned_exercise_ids' }, { status: 400 });
+      }
+    }
+    if (hasPins) {
+      const err = pinnedIdsShapeError(pinned_exercise_ids);
+      if (err) return Response.json({ ok: false, error: 'invalid_pins', detail: err }, { status: 400 });
     }
 
     // JWT-derived user_id only — body field ignored to prevent IDOR.
@@ -270,17 +288,40 @@ export async function onRequestPost({ request, env }) {
       isPro = !!isProRow;
     }
 
+    // W4.1 — PROTECT THE OVERRIDE. A session the user wrote survives every
+    // automatic regeneration — app open, check-in (engine or free-tier adapt),
+    // retry, force_assessment. Only an explicit `replace_user_plan: true` (a
+    // confirmed user action) or a new user-authored session replaces it. Runs
+    // before the C-G4 cap so the response says WHY the plan did not change.
+    // One read serves both this check and the C-G4 cap below (whose condition
+    // is a subset of this one), so the override costs no extra round-trip.
+    let existingRow = null;
+    if (user_id && !isCustom && !bonus_session) {
+      existingRow = await env.DB.prepare(
+        'SELECT id, generated_by, plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
+      ).bind(user_id, date).first();
+      if (preservesUserPlan(existingRow, body)) {
+        try {
+          const stored = JSON.parse(existingRow.plan_json);
+          return Response.json({ ok: true, saved: true, preserved: true, plan: { id: existingRow.id, ...stored } });
+        } catch { /* malformed JSON — fall through and regenerate */ }
+      }
+    }
+
     // C-G4: Free users get 1 plan per day — return cached plan if already exists.
+    //
+    // A user-authored session (custom_steps) is exempt for the same reason: the
+    // cap makes RE-ROLLING THE ENGINE a paid feature; writing your own session
+    // is not a re-roll, generates nothing, and cannot be used to farm one. Pins
+    // (W4.4) are NOT exempt — the engine builds that session.
     //
     // force_assessment is exempt. The daily cap exists so re-rolling for a nicer
     // session is a paid feature; asking to measure yourself is neither a re-roll
     // nor a nicety — it is the input every DCP number downstream depends on, and
     // charging for it would make the bias aim at a stale baseline. The request
     // is explicit and user-initiated, so it cannot be used to farm new sessions.
-    if (user_id && !isPro && !bonus_session && !force_assessment) {
-      const existingPlan = await env.DB.prepare(
-        'SELECT plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
-      ).bind(user_id, date).first();
+    if (user_id && !isPro && !bonus_session && !force_assessment && !isCustom) {
+      const existingPlan = existingRow;
       if (existingPlan) {
         try {
           const cached = JSON.parse(existingPlan.plan_json);
@@ -476,6 +517,52 @@ export async function onRequestPost({ request, env }) {
       }
     }
 
+    // W4.1 — user-authored session. Same inputs the engine would see, so the
+    // advisory pass evaluates the guards the engine registered for this athlete
+    // today; nothing is selected, scaled or dropped.
+    if (isCustom) {
+      const guardCtx = buildPlannerGuardContext(date, effectiveCheckin, allExercises, prefs, allTemplates, [],
+        bodyProfile, resolvedCycleContext, pregnancyContext, false, progressionState, isPro,
+        cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7,
+        militaryTemplateItems, runPrograms, { forceAssessment: include_assessment === true });
+      const nowMs = Date.now();
+      const built = assembleCustomSession(guardCtx, custom_steps, {
+        safetyAck: safety_ack === true, includeAssessment: include_assessment === true, nowMs, sessionName: session_name,
+      });
+      if (built.status !== 200) return Response.json(built.body, { status: built.status });
+      const userPlan = built.plan;
+      const extra = { safety_notes: built.safety_notes, assessment_offer: built.assessment_offer };
+      if (user_id) {
+        const userExists = await env.DB.prepare(`SELECT id FROM users WHERE id = ? LIMIT 1`).bind(user_id).first();
+        if (userExists) {
+          const newId = crypto.randomUUID();
+          await env.DB.prepare(`
+            INSERT INTO day_plans
+              (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
+            VALUES (?, ?, ?, 'final', ?, 'user', 'user-authored', 'user', ?, ?)
+            ON CONFLICT(user_id, date) DO UPDATE SET
+              plan_json = excluded.plan_json,
+              generated_by = excluded.generated_by,
+              engine_version = excluded.engine_version,
+              updated_at_ms = excluded.updated_at_ms
+          `).bind(newId, user_id, date, JSON.stringify(userPlan), nowMs, nowMs).run();
+          const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
+          return Response.json({ ok: true, saved: true, plan: { id: row?.id ?? newId, ...userPlan }, ...extra });
+        }
+      }
+      return Response.json({ ok: true, saved: false, plan: userPlan, ...extra });
+    }
+
+    // W4.4 — every pin must be a real, active exercise for this user. Unknown
+    // ids are a malformed request, not something to drop quietly.
+    if (hasPins) {
+      const known = new Set(allExercises.map(e => String(e.id)));
+      const unknownPins = pinned_exercise_ids.map(String).filter(id => !known.has(id));
+      if (unknownPins.length) {
+        return Response.json({ ok: false, error: 'unknown_exercise', unknown_exercise_ids: [...new Set(unknownPins)] }, { status: 400 });
+      }
+    }
+
     // Free-tier adapt path: adjust the stored weekly plan for today's check-in
     // without regenerating the exercise selection.
     if (adapt_mode && base_plan) {
@@ -488,7 +575,7 @@ export async function onRequestPost({ request, env }) {
           await env.DB.prepare(`
             INSERT INTO day_plans (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
             VALUES (?, ?, ?, 'final', ?, 'adapt_free', 'v1.9.0', 'adapt', ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET plan_json=excluded.plan_json, updated_at_ms=excluded.updated_at_ms
+            ON CONFLICT(user_id, date) DO UPDATE SET plan_json=excluded.plan_json, generated_by=excluded.generated_by, engine_version=excluded.engine_version, updated_at_ms=excluded.updated_at_ms
           `).bind(adaptId, user_id, date, JSON.stringify(adapted), now, now).run();
           const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
           return Response.json({ ok: true, saved: true, plan: { id: row?.id ?? adaptId, ...adapted } });
@@ -497,7 +584,10 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms, { forceAssessment: !!force_assessment });
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms, {
+      forceAssessment: !!force_assessment,
+      pinnedIds: hasPins ? pinned_exercise_ids.map(String) : [],
+    });
 
     // Inject trainer-assigned program coaching note
     if (assignedProgramRow?.program_name) {
@@ -537,6 +627,8 @@ export async function onRequestPost({ request, env }) {
           VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.9.0', ?, ?, ?)
           ON CONFLICT(user_id, date) DO UPDATE SET
             plan_json = excluded.plan_json,
+            generated_by = excluded.generated_by,
+            engine_version = excluded.engine_version,
             updated_at_ms = excluded.updated_at_ms
         `).bind(newId, user_id, date, JSON.stringify(plan), date, now, now).run();
 
@@ -769,7 +861,7 @@ const PROG_AXIS_CATEGORY = {
   core: 'strength', conditioning: 'cardio', mobility: 'mobility',
 };
 
-function progGetExerciseAxis(exercise) {
+export function progGetExerciseAxis(exercise) {
   // Category decides for cardio. A run lists quads/hamstrings/calves because
   // that is what moves, but what it TRAINS is conditioning; taking the first
   // muscle routed easy-run-outdoor to Legs and left the Cardio axis untouched
@@ -1198,8 +1290,22 @@ function _volumeReason(ctx, key) {
 // `safety: false` marks pool-composition guards (warm-up/session-phase rows,
 // bonus dedup). They shape rebuilt pools but are not enforced on prescriptions:
 // a run coach's warm-up IS a session_phase row.
-function _poolGuard(ctx, key, code, keep, { safety = true } = {}) {
-  ctx.poolGuards.set(key, { code, keep, safety });
+//
+// W4.1 — `override` says what the guard means when the USER authors the session
+// (the advisory pass, _adviseSteps). The same recorded guards are evaluated —
+// there is no second list of safety checks — but a user-authored session is the
+// user's prescription, so a guard is only ever reported, never applied:
+//   'advise' (default) — a contraindication: an amber note on the step.
+//   'block'            — a genuine clearance question (R539, pregnancy hard
+//                        contraindications): saving needs an explicit ack.
+//   'ignore'           — a circumstance the user is the authority on (kit,
+//                        clothing, location, recovery mode, civilian scope).
+//                        "My circumstances differ from my profile" is the
+//                        whole point of authoring a session, so no note.
+// `blockCode` lets a blocking guard name the clearance rule it stands for
+// (the postnatal phase guards report R539 while clearance is unconfirmed).
+function _poolGuard(ctx, key, code, keep, { safety = true, override = 'advise', blockCode = null } = {}) {
+  ctx.poolGuards.set(key, { code, keep, safety, override, blockCode });
   ctx.pool = ctx.pool.filter(keep);
 }
 
@@ -1217,6 +1323,33 @@ function _passesGuards(ctx, ex) {
 
 function _safePool(ctx, candidates) {
   return candidates.filter(ex => !_failedGuard(ctx, ex));
+}
+
+// W4.1 — evaluate-only. Every recorded SAFETY guard is run against each step and
+// every violation is collected; nothing is filtered, dropped or rescaled. The
+// guards are the ones the engine itself registered for this athlete today, so a
+// rule added to the engine is advised on in user-authored sessions for free.
+function _adviseSteps(ctx, steps) {
+  const byId = new Map(ctx.exercises.map(e => [e.id, e]));
+  const notes = [];
+  steps.forEach((step, i) => {
+    const ex = byId.get(step.exercise_id);
+    if (!ex) return;
+    for (const [key, g] of ctx.poolGuards) {
+      if (!g.safety || g.override === 'ignore') continue;
+      if (g.keep(ex)) continue;
+      const blocking = g.override === 'block';
+      notes.push({
+        step_index: i,
+        exercise_id: ex.id,
+        exercise_slug: ex.slug,
+        code: blocking && g.blockCode ? g.blockCode : g.code,
+        guard: key,
+        blocking,
+      });
+    }
+  });
+  return notes;
 }
 
 const _parseArr = (s, dflt = '[]') => { try { return JSON.parse(s || dflt); } catch { return JSON.parse(dflt); } };
@@ -1340,6 +1473,10 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     appendedIds: new Set(),   // steps a rule added and traced (R525, R534/R541, R561)
     forceAssessment: !!opts.forceAssessment,
     dcpMeasure: null,
+    // W4.4 — pin + fill: ids the user pinned, the ones safety removed, the ones kept.
+    pinnedIds: Array.isArray(opts.pinnedIds) ? opts.pinnedIds.slice(0, 3) : [],
+    pinsRemoved: [],
+    pinnedKept: new Set(),
     selection: null,
     shuffled: null,
     targetCategory: null,
@@ -1390,12 +1527,15 @@ export function movementFamily(slug) {
  * represented. If the varied pass cannot fill the session it relaxes and takes
  * the remainder in order, because a short session beats a blocked one.
  */
-function _takeVaried(list, count, ctx) {
+function _takeVaried(list, count, ctx, keepIds = null) {
   const seen = new Set();
   const out = [], spare = [];
   for (const ex of list) {
     if (out.length >= count) break;
     const fam = movementFamily(ex.slug);
+    // W4.4 — a pinned row is the user's explicit choice: it is always taken and
+    // claims its family, so the fill around it stays varied.
+    if (keepIds?.has(ex.id)) { seen.add(fam); out.push(ex); continue; }
     if (seen.has(fam)) { spare.push(ex); continue; }
     seen.add(fam);
     out.push(ex);
@@ -1477,7 +1617,7 @@ function _applySafetyPolicies(ctx) {
     const before = ctx.pool.length;
     const civilian = ctx.pool.filter(ex => !isProtocol(ex));
     if (civilian.length >= 3) {
-      _poolGuard(ctx, 'civilian', 'R596', (ex) => !isProtocol(ex));
+      _poolGuard(ctx, 'civilian', 'R596', (ex) => !isProtocol(ex), { override: 'ignore' });
       const removed = before - civilian.length;
       if (removed > 0) ctx.trace.push(`R596 — ${removed} Defensie-protocoloefening(en) buiten beschouwing gelaten (geen militaire coach actief)`);
     }
@@ -1589,7 +1729,7 @@ function _applySafetyPolicies(ctx) {
     _poolGuard(ctx, 'recovery_mode', 'R559', (ex) => {
       const tags = JSON.parse(ex.tags_json || '[]');
       return tags.includes('mobility') || tags.includes('recovery') || ex.category === 'mobility' || ex.category === 'recovery';
-    });
+    }, { override: 'ignore' });
     ctx.trace.push('R559 — Recovery mode → low intensity, mobility/recovery pool');
   }
 
@@ -1598,18 +1738,18 @@ function _applySafetyPolicies(ctx) {
     _poolGuard(ctx, 'clothing', 'R515', (ex) => {
       const tags = JSON.parse(ex.tags_json || '[]');
       return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
-    });
+    }, { override: 'ignore' });
     ctx.trace.push(`R515 — No clothing → stealth filter (${ctx.pool.length} exercises remain)`);
   }
 
   // R516
   const ALWAYS_AVAILABLE = ALWAYS_AVAILABLE_EQUIP;
   if (ctx.forceBodyweight || ctx.profileBodyweightOnly) {
-    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e)));
+    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e)), { override: 'ignore' });
     const reason = ctx.forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
     ctx.trace.push(`R516 — Bodyweight only (${reason}) → ${ctx.pool.length} exercises remain`);
   } else {
-    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e) || ctx.effectiveEquip.includes(e)));
+    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e) || ctx.effectiveEquip.includes(e)), { override: 'ignore' });
     ctx.trace.push(`R516 — Equipment filter from profile → ${ctx.pool.length} exercises remain`);
   }
 
@@ -1668,7 +1808,7 @@ function _applySafetyPolicies(ctx) {
         if (ctx.forceBodyweight) return eq.every(e => ALWAYS_AVAILABLE.has(e));
         return eq.every(e => _equip.includes(e));
       };
-      ctx.poolGuards.set('equipment', { code: 'R518', keep: _locKeep, safety: true });
+      ctx.poolGuards.set('equipment', { code: 'R518', keep: _locKeep, safety: true, override: 'ignore' });
       const _next = _safePool(ctx, exercises);
       // A profile must never leave the athlete with nothing. If a custom kit is too
       // narrow to build a session, keep the previous pool and say so — the same
@@ -1807,9 +1947,11 @@ function _applyBodyModePolicies(ctx) {
       _poolGuard(ctx, 'pregnancy_supine', 'R531', (ex) => !hasTags(ex, 'supine'));
       ctx.trace.push(`R531 — Week ${week}: supine exercises filtered out`);
     }
-    _poolGuard(ctx, 'pregnancy_impact', 'R532', (ex) => !hasTags(ex, 'high_impact'));
+    // R532/R533-absolute are the pregnancy HARD contraindications: a user-authored
+    // session containing them needs an explicit acknowledgement (W4.1).
+    _poolGuard(ctx, 'pregnancy_impact', 'R532', (ex) => !hasTags(ex, 'high_impact'), { override: 'block' });
     ctx.trace.push('R532 — High-impact exercises excluded during pregnancy');
-    _poolGuard(ctx, 'pregnancy_absolute', 'R533', (ex) => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
+    _poolGuard(ctx, 'pregnancy_absolute', 'R533', (ex) => !hasTags(ex, 'valsalva', 'inversion', 'crunch'), { override: 'block' });
     if (trimester >= 2) {
       _poolGuard(ctx, 'pregnancy_prone', 'R533', (ex) => !hasTags(ex, 'prone'));
       ctx.trace.push('R533 — T2+: prone exercises excluded');
@@ -1854,8 +1996,14 @@ function _applyBodyModePolicies(ctx) {
     // _safePool, so the athlete's kit, injuries and R596 still hold. The phase
     // predicate is then registered as a guard of its own, so nothing appended
     // later (R534/R541, R525, R561) can step outside the phase either.
+    // W4.1 — while clearance is unconfirmed (R539) every postnatal guard is a
+    // clearance question, so a user-authored session that crosses one needs an
+    // explicit acknowledgement; once cleared they are advisory.
+    const _pnOverride = postnatalCleared
+      ? { override: 'advise' }
+      : { override: 'block', blockCode: 'R539' };
     const _phaseRebuild = (keep) => {
-      ctx.poolGuards.set('postnatal_phase', { code: 'R540', keep, safety: true });
+      ctx.poolGuards.set('postnatal_phase', { code: 'R540', keep, safety: true, ..._pnOverride });
       ctx.pool = _safePool(ctx, exercises);
     };
     if (postnatalPhase === 'immediate') {
@@ -1877,7 +2025,7 @@ function _applyBodyModePolicies(ctx) {
         return true;
       });
       if (isCaesarean) {
-        _poolGuard(ctx, 'postnatal_prone', 'R542', (ex) => !hasTags(ex, 'prone'));
+        _poolGuard(ctx, 'postnatal_prone', 'R542', (ex) => !hasTags(ex, 'prone'), _pnOverride);
         ctx.trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
       }
       _addNote(ctx, 'Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.');
@@ -1897,7 +2045,7 @@ function _applyBodyModePolicies(ctx) {
     }
 
     if (isCaesarean && (postnatalPhase === 'immediate' || postnatalPhase === 'early')) {
-      _poolGuard(ctx, 'postnatal_supine', 'R540', (ex) => !hasTags(ex, 'supine'));
+      _poolGuard(ctx, 'postnatal_supine', 'R540', (ex) => !hasTags(ex, 'supine'), _pnOverride);
     }
     if (!ctx.pool.length) ctx.pool = _safePool(ctx, exercises).filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
   }
@@ -2344,6 +2492,39 @@ function _selectCoachBlueprint(ctx) {
 const R574_MARCH_SLUG = 'weighted-march';
 
 // ── Stage 5: Select exercises ─────────────────────────────────────────────────
+const DCP_WINDOW_SEC = 120;
+
+/**
+ * R598 — is a DCP self-measurement due today, and can it be taken safely?
+ *
+ * Returns { pushEx, situpEx, lastAt } or null. Shared by the engine (which
+ * inserts the two sets) and the user-authored path (W4.1), which only OFFERS
+ * them: a session the user wrote is not silently extended. Both read the same
+ * predicate and the same _safePool, so "due" can never mean two things.
+ */
+function _dcpMeasurementDue(ctx) {
+  const prefs = ctx.prefs;
+  const dcp = prefs?.preferences?.military_coach?.dcp;
+  if (!dcpCardVisible(dcp, !!prefs?.preferences?.military_coach?.active)) return null;
+  if (ctx.slot_type === 'rest' || !ctx.isStandardMode || ctx.bonusSession) return null;
+  const lastAt = dcp.last?.at_ms ?? null;
+  const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
+  if (!due) return null;
+  // W3.0 — a measurement is still a set of push-ups: an injured shoulder or a
+  // guard from R563 rules it out, and the measurement waits for a safe day.
+  const measurable = _safePool(ctx, ctx.exercises);
+  const find = (...slugs) => {
+    for (const sl of slugs) {
+      const hit = measurable.find(ex => ex.slug === sl);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
+  const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
+  return pushEx && situpEx ? { pushEx, situpEx, lastAt } : null;
+}
+
 function _selectExercises(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
   const { goal, bonusSession, inSpecialMode } = ctx;
@@ -2636,33 +2817,17 @@ function _selectExercises(ctx) {
   // is missing or older than DCP_RETEST_DAYS, or when the user forces it from
   // the Recalibrate button. The 2-minute window is the DCP protocol itself, not
   // an open-ended set to failure — a capped window is what the standard scores.
-  const _dcpA = prefs?.preferences?.military_coach?.dcp;
-  const _dcpAIsTarget = dcpCardVisible(_dcpA, !!prefs?.preferences?.military_coach?.active);
-  if (_dcpAIsTarget && ctx.slot_type !== 'rest' && ctx.isStandardMode && !ctx.bonusSession) {
-    const lastAt = _dcpA.last?.at_ms ?? null;
-    const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
+  {
+    const due = _dcpMeasurementDue(ctx);
     if (due) {
-      // W3.0 — a measurement is still a set of push-ups: an injured shoulder or a
-      // guard from R563 rules it out, and the measurement waits for a safe day.
-      const measurable = _safePool(ctx, exercises);
-      const find = (...slugs) => {
-        for (const sl of slugs) {
-          const hit = measurable.find(ex => ex.slug === sl);
-          if (hit) return hit;
-        }
-        return null;
-      };
-      const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
-      const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
-      if (pushEx && situpEx) {
-        ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: 120 };
-        const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
-        shuffled = [pushEx, situpEx, ...others];
-        ctx.trace.push(ctx.forceAssessment
-          ? 'R598 — Zelfmeting op verzoek ingepland: max push-ups en sit-ups (2 min per oefening)'
-          : `R598 — Zelfmeting ingepland: ${lastAt ? 'laatste meting is verlopen' : 'nog geen nulmeting'} — max push-ups en sit-ups (2 min per oefening)`);
-        _addNote(ctx, 'Vandaag meten we je DCP-uitgangspunt: twee sets op maximaal aantal herhalingen in 2 minuten. Stop bij vormverlies, niet bij pijn.');
-      }
+      const { pushEx, situpEx, lastAt } = due;
+      ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: DCP_WINDOW_SEC };
+      const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
+      shuffled = [pushEx, situpEx, ...others];
+      ctx.trace.push(ctx.forceAssessment
+        ? 'R598 — Zelfmeting op verzoek ingepland: max push-ups en sit-ups (2 min per oefening)'
+        : `R598 — Zelfmeting ingepland: ${lastAt ? 'laatste meting is verlopen' : 'nog geen nulmeting'} — max push-ups en sit-ups (2 min per oefening)`);
+      _addNote(ctx, 'Vandaag meten we je DCP-uitgangspunt: twee sets op maximaal aantal herhalingen in 2 minuten. Stop bij vormverlies, niet bij pijn.');
     }
   }
 
@@ -2696,6 +2861,40 @@ function _selectExercises(ctx) {
   const r574Appends = ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0;
   if (r574Appends) shuffled = shuffled.filter(ex => ex.slug !== R574_MARCH_SLUG);
 
+  // W4.4 — pin + fill. The user pinned 1–3 exercises; the engine completes the
+  // session around them by its normal rules. A pin is a PREFERENCE, not a safety
+  // override: every pinned row passes _safePool like any other pick, and a pin
+  // that a guard removes is said out loud (trace + plan.pins_removed) rather
+  // than dropped in silence. Pinned rows bypass only the category filter and
+  // R597's family skip — that is what pinning means.
+  const pinKeep = new Set();
+  if (ctx.pinnedIds.length) {
+    const byId = new Map(exercises.map(e => [String(e.id), e]));
+    const rows = [...new Set(ctx.pinnedIds.map(String))].map(id => byId.get(id)).filter(Boolean);
+    const coachOwned = ctx.runProgramOverride || ctx.crossTrainingOverride || ctx.cyclingProgramOverride
+      || ctx.militaryProgramOverride || ctx.militaryDbSelection;
+    if (ctx.slot_type === 'rest' || coachOwned) {
+      for (const ex of rows) ctx.pinsRemoved.push({ exercise_id: ex.id, exercise_slug: ex.slug, code: null, guard: ctx.slot_type === 'rest' ? 'rest_day' : 'coach_programme' });
+      ctx.trace.push(`PIN — ${rows.length} vastgezette oefening(en) niet ingepland: ${ctx.slot_type === 'rest' ? 'vandaag is een rustdag' : 'je coachprogramma bepaalt deze sessie'}`);
+    } else {
+      for (const ex of rows) {
+        const hit = _failedGuard(ctx, ex);
+        if (hit) {
+          ctx.pinsRemoved.push({ exercise_id: ex.id, exercise_slug: ex.slug, code: hit.code, guard: hit.key });
+          ctx.trace.push(`PIN — ${ex.slug} niet ingepland: ${hit.code} (${hit.key}) — een vastgezette oefening gaat niet boven veiligheid`);
+        } else {
+          pinKeep.add(ex.id);
+        }
+      }
+      if (pinKeep.size) {
+        const pinned = rows.filter(ex => pinKeep.has(ex.id));
+        shuffled = [...pinned, ...shuffled.filter(ex => !pinKeep.has(ex.id))];
+        count = Math.max(count, pinKeep.size + (ctx.dcpMeasure ? 2 : 0));
+        ctx.trace.push(`PIN — ${pinned.map(ex => ex.slug).join(', ')} vastgezet; de coach vult de sessie aan`);
+      }
+    }
+  }
+
   const milIsRunSession = ctx.militaryProgramOverride?.type === 'duurloop' || ctx.militaryProgramOverride?.type === 'interval';
   const milIsCooperTest = ctx.militaryProgramOverride?.type === 'cooper_test';
 
@@ -2728,7 +2927,8 @@ function _selectExercises(ctx) {
       ]
     : ctx.militaryDbSelection
     ? (r574Appends ? ctx.militaryDbSelection.filter(ex => ex.slug !== R574_MARCH_SLUG) : ctx.militaryDbSelection)
-    : _takeVaried(shuffled, count, ctx);
+    : _takeVaried(shuffled, count, ctx, pinKeep);
+  ctx.pinnedKept = pinKeep;
 
   // R561 sport mobility injection
   let selection = baseSelection;
@@ -2860,6 +3060,53 @@ function _bodyweightSlowStart(ctx) {
 }
 
 // ── Stage 6: Assemble session ─────────────────────────────────────────────────
+// ── Step shape ────────────────────────────────────────────────────────────────
+//
+// ONE builder for the step a client renders and an execution records, so an
+// engine step and a user-authored step (W4.1) cannot drift apart: WorkoutView,
+// the load contract (C-F6), the muscle map and progression all read these
+// fields, and progression routes on `exercise_id` alone.
+function _stepFor(ex, prescription) {
+  const media = ex.media_json ? JSON.parse(ex.media_json) : {};
+  return {
+    exercise_id:   ex.id,
+    exercise_slug: ex.slug,
+    name:          ex.name,
+    category:      ex.category,
+    tags_json:     ex.tags_json ?? '[]',
+    equipment_required_json: ex.equipment_required_json ?? '["none"]',
+    target_reps:          prescription.target_reps,
+    target_duration_sec:  prescription.target_duration_sec,
+    sets:                 prescription.sets,
+    rest_sec:             prescription.rest_sec,
+    ...(prescription.max_effort ? { max_effort: true, measures: prescription.measures, measure_window_sec: prescription.measure_window_sec } : {}),
+    instructions_json:    ex.instructions_json ?? null,
+    alternatives_json:    ex.alternatives_json ?? null,
+    // Carried so R592 can avoid pairing two exercises that share a primary muscle,
+    // and so the in-session muscle map uses real data instead of musclesFor()'s
+    // slug-pattern fallback, which is all it has had until now.
+    primary_muscles_json:   ex.primary_muscles_json ?? null,
+    secondary_muscles_json: ex.secondary_muscles_json ?? null,
+    gif_url:              media.gif_url ?? null,
+    coaching_note:        prescription.coaching_note ?? null,
+    // C-F6 — load contract. supports_weight drives whether the client shows a
+    // weight field at all; load_type drives how the number is displayed and
+    // rounded. Absent on bodyweight and timed work, which is the common case.
+    ...(() => {
+      let m = {};
+      try { m = ex.metrics_json ? JSON.parse(ex.metrics_json) : {}; } catch { /* ignore */ }
+      if (!(m.supports ?? []).includes('weight')) return {};
+      return {
+        supports_weight: true,
+        load_type: m.load_type ?? null,
+        target_weight_kg: ex.last_weight_kg ?? null,
+        last_performance: ex.last_performance ?? null,
+      };
+    })(),
+    ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
+  };
+}
+
 function _assembleSession(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
   const { goal, expLevel, budget, unlimited, rawBudget, selection, targetCategory } = ctx;
@@ -2966,44 +3213,14 @@ function _assembleSession(ctx) {
     const baseRest    = getDefaultRest(ex, ctx.slot_type);
     const adjustedRest = Math.round(baseRest * goalRestMult / 5) * 5;
 
-    const media = ex.media_json ? JSON.parse(ex.media_json) : {};
-    return {
-      exercise_id:   ex.id,
-      exercise_slug: ex.slug,
-      name:          ex.name,
-      category:      ex.category,
-      tags_json:     ex.tags_json ?? '[]',
-      equipment_required_json: ex.equipment_required_json ?? '["none"]',
+    return _stepFor(ex, {
       target_reps:          reps,
       target_duration_sec:  duration,
       sets,
       rest_sec:             adjustedRest,
       ...(measures ? { max_effort: true, measures, measure_window_sec: ctx.dcpMeasure.windowSec } : {}),
-      instructions_json:    ex.instructions_json ?? null,
-      alternatives_json:    ex.alternatives_json ?? null,
-      // Carried so R592 can avoid pairing two exercises that share a primary muscle,
-      // and so the in-session muscle map uses real data instead of musclesFor()'s
-      // slug-pattern fallback, which is all it has had until now.
-      primary_muscles_json:   ex.primary_muscles_json ?? null,
-      secondary_muscles_json: ex.secondary_muscles_json ?? null,
-      gif_url:              media.gif_url ?? null,
       coaching_note:        coachingNote,
-      // C-F6 — load contract. supports_weight drives whether the client shows a
-      // weight field at all; load_type drives how the number is displayed and
-      // rounded. Absent on bodyweight and timed work, which is the common case.
-      ...(() => {
-        let m = {};
-        try { m = ex.metrics_json ? JSON.parse(ex.metrics_json) : {}; } catch { /* ignore */ }
-        if (!(m.supports ?? []).includes('weight')) return {};
-        return {
-          supports_weight: true,
-          load_type: m.load_type ?? null,
-          target_weight_kg: ex.last_weight_kg ?? null,
-          last_performance: ex.last_performance ?? null,
-        };
-      })(),
-      ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
-    };
+    });
   });
 
   // R502 — one line for both legs. Reported after the map so timed work cannot
@@ -3265,7 +3482,7 @@ function _assembleSession(ctx) {
 
   const fitProtected = new Set([...prescribedIds, ...ctx.appendedIds]);
   if (ctx.r555PinnedEx) fitProtected.add(ctx.r555PinnedEx.id);
-  orderedSteps = _fitToBudget(ctx, orderedSteps, fitProtected);
+  orderedSteps = _fitToBudget(ctx, orderedSteps, fitProtected, ctx.pinnedKept);
 
   return {
     date,
@@ -3284,6 +3501,13 @@ function _assembleSession(ctx) {
     // R598 — lets the client label the Recalibrate control "zelfmeting gepland"
     // instead of offering to schedule something already in today's session.
     assessment_planned: !!ctx.dcpMeasure,
+    // W4.4 — present only when the user pinned exercises. `pinned` lists the pins
+    // that are in the session; `pins_removed` the ones a guard (or a rest day /
+    // coach programme) kept out, with the rule that did it.
+    ...(ctx.pinnedIds.length ? {
+      pinned: orderedSteps.filter(st => ctx.pinnedKept.has(st.exercise_id)).map(st => st.exercise_id),
+      pins_removed: ctx.pinsRemoved,
+    } : {}),
     rule_trace:       ctx.trace,
     run_program: ctx.runProgramOverride
       ? { week: ctx.runProgramOverride.week, level: ctx.runProgramOverride.level, target_km: ctx.runCoach?.target_km ?? 5, session_type: ctx.runProgramOverride.sessionType }
@@ -3367,7 +3591,7 @@ function _estimateSessionSec(steps) {
  * (R534/R541 pelvic floor, R525, R561). Coach blueprints are budgeted by their
  * own rules and skipped entirely.
  */
-function _fitToBudget(ctx, steps, protectedIds) {
+function _fitToBudget(ctx, steps, protectedIds, keepIds = new Set()) {
   if (ctx.unlimited || !ctx.budget || ctx.slot_type === 'rest' || steps.length === 0) return steps;
   if (ctx.runProgramOverride || ctx.crossTrainingOverride || ctx.cyclingProgramOverride || ctx.militaryProgramOverride) return steps;
   const limit = ctx.budget * 60;
@@ -3392,7 +3616,8 @@ function _fitToBudget(ctx, steps, protectedIds) {
   }
   while (_estimateSessionSec(out) > limit && out.length > 2) {
     let idx = -1;
-    for (let i = out.length - 1; i >= 0; i--) if (!isProtected(out[i])) { idx = i; break; }
+    // W4.4 — a pinned exercise may lose sets like any pick, but is never dropped.
+    for (let i = out.length - 1; i >= 0; i--) if (!isProtected(out[i]) && !keepIds.has(out[i].exercise_id)) { idx = i; break; }
     if (idx < 0) break;
     const gone = out[idx];
     out.splice(idx, 1);
@@ -3483,7 +3708,11 @@ function _applySupersets(ctx, steps) {
 }
 
 // ── Orchestrator ──────────────────────────────────────────────────────────────
-export function runPlanner(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
+//
+// Stages 1–4 register every pool guard for this athlete today. They are split
+// out so the user-authored path (W4.1) evaluates exactly the guards the engine
+// would have applied, instead of keeping a second, drifting list of checks.
+export function buildPlannerGuardContext(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro = false,
   cyclingWorkouts = [], cyclingTsb = null, cyclingSessionsLast7 = 0, runSessionsLast7 = 0,
   crossRunsLast7 = 0, militaryTemplateItems = null, runPrograms = null, opts = {}) {
@@ -3496,6 +3725,179 @@ export function runPlanner(date, checkIn, exercises, prefs, templates, completed
   _applySafetyPolicies(ctx);
   _applyBodyModePolicies(ctx);
   _selectCoachBlueprint(ctx);
+  return ctx;
+}
+
+export function runPlanner(...args) {
+  const ctx = buildPlannerGuardContext(...args);
   _selectExercises(ctx);
   return _assembleSession(ctx);
+}
+
+// ── W4.1 — user-authored sessions ─────────────────────────────────────────────
+//
+// "Being able to adapt to the user's preferences or circumstances is the core
+// value of the app." The planner is a default, not a gate: a user can replace
+// today's session with one they built from the library. Client step bodies are
+// never trusted — only `exercise_id` and four clamped numbers are read; every
+// other field is rebuilt from the library row by _stepFor, so a custom step is
+// shaped exactly like an engine step and routes to progression the same way.
+
+export const CUSTOM_STEP_LIMITS = {
+  sets:                [1, 10],
+  target_reps:         [1, 100],
+  target_duration_sec: [5, 7200],
+  rest_sec:            [0, 600],
+};
+export const MAX_CUSTOM_STEPS = 20;
+export const MAX_PINS = 3;
+export const USER_PLAN_TRACE = 'USER — Je hebt deze sessie zelf samengesteld';
+
+function _clampInt(v, [lo, hi]) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.min(hi, Math.max(lo, Math.round(n)));
+}
+
+/** Shape-only check, cheap enough to run before any database work. */
+export function customStepsShapeError(raw) {
+  if (!Array.isArray(raw)) return 'custom_steps must be an array';
+  if (raw.length < 1) return 'custom_steps is empty';
+  if (raw.length > MAX_CUSTOM_STEPS) return `custom_steps has more than ${MAX_CUSTOM_STEPS} steps`;
+  for (const [i, st] of raw.entries()) {
+    if (!st || typeof st !== 'object') return `custom_steps[${i}] is not an object`;
+    const id = st.exercise_id;
+    if ((typeof id !== 'string' && typeof id !== 'number') || String(id).trim() === '') {
+      return `custom_steps[${i}].exercise_id is missing`;
+    }
+  }
+  return null;
+}
+
+/** Shape-only check for W4.4 pins. */
+export function pinnedIdsShapeError(raw) {
+  if (!Array.isArray(raw)) return 'pinned_exercise_ids must be an array';
+  if (raw.length < 1 || raw.length > MAX_PINS) return `pinned_exercise_ids takes 1–${MAX_PINS} ids`;
+  if (raw.some(id => (typeof id !== 'string' && typeof id !== 'number') || String(id).trim() === '')) {
+    return 'pinned_exercise_ids contains an empty id';
+  }
+  return null;
+}
+
+/**
+ * W4.1 — PROTECT THE OVERRIDE. An automatic regeneration (app open, check-in,
+ * retry) must never replace a session the user wrote. Replacing it is an
+ * explicit action that carries `replace_user_plan: true`.
+ */
+export function preservesUserPlan(existingRow, body) {
+  return existingRow?.generated_by === 'user' && body?.replace_user_plan !== true;
+}
+
+/**
+ * Build today's plan from user-supplied steps.
+ *
+ * `ctx` comes from buildPlannerGuardContext, so the advisory pass sees the very
+ * guards the engine registered. Returns { status, body } for a 400/409, or
+ * { status: 200, plan, safety_notes, assessment_offer }.
+ *
+ *   400  unknown or inactive exercise_id, or a malformed body
+ *   409  a blocking note (R539 clearance, pregnancy hard contraindication)
+ *        without `safetyAck` — the client asks, then re-sends with the ack
+ */
+export function assembleCustomSession(ctx, rawSteps, { safetyAck = false, includeAssessment = false, nowMs = 0, sessionName = null } = {}) {
+  const shapeErr = customStepsShapeError(rawSteps);
+  if (shapeErr) return { status: 400, body: { ok: false, error: 'invalid_custom_steps', detail: shapeErr } };
+
+  // ctx.exercises is the ACTIVE library plus the user's own gym exercises — the
+  // same set the engine may choose from. Anything else does not exist for them.
+  const byId = new Map(ctx.exercises.map(e => [String(e.id), e]));
+  const unknown = [...new Set(rawSteps.map(st => String(st.exercise_id)).filter(id => !byId.has(id)))];
+  if (unknown.length) {
+    return { status: 400, body: { ok: false, error: 'unknown_exercise', unknown_exercise_ids: unknown } };
+  }
+
+  const L = CUSTOM_STEP_LIMITS;
+  const steps = rawSteps.map((raw) => {
+    const ex = byId.get(String(raw.exercise_id));
+    let m = {};
+    try { m = JSON.parse(ex.metrics_json || '{}') ?? {}; } catch { /* unknown metrics */ }
+    const supportsReps = (m.supports ?? []).includes('reps');
+    let reps = _clampInt(raw.target_reps, L.target_reps);
+    let dur  = _clampInt(raw.target_duration_sec, L.target_duration_sec);
+    // Reps OR duration, never both: the client's estimateMins and WorkoutView
+    // both read duration first, so a step carrying both would time one and
+    // display the other. The exercise's own metric decides.
+    if (reps != null && dur != null) { if (supportsReps) dur = null; else reps = null; }
+    if (reps == null && dur == null) {
+      if (supportsReps) reps = 10;
+      else dur = _clampInt(m.base_duration_sec ?? 30, L.target_duration_sec);
+    }
+    return _stepFor(ex, {
+      target_reps:         reps ?? undefined,
+      target_duration_sec: dur ?? undefined,
+      sets:                _clampInt(raw.sets, L.sets) ?? _clampInt(m.fixed_sets ?? 3, L.sets),
+      rest_sec:            _clampInt(raw.rest_sec, L.rest_sec) ?? _clampInt(getDefaultRest(ex, 'main'), L.rest_sec),
+    });
+  });
+
+  // R598 — never inserted silently into a session the user wrote. When due it
+  // is OFFERED; `includeAssessment` (the user tapped "Zelfmeting toevoegen")
+  // appends the two measurement sets, chosen through the same _safePool.
+  let assessmentOffer = false;
+  let assessmentPlanned = false;
+  const dcp = _dcpMeasurementDue(ctx);
+  if (dcp && includeAssessment) {
+    for (const [ex, measures] of [[dcp.pushEx, 'dcp_pushups'], [dcp.situpEx, 'dcp_situps']]) {
+      steps.push(_stepFor(ex, {
+        sets: 1, target_reps: undefined, target_duration_sec: DCP_WINDOW_SEC,
+        rest_sec: _clampInt(getDefaultRest(ex, 'main'), L.rest_sec),
+        max_effort: true, measures, measure_window_sec: DCP_WINDOW_SEC,
+      }));
+    }
+    assessmentPlanned = true;
+  } else if (dcp) {
+    assessmentOffer = true;
+  }
+
+  // Advisory pass: evaluate, collect, do not mutate.
+  const safetyNotes = _adviseSteps(ctx, steps);
+  if (ctx.slot_type === 'rest' && ctx.trace.some(t => String(t).startsWith('R514'))) {
+    // Not a pool guard but the same intent: the check-in reported pain.
+    safetyNotes.push({ step_index: null, exercise_id: null, exercise_slug: null, code: 'R514', guard: 'pain_rest', blocking: false });
+  }
+  const blocking = safetyNotes.some(n => n.blocking);
+  if (blocking && safetyAck !== true) {
+    return { status: 409, body: { ok: false, error: 'safety_ack_required', safety_notes: safetyNotes } };
+  }
+
+  // eslint-disable-next-line no-control-regex
+  const name = typeof sessionName === 'string' ? sessionName.replace(/[\u0000-\u001f\u007f]/g, '').trim().slice(0, 60) : '';
+  const pc = ctx.pregnancyContext;
+  const plan = {
+    date:             ctx.date,
+    slot_type:        'main',
+    intensity:        'moderate',
+    session_name:     name || 'Mijn training',
+    template_slug:    null,
+    target_category:  null,
+    session_notes:    null,
+    pregnancy_week:   pc?.week ?? null,
+    trimester:        pc?.trimester ?? null,
+    postnatal_phase:  pc?.postnatal_phase ?? null,
+    steps,
+    experience_level: ctx.expLevel ?? 'intermediate',
+    coach_priority:   COACH_PRIORITY,
+    assessment_planned: assessmentPlanned,
+    rule_trace:       [USER_PLAN_TRACE],
+    run_program:      null,
+    cycling_program:  null,
+    cross_training_run: null,
+    military_program: null,
+    authored_by_user: true,
+    safety_notes:     safetyNotes,
+    safety_ack_ms:    blocking ? nowMs : null,
+    assessment_offer: assessmentOffer,
+  };
+  return { status: 200, plan, safety_notes: safetyNotes, assessment_offer: assessmentOffer };
 }

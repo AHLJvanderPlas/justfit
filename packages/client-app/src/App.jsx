@@ -11,7 +11,7 @@ import { GOALS, EXPERIENCE, EQUIPMENT_OPTIONS, ALL_EQUIPMENT, ALL_SPORTS, ONBOAR
 import { Icons, ExerciseIcon, GOAL_ICONS, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, getUserId, getJwtPayload } from "./planUtils.js";
 import api from "./apiClient.js";
-import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence } from "./messagePolicy.js";
+import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
@@ -43,6 +43,8 @@ const ProGate       = lazy(() => import("./ProGate.jsx"));
 // CoachView: large secondary tab — lazy loaded for bundle reduction
 const CoachView     = lazy(() => import("./CoachView.jsx"));
 const AssessmentView = lazy(() => import("./AssessmentView.jsx"));
+// W4.2 — "Ik doe iets anders". Lazy: only loaded when someone opens it.
+const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
@@ -1219,24 +1221,55 @@ const WHY_NOT_OPTIONS = [
   { label: "Just need rest",checkin: null },
 ];
 
-function WhyNotModal({ onRegen, onRestDay, onClose }) {
+// W4.2 — three ways out, not two: adapt the coach's plan, rest, or do
+// something else entirely. When today's plan is the user's OWN session, the
+// adapt chips would replace it, so they first ask (the override is durable —
+// only a confirmed action replaces it, W4.1).
+function WhyNotModal({ onRegen, onRestDay, onBuildOwn, onClose, userAuthored }) {
+  useLang();
+  const [pending, setPending] = useState(null);
+  const pick = (opt) => {
+    if (opt.checkin === null) return onRestDay();
+    if (userAuthored) return setPending(opt);
+    onRegen(opt.checkin, false);
+  };
   return (
     <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
-        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8 }}>What's getting in the way?</div>
-        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>We'll adjust today's plan to fit your situation.</p>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 24 }}>
+      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}>
+        <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8 }}>{t("What's getting in the way?")}</div>
+        <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>{t("We'll adjust today's plan to fit your situation.")}</p>
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
           {WHY_NOT_OPTIONS.map((opt) => (
             <button
               key={opt.label}
-              onClick={() => opt.checkin === null ? onRestDay() : onRegen(opt.checkin)}
-              style={{ padding: "11px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text }}
+              onClick={() => pick(opt)}
+              style={{ padding: "11px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${pending === opt ? "var(--accent-border)" : C.border}`, background: pending === opt ? "var(--accent-dim)" : "rgba(var(--overlay-rgb),0.04)", color: C.text }}
             >
-              {opt.label}
+              {t(opt.label)}
             </button>
           ))}
         </div>
-        <button onClick={onClose} style={{ width: "100%", padding: 13, borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>Cancel</button>
+        {pending && (
+          <div style={{ padding: 12, borderRadius: 14, background: C.amberDim, border: `1px solid ${C.amberBorder}`, marginBottom: 16 }}>
+            <div style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5, marginBottom: 10 }}>
+              {t("This replaces the session you built yourself with a new plan from the coach.")}
+            </div>
+            <button
+              onClick={() => onRegen(pending.checkin, true)}
+              style={{ width: "100%", padding: 12, borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer", border: "none", background: "var(--accent)", color: C.onAccent, fontFamily: "inherit" }}
+            >
+              {t("Replace my session")}
+            </button>
+          </div>
+        )}
+        <button
+          onClick={onBuildOwn}
+          style={{ width: "100%", minHeight: 52, padding: "12px 16px", borderRadius: 16, marginBottom: 10, cursor: "pointer", fontFamily: "inherit", border: "1px solid var(--accent-border)", background: "var(--accent-dim)", color: "var(--accent)", textAlign: "left" }}
+        >
+          <span style={{ display: "block", fontSize: 14, fontWeight: 900 }}>{t("I'm doing something else")} →</span>
+          <span style={{ display: "block", fontSize: 12, color: C.muted, marginTop: 2 }}>{t("Build your own session, or pin a few exercises and let the coach fill the rest.")}</span>
+        </button>
+        <button onClick={onClose} style={{ width: "100%", padding: 13, borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>{t("Cancel")}</button>
       </div>
     </div>
   );
@@ -1807,7 +1840,7 @@ function splitTitle(name) {
   return [upper.slice(0, i), upper.slice(i + 1)];
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onBuildOwn, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade }) {
   const intensityColor = {
     low: C.successSoft,
     moderate: C.emerald,
@@ -2001,6 +2034,16 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 </div>
                 {/* Coach / program badges */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
+                  {plan?.authored_by_user && (
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                      {t("Own session")}
+                    </span>
+                  )}
+                  {Array.isArray(plan?.pinned) && plan.pinned.length > 0 && (
+                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                      {t("{n} pinned", { n: plan.pinned.length })}
+                    </span>
+                  )}
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {plan.run_program.session_type ?? "Run Day"} · Week {plan.run_program.week}
@@ -2026,7 +2069,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 </div>
                 {/* Coach sentence — rationale below the hero title */}
                 {(() => {
-                  const sentence = deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard', plan.slot_type ?? '');
+                  const sentence = plan.authored_by_user
+                    ? "You built this session yourself — it counts like any other."
+                    : deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard', plan.slot_type ?? '');
                   const fallback = plan.slot_type !== 'rest' && plan.session_name
                     ? `Today's session: ${plan.session_name.toLowerCase()}.`
                     : null;
@@ -2111,6 +2156,21 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     onRetry={onRetryPlan} token={token} prefs={prefs}
                   />
                 ) : null}
+                {/* W4.1 — advisory notes stay with a user-authored session */}
+                {plan.authored_by_user && (plan.safety_notes?.length ?? 0) > 0 && (
+                  <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: `1px solid ${C.amberBorder}` }}>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>{t("Coach advice")}</div>
+                    {plan.safety_notes.map((n, i) => {
+                      const name = n.step_index != null ? plan.steps?.[n.step_index]?.name : null;
+                      const label = RULE_LABELS[n.code];
+                      return (
+                        <div key={i} style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5 }}>
+                          {name ? `${name}: ` : ""}{label ? t(label.text) : n.code}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
                 {/* START SESSION button */}
                 <button
                   onClick={() => plan.slot_type !== "rest" && onStartWorkout()}
@@ -2127,9 +2187,14 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                 >
                   {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c={C.onAccent} /></>}
                 </button>
-                {plan.slot_type !== "rest" && (
-                  <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%" }}>
-                    Can't do this today?
+                {plan.slot_type !== "rest" ? (
+                  <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%", minHeight: 40 }}>
+                    {t("Can't do this today?")}
+                  </button>
+                ) : (
+                  // A rest day is advice too: someone who wants to move anyway can.
+                  <button onClick={onBuildOwn} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%", minHeight: 40 }}>
+                    {t("I'm doing something else")} →
                   </button>
                 )}
                 {planCapped && !todayCompleted && (
@@ -2766,6 +2831,7 @@ export default function App() {
     };
   }, []);
   const [showWhyNot, setShowWhyNot] = useState(false);
+  const [showBuilder, setShowBuilder] = useState(false);
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
@@ -3494,11 +3560,11 @@ export default function App() {
   );
 
   const handleWhyNotRegen = useCallback(
-    async (checkinOverride) => {
+    async (checkinOverride, replaceUserPlan = false) => {
       setShowWhyNot(false);
       setIsGenerating(true);
       try {
-        const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, prefs.isPro);
+        const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, prefs.isPro, { replaceUserPlan });
         setPlan(newPlan); setPlanError(null);
       } catch (e) {
         console.error("Plan regen failed:", e);
@@ -3834,6 +3900,7 @@ export default function App() {
                   onLogActivity={handleLogActivity}
                   onBonusSession={handleBonusSelect}
                   onWhyNot={() => setShowWhyNot(true)}
+                  onBuildOwn={() => setShowBuilder(true)}
                   onCheckIn={() => setShowCheckIn(true)}
                   prefs={prefs}
                   planError={planError}
@@ -4120,8 +4187,20 @@ export default function App() {
         <WhyNotModal
           onRegen={handleWhyNotRegen}
           onRestDay={handleRestDay}
+          onBuildOwn={() => { setShowWhyNot(false); setShowBuilder(true); }}
+          userAuthored={!!plan?.authored_by_user}
           onClose={() => setShowWhyNot(false)}
         />
+      )}
+      {showBuilder && (
+        <Suspense fallback={null}>
+          <SessionBuilder
+            prefs={prefs}
+            today={today}
+            onClose={() => setShowBuilder(false)}
+            onInstalled={(p) => { if (p) { setPlan(p); setPlanError(null); } }}
+          />
+        </Suspense>
       )}
       {showGuestConvert && (
         <GuestConvertModal

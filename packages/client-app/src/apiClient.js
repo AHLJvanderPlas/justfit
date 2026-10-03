@@ -18,13 +18,61 @@ const api = {
     return data.plan ?? data;
   },
 
-  async generatePlan(userId, date, checkin, coachSim, isPro) {
+  // W4.1 — install a session the user built as today's plan. Never throws on a
+  // 400/409: the builder needs the body (unknown ids, or the safety notes that
+  // need an explicit acknowledgement) to show the user what happened.
+  async installCustomSession(date, { steps, sessionName, safetyAck = false, includeAssessment = false }) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date,
+        session_name: sessionName ?? undefined,
+        custom_steps: steps,
+        safety_ack: safetyAck || undefined,
+        include_assessment: includeAssessment || undefined,
+      }),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    return { status: res.status, data: data ?? {} };
+  },
+
+  // W4.4 — pin 1–3 exercises, the coach fills the rest. Opened from the
+  // builder, so it is an explicit replacement of whatever today's plan is.
+  async pinAndFill(date, pinnedIds) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ date, checkin: null, pinned_exercise_ids: pinnedIds, replace_user_plan: true }),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    return { status: res.status, data: data ?? {} };
+  },
+
+  // The whole active library, fetched once per page load — the builder filters
+  // it locally so typing a search costs no round-trip.
+  _library: null,
+  async getLibrary() {
+    if (!api._library) {
+      api._library = fetch("/api/exercises")
+        .then((r) => r.json())
+        .then((d) => d.exercises ?? [])
+        .catch((e) => { api._library = null; throw e; });
+    }
+    return api._library;
+  },
+
+  async generatePlan(userId, date, checkin, coachSim, isPro, { replaceUserPlan = false } = {}) {
     let res, data;
     try {
       res = await fetch("/api/plan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro }),
+        // replace_user_plan is only ever sent from an explicit, confirmed user
+        // action (WhyNotModal); every automatic call leaves a user-authored plan alone.
+        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro, replace_user_plan: replaceUserPlan || undefined }),
       });
       data = await res.json();
     } catch {
