@@ -644,7 +644,7 @@ esac
 # shuffle. Run `node scripts/planner-behaviour.mjs --verbose` for the matrix.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1)
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 35 personas x 8 properties x 60 dates hold end-to-end"
+  ok "planner behaviour: 38 personas x 8 properties x 60 dates hold end-to-end, nothing waived"
 else
   fail "planner behaviour: ${BEHAV}"
 fi
@@ -752,6 +752,20 @@ else
   else
     ok "no planner rule writes ctx.pool after the selection list is derived"
   fi
+fi
+
+# ── W3.4 — a de-load may only ever LOWER volume ────────────────────────────
+# R536 assigned `ctx.volumeMultiplier = 0.8`, so on a day another rule had
+# already set 0.75 it would RAISE volume on a worse day. Every rule that lowers
+# volume must take the minimum; the only other write allowed is the R521
+# follicular boost (`*=`). No current rule combination makes the old assignment
+# observable in a session (R558 is skipped in pregnancy, R511 is 0.85), so this
+# is a source guard: a behavioural test could not fail on it.
+VMBAD=$(grep -nE 'ctx\.volumeMultiplier[[:space:]]*=[^=]' functions/api/plan.js | grep -v 'Math\.min(ctx\.volumeMultiplier' || true)
+if [ -n "$VMBAD" ]; then
+  fail "ctx.volumeMultiplier assigned without Math.min — a de-load could raise volume: $(echo "$VMBAD" | cut -c1-120 | tr '\n' ' ')"
+else
+  ok "every de-load lowers ctx.volumeMultiplier with Math.min (never assigns over a lower value)"
 fi
 
 # ── A-E2 — a config-driven cap must fail closed ────────────────────────────

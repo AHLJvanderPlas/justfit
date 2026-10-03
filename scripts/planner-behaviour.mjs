@@ -16,9 +16,9 @@
 //                                                 # + the measured volume ratio
 //                                                 #   per persona per date (W3.2)
 //
-import { runPlanner, movementFamily } from '../functions/api/plan.js';
+import { runPlanner, movementFamily, isLongContinuousCardio, continuousCardioCapSec } from '../functions/api/plan.js';
 import { estimateMins } from '../packages/client-app/src/planUtils.js';
-import { RULE_LABELS, INTERNAL_RULE_CODES } from '../packages/client-app/src/messagePolicy.js';
+import { RULE_LABELS, INTERNAL_RULE_CODES, parseVolumeTrace } from '../packages/client-app/src/messagePolicy.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -38,7 +38,6 @@ const exercises = rows.map((r, i) => ({
 // (every emitted R-code has a RULE_LABELS entry) for W2.1. Both are implemented
 // in full here and reported as SKIP until the work they verify ships.
 const PENDING = new Set();
-PENDING.add('volume-floor');  // ← DELETE THIS LINE when W3.2 lands (trace-labels switched on with Wave 2, 2026-10-03)
 
 const DAY = 86400000;
 const TODAY = '2026-10-02';                       // a Friday; nothing is weekday-gated except R999
@@ -155,49 +154,18 @@ const DCP_SPORT = { sports: ['running'], primary: 'running', bias_enabled: false
 
 // ── Open gaps, recorded as ratchets ─────────────────────────────────────────
 //
-// Three properties below are not satisfied by the engine as it stands. A guard
-// that quietly loosened its own threshold would be the bug this whole workstream
-// exists to correct, so each shortfall is written down here at its exact current
-// size and referenced by the personas it affects. The property still fails the
-// moment a figure gets worse, and an entry is deleted — not raised — when the
-// planner is fixed. None of these is test-only: each is a user-visible
-// contradiction, written up in the Wave 1 report.
-const KNOWN_GAPS = {
-  // Several rules re-read the unfiltered `exercises` array AFTER R515/R516/R563/
-  // R596 have narrowed ctx.pool, so the narrowing is discarded: R518 (location
-  // profile), R535 (nausea), R540 (every postnatal phase), R545's low-impact
-  // top-up, R564, R561's fallback, R525, R534/R541 and R574. A postnatal
-  // rebuilding athlete whose profile says "no equipment" is prescribed band and
-  // pull-up-bar work; R518 is the common-path case — anyone who ticks "at the
-  // gym today" has R596 undone and Defence protocol work returned to the pool.
-  // Worst observed symptom: a caesarean-recovery session containing
-  // `optillen-vanaf-de-grond-rugzak`, a rucksack-loaded Defence lift test.
-  POOL_REBUILD_IGNORES_FILTERS: 'plan.js — R518/R535/R540 replace ctx.pool from the unfiltered exercises array',
-  // R501 derives the exercise COUNT from the budget, but expSetMod (+1 set) and
-  // GOAL_REST_MULT (×2.5 for strength) are not budget-aware, so an advanced
-  // athlete's session runs 1.25×–1.5× the stated budget. Nothing bounds total
-  // session time: R595 bounds one exercise, R592 only fires when the check-in
-  // carries an explicit time_budget.
-  NO_TOTAL_TIME_BOUND: 'plan.js — R501/expSetMod/GOAL_REST_MULT never reconcile against the budget',
-  // R574 appends the weighted march after the count has already been spent.
-  MARCH_APPENDED_AFTER_COUNT: 'plan.js — R574 adds 15–40 min on top of a full session',
-  // R574 appends `weighted-march` without checking whether the pool already
-  // selected it, so on some dates the session prescribes the same march twice —
-  // once as the real 15-minute prescription and once, because weighted-march
-  // carries no metrics.fixed_duration, volume-scaled to 3 × 51 s. That second
-  // form IS the "2 × 18 s rucksack march" that triggered the audit: it was fixed
-  // for civilians by R596 and is still live on the military path, where R596
-  // correctly does not apply and R597 cannot see a step added after selection.
-  MARCH_DUPLICATED_AFTER_SELECTION: 'plan.js — R574 appends a march the selection may already hold',
-};
-
-// R596 splits protocol from movement on category + rucksack + fixed_duration.
-// `optillen-vanaf-de-grond` is a named Defence test that is typed `strength`,
-// needs no kit and declares no fixed_duration, so it is indistinguishable from a
-// general movement and survives into civilian sessions. Its rucksack sibling and
-// `graaftest` (typed `skill`) are both correctly removed. Waived by slug so that
-// any OTHER protocol row leaking still fails this property.
-const KNOWN_PROTOCOL_RESIDUAL = new Set(['optillen-vanaf-de-grond']);
+// A property the engine does not yet satisfy is written down here at its exact
+// current size and referenced by the personas it affects (`gaps`, `timeOverMin`,
+// `dupAllow`). A guard that quietly loosened its own threshold would be the bug
+// this whole workstream exists to correct, so the property still fails the
+// moment a figure gets worse, and an entry is DELETED — never raised — when the
+// planner is fixed.
+//
+// Wave 3 (2026-10-03) deleted all four Wave 1 entries — POOL_REBUILD_IGNORES_
+// FILTERS, NO_TOTAL_TIME_BOUND, MARCH_APPENDED_AFTER_COUNT, MARCH_DUPLICATED_
+// AFTER_SELECTION — and the `optillen-vanaf-de-grond` protocol waiver. Nothing
+// is waived today.
+const KNOWN_GAPS = {};
 
 // The runs R555 exists to keep an unprepared athlete off: real running volume
 // with no graded structure. R555 removes these and re-admits exactly one
@@ -222,7 +190,7 @@ const PERSONAS = [
     checkIn: { pregnancy_signals: { breathless: true } },
     forbid: { tags: ['high_impact', 'valsalva', 'inversion', 'crunch', 'supine', 'prone'] } }, // + R536
   { id: 'pregnant-t1-nausea', sex: 'female', pregnancyContext: { mode: 'pregnant', week: 8, trimester: 1 },
-    checkIn: { pregnancy_signals: { nausea: true } }, gaps: ['POOL_REBUILD_IGNORES_FILTERS'],
+    checkIn: { pregnancy_signals: { nausea: true } },
     forbid: { tags: ['high_impact', 'valsalva', 'inversion', 'crunch'] } },                   // R535
 
   // ── Postnatal — R539–R544 ──
@@ -234,11 +202,9 @@ const PERSONAS = [
     forbid: { tags: ['high_impact', 'valsalva', 'crunch'] } },                                 // R539 holds at immediate
   { id: 'postnatal-rebuilding', sex: 'female',
     pregnancyContext: { mode: 'postnatal', postnatal_phase: 'rebuilding', postnatal_cleared_for_exercise: 1, postnatal_birth_type: 'vaginal' },
-    gaps: ['POOL_REBUILD_IGNORES_FILTERS'],
     forbid: { tags: ['high_impact', 'valsalva', 'crunch'] } },                                 // R540
   { id: 'postnatal-caesarean', sex: 'female',
     pregnancyContext: { mode: 'postnatal', postnatal_phase: 'rebuilding', postnatal_cleared_for_exercise: 1, postnatal_birth_type: 'caesarean' },
-    gaps: ['POOL_REBUILD_IGNORES_FILTERS'],
     forbid: { tags: ['high_impact', 'valsalva', 'crunch', 'prone'] } },                        // + R542
 
   // ── Perimenopause — R526 ──
@@ -247,12 +213,9 @@ const PERSONAS = [
 
   // ── Military — R570–R577 ──
   { id: 'military-k3-strength', budget: 60, goal: 'military', primary_intent: 'military',
-    militaryCoach: MIL({ block_session_index: 1 }), conditioning: 55,
-    gaps: ['NO_TOTAL_TIME_BOUND'], timeOverMin: 15 },
+    militaryCoach: MIL({ block_session_index: 1 }), conditioning: 55 },
   { id: 'military-k3-march', budget: 60, goal: 'military', primary_intent: 'military',
-    militaryCoach: MIL({ block_session_index: 3 }), conditioning: 55,
-    gaps: ['MARCH_APPENDED_AFTER_COUNT', 'MARCH_DUPLICATED_AFTER_SELECTION'],
-    timeOverMin: 30, dupAllow: ['weighted-march', 'march+weighted'] },                         // R574
+    militaryCoach: MIL({ block_session_index: 3 }), conditioning: 55 },                         // R574
   { id: 'military-k3-zone2', budget: 60, goal: 'military', primary_intent: 'military',
     militaryCoach: MIL({ block_session_index: 0, block_number: 2 }), conditioning: 55,
     prescribed: true },
@@ -283,8 +246,14 @@ const PERSONAS = [
   { id: 'bmi36-strict', weight_kg: 110, height_cm: 175, experience: 'beginner', goal: 'fat_loss',
     equipment: ['none', 'running_shoes'], conditioning: 15,
     forbid: { equip: ['running_shoes', 'treadmill'] } },                                       // R545 strict band
+  // W3.1 — the hole R555's tag test left: treadmill-run-steady is a 25-minute
+  // continuous run that needs a treadmill, not running shoes, and carries no
+  // `running` tag, so isRunVolumeExercise never saw it. A deconditioned athlete
+  // who owns a treadmill was offered it. The property test catches it by duration.
+  { id: 'treadmill-deconditioned', goal: 'fat_loss', experience: 'beginner',
+    equipment: ['none', 'treadmill', 'rowing_machine', 'exercise_bike'], conditioning: 15 },   // R555 (property)
   { id: 'bmi19-advanced', weight_kg: 58, height_cm: 175, experience: 'advanced', goal: 'strength',
-    equipment: HOME_KIT, gaps: ['NO_TOTAL_TIME_BOUND'], timeOverMin: 30 },
+    equipment: HOME_KIT },
 
   // ── Injury and pain — R514, R562–R565 ──
   { id: 'injury-knee', checkIn: { pain_level: 3, pain_scope: 'specific', pain_areas: ['knee'] },
@@ -298,8 +267,7 @@ const PERSONAS = [
   { id: 'budget-10', budget: 10, expectSlot: 'micro' },                                        // R510
   { id: 'budget-90', budget: 90 },
   { id: 'no-equipment', equipment: [], forbid: { equipAllowOnly: ['none', 'chair'] } },        // R516
-  { id: 'full-gym', equipment: GYM_KIT, checkIn: { equipment_profile_id: 'gym' },
-    gaps: ['POOL_REBUILD_IGNORES_FILTERS'] },                                                  // R518
+  { id: 'full-gym', equipment: GYM_KIT, checkIn: { equipment_profile_id: 'gym' } },           // R518
 
   // ── Standing standards and return — R558, R593, R598 ──
   { id: 'dcp-due', militaryCoach: { active: false, dcp: DCP }, sportPrefs: DCP_SPORT,
@@ -320,13 +288,18 @@ const PERSONAS = [
   // Only an explicit check-in time_budget turns R592 on, so nothing above
   // exercises superset pairing — the one rule that rewrites steps after assembly.
   { id: 'time-pressed-supersets', budget: 60, goal: 'strength', equipment: HOME_KIT,
-    checkIn: { time_budget: 45 }, gaps: ['NO_TOTAL_TIME_BOUND'], timeOverMin: 15 },             // R592
+    checkIn: { time_budget: 45 } },                                                             // R592
 
   { id: 'returning-30d', lastWorkoutDate: daysAgo(30) },                                       // R558
   { id: 'deloaded-stack', experience: 'beginner', weight_kg: 110, height_cm: 190,
     lastWorkoutDate: daysAgo(17), checkIn: { sleep_hours: 5 } },                                 // the audit's worked example
   { id: 'deloaded-worst', experience: 'beginner', weight_kg: 110, height_cm: 190,
     lastWorkoutDate: daysAgo(17), checkIn: { sleep_hours: 5, energy: 3 } },                      // R502 × R511/R558 × R512 × R524
+  // W3.2/W3.3 — the case where R524 used to run AFTER the 3-rep clamp: strength
+  // (5 reps), beginner, low energy, and NO measurement, so R524 falls back to the
+  // body-weight proxy (130 kg → ×0.73). The old order produced 2-rep sets.
+  { id: 'heavy-unmeasured-strength', goal: 'strength', experience: 'beginner', weight_kg: 130,
+    height_cm: 180, noProgression: true, checkIn: { energy: 3 } },                                // R524 inside the floor
 ];
 
 // ── Assertions ───────────────────────────────────────────────────────────────
@@ -336,6 +309,8 @@ const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
   'variety', 'step-vs-session', 'volume-floor', 'trace-labels'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
+const exById  = new Map(exercises.map(e => [e.id, e]));
+const bmiOf   = (p) => (p.weight_kg ?? 80) / (((p.height_cm ?? 180) / 100) ** 2);
 const tagsOf  = (s) => { try { return JSON.parse(s.tags_json || '[]'); } catch { return []; } };
 const equipOf = (s) => { try { return JSON.parse(s.equipment_required_json || '["none"]'); } catch { return ['none']; } };
 
@@ -343,6 +318,7 @@ const equipOf = (s) => { try { return JSON.parse(s.equipment_required_json || '[
 // a name-declared fixed prescription is Defence protocol, not general training.
 const isProtocolStep = (s) => {
   const t = tagsOf(s);
+  if (t.includes('protocol')) return true;            // W5.3 data tag, when the library carries it
   if (!t.includes('military')) return false;
   if (s.category === 'cardio' || s.category === 'skill') return true;
   if (equipOf(s).includes('rucksack')) return true;
@@ -428,18 +404,29 @@ for (const p of PERSONAS) {
         // Equipment the persona does not own is contraindicated by circumstance.
         const owned = (p.equipment?.length ? p.equipment : ['none']);
         const allowed = new Set([...owned, 'none', 'chair', ...(p.checkIn?.equipment_profile_id === 'gym' ? GYM_KIT : [])]);
-        if (!p.prescribed && !waives('POOL_REBUILD_IGNORES_FILTERS')) {
+        if (!p.prescribed) {
           for (const kit of e) if (!allowed.has(kit)) bad.push(`${s.exercise_slug}!${kit}`);
         }
-        // A civilian session must never carry Defence protocol work (R596).
-        // POOL_REBUILD_IGNORES_FILTERS discards R596 along with everything else,
-        // which is how a caesarean-recovery session reached a rucksack-loaded
-        // Defence lift test (`optillen-vanaf-de-grond-rugzak`). Same cause, same
-        // waiver — the worst single symptom of that gap.
-        if (p.primary_intent !== 'military' && isProtocolStep(s)
-          && !KNOWN_PROTOCOL_RESIDUAL.has(s.exercise_slug)
-          && !waives('POOL_REBUILD_IGNORES_FILTERS')) bad.push(`${s.exercise_slug}{protocol}`);
+        // A civilian session must never carry Defence protocol work (R596) —
+        // including via a pool rebuild that forgot the filters (W3.0), which is
+        // how a caesarean-recovery session once reached a rucksack-loaded
+        // Defence lift test (`optillen-vanaf-de-grond-rugzak`).
+        if (p.primary_intent !== 'military' && isProtocolStep(s)) bad.push(`${s.exercise_slug}{protocol}`);
+        // W3.1 — no continuous cardio effort above this persona's conditioning
+        // band, whatever the exercise is called. Prescribed blueprints are the
+        // coach's own budgeted programme, not a pool pick.
+        // Steps do not carry metrics_json, so the property is read off the
+        // library row — reading it off the step would make this check unfailable.
+        const row = exById.get(s.exercise_id);
+        if (!p.prescribed && row && isLongContinuousCardio(row)) {
+          const cap = continuousCardioCapSec(p.noProgression ? 15 : (p.conditioning ?? 40), bmiOf(p), row);
+          const len = s.target_duration_sec ?? 0;
+          if (len > cap) bad.push(`${s.exercise_slug}<${Math.round(len / 60)}min > ${Math.round(cap / 60)}min band>`);
+        }
       }
+      // W3.0 — the backstop removed a step that a rebuild let through. The user
+      // was protected, but a rule bypassed _safePool, and that is a failure.
+      for (const t of trace) if (t.includes('pool-guard backstop')) bad.push(`backstop: ${t}`);
       say('contraindications', bad.length ? 'FAIL' : 'PASS',
         bad.length ? `contraindicated in steps: ${[...new Set(bad)].join(', ')}` : `${steps.length} step(s) clean`);
     }
@@ -463,11 +450,15 @@ for (const p of PERSONAS) {
         `${steps.length} step(s), need ≥ ${min}`);
     }
 
-    // ── 4. Every step prescribes either reps or a duration ──
+    // ── 4. Every step prescribes either reps or a duration, reps within 3–30 ──
+    // The 3–30 clamp is the planner's own contract. W3.2: R524 used to run after
+    // it, so a body-mass slow start could take a 3-rep set to 2.
     {
       const mute = steps.filter(s => !(s.target_reps > 0) && !(s.target_duration_sec > 0));
-      say('prescription', mute.length ? 'FAIL' : 'PASS',
+      const outOfRange = steps.filter(s => s.target_reps != null && (s.target_reps < 3 || s.target_reps > 30));
+      say('prescription', (mute.length || outOfRange.length) ? 'FAIL' : 'PASS',
         mute.length ? `step(s) with neither reps nor duration: ${mute.map(s => s.exercise_slug).join(', ')}`
+          : outOfRange.length ? `rep target outside the 3–30 clamp: ${outOfRange.map(s => `${s.exercise_slug}×${s.target_reps}`).join(', ')}`
           : `${steps.length} step(s) prescribed`);
     }
 
@@ -592,6 +583,98 @@ for (const p of PERSONAS) {
   const bad = (civ.steps || []).filter(s => /^(marsen|hardlopen)|cooper|rugzak|weighted-march/.test(s.exercise_slug));
   check(bad.length === 0, `civilian session contained protocol work: ${bad.map(s => s.exercise_slug).join(', ')}`);
   check((civ.steps || []).length > 0, 'civilian fat_loss session came back empty');
+
+  // R519 — when the volume floor holds, the session SAYS so (W3.2). Property 7
+  // proves the floor clamps; this proves the user is told. A floor that held in
+  // silence is the same failure as a stack that went to ×0.29 in silence.
+  {
+    const worst = PERSONAS.find(x => x.id === 'deloaded-worst');
+    const line = (plan(worst).rule_trace || []).map(String).find(t => t.startsWith('R519')) ?? '';
+    const v = parseVolumeTrace(line);
+    check(v && v.factors.floor > 1 && v.reasons.includes('floor') && v.pct === 50,
+      `the volume floor held but R519 does not say so: "${line}"`);
+    check(v && Math.abs(v.product - v.pct / 100) < 0.01,
+      `R519 states ${v?.pct}% but its factors multiply to ${Math.round((v?.product ?? 0) * 100)}%`);
+  }
+
+  // R524 — measured conditioning beats the body-weight proxy (W3.3).
+  //
+  // Product owner: the weight cut protects heavy users from unachievable goals
+  // and injuries, because weight indicates a lack of fitness. Weight is the
+  // weakest signal for that, so it is the FALLBACK: a DCP self-test or measured
+  // progression wins, and the trace names the basis used.
+  {
+    const heavy = { goal: 'strength', weight_kg: 120, height_cm: 185 };
+    const r524 = (o) => (o.rule_trace || []).map(String).find(t => t.startsWith('R524')) ?? '';
+    const bwReps = (o) => (o.steps || []).filter(st => tagsOf(st).includes('bodyweight') && st.target_reps)
+      .map(st => st.exercise_slug + ':' + st.target_reps).join(',');
+
+    const unmeasured = plan({ ...heavy, noProgression: true });
+    check(/basis: weight/.test(r524(unmeasured)) && /direction: down/.test(r524(unmeasured)),
+      `R524 with no measurement must fall back to the weight proxy, traced: "${r524(unmeasured)}"`);
+
+    const measuredFit = plan({ ...heavy, conditioning: 45 });
+    const measuredTwin = plan({ ...heavy, conditioning: 45, weight_kg: 70 });
+    check(/basis: progression/.test(r524(measuredFit)) && !/×0\./.test(r524(measuredFit)),
+      `R524 cut a measured, conditioned athlete by body weight: "${r524(measuredFit)}"`);
+    check(bwReps(measuredFit) !== '', 'R524 regression has no bodyweight rep step to compare — it would pass vacuously');
+    check(bwReps(measuredFit) === bwReps(measuredTwin),
+      `measured progression must make body weight irrelevant to bodyweight reps: ${bwReps(measuredFit)} vs ${bwReps(measuredTwin)}`);
+
+    const measuredWeak = plan({ ...heavy, conditioning: 10 });
+    check(/basis: progression/.test(r524(measuredWeak)) && /×0\.80/.test(r524(measuredWeak)),
+      `measured deconditioning must still slow the start: "${r524(measuredWeak)}"`);
+
+    const dcpLow = plan({ ...heavy, conditioning: 45, sportPrefs: DCP_SPORT,
+      militaryCoach: { active: false, dcp: { ...DCP, last: { pushups: 4, situps: 6, at_ms: todayMs } } } });
+    check(/basis: dcp/.test(r524(dcpLow)),
+      `a DCP self-test is the strongest evidence and must be preferred: "${r524(dcpLow)}"`);
+  }
+
+  // R534 — the pelvic-floor injection avoids supine work by RULE, not by row
+  // order (W3.4). The library is reordered adversarially so that every supine
+  // row comes first: a `find()` over raw rows then picks a lying pelvic tilt for
+  // a week-20 pregnancy, which R531 forbids. Same for the caesarean R541 path.
+  {
+    const supineFirst = [...exercises].sort((a, b) =>
+      (JSON.parse(b.tags_json || '[]').includes('supine') ? 1 : 0)
+      - (JSON.parse(a.tags_json || '[]').includes('supine') ? 1 : 0));
+    const withLibrary = (p, d) => { const a = build(p, d); a[2] = supineFirst; return runPlanner(...a); };
+    let injected = 0;
+    for (const id of ['pregnant-t2', 'pregnant-t3', 'postnatal-caesarean']) {
+      const p = PERSONAS.find(x => x.id === id);
+      for (const d of DATES.slice(0, 14)) {
+        const o = withLibrary(p, d);
+        if ((o.rule_trace || []).some(t => /^R5(34|41)/.test(String(t)))) injected++;
+        const bs = (o.rule_trace || []).map(String).find(t => t.includes('pool-guard backstop'));
+        if (bs) check(false, `${id} (${d}) with the library reordered: ${bs}`);
+        for (const st of o.steps || []) {
+          for (const f of p.forbid.tags) {
+            if (tagsOf(st).includes(f)) { check(false, `${id} (${d}) with the library reordered: ${st.exercise_slug}[${f}] — a rule relies on row order`); }
+          }
+        }
+      }
+    }
+    check(injected > 0, 'R534/R541 never injected under the reordered library — the by-rule test is vacuous');
+  }
+
+  // R596 — the `protocol` tag (W5.3, migration 0116) is honoured wherever it is
+  // present. The fixture predates that migration, so one general cardio row is
+  // tagged here: if R596 reads the tag, a civilian never sees it; if it only
+  // runs its heuristic, the row is an ordinary movement and turns up.
+  {
+    const tagged = exercises.map(e => e.slug === 'jumping-jacks'
+      ? { ...e, tags_json: JSON.stringify([...JSON.parse(e.tags_json || '[]'), 'protocol']) } : e);
+    let seenUntagged = false;
+    for (const d of DATES.slice(0, 30)) {
+      const a = build({ goal: 'fat_loss' }, d);
+      if ((runPlanner(...a).steps || []).some(st => st.exercise_slug === 'jumping-jacks')) seenUntagged = true;
+      a[2] = tagged;
+      const leak = (runPlanner(...a).steps || []).find(st => st.exercise_slug === 'jumping-jacks');
+      if (leak) { check(false, `R596 ignored the protocol tag: jumping-jacks (tagged protocol) in a civilian session on ${d}`); break; }
+    }
+    check(seenUntagged, 'protocol-tag regression is vacuous: the untagged row never reaches a civilian session');
+  }
 
   // R595 — nothing longer than the session it sits in.
   const short = plan({ budget: 20, equipment: ['none', 'running_shoes'] });

@@ -1052,6 +1052,53 @@ function hasTags(exercise, ...tags) {
 }
 
 // ---------------------------------------------------------------------------
+// W3.1 — long continuous cardio, as a PROPERTY of the exercise
+//
+// The question R555 means is "is this a long continuous effort this athlete is
+// not conditioned for?", not "is this tagged running?". Since migration 0112
+// every timed exercise has a real base_duration_sec, so it is answerable from
+// data. Intervals, warm-ups and session phases are structured, not continuous.
+// ---------------------------------------------------------------------------
+export const LONG_CARDIO_SEC = 600;
+
+export function longCardioSec(ex) {
+  let m = {};
+  try { m = JSON.parse(ex?.metrics_json || '{}'); } catch { /* unknown length */ }
+  return m.base_duration_sec ?? 0;
+}
+
+export function isLongContinuousCardio(ex) {
+  return ex?.category === 'cardio'
+    && !hasTags(ex, 'session_phase', 'run_warmup', 'intervals', 'run_interval', 'hiit')
+    && longCardioSec(ex) >= LONG_CARDIO_SEC;
+}
+
+/**
+ * The longest continuous cardio effort (seconds) this athlete is conditioned for.
+ *
+ * Conditioning bands follow the run-interval levels R555 already uses, so the
+ * same score means the same thing in both places. BMI caps weight-bearing
+ * impact only: a 30-minute bike ride is not what R545/R546 protect against, a
+ * 30-minute run is. With no progression row the score is 15 (the R555 default):
+ * an unmeasured athlete is treated as deconditioned, which is Principle 3.
+ */
+export function continuousCardioCapSec(condScore, bmi, ex) {
+  const c = condScore ?? 15;
+  let capMin = c < T.RUN_LEVEL_2 ? 10
+    : c < T.RUN_LEVEL_3 ? 15
+    : c < T.RUN_LEVEL_4 ? 20
+    : c < T.RUN_LEVEL_5 ? 30
+    : c < T.RUN_LEVEL_6 ? 45
+    : Infinity;
+  const weightBearingImpact = !hasTags(ex, 'low_impact');
+  if (bmi != null && weightBearingImpact) {
+    if (bmi >= T.BMI_STRICT) capMin = Math.min(capMin, 0);
+    else if (bmi >= T.BMI_MODERATE) capMin = Math.min(capMin, 10);
+  }
+  return capMin * 60;
+}
+
+// ---------------------------------------------------------------------------
 // Rest duration helper — used per step in the plan
 // ---------------------------------------------------------------------------
 function getDefaultRest(exercise, slotType) {
@@ -1118,6 +1165,75 @@ function _volumeReason(ctx, key) {
   if (!ctx.volumeReasons.includes(key)) ctx.volumeReasons.push(key);
 }
 
+// ── W3.0 — pool guards: a filter, once applied, cannot be lost ─────────────────
+//
+// Six rules (R518, R535, R540 in every postnatal phase, R545's top-up, R561's
+// fallback, R564) used to REBUILD the pool from the unfiltered `exercises`
+// array after R515/R516/R563/R596 had narrowed it, so the narrowing was simply
+// discarded. A postnatal-rebuilding athlete with no equipment was prescribed
+// band and pull-up-bar work; a caesarean-recovery session got a rucksack-loaded
+// Defence lift test; "at the gym today" undid R596 for everyone.
+//
+// Patching six call sites would leave the seventh to whoever writes it next. So
+// every narrowing filter REGISTERS its predicate here instead of only filtering:
+//
+//   _poolGuard(ctx, key, code, keep)   register + narrow ctx.pool
+//   _safePool(ctx, candidates)         any rebuild goes through this; it
+//                                      re-applies every guard registered so far
+//
+// A rule may still legitimately redefine a guard — R518 replaces the equipment
+// guard with the location's kit, which is the whole point of a location — but it
+// replaces it under the same key, so nothing else it re-derives can leak. The
+// last line of defence is _enforcePoolGuards() at the end of assembly: any step
+// that is not a coach prescription and violates a SAFETY guard is removed and a
+// `WARN pool-guard backstop` line is traced. The behavioural matrix fails on
+// that line, so a rebuild that forgets _safePool is caught in CI while the user
+// is still protected in production.
+//
+// `safety: false` marks pool-composition guards (warm-up/session-phase rows,
+// bonus dedup). They shape rebuilt pools but are not enforced on prescriptions:
+// a run coach's warm-up IS a session_phase row.
+function _poolGuard(ctx, key, code, keep, { safety = true } = {}) {
+  ctx.poolGuards.set(key, { code, keep, safety });
+  ctx.pool = ctx.pool.filter(keep);
+}
+
+function _failedGuard(ctx, ex, safetyOnly = false) {
+  for (const [key, g] of ctx.poolGuards) {
+    if (safetyOnly && !g.safety) continue;
+    if (!g.keep(ex)) return { key, code: g.code };
+  }
+  return null;
+}
+
+function _passesGuards(ctx, ex) {
+  return !!ex && !_failedGuard(ctx, ex);
+}
+
+function _safePool(ctx, candidates) {
+  return candidates.filter(ex => !_failedGuard(ctx, ex));
+}
+
+const _parseArr = (s, dflt = '[]') => { try { return JSON.parse(s || dflt); } catch { return JSON.parse(dflt); } };
+const _equipOf = (ex) => _parseArr(ex?.equipment_required_json, '["none"]');
+const ALWAYS_AVAILABLE_EQUIP = new Set(['none', 'chair']);
+
+// The backstop. Steps that come from a coach blueprint are prescriptions, not
+// pool picks, and are exempt — a run coach's warm-up, a Cooper test, the R574
+// march and a military DB template are chosen deliberately by their own rules.
+function _enforcePoolGuards(ctx, steps, prescribedIds) {
+  const byId = new Map(ctx.exercises.map(e => [e.id, e]));
+  return steps.filter(step => {
+    if (prescribedIds.has(step.exercise_id)) return true;
+    const ex = byId.get(step.exercise_id);
+    if (!ex) return true;                                  // synthetic step (cycling coach)
+    const hit = _failedGuard(ctx, ex, true);
+    if (!hit) return true;
+    ctx.trace.push(`WARN pool-guard backstop — ${ex.slug} removed: violates ${hit.code} (${hit.key}) — a rule rebuilt the pool without _safePool`);
+    return false;
+  });
+}
+
 // ── Stage 1: Initialize ───────────────────────────────────────────────────────
 function _initPlannerContext(date, checkIn, exercises, prefs, templates, completedIds, bodyProfile,
   cycleContext, pregnancyContext, bonusSession, progressionState, isPro,
@@ -1143,15 +1259,19 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     }
   }
 
-  let pool = [...exercises];
-  pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes(RUN_WARMUP_TAG));
-  pool = pool.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('session_phase'));
-
+  // Pool-composition guards (W3.0): never offered as a pool pick, and every
+  // later rebuild re-applies them through _safePool.
+  const poolGuards = new Map();
+  poolGuards.set('composition', {
+    code: 'init', safety: false,
+    keep: (ex) => { const t = _parseArr(ex.tags_json); return !t.includes(RUN_WARMUP_TAG) && !t.includes('session_phase'); },
+  });
   if (completedIds?.length) {
     const doneSet = new Set(completedIds);
-    pool = pool.filter(e => !doneSet.has(e.id));
+    poolGuards.set('bonus_dedup', { code: 'init', safety: false, keep: (ex) => !doneSet.has(ex.id) });
     trace.push(`Bonus dedup — excluded ${completedIds.length} completed exercise(s)`);
   }
+  let pool = exercises.filter(ex => [...poolGuards.values()].every(g => g.keep(ex)));
 
   const prefBudget = prefs?.session_duration_min ?? 30;
   const rawBudget  = checkIn?.time_budget ?? prefBudget;
@@ -1189,8 +1309,13 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
 
     blockedWeekdays: new Set(prefs?.preferences?.blocked_weekdays ?? []),
 
-    pool, intensity, slot_type: 'main',
+    pool, poolGuards, intensity, slot_type: 'main',
     volumeMultiplier: 1.0,
+    // W3.2 — the whole multiplicative stack (R512 × R502 × volumeMultiplier ×
+    // R524) never prescribes less than half of baseline. A very light day is a
+    // coaching decision; a silent quarter-session is not. When it clamps, R519
+    // says so.
+    volumeFloor: 0.5,
     volumeReasons: [],
     trace, sessionNotes: null,
 
@@ -1207,6 +1332,7 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     militaryMarchSec: 0,
     milWeekComputed: 1,
     r555PinnedEx: null,
+    appendedIds: new Set(),   // steps a rule added and traced (R525, R534/R541, R561)
     forceAssessment: !!opts.forceAssessment,
     dcpMeasure: null,
     selection: null,
@@ -1315,19 +1441,38 @@ function _applySafetyPolicies(ctx) {
   // R572 filters the pool TO military for military sessions, which is the
   // mirror case and stays untouched.
   if (!isMilCoachActive && ctx.slot_type !== 'rest') {
+    //
+    // W3.4 — the `protocol` tag (seeded by Wave 5, migration 0116) is the data
+    // answer and wins wherever it is present. The heuristic below stays as the
+    // fallback for any row the tag does not cover; the two are OR-ed, so a tag
+    // can only ever remove more, never re-admit what the heuristic caught.
+    //
+    // The heuristic gained one leg for `optillen-vanaf-de-grond`, the Defence
+    // lift test that leaked: typed strength, no kit, no fixed_duration — it looked
+    // like a movement. What sets it apart is that it is TIMED and neither a
+    // bodyweight exercise nor loaded with anything the library can name: the
+    // load is the test's own apparatus. Plank and flutter kicks are timed too,
+    // but they are bodyweight; deadlift is unbodyweight but needs a barbell.
+    // This is still inference, which is why the tag is preferred.
     const isProtocol = (ex) => {
       const tags = JSON.parse(ex.tags_json || '[]');
+      if (tags.includes('protocol')) return true;
       if (!tags.includes('military')) return false;
       if (ex.category === 'cardio' || ex.category === 'skill') return true;
       const equip = JSON.parse(ex.equipment_required_json || '[]');
       if (equip.includes('rucksack')) return true;
-      try { if (JSON.parse(ex.metrics_json || '{}').fixed_duration) return true; } catch { /* not fixed */ }
+      let m = {};
+      try { m = JSON.parse(ex.metrics_json || '{}'); } catch { /* not fixed */ }
+      if (m.fixed_duration) return true;
+      const timedOnly = (m.supports ?? []).includes('time') && !(m.supports ?? []).includes('reps');
+      const unloaded  = equip.every(e => ALWAYS_AVAILABLE_EQUIP.has(e));
+      if (timedOnly && unloaded && !tags.includes('bodyweight')) return true;
       return false;
     };
     const before = ctx.pool.length;
     const civilian = ctx.pool.filter(ex => !isProtocol(ex));
     if (civilian.length >= 3) {
-      ctx.pool = civilian;
+      _poolGuard(ctx, 'civilian', 'R596', (ex) => !isProtocol(ex));
       const removed = before - civilian.length;
       if (removed > 0) ctx.trace.push(`R596 — ${removed} Defensie-protocoloefening(en) buiten beschouwing gelaten (geen militaire coach actief)`);
     }
@@ -1407,17 +1552,19 @@ function _applySafetyPolicies(ctx) {
     const forbiddenTags = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
     if (forbiddenTags.length > 0) {
       const before = ctx.pool.length;
-      ctx.pool = ctx.pool.filter(ex => {
+      _poolGuard(ctx, 'injury', 'R563', (ex) => {
         const tags = JSON.parse(ex.tags_json || '[]');
         return !forbiddenTags.some(ft => tags.includes(ft));
       });
       ctx.trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${before} → ${ctx.pool.length} exercises`);
     }
     if (ctx.pool.length < 3) {
-      const safePool = exercises.filter(ex => {
+      // W3.0 — the top-up re-applies every guard so far (R596 included), not just
+      // the injury tags; it used to read the unfiltered library.
+      const present = new Set(ctx.pool.map(e => e.id));
+      const safePool = _safePool(ctx, exercises).filter(ex => {
+        if (present.has(ex.id)) return false;
         const tags = JSON.parse(ex.tags_json || '[]');
-        const forbiddenTags2 = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
-        if (forbiddenTags2.some(ft => tags.includes(ft))) return false;
         return tags.includes('mobility') || tags.includes('recovery');
       });
       const toAdd = seededShuffle(safePool, date).slice(0, 3 - ctx.pool.length);
@@ -1434,7 +1581,7 @@ function _applySafetyPolicies(ctx) {
   const recoveryMode = !!(checkIn?.recovery_mode ?? checkIn?.checkin_json?.recovery_mode);
   if (recoveryMode && !isMilCoachActive && !pregnancyContext) {
     ctx.intensity = 'low';
-    ctx.pool = ctx.pool.filter(ex => {
+    _poolGuard(ctx, 'recovery_mode', 'R559', (ex) => {
       const tags = JSON.parse(ex.tags_json || '[]');
       return tags.includes('mobility') || tags.includes('recovery') || ex.category === 'mobility' || ex.category === 'recovery';
     });
@@ -1443,7 +1590,7 @@ function _applySafetyPolicies(ctx) {
 
   // R515
   if (checkIn?.no_clothing) {
-    ctx.pool = ctx.pool.filter(ex => {
+    _poolGuard(ctx, 'clothing', 'R515', (ex) => {
       const tags = JSON.parse(ex.tags_json || '[]');
       return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
     });
@@ -1451,19 +1598,13 @@ function _applySafetyPolicies(ctx) {
   }
 
   // R516
-  const ALWAYS_AVAILABLE = new Set(['none', 'chair']);
+  const ALWAYS_AVAILABLE = ALWAYS_AVAILABLE_EQUIP;
   if (ctx.forceBodyweight || ctx.profileBodyweightOnly) {
-    ctx.pool = ctx.pool.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => ALWAYS_AVAILABLE.has(e));
-    });
+    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e)));
     const reason = ctx.forceBodyweight ? 'checkin no_gear/traveling' : 'profile equipment=none';
     ctx.trace.push(`R516 — Bodyweight only (${reason}) → ${ctx.pool.length} exercises remain`);
   } else {
-    ctx.pool = ctx.pool.filter(ex => {
-      const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-      return equip.every(e => ALWAYS_AVAILABLE.has(e) || ctx.effectiveEquip.includes(e));
-    });
+    _poolGuard(ctx, 'equipment', 'R516', (ex) => _equipOf(ex).every(e => ALWAYS_AVAILABLE.has(e) || ctx.effectiveEquip.includes(e)));
     ctx.trace.push(`R516 — Equipment filter from profile → ${ctx.pool.length} exercises remain`);
   }
 
@@ -1510,10 +1651,20 @@ function _applySafetyPolicies(ctx) {
 
     if (_equip) {
       const _before = ctx.pool.length;
-      const _next = exercises.filter(ex => {
-        const eq = JSON.parse(ex.equipment_required_json || '["none"]');
+      // W3.0 — a location legitimately REDEFINES the equipment guard (that is what
+      // a location is), so it replaces it under the same key and re-derives the
+      // pool through _safePool. Every other guard — R596, R563, R559, R515 — is
+      // re-applied with it. This used to read the raw library, which undid R596
+      // for anyone who ticked "at the gym today". no_gear/traveling still wins
+      // over the location: today's kit is bodyweight whatever the profile says.
+      const _prevEquipGuard = ctx.poolGuards.get('equipment');
+      const _locKeep = (ex) => {
+        const eq = _equipOf(ex);
+        if (ctx.forceBodyweight) return eq.every(e => ALWAYS_AVAILABLE.has(e));
         return eq.every(e => _equip.includes(e));
-      });
+      };
+      ctx.poolGuards.set('equipment', { code: 'R518', keep: _locKeep, safety: true });
+      const _next = _safePool(ctx, exercises);
       // A profile must never leave the athlete with nothing. If a custom kit is too
       // narrow to build a session, keep the previous pool and say so — the same
       // failure mode that once made "at the gym" drop 52 exercises and add one.
@@ -1521,22 +1672,11 @@ function _applySafetyPolicies(ctx) {
         ctx.pool = _next;
         ctx.trace.push(`R518 — Location "${_profile?.name ?? _profileId}" → ${ctx.pool.length} exercises available (was ${_before})`);
       } else {
+        if (_prevEquipGuard) ctx.poolGuards.set('equipment', _prevEquipGuard);
+        else ctx.poolGuards.delete('equipment');
         ctx.trace.push(`R518 — Location "${_profile?.name ?? _profileId}" resolves only ${_next.length} exercises — keeping the wider pool of ${_before}`);
         _addNote(ctx, 'Je uitrusting voor deze locatie is te beperkt voor een volledige sessie — de planner gebruikt je volledige oefeningenlijst.');
       }
-    }
-
-    if (checkIn?.no_gear || checkIn?.traveling) {
-      ctx.pool = ctx.pool.filter(ex => {
-        const equip = JSON.parse(ex.equipment_required_json || '["none"]');
-        return equip.includes('none');
-      });
-    }
-    if (checkIn?.no_clothing) {
-      ctx.pool = ctx.pool.filter(ex => {
-        const tags = JSON.parse(ex.tags_json || '[]');
-        return tags.includes('low_impact') && !tags.includes('floor') && !tags.includes('high_impact');
-      });
     }
   }
 
@@ -1556,12 +1696,12 @@ function _applySafetyPolicies(ctx) {
 
     if (strictMode) {
       const beforeCount = ctx.pool.length;
-      ctx.pool = ctx.pool.filter(ex => !isRunningEx(ex));
+      _poolGuard(ctx, 'bmi_running', 'R545', (ex) => !isRunningEx(ex));
       if (!ctx.pool.some(ex => ex.category === 'cardio')) {
-        const lowImpact = exercises.filter(ex =>
+        // W3.0 — the low-impact top-up honours every guard (kit, injury, R596).
+        const lowImpact = _safePool(ctx, exercises).filter(ex =>
           ex.category === 'cardio' &&
-          JSON.parse(ex.tags_json || '[]').includes('low_impact') &&
-          !isRunningEx(ex)
+          JSON.parse(ex.tags_json || '[]').includes('low_impact')
         );
         ctx.pool = [...ctx.pool, ...lowImpact];
       }
@@ -1656,27 +1796,31 @@ function _applyBodyModePolicies(ctx) {
       if (ctx.intensity === 'high') ctx.intensity = 'moderate';
       ctx.trace.push(`R530 — T${trimester}: intensity capped at moderate`);
     }
+    // Registered as guards (W3.0), so R534's pelvic-floor injection, R535's
+    // nausea pool and every later rebuild honour them by rule, not by row order.
     if (week >= T.PREGNANCY_SUPINE_WEEK) {
-      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'supine'));
+      _poolGuard(ctx, 'pregnancy_supine', 'R531', (ex) => !hasTags(ex, 'supine'));
       ctx.trace.push(`R531 — Week ${week}: supine exercises filtered out`);
     }
-    ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'high_impact'));
+    _poolGuard(ctx, 'pregnancy_impact', 'R532', (ex) => !hasTags(ex, 'high_impact'));
     ctx.trace.push('R532 — High-impact exercises excluded during pregnancy');
-    ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
+    _poolGuard(ctx, 'pregnancy_absolute', 'R533', (ex) => !hasTags(ex, 'valsalva', 'inversion', 'crunch'));
     if (trimester >= 2) {
-      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'prone'));
+      _poolGuard(ctx, 'pregnancy_prone', 'R533', (ex) => !hasTags(ex, 'prone'));
       ctx.trace.push('R533 — T2+: prone exercises excluded');
     }
     ctx.trace.push('R533 — Absolute exclusions: valsalva, inversion, crunch');
     if (nauseaToday) {
       ctx.slot_type = 'micro';
-      const nauseaPool = exercises.filter(ex => hasTags(ex, 'breathing', 'recovery') && !hasTags(ex, 'high_impact', 'supine'));
+      const nauseaPool = _safePool(ctx, exercises).filter(ex => hasTags(ex, 'breathing', 'recovery') && !hasTags(ex, 'high_impact', 'supine'));
       if (nauseaPool.length) ctx.pool = nauseaPool;
       _addNote(ctx, 'Gentle movement only today. Listen to your body — rest is always the right choice.');
       ctx.trace.push('R535 — Nausea today → breathing/recovery focus');
     }
     if (trimester === 3 && breathlessToday) {
-      ctx.volumeMultiplier = 0.8;
+      // W3.4 — a de-load takes the lower of the two, never assigns: assigning
+      // 0.8 over an existing 0.75 (R558) would RAISE volume on a worse day.
+      ctx.volumeMultiplier = Math.min(ctx.volumeMultiplier, 0.8);
       _volumeReason(ctx, 'breathlessness');
       _addNote(ctx, 'Shorter intervals today — pause when you need to breathe.');
       ctx.trace.push('R536 — T3 breathlessness → volume ×0.8');
@@ -1701,36 +1845,44 @@ function _applyBodyModePolicies(ctx) {
       ctx.trace.push('R539 — Postnatal clearance not confirmed — holding at immediate-phase restrictions');
     }
 
+    // W3.0 — each phase DEFINES its pool, so it rebuilds; but it rebuilds through
+    // _safePool, so the athlete's kit, injuries and R596 still hold. The phase
+    // predicate is then registered as a guard of its own, so nothing appended
+    // later (R534/R541, R525, R561) can step outside the phase either.
+    const _phaseRebuild = (keep) => {
+      ctx.poolGuards.set('postnatal_phase', { code: 'R540', keep, safety: true });
+      ctx.pool = _safePool(ctx, exercises);
+    };
     if (postnatalPhase === 'immediate') {
-      ctx.pool = exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'));
+      _phaseRebuild(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'));
       ctx.intensity = 'low';
       ctx.slot_type = ctx.pool.length ? ctx.slot_type : 'rest';
       ctx.trace.push('R540 — Immediate phase: pelvic floor, breathing, recovery only');
     } else if (postnatalPhase === 'early') {
-      ctx.pool = exercises.filter(ex =>
+      _phaseRebuild(ex =>
         hasTags(ex, 'pelvic_floor', 'breathing', 'recovery') ||
         (ex.category === 'mobility' && hasTags(ex, 'low_impact') && !hasTags(ex, 'high_impact'))
       );
       ctx.intensity = 'low';
       ctx.trace.push('R540 — Early phase: pelvic floor, breathing, light mobility');
     } else if (postnatalPhase === 'rebuilding') {
-      ctx.pool = exercises.filter(ex => {
+      _phaseRebuild(ex => {
         if (hasTags(ex, 'high_impact', 'crunch', 'valsalva')) return false;
         if (hasTags(ex, 'dumbbell') && !hasTags(ex, 'pelvic_floor')) return false;
         return true;
       });
       if (isCaesarean) {
-        ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'prone'));
+        _poolGuard(ctx, 'postnatal_prone', 'R542', (ex) => !hasTags(ex, 'prone'));
         ctx.trace.push('R542 — Caesarean: prone exercises excluded in rebuilding phase');
       }
       _addNote(ctx, 'Check for abdominal separation (diastasis recti) if you haven\'t already — speak to your physiotherapist.');
       ctx.trace.push('R540 — Rebuilding phase: bodyweight only, no crunch/high-impact');
       ctx.trace.push('R543 — Diastasis recti check reminder added');
     } else if (postnatalPhase === 'strengthening') {
-      ctx.pool = exercises.filter(ex => !hasTags(ex, 'high_impact', 'crunch', 'valsalva'));
+      _phaseRebuild(ex => !hasTags(ex, 'high_impact', 'crunch', 'valsalva'));
       ctx.trace.push('R540 — Strengthening phase: dumbbells introduced, high-impact excluded');
     } else {
-      ctx.pool = exercises.filter(ex => !hasTags(ex, 'valsalva'));
+      _phaseRebuild(ex => !hasTags(ex, 'valsalva'));
       const runningToday = checkIn?.postnatal_signals?.running_today ?? false;
       if (runningToday) {
         _addNote(ctx, 'Running clearance: ensure you\'ve completed a pelvic floor physio assessment before returning to running.');
@@ -1740,9 +1892,9 @@ function _applyBodyModePolicies(ctx) {
     }
 
     if (isCaesarean && (postnatalPhase === 'immediate' || postnatalPhase === 'early')) {
-      ctx.pool = ctx.pool.filter(ex => !hasTags(ex, 'supine'));
+      _poolGuard(ctx, 'postnatal_supine', 'R540', (ex) => !hasTags(ex, 'supine'));
     }
-    if (!ctx.pool.length) ctx.pool = [...exercises].filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
+    if (!ctx.pool.length) ctx.pool = _safePool(ctx, exercises).filter(ex => hasTags(ex, 'pelvic_floor', 'breathing'));
   }
 }
 
@@ -1770,27 +1922,51 @@ function _selectCoachBlueprint(ctx) {
   // `hardlopen-*` set and `12-minuten-loop` declare equipment_required=["none"], so
   // they reach users with no running shoes and were never filtered. See
   // isRunVolumeExercise() in _shared/running.js for why identification is structural.
+  //
+  // W3.1 — two questions, kept apart:
+  //   1. isRunVolumeExercise: "is this ungraded running?" — answered only so
+  //      exactly one run-interval-level-N can be swapped in for it.
+  //   2. isLongContinuousCardio + continuousCardioCapSec: "is this a long
+  //      continuous effort this athlete is not conditioned for?" — answered from
+  //      the exercise's real duration (migration 0112), the athlete's measured
+  //      conditioning and BMI, whatever the exercise is called. The marches got
+  //      through the old guard because they were not tagged `running`;
+  //      treadmill-run-steady still did, because it needs a treadmill rather than
+  //      running shoes and carries no `running` tag.
+  // Both are registered as one guard, so no later rebuild can re-admit either.
   {
-    const before = ctx.pool.length;
-    ctx.pool = ctx.pool.filter(ex => !isRunVolumeExercise(ex));
-    const removed = before - ctx.pool.length;
-
+    const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
+    let runLevel = null;
+    let intervalEx = null;
     if (hasRunningShoes) {
-      // Re-admit exactly one run: the level the user's conditioning supports.
-      const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
-      const runLevel = condScore < T.RUN_LEVEL_2 ? 1
+      // Re-admit exactly one run: the level the user's conditioning supports —
+      // provided it passes every guard so far (an injured knee, R545, the kit).
+      runLevel = condScore < T.RUN_LEVEL_2 ? 1
         : condScore < T.RUN_LEVEL_3 ? 2
         : condScore < T.RUN_LEVEL_4 ? 3
         : condScore < T.RUN_LEVEL_5 ? 4
         : condScore < T.RUN_LEVEL_6 ? 5 : 6;
-      const intervalEx = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
-      if (intervalEx && !ctx.pool.some(ex => ex.id === intervalEx.id)) {
-        ctx.pool = [intervalEx, ...ctx.pool];
-      }
-      if (intervalEx) ctx.r555PinnedEx = intervalEx;
-      ctx.trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${removed} unguarded run${removed === 1 ? '' : 's'} removed)`);
-    } else if (removed > 0) {
-      ctx.trace.push(`R555 — ${removed} running exercise${removed === 1 ? '' : 's'} removed: no running shoes in your equipment`);
+      const cand = exercises.find(ex => ex.slug === `run-interval-level-${runLevel}`);
+      if (cand && _passesGuards(ctx, cand)) intervalEx = cand;
+    }
+    const before = ctx.pool.length;
+    const runsBefore = ctx.pool.filter(ex => isRunVolumeExercise(ex)).length;
+    const overBand = (ex) => isLongContinuousCardio(ex)
+      && longCardioSec(ex) > continuousCardioCapSec(condScore, ctx.bmi, ex);
+    _poolGuard(ctx, 'continuous_cardio', 'R555', (ex) =>
+      (intervalEx && ex.id === intervalEx.id) || (!isRunVolumeExercise(ex) && !overBand(ex)));
+    const removed = before - ctx.pool.length;
+    const longRemoved = removed - runsBefore;
+
+    if (intervalEx) {
+      if (!ctx.pool.some(ex => ex.id === intervalEx.id)) ctx.pool = [intervalEx, ...ctx.pool];
+      ctx.r555PinnedEx = intervalEx;
+      ctx.trace.push(`R555 — Safe running: conditioning ${condScore.toFixed(0)} → Level ${runLevel} intervals (${runsBefore} unguarded run${runsBefore === 1 ? '' : 's'} removed)`);
+    } else if (runsBefore > 0) {
+      ctx.trace.push(`R555 — ${runsBefore} running exercise${runsBefore === 1 ? '' : 's'} removed: ${hasRunningShoes ? 'interval run not safe today' : 'no running shoes in your equipment'}`);
+    }
+    if (longRemoved > 0) {
+      ctx.trace.push(`R555 — ${longRemoved} long continuous cardio effort(s) above your conditioning band removed (conditioning ${condScore.toFixed(0)}${ctx.bmi != null ? `, BMI ${ctx.bmi.toFixed(0)}` : ''})`);
     }
   }
 
@@ -2150,7 +2326,7 @@ function _selectCoachBlueprint(ctx) {
 
         if (ctx.injuryAreas.includes('knee') && prescribedSec > 0) {
           ctx.trace.push('R577 — Knee injury: weighted march replaced with walking lunge');
-          const lungeEx = exercises.find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
+          const lungeEx = _safePool(ctx, exercises).find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
           if (lungeEx) ctx.pool = [lungeEx, ...ctx.pool.filter(ex => ex.id !== lungeEx.id)];
         } else if (prescribedSec > 0) {
           ctx.trace.push(`R574 — March: ${ctx.militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg)`);
@@ -2159,6 +2335,8 @@ function _selectCoachBlueprint(ctx) {
     }
   }
 }
+
+const R574_MARCH_SLUG = 'weighted-march';
 
 // ── Stage 5: Select exercises ─────────────────────────────────────────────────
 function _selectExercises(ctx) {
@@ -2218,9 +2396,12 @@ function _selectExercises(ctx) {
   let filtered = ctx.pool.filter(ex => ex.category === targetCategory);
   if (!filtered.length) filtered = ctx.pool;
   if (!filtered.length) {
+    // W3.0 — even the last-resort fallback honours every guard. An empty pool
+    // after all filters means the honest answer is a short session, not one
+    // rebuilt from the raw library past the athlete's injuries and kit.
     filtered = inSpecialMode
-      ? exercises.filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'))
-      : [...exercises];
+      ? _safePool(ctx, exercises).filter(ex => hasTags(ex, 'pelvic_floor', 'breathing', 'recovery'))
+      : _safePool(ctx, exercises);
     ctx.trace.push(`WARN R561 — Pool empty after all filters (target: ${targetCategory}); safe fallback applied (inSpecialMode: ${inSpecialMode})`);
   }
   let shuffled = seededShuffle(filtered, date);
@@ -2456,9 +2637,12 @@ function _selectExercises(ctx) {
     const lastAt = _dcpA.last?.at_ms ?? null;
     const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
     if (due) {
+      // W3.0 — a measurement is still a set of push-ups: an injured shoulder or a
+      // guard from R563 rules it out, and the measurement waits for a safe day.
+      const measurable = _safePool(ctx, exercises);
       const find = (...slugs) => {
         for (const sl of slugs) {
-          const hit = exercises.find(ex => ex.slug === sl);
+          const hit = measurable.find(ex => ex.slug === sl);
           if (hit) return hit;
         }
         return null;
@@ -2498,6 +2682,15 @@ function _selectExercises(ctx) {
     }
   }
 
+  // W3.4 — R574 owns `weighted-march` on a kracht+marsen day: it appends the
+  // real prescription (kg × minutes) after assembly. Selection must not ALSO
+  // take it from the pool, or the session carries the same march twice — once
+  // as the 15-minute prescription and once volume-scaled to 3 × 51 s, which is
+  // exactly the "2 × 18 s rucksack march" that triggered the audit. Reordering
+  // `shuffled` is a selection-list edit, not a ctx.pool write (A-F1).
+  const r574Appends = ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0;
+  if (r574Appends) shuffled = shuffled.filter(ex => ex.slug !== R574_MARCH_SLUG);
+
   const milIsRunSession = ctx.militaryProgramOverride?.type === 'duurloop' || ctx.militaryProgramOverride?.type === 'interval';
   const milIsCooperTest = ctx.militaryProgramOverride?.type === 'cooper_test';
 
@@ -2529,7 +2722,7 @@ function _selectExercises(ctx) {
         ...(ctx.militaryProgramOverride.cooldownWalk ? [ctx.militaryProgramOverride.cooldownWalk] : []),
       ]
     : ctx.militaryDbSelection
-    ? ctx.militaryDbSelection
+    ? (r574Appends ? ctx.militaryDbSelection.filter(ex => ex.slug !== R574_MARCH_SLUG) : ctx.militaryDbSelection)
     : _takeVaried(shuffled, count, ctx);
 
   // R561 sport mobility injection
@@ -2544,12 +2737,13 @@ function _selectExercises(ctx) {
       const mobilityTag = `sport_mobility:${primarySport}`;
       const alreadyHasMobility = baseSelection.some(ex => hasTags(ex, mobilityTag));
       if (!alreadyHasMobility) {
-        const injPool = exercises.filter(ex =>
+        const injPool = _safePool(ctx, exercises).filter(ex =>
           hasTags(ex, mobilityTag) && !baseSelection.some(s => s.id === ex.id)
         );
         if (injPool.length > 0) {
           const inj = seededShuffle(injPool, date + 'r561')[0];
           selection = [...baseSelection, inj];
+          ctx.appendedIds.add(inj.id);
           ctx.trace.push(`R561 — Sport mobility injection: ${inj.name} added for ${primarySport}`);
         }
       }
@@ -2575,7 +2769,7 @@ function _selectExercises(ctx) {
  * constant — and the factor list is in the line so the smoke guard can verify
  * that the stated percentage really is their product.
  */
-function _traceVolumeSummary(ctx, factors) {
+function _traceVolumeSummary(ctx, factors, floorHeld = false) {
   const parts = [];
   const reasons = [];
   const addReason = (key) => { if (!reasons.includes(key)) reasons.push(key); };
@@ -2595,12 +2789,69 @@ function _traceVolumeSummary(ctx, factors) {
   add('bodyweight', factors.bodyweight,
     [factors.bodyweight < 1 ? 'bodyweight' : 'bodyweight_up']);
 
+  // W3.2 — when the stack would fall below ctx.volumeFloor the floor holds, and
+  // that is stated as a factor of its own (the lift back up to the floor), so
+  // the percentage the user reads is still exactly the product of the listed
+  // factors — the W2.1 smoke check verifies that arithmetic.
+  const raw = [factors.energy, factors.experience, factors.situational, factors.bodyweight]
+    .reduce((acc, f) => acc * (f || 1), 1);
+  const floor = ctx.volumeFloor ?? 0;
+  if (raw < floor) add('floor', floor / raw, ['floor']);
+  else if (floorHeld) addReason('floor');
+
   if (!parts.length) return;
 
-  const product = [factors.energy, factors.experience, factors.situational, factors.bodyweight]
-    .reduce((acc, f) => acc * (f || 1), 1);
+  const product = Math.max(raw, floor);
   const pct = Math.round(product * 100);
   ctx.trace.push(`R519 — Volume ${pct}% of baseline · factors: ${parts.join(', ')} · reasons: ${reasons.join(',')}`);
+}
+
+/**
+ * R524 — the bodyweight slow start, from the best evidence available (W3.3).
+ *
+ * Returns { scale, basis, weightScale }. Bases, strongest first:
+ *   dcp         — military_coach.dcp.last: a max-rep self-test of the very
+ *                 movements this scales. Below the minimum → slow start.
+ *   progression — push/legs/core scores with real signal (any non-zero
+ *                 power/endurance/baseline). A row of zeros is no evidence.
+ *   weight      — 1/√(weight/70), clamped 0.7–1.3: the original proxy, used
+ *                 only when nothing was measured.
+ * The measured bases only ever slow the start (≤ 1): their job is the owner's
+ * stated one — protect the deconditioned — not to reward a strong test.
+ */
+function _bodyweightSlowStart(ctx) {
+  const weightScale = ctx.weightKg
+    ? Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(ctx.weightKg / 70)))
+    : 1;
+
+  const dcp  = ctx.prefs?.preferences?.military_coach?.dcp;
+  const last = dcp?.last;
+  if (last && (Number.isFinite(last.pushups) || Number.isFinite(last.situps))) {
+    const norms = getDcpNorms(ctx.sex ?? ctx.prefs?.sex, dcpAgeFrom(dcp.birth_year, ctx.planDateMs));
+    if (norms) {
+      const ratios = [];
+      if (Number.isFinite(last.pushups) && norms.pushups > 0) ratios.push(Math.min(1, last.pushups / norms.pushups));
+      if (Number.isFinite(last.situps)  && norms.situps  > 0) ratios.push(Math.min(1, last.situps  / norms.situps));
+      if (ratios.length) {
+        const r = ratios.reduce((a, b) => a + b, 0) / ratios.length;
+        return { scale: r < 0.5 ? 0.8 : r < 1 ? 0.9 : 1, basis: 'dcp', weightScale };
+      }
+    }
+  }
+
+  const scores = ctx.progressionState?.scores;
+  if (scores) {
+    const levels = ['push', 'legs', 'core']
+      .map(a => scores[a])
+      .filter(Boolean)
+      .map(a => Math.max(a.power ?? 0, a.endurance ?? 0, a.baseline ?? 0));
+    if (levels.some(v => v > 0)) {
+      const level = levels.reduce((a, b) => a + b, 0) / levels.length;
+      return { scale: level < 20 ? 0.8 : level < 30 ? 0.9 : 1, basis: 'progression', weightScale };
+    }
+  }
+
+  return { scale: weightScale, basis: 'weight', weightScale };
 }
 
 // ── Stage 6: Assemble session ─────────────────────────────────────────────────
@@ -2621,6 +2872,18 @@ function _assembleSession(ctx) {
   // R502 — counted per leg so the trace below can state what actually changed.
   let r502Reps = 0;
   let r502Dur  = 0;
+
+  // W3.2 — the volume stack is ONE product, floored once, rounded once, then
+  // clamped to 3–30 reps LAST. It used to be four sequential roundings with the
+  // rep clamp in the middle, so R524 ran after the floor and could take a 3-rep
+  // set to 2 — the opposite of protection — and nothing bounded the product.
+  const energyF = (checkIn?.energy ?? 10) <= T.ENERGY_LOW ? 0.6 : 1;
+  const sitF    = ctx.volumeMultiplier;
+  const bw      = _bodyweightSlowStart(ctx);          // W3.3 — R524
+  const floorF  = ctx.volumeFloor ?? 0;
+  let r524Count = 0;
+  let floorHits = 0;
+  const _floored = (f) => { if (f < floorF) { floorHits++; return floorF; } return f; };
 
   const steps = ctx.slot_type === 'rest' ? [] : ctx.cyclingProgramOverride ? [ctx.cyclingProgramOverride.step] : selection.map(ex => {
     const metrics   = JSON.parse(ex.metrics_json || '{}');
@@ -2645,6 +2908,7 @@ function _assembleSession(ctx) {
     // migration 0112 marks those metrics.fixed_duration and they are exempt here,
     // alongside the three slugs that were hardcoded before the flag existed.
     const isFixedDuration = metrics.fixed_duration === true
+      || ex.slug === R574_MARCH_SLUG                // W3.4 — a march is prescribed, never volume-scaled
       || ex.slug === '12-minute-cooper-test'
       || ex.slug === 'easy-jog-warmup'
       || ex.slug === 'cooldown-walk';
@@ -2658,29 +2922,27 @@ function _assembleSession(ctx) {
       sets = Math.max(1, Math.min(5, goalSetsBase + setOffset));
     }
 
-    // R512: Low energy → volume × 0.6
-    if ((checkIn?.energy ?? 10) <= T.ENERGY_LOW) {
-      if (reps)                         { reps     = Math.floor(reps     * 0.6); ctx.trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`); }
-      if (duration && !isFixedDuration) { duration = Math.floor(duration * 0.6); ctx.trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`); }
+    // The four scalers, applied as one product per leg:
+    //   R512 energy ×0.6 · R502 experience · R521 ctx.volumeMultiplier (fed by
+    //   R511, R558, R520/R521, R536, R570) · R524 body-mass slow start
+    //   (bodyweight reps only). All of it is reported once, in R519.
+    const isBodyweightReps = exTags.includes('bodyweight');
+    if (reps) {
+      if (energyF !== 1) ctx.trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`);
+      if (repScale !== 1.0) r502Reps++;
+      const bwF = isBodyweightReps ? bw.scale : 1;
+      if (bwF !== 1) r524Count++;
+      reps = Math.round(reps * _floored(energyF * repScale * sitF * bwF));
+    }
+    if (duration && !isFixedDuration) {
+      if (energyF !== 1) ctx.trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`);
+      // R502's duration leg spares long cardio and run warm-ups (audit §1).
+      const expF = (!isLongCardio && !isRunWarmup) ? repScale : 1;
+      if (expF !== 1.0) r502Dur++;
+      duration = Math.round(duration * _floored(energyF * expF * sitF));
     }
 
-    // R502: Experience level scales reps AND duration. The duration leg changed
-    // timed work with no trace anywhere (audit §1); both legs are counted here
-    // and reported once, after the map.
-    if (repScale !== 1.0) {
-      if (reps)     { reps     = Math.round(reps     * repScale); r502Reps++; }
-      if (duration && !isLongCardio && !isRunWarmup && !isFixedDuration) { duration = Math.round(duration * repScale); r502Dur++; }
-    }
-
-    // R521 — the application point of ctx.volumeMultiplier (fed by R511, R558,
-    // R520/R521, R536, R570). The contributors trace, the application did not;
-    // it is now reported as part of the single R519 volume sentence below, which
-    // is the only place the user needs to read a number.
-    if (ctx.volumeMultiplier !== 1.0) {
-      if (reps)                         reps     = Math.round(reps     * ctx.volumeMultiplier);
-      if (duration && !isFixedDuration) duration = Math.round(duration * ctx.volumeMultiplier);
-    }
-
+    // Clamp LAST (W3.2): nothing after this point may rescale reps.
     if (reps) reps = Math.max(3, Math.min(30, reps));
 
     // R598 — a measurement set is not a training set: one set, no rep target,
@@ -2747,8 +3009,12 @@ function _assembleSession(ctx) {
 
   // R574 — Military kracht+marsen: append weighted march step
   if (ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0 && ctx.slot_type !== 'rest') {
-    const marchEx = exercises.find(ex => ex.slug === 'weighted-march');
+    const marchEx = exercises.find(ex => ex.slug === R574_MARCH_SLUG);
     if (marchEx) {
+      // W3.4 — dedupe defensively: whatever path put a march in the session, the
+      // prescription below is the only one. Appended after scaling, so its
+      // duration is the programme's minutes exactly — it is fixed by construction.
+      for (let i = steps.length - 1; i >= 0; i--) if (steps[i].exercise_slug === R574_MARCH_SLUG) steps.splice(i, 1);
       const kgLabel = ctx.militaryMarchKg > 0 ? `${ctx.militaryMarchKg} kg` : 'bodyweight';
       const media   = marchEx.media_json ? JSON.parse(marchEx.media_json) : {};
       steps.push({
@@ -2772,41 +3038,35 @@ function _assembleSession(ctx) {
     }
   }
 
-  // R524 — bodyweight reps scaled by body mass: 1/√(weight/70), clamped 0.7–1.3.
+  // R524 — bodyweight reps, slow start (applied inside the floored stack above).
   //
-  // Intent (product owner): this is a protective slow start, not a penalty. Moving
-  // your own body is genuinely harder at a higher mass, so equal reps are not equal
-  // effort, and starting gently is what keeps the first weeks achievable and the
-  // joints intact. It ran silently until W2.2 — the user saw a shorter set and was
-  // told nothing. It now traces, and the wording the user reads (RULE_LABELS.R524)
-  // speaks about a calm build-up, never about their body.
+  // Intent (product owner): "The weight cut was to protect obese or heavy users
+  // from unachievable goals and injuries. The weight indicates a lack of
+  // fitness, so a slow start is recommended." It stays, inside the floor, never
+  // exempted. W3.3: body weight is only a PROXY for deconditioning and the
+  // weakest signal available, so a real measurement wins when one exists — the
+  // DCP self-assessment first, then measured progression scores — and the weight
+  // proxy is the fallback. The trace names the basis that was used.
   let r524Scale = 1;
-  let r524Count = 0;
-  if (ctx.weightKg && steps.length) {
-    const weightRatio = ctx.weightKg / 70;
-    const wScale = Math.max(0.7, Math.min(1.3, 1 / Math.sqrt(weightRatio)));
-    for (const step of steps) {
-      const ex   = exercises.find(e => e.id === step.exercise_id);
-      const tags = JSON.parse(ex?.tags_json || '[]');
-      if (tags.includes('bodyweight') && step.target_reps) {
-        step.target_reps = Math.round(step.target_reps * wScale);
-        r524Count++;
-      }
-    }
-    if (r524Count > 0 && Math.abs(wScale - 1) >= 0.005) {
-      r524Scale = wScale;
-      ctx.trace.push(`R524 — Bodyweight reps ×${wScale.toFixed(2)} on ${r524Count} exercise(s) · direction: ${wScale < 1 ? 'down' : 'up'}`);
-    }
+  if (r524Count > 0 && Math.abs(bw.scale - 1) >= 0.005) {
+    r524Scale = bw.scale;
+    ctx.trace.push(`R524 — Bodyweight reps ×${bw.scale.toFixed(2)} on ${r524Count} exercise(s) · basis: ${bw.basis} · direction: ${bw.scale < 1 ? 'down' : 'up'}`);
+  } else if (bw.basis !== 'weight' && bw.weightScale < 0.995
+    && steps.some(st => st.target_reps && _parseArr(st.tags_json).includes('bodyweight'))) {
+    // The weight proxy WOULD have cut reps; a measurement says no slow start is
+    // needed. Said out loud, so the heavier athlete sees why it did not apply.
+    ctx.trace.push(`R524 — Body-weight proxy skipped: measured conditioning (${bw.basis}) shows no slow start is needed · basis: ${bw.basis} · direction: measured`);
   }
 
-  // R519 — the four scalers above, as one sentence with one number.
+  // R519 — the four scalers above, as one sentence with one number, plus the
+  // floor when it held (W3.2).
   if (ctx.slot_type !== 'rest' && steps.length) {
     _traceVolumeSummary(ctx, {
-      energy:      (checkIn?.energy ?? 10) <= T.ENERGY_LOW ? 0.6 : 1,
+      energy:      energyF,
       experience:  repScale,
       situational: ctx.volumeMultiplier,
       bodyweight:  r524Scale,
-    });
+    }, floorHits > 0);
   }
 
   // R525 — one mobility exercise appended for female users. The session gained an
@@ -2820,7 +3080,7 @@ function _assembleSession(ctx) {
       return ex?.category === 'mobility';
     });
     if (!hasMobility) {
-      const mobilityEx = exercises.find(e => {
+      const mobilityEx = _safePool(ctx, exercises).find(e => {
         if (e.category !== 'mobility') return false;
         const tags = JSON.parse(e.tags_json || '[]');
         return tags.includes('low_impact');
@@ -2841,6 +3101,7 @@ function _assembleSession(ctx) {
           alternatives_json:   mobilityEx.alternatives_json ?? null,
           gif_url:             media.gif_url ?? null,
         });
+        ctx.appendedIds.add(mobilityEx.id);
         ctx.trace.push(`R525 — Mobility exercise appended: ${mobilityEx.name} (session is now ${steps.length} exercises)`);
       }
     }
@@ -2857,7 +3118,12 @@ function _assembleSession(ctx) {
       return JSON.parse(ex?.tags_json || '[]').includes('pelvic_floor');
     });
     if (!hasPelvicFloor) {
-      const pfEx = exercises.find(ex => {
+      // W3.4 — by RULE, not by row order. The candidates pass every guard (R531
+      // supine from week 16, R533 prone from T2, the postnatal phase, R542, the
+      // kit), and position is never relied on: until now the first matching row
+      // happened to be standing, and a reordered library would have put a
+      // supine pelvic tilt into a week-20 session.
+      const pfEx = _safePool(ctx, exercises).find(ex => {
         const tags = JSON.parse(ex.tags_json || '[]');
         return tags.includes('pelvic_floor') && tags.includes('pregnancy_safe');
       });
@@ -2877,6 +3143,7 @@ function _assembleSession(ctx) {
           alternatives_json:   pfEx.alternatives_json ?? null,
           gif_url:             media.gif_url ?? null,
         });
+        ctx.appendedIds.add(pfEx.id);
         const ruleLabel = pregnancyContext.mode === 'pregnant' ? 'R534' : 'R541';
         ctx.trace.push(`${ruleLabel} — Pelvic floor exercise added`);
       }
@@ -2977,6 +3244,24 @@ function _assembleSession(ctx) {
   // and the session has more strength work than the budget comfortably holds.
   orderedSteps = _applySupersets(ctx, orderedSteps);
 
+  // W3.0 backstop, then W3.4 total-time fit. Prescriptions are exempt from both.
+  const prescribedIds = new Set();
+  const _addRx = (e) => { if (e?.id) prescribedIds.add(e.id); };
+  for (const o of [ctx.runProgramOverride, ctx.crossTrainingOverride, ctx.militaryProgramOverride]) {
+    if (!o) continue;
+    (o.warmUps ?? []).forEach(_addRx);
+    [o.runEx, o.cooldownWalk, o.warmupJog, o.cooperEx].forEach(_addRx);
+  }
+  (ctx.militaryDbSelection ?? []).forEach(_addRx);
+  if (ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0) {
+    _addRx(exercises.find(ex => ex.slug === R574_MARCH_SLUG));
+  }
+  orderedSteps = _enforcePoolGuards(ctx, orderedSteps, prescribedIds);
+
+  const fitProtected = new Set([...prescribedIds, ...ctx.appendedIds]);
+  if (ctx.r555PinnedEx) fitProtected.add(ctx.r555PinnedEx.id);
+  orderedSteps = _fitToBudget(ctx, orderedSteps, fitProtected);
+
   return {
     date,
     slot_type:        ctx.slot_type,
@@ -3042,6 +3327,85 @@ function _assembleSession(ctx) {
   };
 }
 
+
+/**
+ * Session time in seconds, by the same arithmetic as the client's estimateMins()
+ * (planUtils.js): work + rest per set, no rest after the very last set. The
+ * client rounds the result up to the next 5 minutes; the fit below aims at the
+ * raw budget, so what the user reads never exceeds it by more than that rounding.
+ */
+function _estimateSessionSec(steps) {
+  return steps.reduce((t, st, i) => {
+    const sets = st.sets ?? 3;
+    const active = st.target_duration_sec
+      ? st.target_duration_sec * sets
+      : (st.target_reps ?? 10) * sets * 4;
+    const restPeriods = i === steps.length - 1 ? Math.max(0, sets - 1) : sets;
+    return t + active + (st.rest_sec ?? 45) * restPeriods;
+  }, 0);
+}
+
+/**
+ * W3.4 — bound TOTAL session time.
+ *
+ * R501 sizes the exercise COUNT from the budget, but the +1 set for advanced
+ * athletes (expSetMod) and the ×2.5 strength rest (GOAL_REST_MULT) are not
+ * budget-aware, and R574 appends a 15–40 minute march after the count is spent.
+ * Nothing bounded the sum: every advanced persona overran by 20–30 minutes.
+ * R592 could not help — it only fires with an explicit check-in time_budget.
+ *
+ * This runs after assembly, so it sees every step that will be shown. It trims
+ * one set at a time from the step with the most sets (floor 2), and only then
+ * drops the last droppable exercise (floor 2 steps). It never touches a
+ * prescription (coach blueprint, R574 march, R598 measurement, a fixed_sets
+ * protocol, the R555 interval run) or a step added by a rule that traced it
+ * (R534/R541 pelvic floor, R525, R561). Coach blueprints are budgeted by their
+ * own rules and skipped entirely.
+ */
+function _fitToBudget(ctx, steps, protectedIds) {
+  if (ctx.unlimited || !ctx.budget || ctx.slot_type === 'rest' || steps.length === 0) return steps;
+  if (ctx.runProgramOverride || ctx.crossTrainingOverride || ctx.cyclingProgramOverride || ctx.militaryProgramOverride) return steps;
+  const limit = ctx.budget * 60;
+  const before = _estimateSessionSec(steps);
+  if (before <= limit) return steps;
+
+  const byId = new Map(ctx.exercises.map(e => [e.id, e]));
+  const fixedSets = (st) => { try { return !!JSON.parse(byId.get(st.exercise_id)?.metrics_json || '{}').fixed_sets; } catch { return false; } };
+  const isProtected = (st) => protectedIds.has(st.exercise_id) || st.max_effort;
+  let out = steps.slice();
+  let trimmed = 0;
+  let dropped = 0;
+
+  while (_estimateSessionSec(out) > limit) {
+    const cands = out.filter(st => !isProtected(st) && !fixedSets(st) && (st.sets ?? 1) > 2);
+    if (!cands.length) break;
+    const maxSets = Math.max(...cands.map(st => st.sets));
+    const pick = cands.filter(st => st.sets === maxSets).pop();
+    // Superset members must agree on set count (R592), so a pair is trimmed together.
+    const group = pick.group_id ? out.filter(st => st.group_id === pick.group_id) : [pick];
+    for (const st of group) { st.sets -= 1; trimmed++; }
+  }
+  while (_estimateSessionSec(out) > limit && out.length > 2) {
+    let idx = -1;
+    for (let i = out.length - 1; i >= 0; i--) if (!isProtected(out[i])) { idx = i; break; }
+    if (idx < 0) break;
+    const gone = out[idx];
+    out.splice(idx, 1);
+    if (gone.group_id) {
+      const partner = out.find(st => st.group_id === gone.group_id);
+      if (partner) delete partner.group_id;
+    }
+    dropped++;
+  }
+
+  if (trimmed || dropped) {
+    const after = _estimateSessionSec(out);
+    ctx.trace.push(`R595 — Session fitted to your ${ctx.budget}-min budget: ${trimmed} set(s) trimmed`
+      + (dropped ? `, ${dropped} exercise(s) dropped` : '')
+      + ` (~${Math.ceil(before / 60)} → ~${Math.ceil(after / 60)} min)`);
+  }
+  return out;
+}
 
 /**
  * R592 — superset pairing (C-F10).
