@@ -630,6 +630,39 @@ case "$EXPL" in
   *)   fail "explainability: ${EXPL}" ;;
 esac
 
+# ── W5.1 — cardio always credits the Cardio axis, in BOTH mappers ──────────
+# plan.js (progGetExerciseAxis, selection reasoning) and execution.js
+# (progExerciseToAxis, credit on save) each map an exercise to a progression
+# axis. Both took the first primary muscle before falling back to category, so a
+# run listing quads/hamstrings credited Legs and the Cardio axis never moved.
+# Migration 0114 gives 72 cardio rows muscle data and would have spread that to
+# every run. The two must also AGREE — a planner that reasons about one axis
+# while the save credits another is a radar that lies.
+AXIS=$(node --input-type=module -e '
+import fs from "node:fs";
+const out = [];
+for (const [f, name] of [["functions/api/plan.js","progGetExerciseAxis"],["functions/api/execution.js","progExerciseToAxis"]]) {
+  const src = fs.readFileSync(f,"utf8");
+  const tbl = src.match(/const PROG_MUSCLE_TO_AXIS = \{[\s\S]*?\};/)?.[0];
+  const fb  = src.match(/const PROG_CATEGORY_FALLBACK = \{[\s\S]*?\};/)?.[0];
+  const fn  = src.match(new RegExp("function "+name+"\\(exercise\\) \\{[\\s\\S]*?\\n\\}"))?.[0];
+  if (!tbl || !fb || !fn) { out.push(f+": mapper not found"); continue; }
+  fs.writeFileSync("/tmp/_axis_guard.mjs", tbl+"\n"+fb+"\n"+fn+"\nexport { "+name+" as ax };");
+  const { ax } = await import("/tmp/_axis_guard.mjs?"+Math.random());
+  const run = ax({category:"cardio",   primary_muscles_json:JSON.stringify(["quads","hamstrings","calves","glutes"])});
+  const sq  = ax({category:"strength", primary_muscles_json:JSON.stringify(["quads","glutes"])});
+  const pu  = ax({category:"strength", primary_muscles_json:JSON.stringify(["chest","triceps"])});
+  if (run !== "conditioning") out.push(f+": a run with leg muscles credits "+run+", not conditioning");
+  if (sq !== "legs")          out.push(f+": a squat credits "+sq);
+  if (pu !== "push")          out.push(f+": a push-up credits "+pu);
+}
+process.stdout.write(out.length ? out.join("; ") : "OK");' 2>&1)
+if [ "$AXIS" = "OK" ]; then
+  ok "cardio credits the Cardio axis in both plan.js and execution.js mappers"
+else
+  fail "axis mapping: ${AXIS}"
+fi
+
 # ── C-F18 / W1.1 — behavioural: run the planner and inspect the SESSION ────
 # Every guard above reads source text. That is exactly what let R590 and R593
 # ship inert for weeks: they printed their trace lines, their own unit guards

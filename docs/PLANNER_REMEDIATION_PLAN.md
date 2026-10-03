@@ -212,8 +212,8 @@ no apply list to add to. Hand-patching the snapshot would reproduce the drift; r
 from live D1 with the existing generator and add a smoke check that the baseline's row count
 and the live row count agree within the migrations applied since generation.
 
-**Held migration.** `0114_cardio_primary_muscles.sql` is written and reviewed but **not
-applied**. `progGetExerciseAxis` (plan.js) and `progExerciseToAxis` (execution.js) take the
+**Held migration — resolved 2026-10-03.** `0114_cardio_primary_muscles.sql` was held, then applied
+once both mappers were fixed and guarded. `progGetExerciseAxis` (plan.js) and `progExerciseToAxis` (execution.js) take the
 first primary muscle that maps to an axis before falling back to category, so a run with
 `["quads", …]` credits **Legs**, not Cardio. This is already true today for the three live
 cardio rows that carry leg muscles (`easy-run-outdoor`, `tempo-run-outdoor`,

@@ -49,6 +49,9 @@ const PROG_CATEGORY_FALLBACK = {
 };
 
 function progExerciseToAxis(exercise) {
+  // Mirror of progGetExerciseAxis in plan.js — see the note there. Credit on
+  // save must route a run to the same axis the planner reasoned about.
+  if (exercise.category === 'cardio') return 'conditioning';
   const muscles = JSON.parse(exercise.primary_muscles_json || '[]');
   for (const m of muscles) {
     const axis = PROG_MUSCLE_TO_AXIS[m.toLowerCase()];

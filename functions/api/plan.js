@@ -770,6 +770,11 @@ const PROG_AXIS_CATEGORY = {
 };
 
 function progGetExerciseAxis(exercise) {
+  // Category decides for cardio. A run lists quads/hamstrings/calves because
+  // that is what moves, but what it TRAINS is conditioning; taking the first
+  // muscle routed easy-run-outdoor to Legs and left the Cardio axis untouched
+  // by every run that carried muscle data. Muscles refine within strength only.
+  if (exercise.category === 'cardio') return 'conditioning';
   const muscles = JSON.parse(exercise.primary_muscles_json || '[]');
   for (const m of muscles) {
     const axis = PROG_MUSCLE_TO_AXIS[m.toLowerCase()];
