@@ -1,6 +1,6 @@
 # JustFit — Pre-Release Smoke Checklist
 
-Run `npm run smoke` first. Then work through this manual checklist before deploying.
+Run `npm run release` first (`smoke` + `e2e`). Then work through this manual checklist before deploying.
 
 ---
 
