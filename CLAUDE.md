@@ -397,7 +397,7 @@ Migration ledger: the `schema_migrations` table in D1 (migration 0118) records e
 > incl. `_cf_KV` and `sqlite_sequence`). Migration files are not a reliable source of truth; if this
 > section and `PRAGMA table_info` disagree, the database wins — fix this section. The smoke check
 > in `scripts/smoke.sh` fails when a bolded table name below is not in
-> `scripts/fixtures/live-tables.json` (regenerate that fixture after any migration that adds or
+> `scripts/known-tables.txt` (regenerate that fixture after any migration that adds or
 > drops a table — command is in the check's comment).
 >
 > **Tables that do NOT exist** (earlier versions of this file documented them): `auth_users`,
@@ -405,9 +405,12 @@ Migration ledger: the `schema_migrations` table in D1 (migration 0118) records e
 > `users.password_hash` / `password_algo`), `support_tokens`, `user_profile` (height, weight and sex
 > live on `user_preferences`), `user_availability`.
 
-Conventions: timestamps are `INTEGER` milliseconds (`*_at_ms`); ids are UUID `TEXT`. The 50 STRICT
-tables include all twelve core tables below; 21 older tables are not STRICT (e.g. `cycle_profile`,
-`cycling_workouts`, `app_events`, `appointments`, `trainer_profiles`). Foreign keys are by
+Conventions: timestamps are `INTEGER` milliseconds (`*_at_ms`); ids are UUID `TEXT`. The 53 STRICT
+tables (after 0119/0120) include all twelve core tables below and every table the consumer app
+writes that holds safety-critical state (`cycle_profile`, `period_log`, `pregnancy_weekly_log`,
+`user_preferences`, `day_plans`, `executions` — smoke compares `scripts/fixtures/strict-tables.json`);
+14 older tables are not STRICT (e.g. `cycling_workouts`, `app_events`, `appointments`,
+`trainer_profiles`). Dropped by 0120: `awards`, `user_awards` (the client owns awards). Foreign keys are by
 convention (`user_id` → `users.id`); most are not enforced by D1.
 
 ### Core tables (full column detail)
@@ -593,14 +596,12 @@ Use `PRAGMA table_info(<table>)` against the live DB for columns of these; do no
 - **app_events** — product/diagnostic event log (not STRICT)
 
 **Consumer training**
-- **awards** — award catalogue (12 rows)
-- **user_awards** — awards unlocked per user
 - **session_templates** — reusable session definitions (16 rows)
 - **exercise_aliases** — alternative names for exercises (military/Defensie import)
 - **context_overrides** — per-day user override of the plan context (type + JSON)
-- **cycle_profile** — body mode (standard/pregnant/postnatal) and cycle tracking per user; has pregnancy due date/clearance and postnatal birth/clearance fields (not STRICT)
-- **period_log** — period start events for smart cycle tracking
-- **pregnancy_weekly_log** — weekly pregnancy summary (energy, nausea, breathlessness, sessions)
+- **cycle_profile** — body mode (standard/pregnant/postnatal) and cycle tracking per user; has pregnancy due date/clearance and postnatal birth/clearance fields (STRICT since 0119 — safety-critical: R530–R544 read it)
+- **period_log** — period start events for smart cycle tracking (STRICT since 0119)
+- **pregnancy_weekly_log** — weekly pregnancy summary (energy, nausea, breathlessness, sessions) (STRICT since 0119)
 - **feedback_items** — in-app feedback and bug reports with status/flag
 - **push_subscriptions** — Web Push endpoints per user (endpoint, p256dh, auth)
 
@@ -1203,7 +1204,7 @@ Calculated server-side from executions table:
 | D1 schema + migrations | ✅ Live (0002–0117). From 0118 on, `schema_migrations` is the ledger — `node scripts/migrate.mjs status` |
 | Exercise library (482 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
-| Awards (31 shown in Hall of Fame, evaluated client-side) | ✅ `AwardsView` owns all 31 definitions and evaluates them from history/progression/`runUnlocked`. The D1 `awards` table (12 rows) is **not read by the app** and `user_awards` is only ever deleted — never written. Migration 0033 (5 running milestones, `category='running'`) silently inserted **nothing**: that value fails the table's CHECK and `INSERT OR IGNORE` swallowed it. Harmless because the table is unused; recorded here so nobody "fixes" it by seeding dead data |
+| Awards (31 shown in Hall of Fame, evaluated client-side) | ✅ `AwardsView` owns all definitions and evaluates them from history/progression/`runUnlocked`. The D1 tables `awards` and `user_awards` are **gone** (migration 0120, F7): the client owns awards, nothing server-side read the 12 catalogue rows, and `user_awards` was never written (0 rows). Migration 0033 (5 running milestones, `category='running'`) had silently inserted nothing — kept as history |
 | Pages Functions API | ✅ Live at /api/* |
 | Planner engine v1.9.0 (R510–R582 + R558–R559), staged pipeline (C-E13) | ✅ Live — `runPlanner` decomposed into 6 named stage functions (`_initPlannerContext` → `_applySafetyPolicies` → `_applyBodyModePolicies` → `_selectCoachBlueprint` → `_selectExercises` → `_assembleSession`) threaded by mutable `ctx`; all 73 rules preserved; file 2626 → 2405 lines; template-based, profile-aware, pregnancy/postnatal/military rules; sport-aware bias layer (R560); injury-aware filtering R562–R565; Military Coach R570–R582; R558 return-to-training; R559 recovery mode |
 | /api/profile endpoint | ✅ Live — GET/POST user_preferences + cycle/pregnancy/postnatal context |

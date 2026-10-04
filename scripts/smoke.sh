@@ -1203,6 +1203,49 @@ else
   fail "migrate.mjs decision logic tests failed (node --test scripts/migrate.test.mjs)"
 fi
 
+# ── F6 — every safety-critical table the app writes is STRICT ──────────────
+# cycle_profile holds pregnancy/postnatal mode, the input to R530–R544. A non-STRICT
+# table accepts a mistyped write silently. Every table in the fixture's safety_critical
+# list must be in its strict list, and every one of them that functions/ writes
+# (INSERT [OR …] INTO / UPDATE) is named in the failure so the cause is visible.
+# To regenerate the fixture after a migration adds/drops/rebuilds a table (read-only):
+#   npx wrangler d1 execute justfit-db --remote --json --command "SELECT name FROM pragma_table_list WHERE schema='main' AND type='table' AND strict=1 ORDER BY name"
+#   then write the sorted names into the "strict" array of scripts/fixtures/strict-tables.json
+NOT_STRICT=$(node --input-type=module -e '
+import fs from "node:fs";
+const fx = JSON.parse(fs.readFileSync("scripts/fixtures/strict-tables.json","utf8"));
+const strict = new Set(fx.strict);
+const written = new Set();
+(function walk(d){ for (const e of fs.readdirSync(d,{withFileTypes:true})) {
+  const p = d + "/" + e.name;
+  if (e.isDirectory()) walk(p);
+  else if (e.name.endsWith(".js")) {
+    const src = fs.readFileSync(p,"utf8");
+    for (const m of src.matchAll(/\b(?:INSERT(?:\s+OR\s+[A-Z]+)?\s+INTO|UPDATE)\s+([a-z_][a-z0-9_]*)/g)) written.add(m[1]);
+  }
+} })("functions");
+const bad = fx.safety_critical.filter(t => !strict.has(t))
+  .map(t => t + (written.has(t) ? " (written by functions/)" : ""));
+console.log(bad.join(", "));
+')
+if [ -z "$NOT_STRICT" ]; then
+  ok "safety-critical tables are all STRICT (scripts/fixtures/strict-tables.json)"
+else
+  fail "safety-critical table(s) not STRICT in scripts/fixtures/strict-tables.json: ${NOT_STRICT}"
+fi
+
+# ── F7 — no SQL in functions/ touches the dropped awards tables ────────────
+# Migration 0120 dropped awards and user_awards (the client owns awards). The widened
+# table-drift check above also catches this once known-tables.txt drops them; this
+# is the direct, named version so the failure says why.
+AWARD_SQL=$(grep -rnE "(FROM|JOIN|INTO|UPDATE|TABLE)[[:space:]]+(user_)?awards\b" functions --include='*.js' | head -5)
+if [ -z "$AWARD_SQL" ]; then
+  ok "no SQL in functions/ references the dropped awards / user_awards tables"
+else
+  echo "$AWARD_SQL" | sed 's/^/      /'
+  fail "functions/ still references awards/user_awards in SQL — migration 0120 drops them"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 

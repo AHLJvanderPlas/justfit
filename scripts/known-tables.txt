@@ -11,7 +11,6 @@ appointments
 assigned_sessions
 audit_log
 auth_rate_limits
-awards
 billing_events
 client_intake
 client_notes
@@ -59,7 +58,6 @@ trainer_invoices
 trainer_messages
 trainer_profiles
 trainer_switch_requests
-user_awards
 user_preferences
 user_progression
 user_progression_events

@@ -750,7 +750,6 @@ async function handleDeleteAccount(request, env, secret) {
     env.DB.prepare('DELETE FROM pregnancy_weekly_log WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM cycle_profile WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM context_overrides WHERE user_id = ?').bind(uid),
-    env.DB.prepare('DELETE FROM user_awards WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM entitlements WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM passkey_credentials WHERE user_id = ?').bind(uid),
     env.DB.prepare('DELETE FROM password_reset_tokens WHERE user_id = ?').bind(uid),

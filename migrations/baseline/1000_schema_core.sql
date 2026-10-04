@@ -4,6 +4,8 @@
 -- (sqlite_master dump) — resolves X-27: baseline now matches production exactly.
 -- All remaining production tables (58 tables) incl. trainer/admin/billing.
 -- Idempotent: all statements use IF NOT EXISTS.
+-- 2026-10-04: awards + user_awards removed (migration 0120); cycle_profile, period_log,
+-- pregnancy_weekly_log are STRICT (migration 0119).
 -- =============================================================================
 
 CREATE TABLE IF NOT EXISTS _migrations (
@@ -124,22 +126,6 @@ CREATE TABLE IF NOT EXISTS auth_rate_limits (
   window_start_ms INTEGER NOT NULL
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS awards (
-  id                      TEXT PRIMARY KEY,            -- uuid
-  slug                    TEXT NOT NULL,
-  name                    TEXT NOT NULL,
-  description             TEXT,
-  category                TEXT CHECK (category IN ('streak','milestone','performance','habit','special')),
-  icon                    TEXT,                        -- identifier/path
-  criteria_json           TEXT NOT NULL,               -- JSON rule definition
-  is_active               INTEGER NOT NULL DEFAULT 1 CHECK (is_active IN (0,1)),
-  created_at_ms           INTEGER NOT NULL,
-  updated_at_ms           INTEGER NOT NULL,
-
-  CHECK (length(slug) BETWEEN 1 AND 128),
-  CHECK (json_valid(criteria_json))
-) STRICT;
-
 CREATE TABLE IF NOT EXISTS billing_events (
   id           TEXT    PRIMARY KEY,
   user_id      TEXT    NOT NULL,
@@ -238,7 +224,7 @@ CREATE TABLE IF NOT EXISTS cycle_profile (
                                         ('vaginal','caesarean','prefer_not_to_say')),
   postnatal_cleared_for_exercise INTEGER DEFAULT 0,
   postnatal_clearance_date      TEXT
-);
+) STRICT;
 
 CREATE TABLE IF NOT EXISTS daily_checkins (
   id                      TEXT PRIMARY KEY,             -- uuid
@@ -463,9 +449,9 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
   created_at_ms INTEGER NOT NULL
 ) STRICT;
 
-CREATE TABLE IF NOT EXISTS period_log (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, started_on TEXT NOT NULL, noted_at_ms INTEGER NOT NULL, source TEXT DEFAULT 'checkin');
+CREATE TABLE IF NOT EXISTS period_log (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, started_on TEXT NOT NULL, noted_at_ms INTEGER NOT NULL, source TEXT DEFAULT 'checkin') STRICT;
 
-CREATE TABLE IF NOT EXISTS pregnancy_weekly_log (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, week_number INTEGER NOT NULL, week_start_date TEXT NOT NULL, avg_energy REAL, avg_nausea REAL, avg_breathless REAL, sessions_done INTEGER DEFAULT 0, notes TEXT, created_at_ms INTEGER NOT NULL);
+CREATE TABLE IF NOT EXISTS pregnancy_weekly_log (id TEXT PRIMARY KEY, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, week_number INTEGER NOT NULL, week_start_date TEXT NOT NULL, avg_energy REAL, avg_nausea REAL, avg_breathless REAL, sessions_done INTEGER DEFAULT 0, notes TEXT, created_at_ms INTEGER NOT NULL) STRICT;
 
 CREATE TABLE IF NOT EXISTS program_assignments (
   id                    TEXT PRIMARY KEY,
@@ -722,24 +708,6 @@ CREATE TABLE IF NOT EXISTS trainer_switch_requests (
   decided_at_ms            INTEGER
 );
 
-CREATE TABLE IF NOT EXISTS user_awards (
-  id                      TEXT PRIMARY KEY,            -- uuid
-  user_id                 TEXT NOT NULL,
-  award_id                TEXT NOT NULL,
-
-  awarded_at_ms           INTEGER NOT NULL,
-  source                  TEXT NOT NULL DEFAULT 'engine' CHECK (source IN ('engine','admin','import','other')),
-  meta_json               TEXT,
-
-  created_at_ms           INTEGER NOT NULL,
-  updated_at_ms           INTEGER NOT NULL,
-
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE,
-  FOREIGN KEY (award_id) REFERENCES awards(id) ON DELETE CASCADE ON UPDATE CASCADE,
-
-  CHECK (meta_json IS NULL OR json_valid(meta_json))
-) STRICT;
-
 CREATE TABLE IF NOT EXISTS user_preferences (
   user_id                 TEXT PRIMARY KEY,
 
@@ -883,9 +851,6 @@ CREATE INDEX IF NOT EXISTS idx_as_client     ON assigned_sessions(program_assign
 
 CREATE INDEX IF NOT EXISTS idx_as_date       ON assigned_sessions(scheduled_date);
 
-CREATE UNIQUE INDEX IF NOT EXISTS idx_awards_slug
-  ON awards(lower(slug));
-
 CREATE INDEX IF NOT EXISTS idx_billing_events_user ON billing_events(user_id);
 
 CREATE INDEX IF NOT EXISTS idx_ci_gym  ON client_intake(gym_id);
@@ -1020,12 +985,6 @@ CREATE INDEX IF NOT EXISTS idx_trainer_messages_thread ON trainer_messages(gym_i
 CREATE INDEX IF NOT EXISTS idx_upe_user ON user_progression_events(user_id, created_at_ms);
 
 CREATE INDEX IF NOT EXISTS idx_ust_user ON user_session_templates(user_id);
-
-CREATE UNIQUE INDEX IF NOT EXISTS idx_user_awards_user_award
-  ON user_awards(user_id, award_id);
-
-CREATE INDEX IF NOT EXISTS idx_user_awards_user_awarded_at
-  ON user_awards(user_id, awarded_at_ms);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_vouchers_code
   ON vouchers(lower(code));
