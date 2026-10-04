@@ -57,10 +57,10 @@ caught until the audit.
 
 - Files are **not renamed** — the filenames are references in PR history and docs.
 - Baseline files (`migrations/baseline/`) reflect the merged current schema — no conflicts.
-- **Next valid migration number: `0118`** (0117 applied 2026-10-04). This legacy ledger is historical;
-  the live number lives in root `CLAUDE.md` and is enforced by the `smoke.sh` migration-number guard.
-  Any new migration from
-  either repo must use a number ≥ 0093 and be coordinated to avoid future collisions.
+- This legacy ledger is historical. Since migration 0118 the ledger is the `schema_migrations` table
+  in D1, written only by `scripts/migrate.mjs` (which refuses a reused or skipped number); files
+  0002–0117, duplicates included, were recorded there once by `migrate.mjs baseline`. The next number
+  is `ls migrations/ | tail -1` plus one. Any repo touching `justfit-db` coordinates through that table.
 
 ---
 

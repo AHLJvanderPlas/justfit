@@ -1153,19 +1153,18 @@ else
   ok "MuscleMap.jsx has no local muscle vocabulary"
 fi
 
-# ── X-28 — migration number drift guard ────────────────────────────────────
-# The documented "next valid migration number" has drifted twice (docs claimed
-# 0089 and 0099 long after 0106 was applied). A stale number means a new
-# migration either collides with an applied one or silently never runs. The
-# filesystem is the only source of truth; this asserts the docs agree with it.
-REAL_NEXT=$(printf "%04d" $((10#$(ls migrations/*.sql | sed 's|.*/||; s|_.*||' | sort -n | tail -1) + 1)))
-DOC_NEXT=$(grep -oE 'next valid number: `0[0-9]{3}`' ../CLAUDE.md | grep -oE '0[0-9]{3}' | head -1)
-if [ -z "$DOC_NEXT" ]; then
-  fail "root CLAUDE.md has no parseable 'next valid number' — the migration ledger is the release gate"
-elif [ "$REAL_NEXT" != "$DOC_NEXT" ]; then
-  fail "migration number drift: migrations/ implies ${REAL_NEXT}, root CLAUDE.md says ${DOC_NEXT}"
+# ── X-28 — the database's migration ledger matches migrations/ ─────────────
+# The ledger used to be a "next valid number" sentence in two CLAUDE.md files;
+# it drifted twice, and 0033 "applied" with zero rows for six months because
+# nothing compared intent with outcome. The ledger is now the schema_migrations
+# table (migration 0118), written only by scripts/migrate.mjs. Every
+# migrations/0*.sql must have a row and every row's sha256 must match disk.
+# A missing table is a failure too — no ledger is not a pass. Read-only query.
+if MIG_OUT=$(node scripts/migrate.mjs status --quiet 2>&1); then
+  ok "$(echo "$MIG_OUT" | tail -1)"
 else
-  ok "migration ledger matches migrations/ (next valid: ${REAL_NEXT})"
+  echo "$MIG_OUT" | sed 's/^/      /'
+  fail "$(echo "$MIG_OUT" | tail -1)"
 fi
 
 # ── W6.2 — CLAUDE.md schema section names only tables that exist ───────────
@@ -1192,6 +1191,16 @@ if [ -z "$SCHEMA_GHOSTS" ]; then
   ok "CLAUDE.md schema section names only live tables"
 else
   fail "CLAUDE.md schema section names tables not in scripts/known-tables.txt: ${SCHEMA_GHOSTS}"
+fi
+
+# ── F1 — migrate.mjs decision logic (offline) ─────────────────────────────
+# The ledger's refusals (double apply, edited applied file, skipped number,
+# zero-row seed) live in pure functions; their tests need no wrangler.
+if MIGT_OUT=$(node --test scripts/migrate.test.mjs 2>&1); then
+  ok "migrate.mjs decision logic: $(echo "$MIGT_OUT" | grep -E '^ℹ pass' | sed 's/ℹ //') tests"
+else
+  echo "$MIGT_OUT" | grep -E '^✖ ' | grep -v 'failing tests' | sed 's/ ([0-9.]*ms)$//' | sort -u | sed 's/^/      /'
+  fail "migrate.mjs decision logic tests failed (node --test scripts/migrate.test.mjs)"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

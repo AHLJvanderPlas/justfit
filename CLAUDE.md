@@ -84,26 +84,28 @@ that cannot fail looks like coverage while providing none.
 These rules apply to EVERY task in EVERY session, without exception.
 
 ## After every change
-- Run `npm run smoke` first — lint + build + live API checks; must pass before pushing
+- Inner loop while working: `npm run smoke` — lint + build + live API checks + the migration ledger (fast; run it often)
+- Before pushing: `npm run release` — `smoke` then `e2e`; both must pass. e2e builds the app, spins up a local `wrangler pages dev` server on :8788 with local D1, and runs the Playwright journeys (~40 s). There is no CI: this script is the gate, so it is not optional
 - Then commit and push (source backup): `git add . && git commit -m "..." && git push`
 - Then deploy: `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
 - **After deploy**: update the "Current Build Status" table in `CLAUDE.md` and `README.md` to reflect the change — never leave docs stale after a deployment
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
-## E2E release gate (Phase 4+ structural PRs)
-`npm run e2e` runs the Playwright journey suite (6 journeys, local D1, wrangler pages dev).
-**Must be green before any Phase 4 structural change** (App.jsx split, SettingsView split, auth migration).
-Run: `npm run e2e` — requires the local dev server to be up or will spin one up automatically.
-Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open + 409), trainer-invite accept, consent gate block/sign.
-Do NOT skip this gate for C-E11/C-E12/C-B7 work.
+## E2E release gate (every release)
+`npm run e2e` runs the Playwright journey suite (10 journeys, local D1, `wrangler pages dev` on :8788 —
+reused if already up, otherwise built and started automatically; ~40 s). It is part of `npm run release`,
+so it runs before **every** push, not only before structural changes: Waves 4a/4b changed `App.jsx`
+substantially and nobody ran e2e, because nothing called it. `smoke` alone is the inner loop, not the gate.
+Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open + 409),
+trainer-invite accept, consent gate block/sign, workout, billing ×2, settings.
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
-- Canonical flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
+- Canonical flow: `npm run release` → `git push` → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main` (`release` = `smoke` + `e2e`; `smoke` alone is the fast inner loop)
 - Wrangler must be logged in to `ahljvanderplas@gmail.com` (account: JustFit.cc, ID: ce96b957f7de20cc5d388eba856fa8dc)
 - Check with: `npx wrangler whoami` — if wrong account, run `npx wrangler logout` then `npx wrangler login`
-- D1 migrations: `npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql`
+- D1 migrations: `node scripts/migrate.mjs apply migrations/NNNN_name.sql` — the only way a migration reaches D1 (see **Database Migration Policy**). Never `wrangler d1 execute --file` directly
 
 ## After every session
 - Update `CLAUDE.md` to reflect any new features built, bugs fixed, or status changes
@@ -249,7 +251,7 @@ Each new coach, programme, or mode must be evaluated against these four constrai
 | API | Cloudflare Pages Functions in `/functions/api/` (plain JS, no bundler, no npm) |
 | Database | Cloudflare D1 (SQLite) bound as `DB` |
 | Auth | JWT via Web Crypto API (no external libs) |
-| CI/CD | Manual release flow (`npm run smoke` → push → `wrangler pages deploy`) |
+| CI/CD | Manual release flow (`npm run release` → push → `wrangler pages deploy`); no CI — `release` is the gate |
 
 **Critical constraint**: Pages Functions cannot use npm packages. Use only Web Crypto API,
 built-in fetch, and `env.DB` for D1. No bcrypt, no jose, no external JWT libraries.
@@ -379,7 +381,7 @@ justfit/                             ← monorepo root (npm workspaces)
 └── package.json
 ```
 
-Migration naming policy: migration files must use unique, monotonic prefixes. Next valid number is `0118` (0117 applied 2026-10-04; 0112–0116 applied, 0114 on 2026-10-03 with the axis-mapper fix); never reuse a number. **Verify against `ls migrations/ | tail -1` — never copy this number from a document.** Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See also: **Database Migration Policy** section below.
+Migration ledger: the `schema_migrations` table in D1 (migration 0118) records every applied migration with its sha256 and `rows_written`; `node scripts/migrate.mjs status` compares it with `migrations/`. The next number is `ls migrations/ | tail -1` plus one — no document carries it. Duplicate prefixes 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (applied as-is, not renamed). See **Database Migration Policy** below.
 
 ---
 
@@ -639,7 +641,7 @@ Use `PRAGMA table_info(<table>)` against the live DB for columns of these; do no
 - **admin_login_attempts** — admin login rate limiting
 - **admin_magic_tokens** — admin magic-link tokens
 - **platform_config** — key/value platform settings (`key`, `value`, `updated_by`)
-- **_migrations** — exists but is EMPTY (0 rows) — migrations are applied with `--file` and tracked in the ledger line under Database Migration Policy, not here
+- **_migrations** — exists but is EMPTY (0 rows) and unused. The migration ledger is `schema_migrations` (migration 0118, written only by `scripts/migrate.mjs`); add it here as a bolded entry and to `scripts/known-tables.txt` once 0118 is applied
 - **_cf_KV** — Cloudflare-internal; cannot be introspected (PRAGMA is refused). Do not use.
 - **sqlite_sequence** — SQLite internal AUTOINCREMENT counters. Do not use.
 
@@ -1190,7 +1192,7 @@ Calculated server-side from executions table:
 
 | Feature | Status |
 |---|---|
-| D1 schema + migrations | ✅ Live (0002–0117; next valid number **0118**; 0117 user_session_templates applied 2026-10-04) |
+| D1 schema + migrations | ✅ Live (0002–0117). From 0118 on, `schema_migrations` is the ledger — `node scripts/migrate.mjs status` |
 | Exercise library (482 exercises) | ✅ Seeded in D1 (migrations 0002–0010, 0020, 0029, 0030); taxonomy fixed in 0027; 0029 adds 16 military/gap-fill exercises; 0030 adds 'military' tag to 15 exercises for planner pool filtering |
 | Session templates (16 templates) | ✅ Seeded in D1 (migrations 0005, 0011) |
 | Awards (31 shown in Hall of Fame, evaluated client-side) | ✅ `AwardsView` owns all 31 definitions and evaluates them from history/progression/`runUnlocked`. The D1 `awards` table (12 rows) is **not read by the app** and `user_awards` is only ever deleted — never written. Migration 0033 (5 running milestones, `category='running'`) silently inserted **nothing**: that value fails the table's CHECK and `INSERT OR IGNORE` swallowed it. Harmless because the table is unused; recorded here so nobody "fixes" it by seeding dead data |
@@ -1276,7 +1278,7 @@ Calculated server-side from executions table:
 |---|---|---|---|
 | Documentation truth drift (conflicting deploy runbooks) | Deploy process changed over time and docs were updated in different places | High | Keep one canonical release flow in both README + CLAUDE; treat deviations as docs bugs and update both files in the same PR |
 | Structural drift (single-file doctrine vs boundary split) | Performance and maintainability work introduced lazy view boundaries (Settings/Awards) | Medium | Keep boundary-based split explicit in docs; avoid re-fragmenting into prop-drilling UI splits without clear ownership |
-| Operational drift (migration numbering/version hygiene) | Historical duplicates at 0059/0060/0061/0072/0074/0080 documented in `migrations/legacy/README.md` (X-4 resolved 2026-06-18). Next valid number is `0118`. | Low | Enforce unique monotonic numbering for all new migrations (0118+); never reuse a number. |
+| Operational drift (migration ledger) | The applied-migration record was a hand-kept "next valid number" sentence in two CLAUDE.md files; it drifted twice, and 0033 "applied" with zero rows unnoticed for six months. Historical duplicates at 0059/0060/0061/0072/0074/0080 are documented in `migrations/legacy/README.md` (X-4). | Low (enforced) | The `schema_migrations` table is the ledger; `scripts/migrate.mjs` refuses double applies, edited applied files, reused or skipped numbers and zero-row seeds; smoke X-28 runs `migrate.mjs status`. |
 | UX/legal governance drift (consent + legal docs completeness) | Terms/privacy acceptance and legal pages expanded after initial launch scope | Low | Maintain explicit versioned consent model, keep legal copy synchronized across in-app summaries/email/full pages |
 
 | Product-principles gap closure (April 2026) | ✅ Live — (1) R568: polarised training renamed from R558 (collision); R558/R559 added to messagePolicy.js RULE_POLICY, RULE_LABELS, deriveChipLabel; (2) DOCS metadata updated to April 2026, how-it-works.html v1.1 reflects recovery mode / return-to-training / all 3 coaches, privacy.html export section updated to self-service; (3) GhostCounter removed; Rebuild scores hidden behind ▸ Advanced disclosure; (4) cycling coach Today card shows Zone 2 / Intervals session type; general goal card shows one-line focus per goal; Progress tab adds cycling coach insight block (week, sessions, next focus) |
@@ -1690,7 +1692,7 @@ Legend: 🟢 Low risk · 🟡 Medium risk · 🔴 High risk | ⚡ Low effort · 
 - **DB IDs**: always `crypto.randomUUID()`
 - **Error responses**: always `Response.json({ error: "Internal error" }, { status: 500 })` with `console.error(e)` server-side
 - **Commits**: conventional format `feat:`, `fix:`, `chore:`, `refactor:`
-- **Deploy**: canonical manual release = `npm run smoke` → `git push` (backup) → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
+- **Deploy**: canonical manual release = `npm run release` → `git push` (backup) → `npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main`
 - **Timers in React**: use `setTimeout` (not `setInterval`) inside `useEffect` with the changing value in the deps array — this avoids stale closures. Pattern: `const id = setTimeout(cb, 1000); return () => clearTimeout(id);`
 - **Refs vs state for tracking**: mutable data that doesn't need to trigger re-renders (e.g. `stepsActualRef`, `restStartedAtRef`) goes in `useRef`. UI state goes in `useState`.
 - **Functional setState for counters**: use `setCurrentSet(s => s + 1)` not `setCurrentSet(currentSet + 1)` inside effects/callbacks to avoid stale closure issues.
@@ -1717,11 +1719,11 @@ The full product spec is v1.5.0 (Golden Master Design). Key decisions:
 # Query D1 remotely
 npx wrangler d1 execute justfit-db --remote --command "SELECT ..."
 
-# Apply a migration
-npx wrangler d1 execute justfit-db --remote --file migrations/000X_name.sql
+# Apply a migration (the only way — records it in schema_migrations, fails on a zero-row seed)
+node scripts/migrate.mjs apply migrations/NNNN_name.sql
 
-# Apply dashboard events migration
-npx wrangler d1 execute justfit-db --remote --file migrations/0024_app_events.sql
+# Is every migration file recorded, with an unchanged checksum?
+node scripts/migrate.mjs status
 
 # Set dashboard secret (do not commit secret values; keep out of README/public docs)
 npx wrangler pages secret put DASHBOARD_PASSWORD --project-name=justfit
@@ -1729,8 +1731,8 @@ npx wrangler pages secret put DASHBOARD_PASSWORD --project-name=justfit
 # Check tables
 npx wrangler d1 execute justfit-db --remote --command "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;"
 
-# Deploy (smoke → push → wrangler)
-npm run smoke
+# Deploy (release → push → wrangler); release = smoke + e2e
+npm run release
 git add . && git commit -m "feat: ..." && git push
 npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main
 
@@ -1751,19 +1753,45 @@ npx wrangler d1 execute justfit-db --remote --command "SELECT slug, name, instru
 
 ## Database Migration Policy
 
+The database records what was applied: table `schema_migrations` (filename, sha256, rows_written,
+applied_at_ms, applied_by, note). `scripts/migrate.mjs` is the **only** way a migration reaches D1;
+it writes that table and refuses what documents could only ask for. Before 0118 the record was a
+sentence in two CLAUDE.md files, and migration 0033 "applied" with zero rows — `INSERT OR IGNORE`
+swallowed a CHECK violation — unnoticed for six months.
+
+### `scripts/migrate.mjs`
+
+| Command | Does | Exit 1 when |
+|---|---|---|
+| `apply migrations/NNNN_name.sql` | sha256 the file, apply it with `wrangler d1 execute --remote --file`, record it with D1's `rows_written` | the filename is already recorded; **any** recorded file's checksum differs from disk or the file is gone; the number is already used; an older file is unrecorded; the file is older than the newest applied one; **the file contains an INSERT and wrote 0 rows** (recorded first, then fails — fix forward) |
+| `apply … --allow-empty --note "why"` | as above, for a migration that legitimately writes nothing; the note is recorded | — |
+| `apply … --via-command` | sends the file through the query API instead of `--file` (import API) — for a token without import permission | — |
+| `status [--quiet]` | every `migrations/0*.sql` vs the table: `ok` / `CHANGED` / `UNRECORDED` / `MISSING-FILE` | any drift, or the table does not exist |
+| `baseline [--dry-run]` | one time only: records every file numbered below 0118 as applied (checksum from disk, rows_written NULL, note `baseline 2026-10-04`) | the table holds any row other than 0118's own |
+| `--local` (any command) | rehearsal against local D1; local D1 reports no row counts, so the zero-row check is skipped there | — |
+
+Exit 2 = usage or wrangler error (for `apply`: nothing was recorded, or — if the message says
+"WAS APPLIED" — record it by hand with the printed INSERT). Credentials: environment first, else the
+`env` block of `.claude/settings.local.json`. Decision logic is pure and tested:
+`node --test scripts/migrate.test.mjs` (also run by smoke). Smoke X-28 runs `migrate.mjs status --quiet`,
+so an unrecorded or edited migration turns smoke red.
+
 ### Adding a migration
 
-1. Choose the next monotonic number (`0117`, `0118`, …). Never reuse a number, never skip one.
-2. Write the file as `migrations/000N_description.sql`. Keep it additive where possible.
-3. Apply to production: `npx wrangler d1 execute justfit-db --remote --file migrations/000N_description.sql`
-4. **Update the baseline** — this is mandatory:
+1. Number: `ls migrations/ | tail -1`, plus one. No document carries "the next number"; the table is the ledger and the tool refuses a reused or skipped number.
+2. Write `migrations/NNNN_description.sql` with a header comment saying why. Keep it additive where possible.
+3. Rehearse if useful: `node scripts/migrate.mjs apply migrations/NNNN_description.sql --local`.
+4. Apply: `node scripts/migrate.mjs apply migrations/NNNN_description.sql`. A non-zero exit after "recorded" means it ran but did not do what it says — do not move on; fix forward in a new migration.
+5. `node scripts/migrate.mjs status` must print `matches`.
+6. **Update the baseline** — this is mandatory:
    - Schema change → merge new columns/tables into `migrations/baseline/1000_schema_core.sql` or `migrations/baseline/1010_schema_training.sql`
    - Exercise/awards data → regenerate `migrations/baseline/1020_seed_exercises.sql` from live D1: `node scripts/generate-baseline-seeds.mjs` (there is no "apply list"; do not hand-edit rows)
    - Cycling data → add to `migrations/baseline/1030_seed_cycling.sql`
    - Military data → add to `migrations/baseline/1040_seed_military.sql`
-5. Update `docs/training-model-architecture.md` migration order table if it is a training-model change.
-6. Update the "Current Build Status" table in this file.
-7. Commit: `chore: migration 000N description + baseline update`
+   - New or dropped table → regenerate `scripts/known-tables.txt` (command in smoke W6.2) and the schema section above
+7. Update `docs/training-model-architecture.md` migration order table if it is a training-model change.
+8. Update the "Current Build Status" table in this file.
+9. Commit: `chore: migration NNNN description + baseline update`
 
 ### Baseline files (source of truth for new environments)
 
@@ -1785,9 +1813,11 @@ The legacy migrations (`migrations/000X_*.sql`) remain in place as the audit tra
 
 ### Rules
 
-- **Never edit a migration that has been applied to production.** Migrations are append-only history.
+- **Never edit a migration that has been applied to production.** Migrations are append-only history — enforced: `migrate.mjs` refuses every apply while a recorded checksum differs from disk, and smoke goes red.
+- **Never apply a migration with `wrangler d1 execute --file` directly.** It leaves no record; `status` shows it as UNRECORDED and the next `apply` refuses.
+- **`INSERT OR IGNORE` only where the conflict is the intended idempotency** (re-seeding a row that may already exist). It also swallows CHECK and NOT NULL violations — that is how 0033 inserted nothing. Prefer plain `INSERT` (a violation fails the migration) or `INSERT … ON CONFLICT(col) DO NOTHING` (ignores only the uniqueness conflict). `migrate.mjs apply` asserts the row count: a file with an INSERT that writes zero rows fails.
 - **Baseline must stay current.** Every schema migration must be reflected in the baseline before the PR is merged.
-- **No auto-discovery.** There is no `migrations_dir` in `wrangler.toml`. Every migration is applied with an explicit `--file` flag.
+- **No auto-discovery.** There is no `migrations_dir` in `wrangler.toml`; wrangler's own `d1 migrations` and `_migrations` are not used. Every migration is applied by name through `migrate.mjs apply`.
 - **D1 only.** Never apply SQLite-only pragmas (e.g. VACUUM, ATTACH) that D1 does not support.
 
 ---
@@ -1796,7 +1826,7 @@ The legacy migrations (`migrations/000X_*.sql`) remain in place as the audit tra
 
 Four checks to enforce before merging any PR that touches the relevant area. Each is one line: what to verify, who is responsible, when it triggers.
 
-- **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run smoke` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
+- **Deploy consistency** — Verify that "After every change", "Deploy workflow", "Useful Commands" (CLAUDE.md) and "Deploy" (README.md) all show the identical three-step flow: `npm run release` → `git push` → `npm run build && npx wrangler pages deploy`. Owner: any dev. Triggers: every PR touching deploy/CI docs.
 - **Architecture snapshot** — Confirm the `src/` module list and lazy-view boundaries in CLAUDE.md Project Structure match actual files on disk (`App.jsx`, `SettingsView.jsx`, `AwardsView.jsx`, `apiClient.js`, `messagePolicy.js`, `errorReporter.js`). Owner: dev adding/removing `src/` files. Triggers: every `src/` boundary change.
-- **Migration numbering** — Before adding a migration, confirm no existing file shares the same `000N_` prefix; next valid number is `0118`; never reuse a number. Owner: any dev. Triggers: every migration PR.
+- **Migration ledger** — Enforced, not checked by hand: `migrate.mjs apply` refuses a reused or skipped number or an edited applied file, and smoke X-28 (`migrate.mjs status`) fails on any unrecorded or changed file. Owner: any dev. Triggers: every migration PR.
 - **Legal docs parity** — Confirm all 5 pages (`mission`, `how-it-works`, `privacy`, `terms`, `disclaimer`) expose Share + Email buttons, and `/api/legal-email` handles all 5 document IDs (`privacy`, `terms`, `mission`, `how_it_works`, `disclaimer`). Owner: any dev. Triggers: every legal content or email endpoint change.

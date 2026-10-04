@@ -64,9 +64,9 @@ Vite dev server runs at `http://localhost:5173`. API calls go to the local Vite 
 Canonical deploy flow (manual):
 
 ```bash
-npm run smoke   # lint + build + 4 live API checks — must pass before deploying
+npm run release # smoke (lint + build + live API + migration ledger) then e2e (~40 s, local wrangler dev) — must pass
 git add . && git commit -m "feat: ..." && git push
-npm run build && npx wrangler pages deploy dist --project-name=justfit --branch=main
+npm run build && npx wrangler pages deploy packages/client-app/dist --project-name=justfit-app --branch=main
 ```
 
 See `docs/release-checklist.md` for the full manual pre-deploy checklist and `docs/operations-runbook.md` for the incident runbook.
