@@ -380,11 +380,11 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
   return { allExercises, allTemplates, prefs, userProfileRow, cyclingWorkouts, runPrograms };
 }
 
-// Pro flag — gates structured coaching programs (R556, R557, polarised) and the
-// C-G4 cap. Entitlements via the one shared check; the preferences flag is the
-// old manual override (see the F8 report: it is client-writable).
-async function _resolveIsPro(env, user_id, prefs) {
-  return !!prefs?.preferences?.isPro || isProUser(env, user_id, Date.now());
+// Pro flag — gates coaching programmes and the C-G4 cap. Entitlements are the
+// ONLY source: preferences.isPro was client-writable via /api/profile, so any
+// user could self-grant. Removed 2026-10-04; manual grants are entitlement rows.
+async function _resolveIsPro(env, user_id) {
+  return isProUser(env, user_id, Date.now());
 }
 
 // Resolve cycle + pregnancy context from DB when user_id is present

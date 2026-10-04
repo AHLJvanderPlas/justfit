@@ -255,6 +255,19 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(row('pro').generated_by === 'engine', `a pinned plan is engine-built and must say so, got ${row('pro').generated_by}`);
 }
 
+// 9. A client-written preferences.isPro grants NOTHING. The blob is stored as
+//    sent, and until 2026-10-04 the planner honoured it — any user could POST
+//    {"preferences":{"isPro":true}} and skip the daily cap. Pro is an
+//    entitlement row and nothing else.
+{
+  db.prepare(`UPDATE user_preferences SET preferences_json = json_set(COALESCE(preferences_json,'{}'), '$.isPro', 1) WHERE user_id = ?`).run('free');
+  await post('free', { replace_user_plan: true });          // first plan of the day
+  const again = await post('free', { replace_user_plan: true });
+  check(again.body.plan?.capped === true,
+    `a free user with a self-written preferences.isPro flag skipped the C-G4 cap: capped=${again.body.plan?.capped}`);
+  db.prepare(`UPDATE user_preferences SET preferences_json = json_remove(preferences_json, '$.isPro') WHERE user_id = ?`).run('free');
+}
+
 // 8. Gym-private exercises never reach a non-member — not via pins, not via
 //    custom_steps, not in the engine's pool. Latent today (all 482 live rows are
 //    global); a leak the day a trainer creates one.

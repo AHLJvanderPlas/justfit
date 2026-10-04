@@ -17,7 +17,8 @@ db.exec(`
     user_id      TEXT    NOT NULL,
     product_code TEXT    NOT NULL,
     source       TEXT    NOT NULL DEFAULT 'manual'
-                   CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other','trial')),
+                   CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other','trial',
+                                   'mollie_sub','trainer_grant','manual_grant')),
     status       TEXT    NOT NULL DEFAULT 'active'
                    CHECK (status IN ('active','trialing','grace','canceled','expired')),
     starts_at_ms INTEGER NOT NULL,
@@ -84,3 +85,22 @@ test('isProUser: any one live row is enough', async () => {
   ins.run('ent-mixed-new', 'mixed', 'pro_monthly', 'other', 'active', NOW - DAY, NOW + 30 * DAY, NOW, NOW);
   assert.equal(await isProUser(env, 'mixed', NOW), true);
 });
+
+// 0121 — the three sources the live writers use must be insertable. The old CHECK
+// rejected all three and INSERT OR IGNORE was not in play: a paying Mollie
+// customer's first-payment row threw. Control: the pre-0121 CHECK must refuse them,
+// so this test fails if someone "simplifies" the DDL above back to the old list.
+test('0121: mollie_sub, trainer_grant and manual_grant are insertable; the old CHECK refused them', () => {
+  for (const src of ['mollie_sub', 'trainer_grant', 'manual_grant']) {
+    ins.run(`ent-0121-${src}`, `u-${src}`, 'pro_monthly', src, 'active', NOW - DAY, NOW + 30 * DAY, NOW, NOW);
+  }
+  const old = new DatabaseSync(':memory:');
+  old.exec(`CREATE TABLE entitlements (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, product_code TEXT NOT NULL,
+    source TEXT NOT NULL CHECK (source IN ('stripe','apple','google','voucher','manual','referral','other','trial')),
+    status TEXT NOT NULL, starts_at_ms INTEGER NOT NULL, ends_at_ms INTEGER, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL) STRICT`);
+  const oldIns = old.prepare(`INSERT INTO entitlements VALUES (?,?,?,?,?,?,?,?,?)`);
+  for (const src of ['mollie_sub', 'trainer_grant', 'manual_grant']) {
+    assert.throws(() => oldIns.run(`x-${src}`, 'u', 'pro_monthly', src, 'active', 1, 2, 1, 1), /CHECK/, `old CHECK should refuse ${src}`);
+  }
+});
+

@@ -1356,6 +1356,33 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-04 (later) — post-remediation Phases A–F
+
+- **A** — `schema_migrations` is the ledger; `scripts/migrate.mjs` is the only way a migration
+  reaches D1 (refuses re-apply, edits, skips; fails a seed that writes 0 rows). Baseline seeded
+  with all prior files. `npm run release` = smoke + e2e is the canonical gate.
+- **B** — `script-src 'self'` (two inline blocks externalised: `/prepaint.js`, `/login-wave.js`);
+  inline-style ratchet B2 at 2 392. Styling rule contradiction resolved: new styling = CSS class.
+- **C** — `onRequestPost` 581 → 100 (`_shared/planRequest.js`, 144-case decision table);
+  `App.jsx` 4 322 → 1 833 (Dashboard, CheckInModal, Onboarding/PathChoice/WhyNot/GuestConvert
+  lazy); one `_shared/session.js` for `getDefaultRest`/`estimateMins`. Line ratchets on all three.
+- **D** — `cycle_profile`, `period_log`, `pregnancy_weekly_log` rebuilt STRICT (0119); `awards` +
+  `user_awards` dropped (0120). D1 `--file` atomicity verified on local D1 first.
+- **E** — adapt exempt from the cap (adapts the STORED plan); capped plans carry `id`; one
+  `isProUser` (`grace` counts — the documented pattern was wrong); R525 sex gate removed;
+  Recalibrate explains a preserved day; measurement offer after one-tap template use.
+- **F — billing.** `entitlements.source` CHECK rejected `mollie_sub`, `trainer_grant`,
+  `manual_grant` — every paid-path writer. A paying customer was charged and got no entitlement.
+  0121 widens it (rebuild, 21 rows preserved). **`preferences.isPro` was client-writable and
+  honoured by the planner** — any user could self-grant Pro. Removed on both sides; the owner
+  account now holds a `manual_grant` entitlement instead.
+- Smoke 73 → **87**; e2e 10/10; ledger 122 ok; `npm test` 213/213.
+
+**Queued:** regenerate the schema baselines (1000/1010) from live `sqlite_master` and align the
+e2e fixtures — the fixture inserts `gyms.type`, which production does not have, and the gate
+passes in the main checkout only because its local D1 is a months-old artefact.
+`pregnancy_weekly_log` has 0 rows and no writer (same shape as `awards`).
+
 ### Shipped 2026-10-04 — remediation complete (W4b + decisions + follow-ups)
 
 - **W4b — saved templates.** Migration 0117 `user_session_templates`; `GET/POST/DELETE

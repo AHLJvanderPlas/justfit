@@ -528,7 +528,7 @@ export default function App() {
       handleProfileLoaded(data);
       // Fetch entitlement state (isPro from DB, not from preferences flag)
       api.getSubscription().then(sub => {
-        if (sub.isPro != null) { setIsPro(sub.isPro); isProRef.current = sub.isPro || !!(data.preferences?.isPro); }
+        if (sub.isPro != null) { setIsPro(sub.isPro); isProRef.current = sub.isPro; }   // entitlements only — preferences.isPro is no longer a thing
         if (sub.early_bird_remaining != null) setEarlyBirdRemaining(sub.early_bird_remaining);
       }).catch(() => {});
     }).catch(() => setOnboardingReady(true));

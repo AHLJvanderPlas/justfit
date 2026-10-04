@@ -250,6 +250,10 @@ export async function onRequestPost({ request, env }) {
 
     // ── Normalize preferences: validate military fields + enforce one-active-coach ─
     if (preferences && typeof preferences === 'object') {
+      // Pro is an entitlement, never a preference. The blob is stored as sent, so
+      // a client-supplied isPro would persist and (until 2026-10-04) was honoured
+      // by the planner. Strip it unconditionally — there is no legitimate writer.
+      delete preferences.isPro;
       const mil = preferences.military_coach;
       if (mil && typeof mil === 'object') {
         // Clamp / whitelist military coach fields before persisting
