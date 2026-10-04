@@ -47,6 +47,7 @@ programs
 push_subscriptions
 referral_codes
 referrals
+schema_migrations
 session_templates
 sqlite_sequence
 strava_connections

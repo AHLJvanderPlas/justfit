@@ -141,7 +141,7 @@ Keep all responses short. The user reads results, not reasoning.
 
 ## Code quality rules
 - Pages Functions are plain `.js` files — no TypeScript, no npm imports, no bundler
-- All styles in `src/App.jsx` are inline using the `C.` design token object
+- Existing styles in client-app are inline with the `C.` token object; **new styling is a CSS class** (see Design rules / Styling guardrail; ratchet B2)
 - Never add `account_id` to `wrangler.toml`
 - Always use `env.DB.batch([...])` for multiple D1 inserts, never sequential awaits in a loop
 - All D1 timestamps are milliseconds: `Date.now()` — column suffix `_at_ms`
@@ -150,7 +150,13 @@ Keep all responses short. The user reads results, not reasoning.
 ## Design rules
 - Background: #020617, accent: #10b981 emerald, cards: rgba(255,255,255,0.04)
 - Border radius: 28px for cards, 14px for inputs, 16px for buttons
-- All styles inline — no Tailwind, no CSS modules, no external stylesheets (client-app). Trainer-app uses Tailwind v4 with @theme tokens.
+- **Styling (decided 2026-10-04, resolving a contradiction both review agents flagged):** the
+  security guardrail at the top of this file wins. **New styling is a CSS class**, in
+  `packages/client-app/src/styles.css`, with tokens exposed as CSS custom properties (the
+  `--accent` family already exists — extend it). Dynamic values on SVG use attributes. The
+  existing ~2 400 `style={{ }}` props stay until a view is migrated; smoke check **B2** is a
+  ratchet on that count and must be LOWERED when a view is migrated, never raised. Trainer-app
+  uses Tailwind v4 with @theme tokens.
 - Typography: Barlow Condensed (display), Inter Tight (body), JetBrains Mono (data). Loaded via Google Fonts. Use the `display()`, `eyebrow`, `mono()` helpers in `App.jsx` instead of writing inline font-family strings.
 - font-weight 900 for display headings, 700 for labels, 500 for body
 
@@ -419,6 +425,8 @@ password_hash TEXT, password_algo TEXT, last_login_at_ms INT,
 locale TEXT, timezone TEXT, country_code TEXT
 ```
 Password stored as `salt:hash` where hash = SHA-256(salt + password + JWT_SECRET).
+
+**schema_migrations** — the migration ledger (filename, sha256, rows_written, applied_at_ms, note); written only by `scripts/migrate.mjs`
 
 **user_preferences** — profile + planner preferences (one row per user; replaces the old `user_profile`)
 ```sql
