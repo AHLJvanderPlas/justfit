@@ -43,6 +43,24 @@ function defaultRest(ex) {
   return 60;
 }
 
+// One builder row. `st` is a saved template step (W4.3) when the sheet was
+// opened from "Mijn trainingen"; without it the row is pre-filled from the library.
+function rowFor(ex, key, st = null) {
+  const m = parse(ex.metrics_json, "{}");
+  const supports = m.supports ?? [];
+  const supportsReps = supports.includes("reps");
+  const useTime = st?.target_duration_sec != null ? true : st?.target_reps != null ? false : !supportsReps;
+  return {
+    key, ex,
+    canToggle: supportsReps && (supports.includes("time") || !!m.base_duration_sec),
+    useTime,
+    sets: clamp(st?.sets ?? m.fixed_sets ?? 3, LIM.sets),
+    reps: clamp(st?.target_reps ?? 10, LIM.reps),
+    duration: clamp(st?.target_duration_sec ?? m.base_duration_sec ?? 30, LIM.duration),
+    rest: clamp(st?.rest_sec ?? defaultRest(ex), LIM.rest),
+  };
+}
+
 function fmtSec(sec) {
   if (sec < 60) return `${sec}s`;
   const m = Math.floor(sec / 60), s = sec % 60;
@@ -85,7 +103,10 @@ function NoteCard({ note }) {
   );
 }
 
-export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
+// `template` (W4.3): open preloaded from a saved training, offering "Sjabloon
+// bijwerken". `initialNotes`: the safety notes of a 409 from a one-tap use, so
+// the acknowledgement is asked here, where the notes have context.
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved }) {
   useLang();
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -94,21 +115,49 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
   const [showAll, setShowAll] = useState(false);
   const [steps, setSteps] = useState([]);
   const [pins, setPins] = useState([]);
-  const [notes, setNotes] = useState([]);
-  const [needsAck, setNeedsAck] = useState(false);
+  const [notes, setNotes] = useState(initialNotes ?? []);
+  const [needsAck, setNeedsAck] = useState(!!initialNotes?.some((n) => n.blocking));
   const [ack, setAck] = useState(false);
   const [saved, setSaved] = useState(null);           // { assessmentOffer, pinsRemoved }
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const keyRef = useRef(0);
+  // W4.3 — the saved training this sheet edits (null: a new one).
+  const [tpl, setTpl] = useState(template);
+  const [tplOpen, setTplOpen] = useState(false);
+  const [tplName, setTplName] = useState(template?.name ?? "");
+  const [tplBusy, setTplBusy] = useState(false);
+  const [tplMsg, setTplMsg] = useState(null);          // { err, text }
+  const [dropped, setDropped] = useState(0);
 
   useEffect(() => {
     let alive = true;
     api.getLibrary()
-      .then((rows) => { if (alive) setLibrary(rows); })
+      .then((rows) => {
+        if (!alive) return;
+        setLibrary(rows);
+        if (template?.steps?.length) {
+          // A saved step whose exercise left the library is dropped, and said so —
+          // the server would reject the whole session otherwise.
+          const byId = new Map(rows.map((ex) => [String(ex.id), ex]));
+          const pre = [];
+          for (const st of template.steps) {
+            const ex = byId.get(String(st.exercise_id));
+            if (!ex) continue;
+            keyRef.current += 1;
+            pre.push(rowFor(ex, keyRef.current, st));
+          }
+          setSteps(pre);
+          if (pre.length !== template.steps.length) {
+            // Notes are indexed by position; they no longer line up.
+            setDropped(template.steps.length - pre.length);
+            setNotes([]); setNeedsAck(false);
+          }
+        }
+      })
       .catch(() => { if (alive) setLoadError(true); });
     return () => { alive = false; };
-  }, []);
+  }, [template]);
 
   // ── Library search ──────────────────────────────────────────────────────
   // Filtered by the profile's kit by default; "Toon alles" lifts it, because the
@@ -127,19 +176,9 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
 
   const addStep = (ex) => {
     if (steps.length >= MAX_STEPS) return;
-    const m = parse(ex.metrics_json, "{}");
-    const supports = m.supports ?? [];
-    const supportsReps = supports.includes("reps");
     keyRef.current += 1;
-    setSteps((s) => [...s, {
-      key: keyRef.current, ex,
-      canToggle: supportsReps && (supports.includes("time") || !!m.base_duration_sec),
-      useTime: !supportsReps,
-      sets: clamp(m.fixed_sets ?? 3, LIM.sets),
-      reps: 10,
-      duration: clamp(m.base_duration_sec ?? 30, LIM.duration),
-      rest: clamp(defaultRest(ex), LIM.rest),
-    }]);
+    const row = rowFor(ex, keyRef.current);
+    setSteps((s) => [...s, row]);
     resetSafety();
   };
   const patch = (key, fn) => { setSteps((s) => s.map((st) => (st.key === key ? { ...st, ...fn(st) } : st))); resetSafety(); };
@@ -173,7 +212,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
     setBusy(true); setError(null);
     let res;
     try {
-      res = await api.installCustomSession(today, { steps: customSteps, sessionName: t("My training"), safetyAck: ack, includeAssessment });
+      res = await api.installCustomSession(today, { steps: customSteps, sessionName: tpl?.name ?? t("My training"), safetyAck: ack, includeAssessment });
     } catch {
       setBusy(false); setError(t("Could not save your session — check your connection and try again.")); return;
     }
@@ -191,6 +230,31 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
     setNotes(n);
     if (!includeAssessment && (n.length || data.assessment_offer)) setSaved({ assessmentOffer: !!data.assessment_offer });
     else onClose();
+  };
+
+  // W4.3 — store what the user built. Nothing is installed; using a saved
+  // training later goes through the same POST /api/plan as "Use today".
+  const saveTemplate = async (asNew) => {
+    const name = tplName.trim();
+    if (!name) { setTplMsg({ err: true, text: t("Give your training a name.") }); return; }
+    setTplBusy(true); setTplMsg(null);
+    let res;
+    try { res = await api.saveMySession({ id: asNew ? undefined : tpl?.id, name, steps: customSteps }); } catch { res = { status: 0, data: {} }; }
+    setTplBusy(false);
+    const { status, data } = res;
+    if (status === 200 && data.ok) {
+      setTpl(data.template); setTplName(data.template.name); setTplOpen(false);
+      setTplMsg({ err: false, text: t("Saved in My trainings.") });
+      onTemplateSaved?.(data.template);
+      return;
+    }
+    const text = data.error === "template_limit" ? t("You have {n} saved trainings — delete one first.", { n: data.limit ?? 30 })
+      : data.error === "invalid_name" ? t("Give your training a name (max 60 characters).")
+      : data.error === "unknown_exercise" ? t("One of these exercises is no longer in the library — remove it and try again.")
+      : data.error === "not_found" ? t("This training no longer exists — save it as a new one.")
+      : t("Could not save your training — check your connection and try again.");
+    if (data.error === "not_found") setTpl(null);
+    setTplMsg({ err: true, text });
   };
 
   const fill = async () => {
@@ -349,6 +413,11 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
         {mode === "build" && (
           <>
             <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>{t("Your session")}</div>
+            {dropped > 0 && (
+              <div style={{ fontSize: 12, color: C.warningSoft, lineHeight: 1.5, marginBottom: 8 }}>
+                {t("{n} exercise(s) from this training are no longer in the library and were left out.", { n: dropped })}
+              </div>
+            )}
             {sessionNotes.map((n, i) => <NoteCard key={`s${i}`} note={n} />)}
             {steps.length === 0 && (
               <div style={{ fontSize: 12, color: C.muted, padding: "6px 0 12px" }}>{t("Tap an exercise above to add it.")}</div>
@@ -422,6 +491,45 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
     );
   }
 
+  // ── W4.3: the second, quieter action — save as / update a template ─────
+  const quiet = {
+    width: "100%", minHeight: 44, marginTop: 6, background: "none", border: "none", fontFamily: "inherit",
+    fontSize: 13, fontWeight: 700, color: steps.length ? C.mutedStrong : C.faint, cursor: steps.length ? "pointer" : "not-allowed",
+  };
+  const templatePanel = tplOpen ? (
+    <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: C.bgCard, border: `1px solid ${C.border}` }}>
+      <input
+        type="text"
+        value={tplName}
+        maxLength={60}
+        autoFocus
+        onChange={(e) => { setTplName(e.target.value); setTplMsg(null); }}
+        placeholder={t("Name of your training")}
+        aria-label={t("Name of your training")}
+        style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard2, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none", marginBottom: 8 }}
+      />
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} style={{ ...chip(true), flex: 1, padding: "11px 14px" }}>
+          {tplBusy ? t("Saving…") : tpl ? t("Update template") : t("Save")}
+        </button>
+        {tpl && (
+          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} style={{ ...chip(false), padding: "11px 14px" }}>
+            {t("Save as new")}
+          </button>
+        )}
+        <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} style={{ ...chip(false), padding: "11px 14px" }}>{t("Cancel")}</button>
+      </div>
+      {tplMsg && <div style={{ fontSize: 12, color: tplMsg.err ? C.danger : "var(--accent)", marginTop: 8 }}>{tplMsg.text}</div>}
+    </div>
+  ) : (
+    <>
+      <button type="button" disabled={!steps.length} onClick={() => { setTplOpen(true); setTplMsg(null); }} style={quiet}>
+        {tpl ? t("Update template") : t("Save as template")}
+      </button>
+      {tplMsg && <div style={{ fontSize: 12, color: tplMsg.err ? C.danger : "var(--accent)", textAlign: "center", marginBottom: 4 }}>{tplMsg.text}</div>}
+    </>
+  );
+
   // ── Footer (sticky): estimate + the one primary action ──────────────────
   const canSave = mode === "build" && steps.length > 0 && !busy && (!needsAck || ack);
   const canFill = mode === "pin" && pins.length > 0 && !busy;
@@ -444,6 +552,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled }) {
           {busy ? t("Building…") : t("Let the coach fill in the rest")}
         </button>
       )}
+      {mode === "build" && templatePanel}
     </div>
   );
 

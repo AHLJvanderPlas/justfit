@@ -10,6 +10,7 @@ import { DcpCard } from "./DcpCard.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 import { useAppShell } from "./AppShellContext.js";
+import { MyTrainingsCard } from "./MyTrainings.jsx";
 
 // ─── KEURING NORMS (Defensie KB–K6, openbaar beschikbaar) ────────────────────
 // run_sec = max 1500m time; pushups/pullups = minimum reps; march = max 5km+10kg time
@@ -25,7 +26,7 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages }) {
+export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages, myTemplates, onUseTemplate, onEditTemplate, onBuildOwn, onDeleteTemplate }) {
   useLang();
   const { token } = useAppShell();
   const [intentSaved, setIntentSaved] = useState(false);
@@ -361,6 +362,16 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           <div style={{ fontSize: 12, color: C.muted, marginTop: 10, textAlign: "center" }}>{t("Active from your next check-in.")}</div>
         )}
       </div>
+
+      {/* ── W4.3 — Mijn trainingen ── */}
+      <MyTrainingsCard
+        templates={myTemplates}
+        onUse={onUseTemplate}
+        onEdit={onEditTemplate}
+        onCreate={onBuildOwn}
+        onDelete={onDeleteTemplate}
+        todayUserAuthored={!!plan?.authored_by_user}
+      />
 
       {/* ── Conflict resolution ── */}
       {multiCoach && (

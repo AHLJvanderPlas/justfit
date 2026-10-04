@@ -794,6 +794,17 @@ CREATE TABLE IF NOT EXISTS user_progression_events (
   CHECK (stimulus_json      IS NULL OR json_valid(stimulus_json))
 ) STRICT;
 
+-- 0117 (W4.3) — the user's own saved trainings ("Mijn trainingen").
+CREATE TABLE IF NOT EXISTS user_session_templates (
+  id            TEXT PRIMARY KEY,
+  user_id       TEXT NOT NULL,
+  name          TEXT NOT NULL,
+  steps_json    TEXT NOT NULL,             -- [{exercise_id, sets, target_reps?, target_duration_sec?, rest_sec?}]
+  est_minutes   INTEGER,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL
+) STRICT;
+
 CREATE TABLE IF NOT EXISTS users (
   id                 TEXT PRIMARY KEY,                 -- uuid
   status             TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled','deleted')),
@@ -1007,6 +1018,8 @@ CREATE INDEX IF NOT EXISTS idx_trainer_invoices_user ON trainer_invoices(user_id
 CREATE INDEX IF NOT EXISTS idx_trainer_messages_thread ON trainer_messages(gym_id, sender_user_id, recipient_user_id, sent_at_ms);
 
 CREATE INDEX IF NOT EXISTS idx_upe_user ON user_progression_events(user_id, created_at_ms);
+
+CREATE INDEX IF NOT EXISTS idx_ust_user ON user_session_templates(user_id);
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_user_awards_user_award
   ON user_awards(user_id, award_id);

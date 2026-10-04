@@ -51,6 +51,49 @@ const api = {
     return { status: res.status, data: data ?? {} };
   },
 
+  // W4.3 — "Mijn trainingen": the user's saved sessions. The endpoint only
+  // stores them; using one goes through installCustomSession below, so safety,
+  // clamping and overwrite protection run exactly as for a freshly built session.
+  async getMySessions() {
+    const res = await fetch("/api/my-sessions");
+    if (res.status === 401) return [];
+    const data = await res.json();
+    if (!data.ok) throw new Error(data.error ?? "Could not load your trainings");
+    return data.templates ?? [];
+  },
+
+  // Never throws on a 400/404: the builder shows the reason (name, cap, unknown id).
+  async saveMySession({ id, name, steps }) {
+    const res = await fetch("/api/my-sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: id ?? undefined, name, steps }),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    return { status: res.status, data: data ?? {} };
+  },
+
+  // true when it is gone (204, or 404: already deleted elsewhere).
+  async deleteMySession(id) {
+    const res = await fetch(`/api/my-sessions?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+    return res.status === 204 || res.status === 404;
+  },
+
+  // Install a saved training as today's plan — the W4.1 custom_steps contract,
+  // unchanged. Same { status, data } as installCustomSession: a 409 carries the
+  // safety notes that need an acknowledgement.
+  async useMySession(template, date, { safetyAck = false, includeAssessment = false } = {}) {
+    return api.installCustomSession(date, {
+      steps: (template.steps ?? []).map((s) => ({
+        exercise_id: s.exercise_id, sets: s.sets, rest_sec: s.rest_sec,
+        target_reps: s.target_reps, target_duration_sec: s.target_duration_sec,
+      })),
+      sessionName: template.name,
+      safetyAck, includeAssessment,
+    });
+  },
+
   // The whole active library, fetched once per page load — the builder filters
   // it locally so typing a search costs no round-trip.
   _library: null,
