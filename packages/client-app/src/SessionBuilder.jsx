@@ -15,6 +15,7 @@
 import { useState, useEffect, useRef } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { estimateMins } from "./planUtils.js";
+import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { RULE_LABELS } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
 import api from "./apiClient.js";
@@ -29,19 +30,9 @@ const parse = (s, d) => { try { return JSON.parse(s || d) ?? JSON.parse(d); } ca
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v)));
 const equipOf = (ex) => parse(ex?.equipment_required_json, '["none"]');
 
-// Pre-fill only — mirrors plan.js getDefaultRest for a main session so the live
+// Pre-fill only — the planner's own rest for a main session, so the live
 // estimate is honest before the server has seen the session.
-function defaultRest(ex) {
-  const tags = parse(ex?.tags_json, "[]");
-  const m = parse(ex?.metrics_json, "{}");
-  if (tags.includes("pelvic_floor")) return 30;
-  if (tags.includes("mobility")) return 20;
-  if (tags.includes("run_warmup")) return 10;
-  if (m.custom_rest_sec != null) return m.custom_rest_sec;
-  if (tags.includes("cardio")) return 30;
-  if (tags.includes("bodyweight")) return 45;
-  return 60;
-}
+const defaultRest = (ex) => getDefaultRest(ex, "main");
 
 // One builder row. `st` is a saved template step (W4.3) when the sheet was
 // opened from "Mijn trainingen"; without it the row is pre-filled from the library.

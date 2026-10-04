@@ -421,6 +421,27 @@ for fn in applyGain applyDecay; do
   fi
 done
 
+# ── F5 — session arithmetic has one definition, server and client ──────────
+# SessionBuilder.jsx mirrored getDefaultRest and my-sessions.js ported
+# estimateMins; both now import functions/api/_shared/session.js. Counts a
+# function declaration or a const/let/var binding of the name across both
+# trees, plus the arithmetic's own fingerprint, so a renamed copy (the old
+# mirror was called defaultRest) is caught too.
+for fn in getDefaultRest estimateMins; do
+  CNT=$(grep -rcE "^[[:space:]]*(export )?((async )?function ${fn}\(|(const|let|var) ${fn}[[:space:]]*=)" functions/ packages/client-app/src/ 2>/dev/null | awk -F: '{s+=$2} END {print s+0}')
+  if [ "$CNT" = "1" ]; then
+    ok "${fn} has exactly one definition across functions/ and the client"
+  else
+    fail "${fn} defined ${CNT} times across functions/ and packages/client-app/src — import it from functions/api/_shared/session.js"
+  fi
+done
+FP=$(grep -rlE "run_warmup['\"]\)\) return 10|target_reps \?\? 10\) \* sets \* 4" functions/ packages/client-app/src/ 2>/dev/null | grep -v "functions/api/_shared/session.js" || true)
+if [ -z "$FP" ]; then
+  ok "no renamed copy of the rest/estimate arithmetic outside _shared/session.js"
+else
+  fail "session arithmetic copied outside _shared/session.js: $(echo $FP | tr '\n' ' ')"
+fi
+
 # ── C-F11 — the curve must agree with the radar ────────────────────────────
 # The axis drill-down replays stored snapshots through getDisplayScore. If it ever
 # used a separate computation, the last point of the curve could disagree with the
@@ -799,7 +820,14 @@ fi
 # re-rolling for a nicer session is paid; measuring yourself is the input the
 # whole DCP bias depends on, and gating it behind Pro would leave free users
 # permanently biased toward a stale baseline.
-if grep -q "!isPro && !bonus_session && !force_assessment" functions/api/plan.js; then
+# (F4: the cap is now one pure decision in _shared/planRequest.js — asserted by
+# calling it, not by grepping for the condition.)
+FA=$(node --input-type=module -e '
+import { decideExistingPlan } from "./functions/api/_shared/planRequest.js";
+const row = { id: "r", generated_by: "engine", plan_json: "{}" };
+const d = decideExistingPlan({ existingRow: row, body: { date: "2026-10-05", force_assessment: true }, isPro: false });
+process.stdout.write(d.decision);' 2>&1)
+if [ "$FA" = "regenerate" ]; then
   ok "a forced self-assessment is exempt from the free daily plan cap"
 else
   fail "force_assessment is not exempt from the C-G4 daily cap — free users could never re-measure"
@@ -1244,6 +1272,42 @@ if [ -z "$AWARD_SQL" ]; then
 else
   echo "$AWARD_SQL" | sed 's/^/      /'
   fail "functions/ still references awards/user_awards in SQL — migration 0120 drops them"
+# ── F4 — POST /api/plan request parsing + existing-plan decision (offline) ──
+# The C-G4 cap, the W4.1 user-plan protection and the three exemptions are one
+# pure decision in functions/api/_shared/planRequest.js; its tests walk every
+# {isPro × stored row × exemption × replace_user_plan} combination.
+if PRT_OUT=$(node --test scripts/planRequest.test.mjs 2>&1); then
+  ok "plan request decision table: $(echo "$PRT_OUT" | grep -E '^ℹ pass' | sed 's/ℹ //') tests"
+else
+  echo "$PRT_OUT" | grep -E '^✖ ' | grep -v 'failing tests' | sed 's/ ([0-9.]*ms)$//' | sort -u | sed 's/^/      /'
+  fail "plan request decision tests failed (node --test scripts/planRequest.test.mjs)"
+fi
+
+# ── F4 — line-count ratchets: the two big files may only shrink ─────────────
+# plan.js and App.jsx carried the codebase (3 921 and 4 322 lines); every agent
+# paid ten minutes of reading per cold start. onRequestPost was 581 lines mixing
+# parse, cap/override, planner call and persistence. Ceilings are the numbers F4
+# reached; when a later extraction lowers a count, LOWER the ceiling with it.
+PLAN_CEILING=3829
+APP_CEILING=1833
+POST_CEILING=100
+PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
+APP_NOW=$(wc -l < packages/client-app/src/App.jsx | tr -d " ")
+POST_NOW=$(awk '/^export async function onRequestPost\(/{s=NR} s && NR>s && /^}/{print NR-s+1; exit}' functions/api/plan.js)
+if [ "$PLAN_NOW" -le "$PLAN_CEILING" ]; then
+  ok "plan.js line ratchet holds ($PLAN_NOW ≤ $PLAN_CEILING)"
+else
+  fail "plan.js grew to $PLAN_NOW lines (ceiling $PLAN_CEILING) — extract into functions/api/_shared/, do not grow the planner file"
+fi
+if [ "$APP_NOW" -le "$APP_CEILING" ]; then
+  ok "App.jsx line ratchet holds ($APP_NOW ≤ $APP_CEILING)"
+else
+  fail "App.jsx grew to $APP_NOW lines (ceiling $APP_CEILING) — new views go in their own lazy-loaded file"
+fi
+if [ -n "$POST_NOW" ] && [ "$POST_NOW" -le "$POST_CEILING" ]; then
+  ok "plan.js onRequestPost line ratchet holds ($POST_NOW ≤ $POST_CEILING)"
+else
+  fail "plan.js onRequestPost is ${POST_NOW:-not found} lines (ceiling $POST_CEILING) — parsing and decisions belong in _shared/planRequest.js, loading and persistence in the stage functions below the handler"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

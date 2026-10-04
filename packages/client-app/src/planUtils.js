@@ -41,24 +41,8 @@ export function formatExDuration(sec) {
   return `${Math.ceil(rawMin)} min`;
 }
 
-// Estimate session length in minutes from a plan object
-export function estimateMins(p) {
-  if (!p || p.slot_type === "rest") return null;
-  const steps = p.steps ?? [];
-  if (!steps.length) return p.slot_type === "micro" ? 12 : 20;
-  const totalSec = steps.reduce((s, step, i) => {
-    const sets = step.sets ?? 3;
-    const isLast = i === steps.length - 1;
-    const active = step.target_duration_sec
-      ? step.target_duration_sec * sets
-      : (step.target_reps ?? 10) * sets * 4;
-    const restPeriods = isLast ? Math.max(0, sets - 1) : sets;
-    const rest = (step.rest_sec ?? 45) * restPeriods;
-    return s + active + rest;
-  }, 0);
-  const rawMin = Math.max(1, Math.ceil(totalSec / 60));
-  return rawMin > 20 ? Math.ceil(rawMin / 5) * 5 : rawMin;
-}
+// Session length in minutes — one definition, shared with the server.
+export { estimateMins } from "../../../functions/api/_shared/session.js";
 
 // Derive primary/secondary muscle groups from exercise data for MuscleMap rendering
 export function musclesFor(ex) {
