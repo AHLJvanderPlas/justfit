@@ -161,8 +161,8 @@ fi
 
 # index.html resolves the theme inline before the bundle loads; its --bg values
 # must match THEMES in tokens.js or the page flashes the wrong ground colour.
-if grep -q '"--bg": "#f7f8fa"' packages/client-app/index.html && grep -q '"--bg":           "#f7f8fa"' packages/client-app/src/tokens.js; then
-  ok "index.html pre-paint palette matches tokens.js"
+if grep -q '"--bg": "#f7f8fa"' packages/client-app/public/prepaint.js && grep -q '"--bg":           "#f7f8fa"' packages/client-app/src/tokens.js; then
+  ok "prepaint.js pre-paint palette matches tokens.js"
 else
   fail "index.html inline theme palette is out of step with tokens.js THEMES"
 fi
@@ -634,6 +634,43 @@ case "$EXPL" in
   OK*) ok "every planner rule that traces is explainable and translated — $EXPL" ;;
   *)   fail "explainability: ${EXPL}" ;;
 esac
+
+# ── B1 — no inline script anywhere; script-src carries no 'unsafe-inline' ──
+# The CSP allowed 'unsafe-inline' for scripts because of exactly two inline
+# blocks: the pre-paint theme resolver in index.html and the decorative wave
+# in login.html. Both are external files now. One new inline block anywhere
+# would force the allowance back, so this fails on the first.
+INL=$(node --input-type=module -e '
+import fs from "node:fs";
+const files = ["packages/client-app/index.html", ...fs.readdirSync("packages/client-app/public").filter(f=>f.endsWith(".html")).map(f=>"packages/client-app/public/"+f)];
+const bad = [];
+for (const f of files) {
+  const s = fs.readFileSync(f,"utf8");
+  for (const m of s.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)) if (m[1].trim()) bad.push(f);
+  if (/\son\w+\s*=\s*["\x27]/.test(s)) bad.push(f+" (on*= handler)");
+  if (/javascript:/.test(s)) bad.push(f+" (javascript: url)");
+}
+process.stdout.write(bad.length ? [...new Set(bad)].join(", ") : "OK");' 2>&1)
+if [ "$INL" != "OK" ]; then
+  fail "inline script in a served page (would force script-src unsafe-inline back): ${INL}"
+elif grep -E "script-src[^;]*unsafe-inline" packages/client-app/public/_headers >/dev/null; then
+  fail "_headers script-src carries unsafe-inline again, and no served page needs it"
+else
+  ok "no inline script in any served page and script-src has no unsafe-inline"
+fi
+
+# ── B2 — inline-style ratchet: the count may only fall ──────────────────────
+# style-src 'unsafe-inline' exists because of 2392 style={{ }} props across
+# the client app. The sibling project reached ~3400 before a multi-day CSP
+# refactor; this stops the trajectory today. New styling goes in CSS classes
+# (see CLAUDE.md "Styling"); when a view is migrated, LOWER this number.
+STYLE_CEILING=2392
+STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
+if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
+  ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
+else
+  fail "inline styles rose to $STYLE_NOW (ceiling $STYLE_CEILING) — new styling must be a CSS class, see CLAUDE.md"
+fi
 
 # ── W7 — gym-private exercises stay private ────────────────────────────────
 # exercises.gym_id scopes a row to one gym. The planner's base query and the
