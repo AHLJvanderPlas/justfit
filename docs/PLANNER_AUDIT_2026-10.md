@@ -133,7 +133,7 @@ Legend — **Effectiveness**: does it do what it claims, reliably?
 |---|---|---|---|
 | R520–R523 | Work | High | — |
 | R524 | Works | **Questionable** | Silent; wrong-signed for heavy users; compounds (§1). **Recommend: trace it, or drop it** |
-| R525 | Works | Medium | Appends mobility for female users only, **with no trace** — the session gains an exercise the user is never told about, and the sex-based rationale is undocumented |
+| R525 | Works | Medium | ~~Appends mobility for female users only, **with no trace**~~ — traced since Wave 2. **Sex gate removed 2026-10-04 (F8):** the gate arrived with R520–R525 in 56d279a as "sex baseline" with no reason recorded, and no physiological case holds for gating a generic 30 s low-impact mobility top-up on sex (cycle-specific adaptation is R520–R524's job). It now fires for every standard-mode main session that has no mobility work; the matrix asserts identical sessions for female and male twins |
 | R526 | Works | High | — |
 | R530–R537 (pregnancy) | Work | **Highest (safety)** | Pure filters with no floor — if filters empty the pool there is a fallback, but it is late and broad |
 | R539 | Blocking clearance gate | Works | **Highest** | Correct: the one rule that should block |

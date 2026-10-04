@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { t, useLang } from "./i18n.js";
+import { ownSessionAssessmentOffer, ownSessionAsTemplate } from "./planUtils.js";
 
 const errorText = (code) => (code === "unknown_exercise"
   ? t("One of these exercises is no longer in the library — edit the training and try again.")
@@ -113,6 +114,33 @@ export function MyTrainingsCard({ templates, onUse, onEdit, onCreate, onDelete, 
           </>
         )}
       </div>
+    </div>
+  );
+}
+
+// ── Today card: the self-measurement under a session the user wrote (F8) ─────
+// The builder offers it after "Use today"; a one-tap install never did. Adding it
+// re-installs today's own session with include_assessment — the W4.1 contract,
+// so safety and clamping are re-checked; an earlier acknowledgement still stands.
+export function OwnSessionAssessmentOffer({ plan, onUse }) {
+  useLang();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState(null);
+  if (!ownSessionAssessmentOffer(plan)) return null;
+  const add = async () => {
+    setBusy(true); setError(null);
+    const r = await onUse(ownSessionAsTemplate(plan), { includeAssessment: true, safetyAck: plan.safety_ack_ms != null });
+    setBusy(false);
+    if (r?.error) setError(errorText(r.error));
+  };
+  return (
+    <div className="jf-own-offer">
+      <div className="jf-own-offer__title">{t("Your self-measurement is due")}</div>
+      <div className="jf-own-offer__text">{t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}</div>
+      <button type="button" className="jf-own-offer__btn" disabled={busy} onClick={add}>
+        {busy ? t("Adding…") : t("Add self-measurement")}
+      </button>
+      {error && <div className="jf-own-offer__error">{error}</div>}
     </div>
   );
 }

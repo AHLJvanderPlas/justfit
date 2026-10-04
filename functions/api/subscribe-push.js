@@ -8,6 +8,7 @@
 // Required env var: VAPID_PUBLIC_KEY (base64url-encoded uncompressed EC public key)
 
 import { getUser } from './_shared/auth.js';
+import { isProUser } from './_shared/entitlements.js';
 
 export async function onRequestGet(ctx) {
   try {
@@ -33,15 +34,7 @@ export async function onRequestPost(ctx) {
     const user = await getUser(ctx.request, ctx.env);
     if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
-    const _entRow = await ctx.env.DB.prepare(`
-      SELECT 1 FROM entitlements
-      WHERE user_id = ?
-        AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
-        AND status IN ('active', 'trialing')
-        AND ends_at_ms > ?
-      LIMIT 1
-    `).bind(user.userId, Date.now()).first();
-    if (!_entRow) return Response.json({ error: 'Push notificaties vereisen Pro', requiresUpgrade: true }, { status: 403 });
+    if (!(await isProUser(ctx.env, user.userId, Date.now()))) return Response.json({ error: 'Push notificaties vereisen Pro', requiresUpgrade: true }, { status: 403 });
 
     const body = await ctx.request.json();
     if (body.action !== 'subscribe' || !body.subscription?.endpoint) {

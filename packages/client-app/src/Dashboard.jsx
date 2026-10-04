@@ -13,7 +13,7 @@ import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS } from "./messagePolicy.js";
 import { t } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
-import { UseMyTraining } from "./MyTrainings.jsx";
+import { UseMyTraining, OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
 
 // ─── LOG ACTIVITY MODAL ───────────────────────────────────────────────────────
 const ACTIVITY_TYPES = [
@@ -745,8 +745,10 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   </button>
                 )}
                 {/* W4.3 — one-tap reuse of a saved training. Not offered over a
-                    session the user already wrote today: the override is in place. */}
+                    session the user already wrote today: the override is in place.
+                    F8 — on that session, the due self-measurement is offered instead. */}
                 {!plan.authored_by_user && <UseMyTraining templates={myTemplates} onUse={onUseTemplate} />}
+                {!todayCompleted && <OwnSessionAssessmentOffer plan={plan} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
                     Je dagelijkse plan staat klaar.{" "}

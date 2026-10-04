@@ -7,6 +7,8 @@ const api = {
   // R598 — force today's session to include the DCP self-assessment. Separate
   // from generatePlan because the server exempts this from the free daily cap:
   // measuring yourself is an input the bias depends on, not a session re-roll.
+  // Returns { plan, preserved }: preserved means today's session is one the user
+  // wrote (W4.1), so the server kept it and scheduled nothing — say so (F8).
   async forceAssessment(userId, date) {
     const res = await fetch("/api/plan", {
       method: "POST",
@@ -15,7 +17,7 @@ const api = {
     });
     const data = await res.json();
     if (!data.ok) throw new Error(data.error ?? "Could not schedule the self-assessment");
-    return data.plan ?? data;
+    return { plan: data.plan ?? data, preserved: data.preserved === true };
   },
 
   // W4.1 — install a session the user built as today's plan. Never throws on a

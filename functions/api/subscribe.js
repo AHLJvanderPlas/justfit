@@ -5,6 +5,7 @@
 // DELETE — cancel active subscription
 
 import { getUser } from './_shared/auth.js';
+import { isProUser } from './_shared/entitlements.js';
 import { createCustomer, createMandatePayment, cancelSubscription } from '../lib/mollie.js';
 
 // A-E2 — the cap lives in platform_config so it can be moved during a launch
@@ -58,10 +59,7 @@ export async function onRequestPost({ request, env }) {
     if (!PLANS[plan]) return Response.json({ error: 'invalid_plan' }, { status: 400 });
 
     // Guard: already subscribed
-    const existing = await env.DB.prepare(
-      `SELECT id FROM entitlements WHERE user_id = ? AND status IN ('active','trialing','grace') AND ends_at_ms > ? LIMIT 1`
-    ).bind(user.userId, Date.now()).first();
-    if (existing) return Response.json({ error: 'already_subscribed' }, { status: 409 });
+    if (await isProUser(env, user.userId, Date.now())) return Response.json({ error: 'already_subscribed' }, { status: 409 });
 
     // Guard: early bird cap
     if (plan.endsWith('_eb')) {
@@ -128,7 +126,9 @@ export async function onRequestGet({ request, env }) {
        FROM entitlements WHERE user_id = ? ORDER BY ends_at_ms DESC LIMIT 1`
     ).bind(user.userId).first();
 
-    const isPro = !!(row && ['active', 'trialing', 'grace'].includes(row.status) && (row.ends_at_ms ?? 0) > Date.now());
+    // The latest-ending row is what the account screen describes; whether that
+    // makes the user Pro is the shared check (a canceled row can outlive an active one).
+    const isPro = await isProUser(env, user.userId, Date.now());
 
     // Early bird remaining
     const { cnt: ebUsed } = await env.DB.prepare(

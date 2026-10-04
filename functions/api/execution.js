@@ -3,6 +3,7 @@
 // DELETE /api/execution — delete an execution and its steps
 
 import { getAuthUserId } from './_shared/auth.js';
+import { isProUser } from './_shared/entitlements.js';
 
 // ─── PROGRESSION ENGINE (inline copy — kept in sync with progression.js) ─────
 // Cloudflare Pages Functions cannot import across api/*.js files, so the
@@ -751,15 +752,7 @@ export async function onRequestGet({ request, env }) {
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
 
-    const _entRow = await env.DB.prepare(`
-      SELECT 1 FROM entitlements
-      WHERE user_id = ?
-        AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
-        AND status IN ('active', 'trialing')
-        AND ends_at_ms > ?
-      LIMIT 1
-    `).bind(user_id, Date.now()).first();
-    const isPro = !!_entRow;
+    const isPro = await isProUser(env, user_id, Date.now());
     const effectiveLimit = isPro ? 1000 : limit;
     const cutoffMs = isPro ? 0 : Date.now() - 30 * 24 * 60 * 60 * 1000;
 

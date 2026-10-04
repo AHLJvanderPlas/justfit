@@ -3,6 +3,7 @@ import { buildCyclingWorkoutsFromProtocols, CYCLING_PROFILES, getCyclingBlockPha
 import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolumeExercise } from './_shared/running.js';
 
 import { getAuthUserId } from './_shared/auth.js';
+import { isProUser } from './_shared/entitlements.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, dcpIsStale } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
@@ -160,10 +161,10 @@ export async function onRequestPost({ request, env }) {
     const pinErr = unknownPinsError(req, allExercises);
     if (pinErr) return Response.json(pinErr.body, { status: pinErr.status });
 
-    // Free-tier adapt path: adjust the stored weekly plan for today's check-in
-    // without regenerating the exercise selection.
-    if (req.adapt_mode && req.base_plan) {
-      const adapted = adaptExistingPlan(req.base_plan, effectiveCheckin);
+    // Adapt path: scale today's session to the check-in without regenerating the
+    // exercise selection — the stored session when there is one (decision 'adapt').
+    if (existing.decision === 'adapt' || (req.adapt_mode && req.base_plan)) {
+      const adapted = adaptExistingPlan(existing.plan ?? req.base_plan, effectiveCheckin);
       const planId = await _upsertDayPlan(env, user_id, date, adapted,
         { generatedBy: 'adapt_free', engineVersion: 'v1.9.0', seed: 'adapt' });
       if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...adapted } });
@@ -379,17 +380,11 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
   return { allExercises, allTemplates, prefs, userProfileRow, cyclingWorkouts, runPrograms };
 }
 
-// Pro flag — gates structured coaching programs (R556, R557, polarised)
-// Check entitlements table first; fall back to manual isPro preference override.
+// Pro flag — gates structured coaching programs (R556, R557, polarised) and the
+// C-G4 cap. Entitlements via the one shared check; the preferences flag is the
+// old manual override (see the F8 report: it is client-writable).
 async function _resolveIsPro(env, user_id, prefs) {
-  let isPro = !!(prefs?.preferences?.isPro);
-  if (user_id && !isPro) {
-    const isProRow = await env.DB.prepare(
-      `SELECT id FROM entitlements WHERE user_id = ? AND status IN ('active','trialing','grace') AND ends_at_ms > ? LIMIT 1`
-    ).bind(user_id, Date.now()).first();
-    isPro = !!isProRow;
-  }
-  return isPro;
+  return !!prefs?.preferences?.isPro || isProUser(env, user_id, Date.now());
 }
 
 // Resolve cycle + pregnancy context from DB when user_id is present
@@ -3271,12 +3266,12 @@ function _assembleSession(ctx) {
     }, floorHits > 0);
   }
 
-  // R525 — one mobility exercise appended for female users. The session gained an
-  // exercise with no trace at all, so the session shown did not match the session
-  // explained — the worst of the four silent modifiers (audit §2.3). It now traces.
-  // The sex gate itself is undocumented and unchanged here: that is a product
-  // decision, not an explainability fix (noted in the Wave 2 report).
-  if (ctx.sex === 'female' && ctx.slot_type === 'main' && steps.length && ctx.isStandardMode && !ctx.runProgramOverride) {
+  // R525 — a standard-mode main session with no mobility work gets one low-impact
+  // mobility exercise. Until F8 (2026-10-04) this fired for female users only; the
+  // gate came in with R520–R525 (56d279a, "sex baseline") with no reason recorded,
+  // and none holds for a generic 30 s mobility top-up, so it now applies to everyone
+  // by the same criteria (audit §2.3). Cycle-specific work stays in R520–R524.
+  if (ctx.slot_type === 'main' && steps.length && ctx.isStandardMode && !ctx.runProgramOverride) {
     const hasMobility = steps.some(s => {
       const ex = exercises.find(e => e.id === s.exercise_id);
       return ex?.category === 'mobility';
@@ -3295,13 +3290,17 @@ function _assembleSession(ctx) {
           name:          mobilityEx.name,
           category:      mobilityEx.category,
           tags_json:     mobilityEx.tags_json ?? '[]',
+          equipment_required_json: mobilityEx.equipment_required_json ?? '["none"]',
           target_reps:         undefined,
           target_duration_sec: 30,
           sets:                1,
           rest_sec:            getDefaultRest(mobilityEx, ctx.slot_type),
           instructions_json:   mobilityEx.instructions_json ?? null,
           alternatives_json:   mobilityEx.alternatives_json ?? null,
+          primary_muscles_json:   mobilityEx.primary_muscles_json ?? null,
+          secondary_muscles_json: mobilityEx.secondary_muscles_json ?? null,
           gif_url:             media.gif_url ?? null,
+          coaching_note:       null,
         });
         ctx.appendedIds.add(mobilityEx.id);
         ctx.trace.push(`R525 — Mobility exercise appended: ${mobilityEx.name} (session is now ${steps.length} exercises)`);

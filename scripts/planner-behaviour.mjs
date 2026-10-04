@@ -260,6 +260,7 @@ const PERSONAS = [
   // who owns a treadmill was offered it. The property test catches it by duration.
   { id: 'treadmill-deconditioned', goal: 'fat_loss', experience: 'beginner',
     equipment: ['none', 'treadmill', 'rowing_machine', 'exercise_bike'], conditioning: 15 },   // R555 (property)
+  // 20 min is a product-tunable number decided 2026-10-04, not a safety constant (F8).
   // Same kit, NO progression row. Decided 2026-10-04: an unmeasured user is allowed
   // 20 min of continuous cardio, so a 20-min easy ride must be ELIGIBLE here while
   // the measured-15 persona above keeps its 10-min band. expectCardioReach makes the
@@ -646,6 +647,24 @@ for (const p of PERSONAS) {
 
   const forced = plan({ ...dcpPrefs({ ...DCP, last: { pushups: 30, situps: 40, at_ms: todayMs } }), opts: { forceAssessment: true } });
   check(forced.assessment_planned === true, 'a forced assessment was ignored');
+
+  // R525 — sex-neutral since F8 (2026-10-04). The mobility top-up fired for
+  // female users only, with no recorded reason; it now applies to everyone by
+  // the same criteria. Same persona, two sexes, every date: identical sessions,
+  // and R525 must fire somewhere in the sweep or this checks nothing.
+  {
+    const has525 = (o) => (o.rule_trace ?? []).some(t => String(t).startsWith('R525'));
+    const ids = (o) => (o.steps ?? []).map(st => st.exercise_id).join(',');
+    let fired = 0, diff = null;
+    for (const d of DATES) {
+      const f = plan({ goal: 'strength', sex: 'female' }, d);
+      const m = plan({ goal: 'strength', sex: 'male' }, d);
+      if (has525(f)) fired++;
+      if (!diff && (has525(f) !== has525(m) || ids(f) !== ids(m))) diff = `${d}: female R525=${has525(f)}, male R525=${has525(m)}`;
+    }
+    check(!diff, `R525 treats the sexes differently (${diff})`);
+    check(fired > 0, 'R525 never fired across the sweep — the sex-neutral check tests nothing');
+  }
 
   // R596 — no Defence protocol work in a civilian session.
   //

@@ -134,7 +134,7 @@ export const RULE_LABELS = {
       measured: 'Bodyweight reps follow your measured fitness level, not your body weight.',
     },
   },
-  R525: { category: 'Training adaptation', text: 'One mobility exercise added at the end of your session to keep your movement quality up.' },
+  R525: { category: 'Training adaptation', text: 'Your session had no mobility work, so one mobility exercise was added at the end to keep your movement quality up.' },
   R530: { category: 'Safety adaptation',   text: 'Intensity capped for this pregnancy trimester.' },
   R531: { category: 'Safety adaptation',   text: 'Lying-on-back exercises removed (from week 16).' },
   R532: { category: 'Safety adaptation',   text: 'High-impact exercises removed during pregnancy.' },

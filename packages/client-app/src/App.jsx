@@ -249,12 +249,12 @@ export default function App() {
   // so the runner never renders before it knows the battery.
   const [assessmentConfig, setAssessmentConfig] = useState(null);
 
-  // R598 — the self-assessment is measured inside a session, so "recalibrate"
-  // schedules it into today's training rather than opening a separate flow.
+  // R598 — "recalibrate" schedules the measurement into today's training. On a day the user
+  // wrote, W4.1 keeps their session: mark the offer on it and say why (F8).
   const handleForceAssessment = async () => {
-    const fresh = await api.forceAssessment(userId, today);
-    setPlan(fresh);
-    setView("today");
+    const { plan: fresh, preserved } = await api.forceAssessment(userId, today);
+    setPlan(preserved ? { ...fresh, assessment_offer: true } : fresh); setView("today");
+    if (preserved) { setActivityToast(t("You built today's session yourself, so it stays as it is; add the self-measurement with the button under your session.")); setTimeout(() => setActivityToast(""), 7000); }
     return fresh;
   };
 
@@ -1124,9 +1124,9 @@ export default function App() {
   // (the W4.1 contract), so a blocking safety note comes back as a 409: the
   // builder opens preloaded with the notes and asks for the acknowledgement there.
   // Returns { ok } or { error } for the calling card to show.
-  const handleUseTemplate = async (tpl) => {
+  const handleUseTemplate = async (tpl, opts) => {
     let res;
-    try { res = await api.useMySession(tpl, today); } catch { return { error: "network" }; }
+    try { res = await api.useMySession(tpl, today, opts); } catch { return { error: "network" }; }
     const { status, data } = res;
     if (status === 409) { openBuilder(tpl, data.safety_notes ?? []); return { ok: true }; }
     if (status !== 200 || !data.ok) return { error: data.error === "unknown_exercise" ? "unknown_exercise" : "failed" };

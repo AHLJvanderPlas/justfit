@@ -1274,6 +1274,37 @@ else
   fail "functions/ still references awards/user_awards in SQL — migration 0120 drops them"
 fi
 
+# ── F8 — one Pro check: isProUser in functions/api/_shared/entitlements.js ──
+# There were three definitions of "is Pro" (one rejected grace, two listed product
+# codes that excluded every paying Mollie subscriber). Any entitlement-WINDOW query
+# — FROM entitlements with `ends_at_ms >` or a `product_code IN` list — or a JS
+# re-implementation of the status list outside the shared module fails here.
+# Row lookups by source (webhook, subscribe GET/DELETE, connect) are not Pro checks.
+ENT_DUP=$(node --input-type=module -e '
+import fs from "node:fs"; import path from "node:path";
+const walk = (d) => fs.readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(path.join(d, e.name)) : [path.join(d, e.name)]);
+const hits = [];
+for (const f of walk("functions").filter(f => f.endsWith(".js") && f !== path.join("functions", "api", "_shared", "entitlements.js"))) {
+  const src = fs.readFileSync(f, "utf8");
+  for (const m of src.matchAll(/`[^`]*`|\x27[^\x27\n]*\x27|"[^"\n]*"/g)) {
+    const q = m[0];
+    if (/FROM\s+entitlements/i.test(q) && (/ends_at_ms\s*>/i.test(q) || /product_code\s+IN\s*\(/i.test(q))) hits.push(f);
+  }
+  if (/\[\s*\x27active\x27\s*,\s*\x27trialing\x27/.test(src)) hits.push(f + " (JS status list)");
+}
+process.stdout.write([...new Set(hits)].join(", "));' 2>&1)
+if [ -z "$ENT_DUP" ]; then
+  ok "every Pro check under functions/ goes through isProUser (_shared/entitlements.js)"
+else
+  fail "own entitlement Pro check outside _shared/entitlements.js: ${ENT_DUP} — import isProUser instead"
+fi
+if ENT_OUT=$(node --no-warnings --test scripts/entitlements.test.mjs 2>&1); then
+  ok "isProUser: $(echo "$ENT_OUT" | grep -E '^ℹ pass' | sed 's/ℹ //') tests over the live entitlements DDL"
+else
+  echo "$ENT_OUT" | grep -E 'AssertionError' | sort -u | sed 's/^/      /'
+  fail "isProUser tests failed (node --test scripts/entitlements.test.mjs)"
+fi
+
 # ── F4 — POST /api/plan request parsing + existing-plan decision (offline) ──
 # The C-G4 cap, the W4.1 user-plan protection and the three exemptions are one
 # pure decision in functions/api/_shared/planRequest.js; its tests walk every

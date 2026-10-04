@@ -305,7 +305,8 @@ justfit/                             ← monorepo root (npm workspaces)
 │   │   │   ├── uiComponents.jsx ← shared Glass card, Badge, and other reusable UI primitives
 │   │   │   ├── icons.jsx        ← Icons (UI SVGs) + ExerciseIcon (movement line-art, 27 types)
 │   │   │   ├── ErrorBoundary.jsx ← React error boundary wrapper
-│   │   │   ├── main.jsx         ← renders App (no CSS import — all styles inline in App.jsx)
+│   │   │   ├── main.jsx         ← renders App; imports styles.css
+│   │   │   ├── styles.css       ← CSS classes for NEW styling (created by F8; the legacy inline styles stay until migrated, ratchet B2)
 │   │   │   ├── tokens.js        ← design token object C, display(), eyebrow, mono(), ACCENT_COLORS, applyAccent()
 │   │   │   ├── appConstants.js  ← RUN_TARGETS, EQUIPMENT_OPTIONS, ALL_SPORTS, GOALS, EXPERIENCE, SEX_OPTIONS
 │   │   │   ├── planUtils.js     ← client-side plan helpers (upcoming session preview, conflict detection)
@@ -1537,17 +1538,22 @@ See `docs/IMPROVEMENT_PLAN.md` for the full checklist (Phases 3-4 pending, gated
 ### isPro check pattern (use this in every new gate)
 
 ```js
+import { isProUser } from './_shared/entitlements.js';
 // In any Pages Function handler, after resolving userId:
-const entRow = await env.DB.prepare(`
-  SELECT 1 FROM entitlements
-  WHERE user_id = ?
-    AND product_code IN ('pro', 'pro_consumer', 'pro_trial', 'trainer_grant')
-    AND status IN ('active', 'trialing')
-    AND ends_at_ms > ?
-  LIMIT 1
-`).bind(userId, Date.now()).first();
-const isPro = !!entRow;
+const isPro = await isProUser(env, userId, Date.now());
 ```
+
+`isProUser` is `status IN ('active','trialing','grace') AND ends_at_ms > now`, any product_code.
+**Corrected 2026-10-04 (F8)** — the pattern this section used to show was wrong on two counts,
+and two endpoints (`execution.js` history, `subscribe-push.js`) had copied it:
+- it rejected `grace`, which `webhooks/mollie-consumer.js` sets on a failed renewal with seven
+  days of access promised in the email it sends;
+- it listed `product_code IN ('pro','pro_consumer','pro_trial','trainer_grant')`, which excludes
+  every paid Mollie plan (`pro_monthly`, `pro_annual`, `pro_monthly_eb`, `pro_annual_eb`), and
+  `pro` / `trainer_grant` are never written as product codes (`trainer_grant` is a source).
+
+Smoke fails on any other entitlement-window query under `functions/` (F8 guard), and
+`scripts/entitlements.test.mjs` pins the semantics against the live DDL.
 
 Never trust `prefs.isPro` alone for gate enforcement — always re-check entitlements server-side.
 

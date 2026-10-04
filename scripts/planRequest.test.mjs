@@ -4,7 +4,7 @@
 // scripts/plan-override-requests.mjs proves the wiring over HTTP for a handful of
 // paths. This file walks the whole decision table: every combination of
 // {isPro} × {no row, engine row, user row, malformed row} × {no exemption,
-// custom_steps, pins, force_assessment, bonus_session} × {replace_user_plan}.
+// custom_steps, pins, force_assessment, adapt_mode, bonus_session} × {replace_user_plan}.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -27,6 +27,9 @@ const EXEMPTIONS = {
   custom_steps:     { custom_steps: [{ exercise_id: 'ex1' }] },
   pins:             { pinned_exercise_ids: ['ex1'] },
   force_assessment: { force_assessment: true },
+  // The client's base_plan is deliberately different from STORED: an adapt must
+  // scale the stored session, never whatever the client sent.
+  adapt_mode:       { adapt_mode: true, base_plan: { session_name: 'Client', steps: [] } },
   bonus_session:    { bonus_session: true },
 };
 
@@ -38,6 +41,7 @@ function expected({ row, exemption, replace, isPro }) {
   if (exemption === 'bonus_session') return ['regenerate', 'bonus_session']; // ephemeral, never stored
   const malformed = row.endsWith('Bad');
   if (row.startsWith('user') && !replace && !malformed) return ['preserve', 'user_plan']; // W4.1 beats every exemption
+  if (exemption === 'adapt_mode' && !malformed) return ['adapt', 'adapt_mode'];          // same session, scaled — not a re-roll
   const capExempt = isPro || exemption === 'force_assessment' || exemption === 'pins';
   if (!capExempt) return malformed ? ['regenerate', 'malformed_existing_plan'] : ['capped', 'free_daily_cap'];
   return ['regenerate', isPro ? 'pro' : exemption === 'force_assessment' ? 'force_assessment' : 'pinned_exercise_ids'];
@@ -56,14 +60,15 @@ test('decision table: every {isPro × row × exemption × replace_user_plan} com
           assert.equal(got.decision, decision, `${label}: decision`);
           assert.equal(got.reason, reason, `${label}: reason`);
           if (decision === 'preserve') assert.deepEqual(got.plan, { id: existingRow.id, ...STORED }, `${label}: preserved plan carries the row id`);
-          if (decision === 'capped') assert.deepEqual(got.plan, { ...STORED, capped: true }, `${label}: capped plan`);
+          if (decision === 'capped') assert.deepEqual(got.plan, { ...STORED, id: existingRow.id, capped: true }, `${label}: capped plan carries the row id`);
+          if (decision === 'adapt') assert.deepEqual(got.plan, STORED, `${label}: adapt scales the stored session`);
           if (decision === 'regenerate') assert.equal(got.plan, undefined, `${label}: regenerate returns no plan`);
           n++;
         }
       }
     }
   }
-  assert.equal(n, 2 * 6 * 5 * 2);
+  assert.equal(n, 2 * 6 * 6 * 2);
 });
 
 // Named cases — the ones a reader looks for first.
@@ -72,6 +77,16 @@ test('C-G4: a free user with an engine plan is capped', () => {
   const d = decideExistingPlan({ existingRow: ROWS.engine, body: { date: DATE }, isPro: false });
   assert.equal(d.decision, 'capped');
   assert.equal(d.plan.capped, true);
+  assert.equal(d.plan.id, 'row-e', 'a capped plan must carry the row id the execution is saved against');
+});
+
+test('C-G4: a free user\'s check-in adapts the stored plan instead of being capped (F8)', () => {
+  const d = decideExistingPlan({ existingRow: ROWS.engine, body: { date: DATE, ...EXEMPTIONS.adapt_mode }, isPro: false });
+  assert.equal(d.decision, 'adapt');
+  assert.deepEqual(d.plan, STORED);
+  // Response keys an older adapt row stored verbatim are not carried into the next adapt.
+  const old = { ...ROWS.adapt, plan_json: JSON.stringify({ id: 'stale', capped: true, ...STORED }) };
+  assert.deepEqual(decideExistingPlan({ existingRow: old, body: { date: DATE, adapt_mode: true }, isPro: false }).plan, STORED);
 });
 
 test('C-G4: Pro re-rolls', () => {

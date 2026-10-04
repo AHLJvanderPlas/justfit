@@ -693,7 +693,7 @@ const NL = {
   'Bodyweight exercises start gently — a gradual build-up keeps it doable and protects your joints.': 'Oefeningen met je eigen lichaamsgewicht beginnen rustig — stap voor stap opbouwen houdt het haalbaar en spaart je gewrichten.',
   'Bodyweight reps are set a little higher so the effort matches the movement.': 'Bij oefeningen met je eigen lichaamsgewicht staan de herhalingen iets hoger, zodat de inspanning bij de beweging past.',
   'Bodyweight reps follow your measured fitness level, not your body weight.': 'Herhalingen bij oefeningen met je eigen lichaamsgewicht volgen je gemeten fitheid, niet je lichaamsgewicht.',
-  'One mobility exercise added at the end of your session to keep your movement quality up.': 'Eén mobiliteitsoefening toegevoegd aan het einde van je sessie om je bewegingskwaliteit op peil te houden.',
+  'Your session had no mobility work, so one mobility exercise was added at the end to keep your movement quality up.': 'Je sessie bevatte geen mobiliteitswerk, dus is er aan het einde één mobiliteitsoefening toegevoegd om je bewegingskwaliteit op peil te houden.',
   'Intensity capped for this pregnancy trimester.': 'Intensiteit begrensd voor dit zwangerschapstrimester.',
   'Lying-on-back exercises removed (from week 16).': 'Oefeningen op je rug verwijderd (vanaf week 16).',
   'High-impact exercises removed during pregnancy.': 'Oefeningen met hoge impact verwijderd tijdens de zwangerschap.',
@@ -792,6 +792,8 @@ const NL = {
   'Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?': 'Twee sets op maximale inspanning (push-ups en sit-ups, elk 2 minuten) aan het eind van deze sessie toevoegen?',
   'Adding…': 'Toevoegen…',
   'Add self-measurement': 'Zelfmeting toevoegen',
+  // F8 — recalibrate on a day the user wrote: W4.1 keeps the session, the measurement is added to it.
+  "You built today's session yourself, so it stays as it is; add the self-measurement with the button under your session.": 'Je hebt de training van vandaag zelf samengesteld, dus die blijft staan; voeg de zelfmeting toe met de knop onder je sessie.',
   'Done': 'Klaar',
   'Build it myself': 'Zelf samenstellen',
   'Pin + coach fills': 'Vastzetten + aanvullen',

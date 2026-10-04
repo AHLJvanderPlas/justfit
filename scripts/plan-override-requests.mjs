@@ -90,12 +90,14 @@ const users = {
   pro:  { goal: 'strength' },
   free: { goal: 'health' },
   preg: { goal: 'health', sex: 'female' },
+  // DCP switched on, never measured → R598 is due (F8 item 6).
+  dcp:  { goal: 'health', prefs: { military_coach: { active: false, dcp: { enabled: true, bias_enabled: true, birth_year: 1989 } } } },
 };
 for (const [id, u] of Object.entries(users)) {
   db.prepare('INSERT INTO users (id) VALUES (?)').run(id);
   db.prepare(`INSERT INTO user_preferences (user_id, training_goal, experience_level, session_duration_min,
     preferences_json, sex, weight_kg, height_cm) VALUES (?,?,?,?,?,?,?,?)`)
-    .run(id, u.goal, 'intermediate', 40, JSON.stringify({ primary_intent: 'general', available_equipment: ['none'] }),
+    .run(id, u.goal, 'intermediate', 40, JSON.stringify({ primary_intent: 'general', available_equipment: ['none'], ...(u.prefs ?? {}) }),
       u.sex ?? 'male', 75, 178);
 }
 db.prepare(`INSERT INTO entitlements VALUES ('ent-pro','pro','active',?)`).run(Date.now() + 86400000 * 30);
@@ -182,9 +184,7 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(r.status === 200 && !r.body.preserved, `replace_user_plan must regenerate, got ${JSON.stringify(r.body).slice(0, 120)}`);
   check(row('pro').generated_by === 'engine' && row('pro').engine_version === 'v1.9.0' && !stored('pro').authored_by_user,
     `the engine overwrote a user plan but the row still says generated_by=${row('pro').generated_by}, engine_version=${row('pro').engine_version} — every check on that column now lies`);
-  // The adapt path has its own upsert; it must relabel the row too. (Driven as
-  // the Pro user: for a free user with a plan, the C-G4 cap answers first — see
-  // the Wave 4 report.)
+  // The adapt path has its own upsert; it must relabel the row too.
   await post('pro', { adapt_mode: true, base_plan: stored('pro'), checkin: { energy: 2 } });
   check(row('pro').generated_by === 'adapt_free',
     `the adapt upsert left generated_by=${row('pro').generated_by} on an adapted plan`);
@@ -198,6 +198,20 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(row('free')?.generated_by === 'engine', `free user's first plan not stored (${eng.status})`);
   const capped = await post('free', {});
   check(capped.body.plan?.capped === true, 'the C-G4 free cap no longer applies to an engine re-roll');
+  // F8 — the client saves the workout with api.saveExecution(userId, plan?.id, …).
+  check(typeof capped.body.plan?.id === 'string' && capped.body.plan.id === row('free')?.id,
+    `a capped plan must carry the stored row id, got ${capped.body.plan?.id} (row ${row('free')?.id})`);
+  // F8 — a check-in adapt is not a re-roll: it scales the SAME session. Before
+  // F8 the cap answered first and a free user's check-in did nothing once a plan
+  // existed. The base_plan sent is a decoy: the stored session is what is adapted.
+  const engineIds = stored('free').steps.map(st => st.exercise_id).join(',');
+  const adapted = await post('free', { adapt_mode: true, checkin: { energy: 2 },
+    base_plan: { session_name: 'Decoy', steps: [S('burpee', { sets: 9, target_reps: 99 })] } });
+  check(adapted.status === 200 && adapted.body.plan?.capped !== true
+    && (adapted.body.plan?.rule_trace ?? []).includes('adapt:free_tier') && row('free')?.generated_by === 'adapt_free',
+    `a free user's check-in adapt must not be capped, got ${adapted.status} capped=${adapted.body.plan?.capped} row=${row('free')?.generated_by}`);
+  check(adapted.body.plan?.steps?.map(st => st.exercise_id).join(',') === engineIds && adapted.body.plan?.id === row('free')?.id,
+    `the adapt must scale the stored session (${engineIds}), got ${adapted.body.plan?.steps?.map(st => st.exercise_id).join(',')}`);
   const mine = await post('free', { custom_steps: [S('push-up')] });
   check(mine.status === 200 && !mine.body.plan?.capped && row('free')?.generated_by === 'user',
     `custom_steps must be exempt from the C-G4 cap, got ${mine.status} capped=${mine.body.plan?.capped} row=${row('free')?.generated_by}`);
@@ -254,6 +268,22 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   const eng = await post('pro', { replace_user_plan: true });
   const leaked = (eng.body.plan?.steps ?? []).some(st => st.exercise_id === 'ex-gym-private');
   check(!leaked, 'the engine put another gym\'s private exercise in a non-member\'s session');
+}
+
+// 9. F8 — the measurement offer travels on the stored plan. A one-tap install
+//    (custom_steps, as useMySession sends it) answers with assessment_offer ON
+//    the plan, which is what the Today card reads; re-installing the same steps
+//    with include_assessment schedules it and clears the offer.
+{
+  const steps = [S('push-up', { sets: 3, target_reps: 10 }), S('glute-bridge', { sets: 3, target_reps: 12 })];
+  const once = await post('dcp', { custom_steps: steps, session_name: 'Hotelbank' });
+  check(once.status === 200 && once.body.plan?.assessment_offer === true && stored('dcp')?.assessment_offer === true && !once.body.plan?.assessment_planned,
+    `a due measurement must be offered on the user plan itself, got ${once.status} offer=${once.body.plan?.assessment_offer} stored=${stored('dcp')?.assessment_offer}`);
+  const added = await post('dcp', { custom_steps: steps, session_name: 'Hotelbank', include_assessment: true });
+  const m = (added.body.plan?.steps ?? []).filter(st => st.max_effort);
+  check(added.status === 200 && added.body.plan?.assessment_planned === true && added.body.plan?.assessment_offer === false && m.length === 2
+    && row('dcp')?.generated_by === 'user',
+    `"Zelfmeting toevoegen" must re-install the session with both measurement sets, got ${added.status} planned=${added.body.plan?.assessment_planned} sets=${m.length}`);
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');

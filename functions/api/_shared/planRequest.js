@@ -136,8 +136,13 @@ export function needsExistingPlan(body) {
  * What to do with today's stored plan, as one decision:
  *
  *   preserve    the row is user-authored and the request did not ask to replace
- *               it (W4.1). Wins over every exemption below: a forced assessment
- *               or a pin request does not silently overwrite what the user wrote.
+ *               it (W4.1). Wins over every exemption below: a forced assessment,
+ *               a pin request or a check-in adapt does not silently overwrite
+ *               what the user wrote.
+ *   adapt       adapt_mode against a stored plan: scale THAT session to today's
+ *               check-in. `plan` is the stored session, which the handler adapts —
+ *               never the client's base_plan, so the exemption cannot be used to
+ *               store a session the engine did not build for this user.
  *   capped      C-G4 — a free user already has today's plan; re-rolling the
  *               engine is a Pro feature.
  *   regenerate  everything else, with the reason.
@@ -147,6 +152,10 @@ export function needsExistingPlan(body) {
  *   pinned_exercise_ids telling the coach what you need (decided 2026-10-04)
  *   force_assessment   measuring yourself is the input every DCP number needs;
  *                      charging for it would aim the bias at a stale baseline
+ *   adapt_mode         adapting today's plan to a check-in changes the volume and
+ *                      intensity of the SAME session (adaptExistingPlan in plan.js
+ *                      keeps the exercise selection); without it a free user's
+ *                      check-in did nothing once a plan existed (F8, 2026-10-04)
  *   bonus_session      ephemeral, never stored
  *
  * A stored plan_json that does not parse is never returned: preserve falls
@@ -154,7 +163,8 @@ export function needsExistingPlan(body) {
  * order the handler had inline.
  *
  * Returns { decision, reason, plan? } — `plan` is the response's plan object
- * for preserve (carrying the row id) and capped (carrying capped: true).
+ * for preserve (carrying the row id) and capped (the row id and capped: true), and
+ * the stored session to scale for adapt.
  */
 export function decideExistingPlan({ existingRow, body, isPro }) {
   if (!existingRow) return { decision: 'regenerate', reason: 'no_existing_plan' };
@@ -167,8 +177,16 @@ export function decideExistingPlan({ existingRow, body, isPro }) {
     return { decision: 'preserve', reason: 'user_plan', plan: { id: existingRow.id, ...parsed } };
   }
 
+  if (body?.adapt_mode && parsed !== undefined) {
+    // Older adapt rows stored the client's base_plan verbatim, response keys included.
+    const { id: _id, capped: _capped, ...stored } = parsed ?? {};
+    return { decision: 'adapt', reason: 'adapt_mode', plan: stored };
+  }
+
   if (!isPro && !body?.force_assessment && !_present(body?.pinned_exercise_ids)) {
-    if (parsed !== undefined) return { decision: 'capped', reason: 'free_daily_cap', plan: { ...parsed, capped: true } };
+    // The row id, last: the client saves today's workout against plan.id, and a
+    // capped day without it stored the execution with no day_plan_id (F8).
+    if (parsed !== undefined) return { decision: 'capped', reason: 'free_daily_cap', plan: { ...parsed, id: existingRow.id, capped: true } };
     return { decision: 'regenerate', reason: 'malformed_existing_plan' };
   }
 

@@ -86,3 +86,17 @@ export function musclesFor(ex) {
     return { primary: ["quads", "hamstrings", "calves"], secondary: ["glutes", "core"] };
   return { primary: [], secondary: [] };
 }
+
+// ─── F8 — the self-measurement on a session the user wrote ────────────────────
+// POST /api/plan stores assessment_offer on a user-authored plan when the DCP
+// measurement is due (R598). The builder offered it; a one-tap template install
+// did not. A plan offers it until the measurement is in it.
+export function ownSessionAssessmentOffer(plan) {
+  return !!(plan?.authored_by_user && plan.assessment_offer && !plan.assessment_planned);
+}
+
+// Re-installing today's own session with include_assessment goes through the same
+// custom_steps contract as a saved training, so it is shaped like one.
+export function ownSessionAsTemplate(plan) {
+  return { name: plan?.session_name, steps: (plan?.steps ?? []).filter((s) => !s.max_effort) };
+}
