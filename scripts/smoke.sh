@@ -630,6 +630,20 @@ case "$EXPL" in
   *)   fail "explainability: ${EXPL}" ;;
 esac
 
+# ── W7 — gym-private exercises stay private ────────────────────────────────
+# exercises.gym_id scopes a row to one gym. The planner's base query and the
+# PUBLIC library endpoint both fetched every active row regardless; members got
+# their gym's rows twice and non-members got them once. Latent while every live
+# row is global, a leak the day a trainer creates one. The planner case is
+# asserted behaviourally in plan-override-requests.mjs (block 8); the public
+# endpoint has no session to scope by, so it must never serve a gym row at all.
+if grep -q "FROM exercises WHERE is_active = 1" functions/api/exercises.js \
+   && awk '/FROM exercises WHERE is_active = 1/{f=1} f&&/gym_id IS NULL/{ok=1} f&&/`;/{exit} END{exit !ok}' functions/api/exercises.js; then
+  ok "public exercise library never serves a gym-scoped row"
+else
+  fail "GET /api/exercises base query no longer excludes gym_id rows — every gym's private exercises are public"
+fi
+
 # ── W6.4 — the planner never reads the wall clock for a DCP age ────────────
 # The planner is deterministic by design (planDateMs replaced Date.now() in the
 # sport-bias guardrail and mobility-decay rule). Two DCP sites called

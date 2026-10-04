@@ -112,7 +112,13 @@ export async function onRequestPost({ request, env }) {
       env.DB.prepare(
         `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
                 primary_muscles_json, secondary_muscles_json
-         FROM exercises WHERE is_active = 1`
+         FROM exercises WHERE is_active = 1
+           -- Global library only. Gym-scoped rows (gym_id set) are fetched below,
+           -- JOINed to the user's ACTIVE memberships and carrying the gym's branding.
+           -- Without this clause every gym's private exercise reached every user's
+           -- planner, pins and custom_steps — latent while no gym has created one,
+           -- a leak the day one does — and members received theirs twice.
+           AND gym_id IS NULL`
       ).all(),
       user_id
         ? env.DB.prepare(

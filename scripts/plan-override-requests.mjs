@@ -77,6 +77,13 @@ const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_
 rows.forEach((r, i) => insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.equipment_required_json,
   r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1));
 insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0);
+// A gym-private row (gym_id set). No gyms/gym_memberships tables exist in this
+// harness, so NOBODY is a member here: the row must be invisible to the planner,
+// to pins and to custom_steps. Only the base query's `gym_id IS NULL` keeps it out.
+db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
+  primary_muscles_json, alternatives_json, is_active, gym_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)`)
+  .run('ex-gym-private', 'gym-private-press', 'Gym private press', 'strength', '["strength"]', '["none"]',
+       '{"supports":["reps"]}', '["chest"]', null, 1, 'gym-someone-else');
 
 const DATE = '2026-10-05';
 const users = {
@@ -232,6 +239,21 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
     && r.body.plan.steps.some(s => s.exercise_slug === 'dead-bug'),
     `a safe pin must be in the session and in plan.pinned: ${JSON.stringify(r.body.plan?.pinned)}`);
   check(row('pro').generated_by === 'engine', `a pinned plan is engine-built and must say so, got ${row('pro').generated_by}`);
+}
+
+// 8. Gym-private exercises never reach a non-member — not via pins, not via
+//    custom_steps, not in the engine's pool. Latent today (all 482 live rows are
+//    global); a leak the day a trainer creates one.
+{
+  const pin = await post('pro', { pinned_exercise_ids: ['ex-gym-private'], replace_user_plan: true });
+  check(pin.status === 400 && (pin.body.unknown_exercise_ids ?? []).includes('ex-gym-private'),
+    `a non-member pinned another gym's private exercise: ${pin.status} ${JSON.stringify(pin.body.unknown_exercise_ids)}`);
+  const own = await post('pro', { custom_steps: [{ exercise_id: 'ex-gym-private', sets: 3, target_reps: 10 }], replace_user_plan: true });
+  check(own.status === 400 && (own.body.unknown_exercise_ids ?? []).includes('ex-gym-private'),
+    `a non-member authored a session with another gym's private exercise: ${own.status}`);
+  const eng = await post('pro', { replace_user_plan: true });
+  const leaked = (eng.body.plan?.steps ?? []).some(st => st.exercise_id === 'ex-gym-private');
+  check(!leaked, 'the engine put another gym\'s private exercise in a non-member\'s session');
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');

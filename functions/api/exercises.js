@@ -6,7 +6,11 @@ export async function onRequestGet({ request, env }) {
 
     let query = `SELECT id, slug, name, category, tags_json, equipment_required_json, 
                         instructions_json, metrics_json, alternatives_json
-                 FROM exercises WHERE is_active = 1`;
+                 FROM exercises WHERE is_active = 1
+                   -- This endpoint is PUBLIC (no session), so it cannot scope by
+                   -- membership: gym-private rows are never served here. Members
+                   -- get theirs through the planner's scoped query.
+                   AND gym_id IS NULL`;
     const binds = [];
 
     if (category) {
