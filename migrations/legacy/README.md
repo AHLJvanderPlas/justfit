@@ -57,7 +57,7 @@ caught until the audit.
 
 - Files are **not renamed** — the filenames are references in PR history and docs.
 - Baseline files (`migrations/baseline/`) reflect the merged current schema — no conflicts.
-- **Next valid migration number: `0117`** (0116 applied 2026-10-03). This legacy ledger is historical;
+- **Next valid migration number: `0118`** (0117 applied 2026-10-04). This legacy ledger is historical;
   the live number lives in root `CLAUDE.md` and is enforced by the `smoke.sh` migration-number guard.
   Any new migration from
   either repo must use a number ≥ 0093 and be coordinated to avoid future collisions.

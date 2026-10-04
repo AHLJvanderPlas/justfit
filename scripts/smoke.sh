@@ -338,14 +338,19 @@ const files = [];
   const p = d + "/" + e.name;
   if (e.isDirectory()) walk(p); else if (e.name.endsWith(".js")) files.push(p);
 } })("functions");
-const sqlish = /\b(SELECT|INSERT|UPDATE|DELETE)\b/i;
+// A literal is SQL when it STARTS with the verb. Matching the verb anywhere
+// turned comment prose ("select … from what the user …") into table names.
+const sqlish = /^\s*(SELECT|INSERT|UPDATE|DELETE|WITH|PRAGMA)\b/i;
 const tbl = /\b(?:FROM|JOIN|INTO|UPDATE)\s+([a-z_][a-z0-9_]{2,})/gi;
 const noise = new Set(["select","set","where","values","json_each"]);
 const bad = [];
 for (const f of files) {
   const src = fs.readFileSync(f,"utf8");
-  for (const m of src.matchAll(/`([^`]*)`/g)) {
-    const lit = m[1];
+  // Backtick AND single-quoted literals. auth.js writes its deletion batch in
+  // single quotes, and a missing table there 500s every account deletion —
+  // the exact shape that broke trainer deletion once already.
+  for (const m of src.matchAll(/`([^`]*)`|\x27((?:[^\x27\\]|\\.)*)\x27/g)) {
+    const lit = m[1] ?? m[2] ?? "";
     if (!sqlish.test(lit)) continue;
     // Skip HTML email bodies: they contain words like UPDATE and arrows such as
     // "from Settings -> Privacy" that read as a table reference. No SQL string

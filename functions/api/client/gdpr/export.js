@@ -13,7 +13,7 @@ export async function onRequest(context) {
   const userId = user.userId;
 
   // Parallel fetch of all user data
-  const [profile, prefs, checkins, executions, disclosures, intakes, assignments] = await Promise.all([
+  const [profile, prefs, checkins, executions, disclosures, intakes, assignments, plans, templates] = await Promise.all([
     env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(userId).first(),
     env.DB.prepare(`SELECT * FROM user_preferences WHERE user_id = ?`).bind(userId).first(),
     env.DB.prepare(`SELECT id, date, mood, energy, sleep_hours, stress, created_at_ms FROM daily_checkins WHERE user_id = ? ORDER BY date DESC LIMIT 500`).bind(userId).all(),
@@ -21,6 +21,11 @@ export async function onRequest(context) {
     env.DB.prepare(`SELECT id, gym_id, level, display_name, share_training_history, share_checkins, consented_at_ms FROM trainer_disclosures WHERE user_id = ?`).bind(userId).all(),
     env.DB.prepare(`SELECT id, gym_id, experience_level, completed_at_ms FROM client_intake WHERE user_id = ?`).bind(userId).all(),
     env.DB.prepare(`SELECT id, program_id, gym_id, start_date, status, adherence_pct FROM program_assignments WHERE client_user_id = ? LIMIT 200`).bind(userId).all(),
+    // Plans the user authored themselves and their saved templates are the
+    // user's own content and belong in the export; generated_by distinguishes
+    // engine output from what they wrote.
+    env.DB.prepare(`SELECT id, date, generated_by, plan_json, created_at_ms FROM day_plans WHERE user_id = ? ORDER BY date DESC LIMIT 400`).bind(userId).all(),
+    env.DB.prepare(`SELECT id, name, steps_json, est_minutes, created_at_ms, updated_at_ms FROM user_session_templates WHERE user_id = ? LIMIT 50`).bind(userId).all(),
   ]);
 
   await writeAudit({ gymId: null, actorUserId: userId, action: ACTIONS.GDPR_EXPORT_REQUESTED,
@@ -36,6 +41,8 @@ export async function onRequest(context) {
     trainer_disclosures: disclosures.results ?? [],
     client_intakes: intakes.results ?? [],
     program_assignments: assignments.results ?? [],
+    day_plans: (plans.results ?? []).map(r => ({ ...r, plan: safeJson(r.plan_json), plan_json: undefined })),
+    session_templates: (templates.results ?? []).map(r => ({ ...r, steps: safeJson(r.steps_json), steps_json: undefined })),
     note: 'Encrypted PII fields (billing, contact) are not included in this export for security. Contact support to request full decrypted personal data.',
   };
 
@@ -43,3 +50,5 @@ export async function onRequest(context) {
     headers: { 'Content-Disposition': 'attachment; filename="justfit-data-export.json"' },
   });
 }
+
+function safeJson(t) { try { return t ? JSON.parse(t) : null; } catch { return null; } }

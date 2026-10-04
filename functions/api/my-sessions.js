@@ -120,7 +120,12 @@ export async function onRequestPost({ request, env }) {
     // The same library POST /api/plan installs from: active rows only.
     const ids = [...new Set(body.steps.map(st => String(st.exercise_id)))];
     const found = await env.DB.prepare(
-      `SELECT id, metrics_json FROM exercises WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
+      `SELECT id, metrics_json FROM exercises WHERE is_active = 1 AND gym_id IS NULL AND id IN (${ids.map(() => '?').join(',')})`
+      // gym_id IS NULL: same scope as the planner's base query. A template is
+      // installed through custom_steps, which validates against the planner's
+      // gym-filtered pool, so a gym-private id would be rejected at install —
+      // but it must not be SAVED either. (v1: gym-private rows cannot be
+      // templated by members; the scoped install path is the only way to them.)
     ).bind(...ids).all();
     const byId = new Map((found.results ?? []).map(r => [String(r.id), r]));
     const unknown = ids.filter(x => !byId.has(x));

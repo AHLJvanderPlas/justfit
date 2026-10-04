@@ -62,6 +62,7 @@ user_awards
 user_preferences
 user_progression
 user_progression_events
+user_session_templates
 users
 vouchers
 waitlist
