@@ -62,7 +62,8 @@ function inserts(table, rows, cols) {
 
 const stamp = new Date().toISOString();
 
-// ── 1020: exercises, session_templates, awards ───────────────────────────
+// ── 1020: exercises, session_templates ───────────────────────────────────
+// (awards + user_awards were dropped by 0120 — the client owns award definitions)
 
 console.log('Querying exercises…');
 const exercises = query('SELECT * FROM exercises ORDER BY created_at_ms, slug');
@@ -72,9 +73,6 @@ console.log('Querying session_templates…');
 const templates = query('SELECT * FROM session_templates ORDER BY created_at_ms, id');
 console.log(`  → ${templates.length} rows`);
 
-console.log('Querying awards…');
-const awards = query('SELECT * FROM awards ORDER BY created_at_ms, id');
-console.log(`  → ${awards.length} rows`);
 
 const exerciseCols = [
   'id','slug','name','category',
@@ -86,10 +84,6 @@ const exerciseCols = [
 const templateCols = [
   'id','slug','name','description','session_type','difficulty',
   'duration_min','template_json','is_active','created_at_ms','updated_at_ms',
-];
-const awardCols = [
-  'id','slug','name','description','category','icon',
-  'criteria_json','is_active','created_at_ms','updated_at_ms',
 ];
 
 const seed1020 = `\
@@ -104,7 +98,6 @@ const seed1020 = `\
 --   exercises         : ${exercises.length} rows (general library + military exercises from
 --                       migrations 0004/0010/0012/0015/0016/0020/0029/0031/0045)
 --   session_templates : ${templates.length} rows (migrations 0005, 0011)
---   awards            : ${awards.length} rows (migrations 0002, 0033)
 --
 -- Uses INSERT OR IGNORE — idempotent on a fresh or existing DB.
 -- Military exercise_aliases, program_templates, and program_template_items
@@ -121,11 +114,6 @@ ${inserts('exercises', exercises, exerciseCols)}
 -- ---------------------------------------------------------------------------
 
 ${inserts('session_templates', templates, templateCols)}
--- ---------------------------------------------------------------------------
--- awards (${awards.length} rows)
--- ---------------------------------------------------------------------------
-
-${inserts('awards', awards, awardCols)}
 `;
 
 writeFileSync('migrations/baseline/1020_seed_exercises.sql', seed1020);

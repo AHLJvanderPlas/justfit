@@ -1,7 +1,7 @@
 -- =============================================================================
 -- JustFit — Exercise Library Seed (Executable Snapshot)
 -- File: migrations/baseline/1020_seed_exercises.sql
--- Generated: 2026-10-04T04:30:05.760Z
+-- Generated: 2026-10-04T06:00:28.308Z
 --
 -- Bootstrap order: run AFTER 1010_schema_training.sql and 1000_schema_core.sql
 --
@@ -9,7 +9,6 @@
 --   exercises         : 482 rows (general library + military exercises from
 --                       migrations 0004/0010/0012/0015/0016/0020/0029/0031/0045)
 --   session_templates : 16 rows (migrations 0005, 0011)
---   awards            : 12 rows (migrations 0002, 0033)
 --
 -- Uses INSERT OR IGNORE — idempotent on a fresh or existing DB.
 -- Military exercise_aliases, program_templates, and program_template_items
@@ -1021,33 +1020,4 @@ INSERT OR IGNORE INTO session_templates (id, slug, name, description, session_ty
   ('tpl-pregnancy-strong', 'pregnancy-strong', 'Strong & supported', 'T2 pregnancy session for higher-energy days. Supported strength movements, pelvic floor included.', 'workout', 'moderate', 30, '{"warm_up":{"duration_sec":240,"exercises":["ankle-mobility-circles","standing-side-stretch","cat-cow-pregnancy","standing-pelvic-rock"]},"blocks":[{"name":"Pelvic Floor","sets":2,"rest_sec":30,"exercises":["kegel-elevator","pelvic-floor-breathing","deep-core-activation"]},{"name":"Strength","sets":3,"rest_sec":60,"exercises":["sumo-squat","dumbbell-romanian-deadlift","knee-push-up","dumbbell-seated-overhead-press"]},{"name":"Hip & Glute","sets":2,"rest_sec":45,"exercises":["donkey-kick","fire-hydrant","standing-hip-abduction"]}],"cool_down":{"duration_sec":180,"exercises":["seated-butterfly","seated-spinal-twist","pelvic-floor-breathing","supported-side-lying-rest"]}}', 1, 1742860800000, 1742860800000);
 INSERT OR IGNORE INTO session_templates (id, slug, name, description, session_type, difficulty, duration_min, template_json, is_active, created_at_ms, updated_at_ms) VALUES
   ('tpl-pregnancy-t3', 'pregnancy-T3', 'Strong & supported', 'Third trimester session. Short intervals, extra breathing focus, seated and standing only.', 'workout', 'easy', 20, '{"warm_up":{"duration_sec":180,"exercises":["ankle-pumps","standing-pelvic-rock","360-breathing"]},"blocks":[{"name":"Pelvic Floor","sets":2,"rest_sec":45,"exercises":["kegel-hold","exhalation-core-engagement","standing-pelvic-rock"]},{"name":"Gentle Movement","sets":2,"rest_sec":60,"exercises":["sumo-squat","standing-hip-abduction","low-impact-jumping-jacks"]},{"name":"Breathing & Rest","sets":1,"rest_sec":0,"exercises":["pursed-lip-breathing","labour-breathing-prep"]}],"cool_down":{"duration_sec":240,"exercises":["supported-wall-squat","side-lying-full-stretch","labour-breathing-prep"]}}', 1, 1742860800000, 1742860800000);
-
--- ---------------------------------------------------------------------------
--- awards (12 rows)
--- ---------------------------------------------------------------------------
-
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_full_rotation', 'full-rotation', 'Full Rotation', 'Seven sessions completed across your history.', 'milestone', 'medal', '{"type":"session_count","threshold":7}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_genesis', 'genesis', 'Genesis', 'Complete your very first training session.', 'milestone', 'zap', '{"type":"session_count","threshold":1}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_habit', 'habit', 'The Habit', 'Three workouts logged. The rhythm is forming.', 'milestone', 'flame', '{"type":"session_count","threshold":3}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_iron_will', 'iron-will', 'Iron Will', 'Maintain a Consistency Score of 80 or higher.', 'performance', 'bolt', '{"type":"consistency_score","threshold":80}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_king', 'king', 'Consistency King', 'Hit the perfect Consistency Score of 100.', 'performance', 'crown', '{"type":"consistency_score","threshold":100}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_micro_master', 'micro-master', 'Micro Master', 'Completed 5 micro sessions.', 'habit', 'clock', '{"type":"micro_session_count","threshold":5}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_no_excuses', 'no-excuses', 'No Excuses', 'Completed a session with no gear or clothing.', 'habit', 'shield', '{"type":"no_excuse_session","threshold":1}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_perfect_week', 'perfect-week', 'Perfect Week', 'Hit 7 active days in a single week.', 'streak', 'trophy', '{"type":"perfect_week","threshold":1}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_pro_status', 'pro-status', 'Pro Status', 'Unlock the full JustFit adaptive engine.', 'special', 'star', '{"type":"pro_subscription","threshold":1}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_resilient', 'resilient', 'Resilient', 'Trained on a day you reported low energy or stress.', 'habit', 'heart', '{"type":"resilience_count","threshold":1}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_streak_14', 'streak-14', 'Two Week Warrior', 'Stay active for 14 days straight.', 'streak', 'fire', '{"type":"streak_days","threshold":14}', 1, 1767830400000, 1767830400000);
-INSERT OR IGNORE INTO awards (id, slug, name, description, category, icon, criteria_json, is_active, created_at_ms, updated_at_ms) VALUES
-  ('awd_traveler', 'road-warrior', 'Road Warrior', 'Completed a workout while traveling.', 'habit', 'plane', '{"type":"travel_session","threshold":1}', 1, 1767830400000, 1767830400000);
 
