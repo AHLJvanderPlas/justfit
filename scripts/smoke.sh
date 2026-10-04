@@ -1272,6 +1272,8 @@ if [ -z "$AWARD_SQL" ]; then
 else
   echo "$AWARD_SQL" | sed 's/^/      /'
   fail "functions/ still references awards/user_awards in SQL — migration 0120 drops them"
+fi
+
 # ── F4 — POST /api/plan request parsing + existing-plan decision (offline) ──
 # The C-G4 cap, the W4.1 user-plan protection and the three exemptions are one
 # pure decision in functions/api/_shared/planRequest.js; its tests walk every
