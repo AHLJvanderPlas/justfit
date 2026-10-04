@@ -1,24 +1,15 @@
 -- =============================================================================
 -- JustFit — Exercise Library Seed (Executable Snapshot)
 -- File: migrations/baseline/1020_seed_exercises.sql
--- Generated: 2026-10-03T13:27:22.770Z by scripts/generate-baseline-seeds.mjs
---            (read-only SELECT * against live justfit-db; rows are NOT hand-edited)
+-- Generated: 2026-10-04T04:30:05.760Z
 --
 -- Bootstrap order: run AFTER 1010_schema_training.sql and 1000_schema_core.sql
 --
--- Canonical current state of (live D1 at generation time):
---   exercises         : 482 rows
---   session_templates : 16 rows
---   awards            : 12 rows
---
--- Migration coverage: live state through migration 0116. This snapshot is the
--- result of every exercise-data migration up to and including 0116, notably
--- 0045/0048/0049/0050 (military), 0107 (exercise load), 0108/0111 (equipment
--- dedup), 0110 (DCP sit-ups), 0112 (exercise durations), 0113/0115 (substitution
--- graph repair + mirroring) and 0114 (cardio primary muscles).
--- Previous snapshot (2026-05-03) was 416 rows and referenced nothing after 0045.
--- There is NO "apply list": to refresh, re-run the generator (see
--- docs/database-bootstrap.md). Do not append per-migration INSERTs to this file.
+-- Canonical current state of:
+--   exercises         : 482 rows (general library + military exercises from
+--                       migrations 0004/0010/0012/0015/0016/0020/0029/0031/0045)
+--   session_templates : 16 rows (migrations 0005, 0011)
+--   awards            : 12 rows (migrations 0002, 0033)
 --
 -- Uses INSERT OR IGNORE — idempotent on a fresh or existing DB.
 -- Military exercise_aliases, program_templates, and program_template_items
