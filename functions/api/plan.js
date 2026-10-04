@@ -6,6 +6,15 @@ import { getAuthUserId } from './_shared/auth.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, dcpIsStale } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
+import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
+import {
+  parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError,
+} from './_shared/planRequest.js';
+// Re-exported for existing importers (the request harnesses import them from here).
+export {
+  CUSTOM_STEP_LIMITS, MAX_CUSTOM_STEPS, MAX_PINS, customStepsShapeError, pinnedIdsShapeError, preservesUserPlan,
+  parsePlanRequest, decideExistingPlan,
+} from './_shared/planRequest.js';
 
 // ---------------------------------------------------------------------------
 // adaptExistingPlan — free tier: adjust volume/intensity on a stored plan
@@ -76,542 +85,96 @@ function adaptExistingPlan(basePlan, checkin) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// POST /api/plan — parse → load → decide → run planner → persist → respond.
+//
+// Parsing and the existing-plan decision (W4.1 protection, the C-G4 free cap and
+// its exemptions) are pure and live in _shared/planRequest.js. The loaders and
+// the day_plans upsert below are the handler's own database work, extracted so
+// the handler reads as the pipeline it is. Every response shape and status is
+// pinned by scripts/plan-override-requests.mjs.
+// ---------------------------------------------------------------------------
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session, coach_sim, adapt_mode, base_plan, force_assessment } = body;
-    // W4.1 / W4.4 — user override. See assembleCustomSession and the W4 notes.
-    const { custom_steps, safety_ack, include_assessment, pinned_exercise_ids, session_name } = body;
-    const isCustom = custom_steps !== undefined && custom_steps !== null;
-    const hasPins  = pinned_exercise_ids !== undefined && pinned_exercise_ids !== null;
-
-    if (!date) {
-      return Response.json({ error: 'date required' }, { status: 400 });
-    }
-    // Shape checks before any database work. A user-authored session is today's
-    // plan, never an ephemeral bonus or a free-tier adapt, and pinning is an
-    // engine request — the three do not combine.
-    if (isCustom) {
-      const err = customStepsShapeError(custom_steps);
-      if (err) return Response.json({ ok: false, error: 'invalid_custom_steps', detail: err }, { status: 400 });
-      if (bonus_session || adapt_mode || hasPins) {
-        return Response.json({ ok: false, error: 'invalid_custom_steps', detail: 'custom_steps cannot be combined with bonus_session, adapt_mode or pinned_exercise_ids' }, { status: 400 });
-      }
-    }
-    if (hasPins) {
-      const err = pinnedIdsShapeError(pinned_exercise_ids);
-      if (err) return Response.json({ ok: false, error: 'invalid_pins', detail: err }, { status: 400 });
-    }
+    const parsed = parsePlanRequest(body);
+    if (parsed.status) return Response.json(parsed.body, { status: parsed.status });
+    const req = parsed.request;
+    const { date, bonus_session } = req;
 
     // JWT-derived user_id only — body field ignored to prevent IDOR.
     // If unauthenticated, user_id is null: plan generated without personalization, not saved to DB.
     const user_id = await getAuthUserId(request, env);
 
-    // Fetch exercises and (optionally) user preferences in parallel
-    const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, recoveryResult, lastWeightsResult] = await Promise.all([
-      env.DB.prepare(
-        `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
-                primary_muscles_json, secondary_muscles_json
-         FROM exercises WHERE is_active = 1
-           -- Global library only. Gym-scoped rows (gym_id set) are fetched below,
-           -- JOINed to the user's ACTIVE memberships and carrying the gym's branding.
-           -- Without this clause every gym's private exercise reached every user's
-           -- planner, pins and custom_steps — latent while no gym has created one,
-           -- a leak the day one does — and members received theirs twice.
-           AND gym_id IS NULL`
-      ).all(),
-      user_id
-        ? env.DB.prepare(
-            `SELECT units, training_goal, experience_level, intensity_pref,
-                    session_duration_min, days_per_week_target, preferences_json
-             FROM user_preferences WHERE user_id = ? LIMIT 1`
-          ).bind(user_id).first()
-        : Promise.resolve(null),
-      env.DB.prepare(
-        `SELECT slug, name, session_type, difficulty, duration_min, template_json
-         FROM session_templates WHERE is_active = 1`
-      ).all(),
-      user_id
-        ? env.DB.prepare(
-            `SELECT sex, weight_kg, height_cm FROM user_preferences WHERE user_id = ? LIMIT 1`
-          ).bind(user_id).first()
-        : Promise.resolve(null),
-      env.DB.prepare(
-        `SELECT id, slug, name, sub_goal, workout_type, tss_estimate, duration_min, intervals_json
-         FROM cycling_workouts WHERE is_active = 1`
-      ).all(),
-      // Cycling protocol source (sport='cycling'); fallback to cycling_workouts table when pool is empty
-      env.DB.prepare(
-        `SELECT wp.id AS wp_id, wp.slug, wp.name, wp.tags_json,
-                wps.step_order, wps.step_type, wps.duration_sec, wps.sets,
-                wps.intensity_json, wps.notes_json
-         FROM workout_protocols wp
-         JOIN workout_protocol_steps wps ON wps.protocol_id = wp.id
-         WHERE wp.sport = 'cycling'
-         ORDER BY wp.id, wps.step_order`
-      ).all(),
-      // DB-backed run programme schedule items; fallback to RUN_PROGRAMS constant when query returns nothing
-      env.DB.prepare(
-        `SELECT pti.program_template_id, pti.block_week, pti.session_order, e.slug
-         FROM program_template_items pti
-         JOIN exercises e ON e.id = pti.exercise_id
-         WHERE pti.program_template_id IN ('run-5km','run-10km','run-15km','run-20km','run-30km')
-         ORDER BY pti.program_template_id, pti.block_week, pti.session_order`
-      ).all(),
-      // Custom gym exercises with branding — scoped to user's active memberships
-      user_id
-        ? env.DB.prepare(
-            `SELECT e.id, e.name, e.category AS exercise_type, e.equipment_required_json,
-                    e.instructions_markdown, g.branding_json
-             FROM exercises e
-             JOIN gyms g ON g.id = e.gym_id
-             JOIN gym_memberships gm ON gm.gym_id = e.gym_id AND gm.user_id = ? AND gm.status = 'active'
-             WHERE e.gym_id IS NOT NULL AND e.is_active = 1`
-          ).bind(user_id).all()
-        : Promise.resolve(null),
-      // C-F7 / R590 — recent training load per muscle, so the planner can avoid
-      // stacking work on a muscle group that has not recovered.
-      user_id
-        ? env.DB.prepare(RECOVERY_QUERY).bind(user_id, Date.now() - RECOVERY_WINDOW_DAYS * 86_400_000).all()
-        : Promise.resolve(null),
-      // C-F6 — last weight the athlete actually used per exercise, so a prescribed
-      // load starts from their real history rather than a guess. Newest row wins.
-      user_id
-        ? env.DB.prepare(
-            `SELECT es.exercise_id, es.actual_json, ex.date
-               FROM execution_steps es
-               JOIN executions ex ON ex.id = es.execution_id
-              WHERE ex.user_id = ? AND ex.status = 'completed'
-                AND es.actual_json LIKE '%weight_kg%'
-              ORDER BY COALESCE(ex.ended_at_ms, ex.created_at_ms) DESC
-              LIMIT 400`
-          ).bind(user_id).all()
-        : Promise.resolve(null),
-    ]);
+    const { allExercises, allTemplates, prefs, userProfileRow, cyclingWorkouts, runPrograms } =
+      await _loadPlannerInputs(env, user_id, req.coach_sim);
+    const isPro = await _resolveIsPro(env, user_id, prefs);
 
-    // exercise_id → what the athlete actually did last time. C-F8 shows this beside
-    // today's target, which is where progression stops being a number in a chart and
-    // becomes something you can feel.
-    const lastWeightByExercise = new Map();
-    const lastPerfByExercise = new Map();
-    for (const row of (lastWeightsResult?.results ?? [])) {
-      if (lastWeightByExercise.has(row.exercise_id)) continue; // ordered newest first
-      try {
-        const a = JSON.parse(row.actual_json);
-        const w = (a?.weight_kg ?? []).filter((x) => Number(x) > 0);
-        if (!w.length) continue;
-        const top = Math.max(...w);
-        lastWeightByExercise.set(row.exercise_id, top);
-        // Reps performed on the heaviest set, so "last time" describes one real set
-        // rather than mixing the top weight with an unrelated rep count.
-        const idx = a.weight_kg.findIndex((x) => Number(x) === top);
-        lastPerfByExercise.set(row.exercise_id, {
-          weight_kg: top,
-          reps: a.reps_per_set?.[idx] ?? null,
-          date: row.date ?? null,
-        });
-      } catch { /* skip malformed */ }
-    }
-    // Use unified protocols when available; fall back to legacy cycling_workouts
-    const protocolRows = cyclingProtocolsResult?.results ?? [];
-    const cyclingWorkouts = protocolRows.length > 0
-      ? buildCyclingWorkoutsFromProtocols(protocolRows)
-      : (cyclingWorkoutsResult?.results ?? []);
-
-    // Use DB-backed run programme schedule when available; fall back to RUN_PROGRAMS constant in planner
-    const runProgramItemRows = runProgramItemsResult?.results ?? [];
-    const runPrograms = runProgramItemRows.length > 0
-      ? buildRunProgramsFromTemplates(runProgramItemRows)
+    // One read serves both the W4.1 override protection and the C-G4 cap.
+    const existingRow = user_id && needsExistingPlan(body)
+      ? await env.DB.prepare(
+          'SELECT id, generated_by, plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
+        ).bind(user_id, date).first()
       : null;
-
-    const customExRows = customExResult?.results ?? [];
-    // C-F6 — hang the athlete's last used weight on the exercise row itself. The
-    // planner passes exercises through by reference, so _assembleSession can seed a
-    // target load without another positional parameter on an already long signature.
-    // R590 — an exercise is only as fresh as its most fatigued primary muscle. A
-    // squat is not a good idea because the glutes recovered if the quads have not.
-    const freshness = user_id
-      ? computeRecovery(recoveryResult?.results ?? [], Date.now()).freshness
-      : null;
-
-    for (const ex of exResult.results) {
-      const last = lastWeightByExercise.get(ex.id);
-      if (last != null) ex.last_weight_kg = last;
-      const perf = lastPerfByExercise.get(ex.id);
-      if (perf) ex.last_performance = perf;
-      if (freshness) {
-        const regions = musclesFromJson(ex.primary_muscles_json);
-        if (regions.size > 0) {
-          ex.muscle_freshness = Math.min(...[...regions].map((r) => freshness[r] ?? 100));
-        }
-      }
+    const existing = decideExistingPlan({ existingRow, body, isPro });
+    if (existing.decision === 'preserve') {
+      return Response.json({ ok: true, saved: true, preserved: true, plan: existing.plan });
     }
-
-    const allExercises = [
-      ...exResult.results,
-      ...customExRows.map(ce => {
-        const branding = ce.branding_json ? JSON.parse(ce.branding_json) : {};
-        const logoUrl = branding.logo_data_url ?? null;
-        return {
-          id: ce.id,
-          slug: `custom-${ce.id}`,
-          name: ce.name,
-          category: ce.exercise_type ?? 'strength',
-          tags_json: '[]',
-          equipment_required_json: ce.equipment_required_json ?? '["none"]',
-          media_json: null,
-          instructions_json: ce.instructions_markdown
-            ? JSON.stringify({ steps: ce.instructions_markdown.split('\n').filter(s => s.trim()), cues: [] })
-            : null,
-          alternatives_json: null,
-          metrics_json: null,
-          ...(logoUrl ? { trainer_logo_url: logoUrl, trainer_logo_bg: branding.logo_bg_color ?? '#0a0a0a' } : {}),
-        };
-      }),
-    ];
-    const allTemplates = templates.results;
-    const prefs = userPrefs
-      ? {
-          ...userPrefs,
-          preferences: userPrefs.preferences_json
-            ? JSON.parse(userPrefs.preferences_json)
-            : {},
-        }
-      : null;
-
-    // Allow caller to override coach state (used by "Coming Up" preview to simulate future weeks)
-    if (coach_sim && prefs) {
-      prefs.preferences = { ...prefs.preferences, ...coach_sim };
-    }
-
-    // Pro flag — gates structured coaching programs (R556, R557, polarised)
-    // Check entitlements table first; fall back to manual isPro preference override.
-    let isPro = !!(prefs?.preferences?.isPro);
-    if (user_id && !isPro) {
-      const isProRow = await env.DB.prepare(
-        `SELECT id FROM entitlements WHERE user_id = ? AND status IN ('active','trialing','grace') AND ends_at_ms > ? LIMIT 1`
-      ).bind(user_id, Date.now()).first();
-      isPro = !!isProRow;
-    }
-
-    // W4.1 — PROTECT THE OVERRIDE. A session the user wrote survives every
-    // automatic regeneration — app open, check-in (engine or free-tier adapt),
-    // retry, force_assessment. Only an explicit `replace_user_plan: true` (a
-    // confirmed user action) or a new user-authored session replaces it. Runs
-    // before the C-G4 cap so the response says WHY the plan did not change.
-    // One read serves both this check and the C-G4 cap below (whose condition
-    // is a subset of this one), so the override costs no extra round-trip.
-    let existingRow = null;
-    if (user_id && !isCustom && !bonus_session) {
-      existingRow = await env.DB.prepare(
-        'SELECT id, generated_by, plan_json FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1'
-      ).bind(user_id, date).first();
-      if (preservesUserPlan(existingRow, body)) {
-        try {
-          const stored = JSON.parse(existingRow.plan_json);
-          return Response.json({ ok: true, saved: true, preserved: true, plan: { id: existingRow.id, ...stored } });
-        } catch { /* malformed JSON — fall through and regenerate */ }
-      }
-    }
-
-    // C-G4: Free users get 1 plan per day — return cached plan if already exists.
-    //
-    // A user-authored session (custom_steps) is exempt for the same reason: the
-    // cap makes RE-ROLLING THE ENGINE a paid feature; writing your own session
-    // is not a re-roll, generates nothing, and cannot be used to farm one. Pins
-    // (W4.4) are exempt for the same reason, decided 2026-10-04: pinning your
-    // physio's two exercises is telling the coach what you need, not re-rolling
-    // for a nicer plan, and a pin request cannot be used to farm sessions either.
-    //
-    // force_assessment is exempt. The daily cap exists so re-rolling for a nicer
-    // session is a paid feature; asking to measure yourself is neither a re-roll
-    // nor a nicety — it is the input every DCP number downstream depends on, and
-    // charging for it would make the bias aim at a stale baseline. The request
-    // is explicit and user-initiated, so it cannot be used to farm new sessions.
-    if (user_id && !isPro && !bonus_session && !force_assessment && !isCustom && !hasPins) {
-      const existingPlan = existingRow;
-      if (existingPlan) {
-        try {
-          const cached = JSON.parse(existingPlan.plan_json);
-          return Response.json({ ok: true, saved: true, plan: { ...cached, capped: true } });
-        } catch { /* malformed JSON — fall through and regenerate */ }
-      }
+    if (existing.decision === 'capped') {
+      return Response.json({ ok: true, saved: true, plan: existing.plan });
     }
 
     // Merge body profile: prefer request body fields, fall back to DB row
     const bodyProfile = {
-      sex:       user_profile?.sex       ?? userProfileRow?.sex       ?? null,
-      weight_kg: user_profile?.weight_kg ?? userProfileRow?.weight_kg ?? null,
-      height_cm: user_profile?.height_cm ?? userProfileRow?.height_cm ?? null,
+      sex:       req.user_profile?.sex       ?? userProfileRow?.sex       ?? null,
+      weight_kg: req.user_profile?.weight_kg ?? userProfileRow?.weight_kg ?? null,
+      height_cm: req.user_profile?.height_cm ?? userProfileRow?.height_cm ?? null,
     };
-
-    // Resolve cycle + pregnancy context from DB when user_id is present
-    let resolvedCycleContext = cycle_context ?? null;
-    let pregnancyContext = null;
-
-    if (user_id) {
-      const cycleRow = await env.DB.prepare(
-        `SELECT tracking_mode, cycle_length_days, last_period_start,
-                mode, pregnancy_due_date, postnatal_birth_date, postnatal_birth_type,
-                postnatal_cleared_for_exercise
-         FROM cycle_profile WHERE user_id = ? LIMIT 1`
-      ).bind(user_id).first();
-
-      if (cycleRow) {
-        const bodyMode = cycleRow.mode ?? 'standard';
-
-        if (bodyMode === 'pregnant') {
-          const week = calculatePregnancyWeek(cycleRow.pregnancy_due_date, date);
-          pregnancyContext = {
-            mode: 'pregnant',
-            week,
-            trimester: getTrimester(week),
-            past_due: week != null && week > 40,
-          };
-        } else if (bodyMode === 'postnatal') {
-          const postnatalPhase = getPostnatalPhase(cycleRow.postnatal_birth_date, cycleRow.postnatal_birth_type, date);
-          pregnancyContext = {
-            mode: 'postnatal',
-            postnatal_phase: postnatalPhase,
-            postnatal_birth_type: cycleRow.postnatal_birth_type ?? null,
-            postnatal_cleared_for_exercise: cycleRow.postnatal_cleared_for_exercise ?? 0,
-          };
-        } else if (bodyMode === 'perimenopause') {
-          pregnancyContext = { mode: 'perimenopause' };
-        } else if (bodyMode === 'standard' && cycleRow.tracking_mode === 'smart' && !resolvedCycleContext && bodyProfile.sex === 'female') {
-          resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
-        }
-      }
-    }
-
-    // Inject per-day time_budget from weekly schedule when no check-in override
-    const weeklySchedule = prefs?.preferences?.weekly_schedule;
-    const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date(date + 'T12:00:00').getDay()];
-    const scheduledDuration = weeklySchedule?.[dayKey];
-    let effectiveCheckin = checkin ?? {};
-    if (effectiveCheckin.time_budget == null && scheduledDuration != null) {
-      effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
-    }
-
-    // Subtract time overhead when enabled — picks short profile (≤30 min) or long profile (>30 min)
-    const overhead = prefs?.preferences?.time_overhead;
-    if (overhead?.enabled) {
-      const rawBudget = effectiveCheckin.time_budget ?? prefs?.session_duration_min ?? 30;
-      const profile = rawBudget <= 30 ? (overhead.short ?? overhead) : (overhead.long ?? overhead);
-      const presetTotal = Object.values(profile.presets ?? {}).reduce((s, v) => s + (v || 0), 0);
-      const customTotal = (profile.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
-      const totalOverhead = presetTotal + customTotal;
-      if (totalOverhead > 0) {
-        effectiveCheckin = { ...effectiveCheckin, time_budget: Math.max(5, rawBudget - totalOverhead) };
-      }
-    }
-
-    // Fetch progression state + cycling TSB in parallel (ignored for bonus sessions)
-    let progressionState = null;
-    let cyclingTsb = null;
-    let cyclingSessionsLast7 = 0;
-    let runSessionsLast7 = 0;
-    let crossRunsLast7 = 0;
-    let assignedProgramRow = null;
-    const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
-    const isRunCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
-    const isCrossTrainActive = !!(isCyclingCoachActive && prefs?.preferences?.cycling_coach?.run_cross_training);
-    // Rolling 7-day window: count recent sessions by type for scheduling decisions
-    const sevenDaysAgo = new Date(Date.parse(date + 'T00:00:00Z') - 7 * 86400000).toISOString().slice(0, 10);
-    if (user_id && !bonus_session) {
-      const fetches = [
-        env.DB.prepare(
-          `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
-        ).bind(user_id).first(),
-        env.DB.prepare(
-          `SELECT date FROM executions WHERE user_id = ? AND status != 'skipped' ORDER BY date DESC LIMIT 1`
-        ).bind(user_id).first(),
-        isCyclingCoachActive
-          ? env.DB.prepare(
-              `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL AND (execution_type NOT LIKE 'strava_%' OR execution_type = 'strava_ride') ORDER BY date ASC`
-            ).bind(user_id).all()
-          : Promise.resolve(null),
-        // Rolling window counts
-        user_id
-          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
-          : Promise.resolve(null),
-        user_id && isRunCoachActive
-          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'run_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
-          : Promise.resolve(null),
-        user_id && isCrossTrainActive
-          ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_cross_run' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
-          : Promise.resolve(null),
-        // Trainer-assigned program session for today — scoped to gyms where user is a client
-        user_id
-          ? env.DB.prepare(`
-              SELECT p.name AS program_name, ps.name AS session_name,
-                     (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id) AS total_sessions,
-                     (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id AND scheduled_date <= ?) AS session_number
-              FROM program_assignments pa
-              JOIN programs p ON p.id = pa.program_id
-              JOIN assigned_sessions asgn ON asgn.program_assignment_id = pa.id
-              JOIN program_sessions ps ON ps.id = asgn.session_template_id
-              WHERE pa.client_user_id = ? AND pa.status = 'active' AND pa.start_date <= ?
-                AND asgn.scheduled_date = ? AND asgn.status = 'scheduled'
-                AND pa.gym_id IN (SELECT gym_id FROM gym_memberships WHERE user_id = ? AND role = 'client' AND status = 'active')
-              LIMIT 1
-            `).bind(date, user_id, date, date, user_id).first()
-          : Promise.resolve(null),
-      ];
-      const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult] = await Promise.all(fetches);
-      assignedProgramRow = assignedProgramResult ?? null;
-      if (progRow) {
-        progressionState = {
-          scores: JSON.parse(progRow.scores_json),
-          chartMode: prefs?.preferences?.progression_chart_mode
-            ?? { health:'balanced', strength:'power', fat_loss:'endurance',
-                 muscle_gain:'power', endurance:'endurance', mobility:'mobility' }[prefs?.training_goal ?? 'health']
-            ?? 'balanced',
-          last_workout_date: lastExRow?.date ?? null,
-        };
-      }
-      if (tssResult?.results?.length) {
-        cyclingTsb = computeCyclingTsb(tssResult.results, date);
-      }
-      cyclingSessionsLast7 = cyclingCountRow?.cnt ?? 0;
-      runSessionsLast7 = runCountRow?.cnt ?? 0;
-      crossRunsLast7 = crossRunCountRow?.cnt ?? 0;
-    }
-
-    // ------------------------------------------------------------------
-    // Military strength session DB lookup
-    // Pre-compute military phase to know which session type is scheduled.
-    // For strength sessions (kracht / kracht_marsen / circuit) only:
-    //   fetch the ordered exercise list from program_template_items.
-    // Run/cooper sessions keep existing progressive-level logic.
-    // Falls back to null → runPlanner uses existing military pool path.
-    // ------------------------------------------------------------------
-    let militaryTemplateItems = null;
-    const _pi = prefs?.preferences?.primary_intent ?? null;
-    const isMilCoachActiveForFetch = !!(prefs?.preferences?.military_coach?.active)
-      && (_pi === null || _pi === 'military');
-    if (user_id && !bonus_session && isMilCoachActiveForFetch) {
-      try {
-        const milCoachPrefs = prefs.preferences.military_coach;
-        const prePhase = computeMilitaryPhase(milCoachPrefs, effectiveCheckin, date);
-        const { cyclePosn, clusterLive, sessionType: preSessionType } = prePhase;
-
-        // Only strength sessions are DB-backed; run/cooper use progressive level logic
-        const STRENGTH_DAY_INDEX = { kracht: 1, kracht_marsen: 4, circuit: 1 };
-        const dayIndex = STRENGTH_DAY_INDEX[preSessionType];
-
-        if (dayIndex !== undefined) {
-          const track = milCoachPrefs.track ?? 'keuring';
-          const templateSlug = track === 'opleiding'
-            ? `opleiding-cluster-${clusterLive}`
-            : (clusterLive === 0 ? 'keuring-basis' : `keuring-cluster-${clusterLive}`);
-
-          const tmResult = await env.DB.prepare(`
-            SELECT e.id, e.slug, e.name, e.category, e.tags_json, e.equipment_required_json,
-                   e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json
-            FROM program_templates pt
-            JOIN program_template_items pti ON pt.id = pti.program_template_id
-            JOIN exercises e ON pti.exercise_id = e.id
-            WHERE pt.slug = ? AND pti.block_week = ? AND pti.day_index = ?
-            ORDER BY pti.session_order
-          `).bind(templateSlug, cyclePosn, dayIndex).all();
-
-          if (tmResult.results?.length >= 3) {
-            militaryTemplateItems = tmResult.results;
-          }
-        }
-      } catch {
-        // DB lookup failed — militaryTemplateItems stays null → fallback to pool path
-      }
-    }
+    const { resolvedCycleContext, pregnancyContext } =
+      await _resolveBodyContext(env, user_id, date, req.cycle_context, bodyProfile);
+    const effectiveCheckin = _effectiveCheckin(req.checkin, prefs, date);
+    const history = await _loadTrainingHistory(env, user_id, date, prefs, bonus_session);
+    const militaryTemplateItems = await _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCheckin, bonus_session);
 
     // W4.1 — user-authored session. Same inputs the engine would see, so the
     // advisory pass evaluates the guards the engine registered for this athlete
     // today; nothing is selected, scaled or dropped.
-    if (isCustom) {
+    if (req.isCustom) {
       const guardCtx = buildPlannerGuardContext(date, effectiveCheckin, allExercises, prefs, allTemplates, [],
-        bodyProfile, resolvedCycleContext, pregnancyContext, false, progressionState, isPro,
-        cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7,
-        militaryTemplateItems, runPrograms, { forceAssessment: include_assessment === true });
+        bodyProfile, resolvedCycleContext, pregnancyContext, false, history.progressionState, isPro,
+        cyclingWorkouts, history.cyclingTsb, history.cyclingSessionsLast7, history.runSessionsLast7, history.crossRunsLast7,
+        militaryTemplateItems, runPrograms, { forceAssessment: req.includeAssessment });
       const nowMs = Date.now();
-      const built = assembleCustomSession(guardCtx, custom_steps, {
-        safetyAck: safety_ack === true, includeAssessment: include_assessment === true, nowMs, sessionName: session_name,
+      const built = assembleCustomSession(guardCtx, req.custom_steps, {
+        safetyAck: req.safetyAck, includeAssessment: req.includeAssessment, nowMs, sessionName: req.session_name,
       });
       if (built.status !== 200) return Response.json(built.body, { status: built.status });
       const userPlan = built.plan;
       const extra = { safety_notes: built.safety_notes, assessment_offer: built.assessment_offer };
-      if (user_id) {
-        const userExists = await env.DB.prepare(`SELECT id FROM users WHERE id = ? LIMIT 1`).bind(user_id).first();
-        if (userExists) {
-          const newId = crypto.randomUUID();
-          await env.DB.prepare(`
-            INSERT INTO day_plans
-              (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-            VALUES (?, ?, ?, 'final', ?, 'user', 'user-authored', 'user', ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET
-              plan_json = excluded.plan_json,
-              generated_by = excluded.generated_by,
-              engine_version = excluded.engine_version,
-              updated_at_ms = excluded.updated_at_ms
-          `).bind(newId, user_id, date, JSON.stringify(userPlan), nowMs, nowMs).run();
-          const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
-          return Response.json({ ok: true, saved: true, plan: { id: row?.id ?? newId, ...userPlan }, ...extra });
-        }
-      }
+      const planId = await _upsertDayPlan(env, user_id, date, userPlan,
+        { generatedBy: 'user', engineVersion: 'user-authored', seed: 'user', nowMs });
+      if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...userPlan }, ...extra });
       return Response.json({ ok: true, saved: false, plan: userPlan, ...extra });
     }
 
-    // W4.4 — every pin must be a real, active exercise for this user. Unknown
-    // ids are a malformed request, not something to drop quietly.
-    if (hasPins) {
-      const known = new Set(allExercises.map(e => String(e.id)));
-      const unknownPins = pinned_exercise_ids.map(String).filter(id => !known.has(id));
-      if (unknownPins.length) {
-        return Response.json({ ok: false, error: 'unknown_exercise', unknown_exercise_ids: [...new Set(unknownPins)] }, { status: 400 });
-      }
-    }
+    const pinErr = unknownPinsError(req, allExercises);
+    if (pinErr) return Response.json(pinErr.body, { status: pinErr.status });
 
     // Free-tier adapt path: adjust the stored weekly plan for today's check-in
     // without regenerating the exercise selection.
-    if (adapt_mode && base_plan) {
-      const adapted = adaptExistingPlan(base_plan, effectiveCheckin);
-      if (user_id) {
-        const userExists = await env.DB.prepare(`SELECT id FROM users WHERE id = ? LIMIT 1`).bind(user_id).first();
-        if (userExists) {
-          const adaptId = crypto.randomUUID();
-          const now = Date.now();
-          await env.DB.prepare(`
-            INSERT INTO day_plans (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-            VALUES (?, ?, ?, 'final', ?, 'adapt_free', 'v1.9.0', 'adapt', ?, ?)
-            ON CONFLICT(user_id, date) DO UPDATE SET plan_json=excluded.plan_json, generated_by=excluded.generated_by, engine_version=excluded.engine_version, updated_at_ms=excluded.updated_at_ms
-          `).bind(adaptId, user_id, date, JSON.stringify(adapted), now, now).run();
-          const row = await env.DB.prepare(`SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`).bind(user_id, date).first();
-          return Response.json({ ok: true, saved: true, plan: { id: row?.id ?? adaptId, ...adapted } });
-        }
-      }
+    if (req.adapt_mode && req.base_plan) {
+      const adapted = adaptExistingPlan(req.base_plan, effectiveCheckin);
+      const planId = await _upsertDayPlan(env, user_id, date, adapted,
+        { generatedBy: 'adapt_free', engineVersion: 'v1.9.0', seed: 'adapt' });
+      if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...adapted } });
       return Response.json({ ok: true, saved: false, plan: adapted });
     }
 
-    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, progressionState, isPro, cyclingWorkouts, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, militaryTemplateItems, runPrograms, {
-      forceAssessment: !!force_assessment,
-      pinnedIds: hasPins ? pinned_exercise_ids.map(String) : [],
+    const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, req.completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, history.progressionState, isPro, cyclingWorkouts, history.cyclingTsb, history.cyclingSessionsLast7, history.runSessionsLast7, history.crossRunsLast7, militaryTemplateItems, runPrograms, {
+      forceAssessment: req.forceAssessment,
+      pinnedIds: req.pinnedIds,
     });
-
-    // Inject trainer-assigned program coaching note
-    if (assignedProgramRow?.program_name) {
-      const sessNum = assignedProgramRow.session_number ?? 1;
-      const total = assignedProgramRow.total_sessions ?? 1;
-      plan.session_notes = [
-        `Van je trainer: ${assignedProgramRow.program_name} — sessie ${sessNum} van ${total}`,
-        ...(plan.session_notes ?? []),
-      ];
-      plan.assigned_program = {
-        program_name: assignedProgramRow.program_name,
-        session_name: assignedProgramRow.session_name,
-        session_number: sessNum,
-        total_sessions: total,
-      };
-    }
+    _attachAssignedProgram(plan, history.assignedProgramRow);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
@@ -621,41 +184,455 @@ export async function onRequestPost({ request, env }) {
       return Response.json({ ok: true, saved: false, plan: { id: bonusId, ...plan } });
     }
 
-    if (user_id) {
-      const userExists = await env.DB.prepare(
-        `SELECT id FROM users WHERE id = ? LIMIT 1`
-      ).bind(user_id).first();
-
-      if (userExists) {
-        const newId = crypto.randomUUID();
-        const now = Date.now();
-        await env.DB.prepare(`
-          INSERT INTO day_plans
-            (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
-          VALUES (?, ?, ?, 'final', ?, 'engine', 'v1.9.0', ?, ?, ?)
-          ON CONFLICT(user_id, date) DO UPDATE SET
-            plan_json = excluded.plan_json,
-            generated_by = excluded.generated_by,
-            engine_version = excluded.engine_version,
-            updated_at_ms = excluded.updated_at_ms
-        `).bind(newId, user_id, date, JSON.stringify(plan), date, now, now).run();
-
-        // The row may have existed already (conflict on user_id+date), so fetch the actual stored id
-        const row = await env.DB.prepare(
-          `SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`
-        ).bind(user_id, date).first();
-        const planId = row?.id ?? newId;
-
-        return Response.json({ ok: true, saved: true, plan: { id: planId, ...plan } });
-      }
-    }
-
+    const planId = await _upsertDayPlan(env, user_id, date, plan,
+      { generatedBy: 'engine', engineVersion: 'v1.9.0', seed: date });
+    if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...plan } });
     return Response.json({ ok: true, saved: false, plan });
 
   } catch (e) {
     console.error('plan.js error:', e.stack ?? e.message ?? e);
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
+}
+
+// ── onRequestPost stages ────────────────────────────────────────────────────
+
+// Library, preferences, templates, programme sources and the athlete's recent
+// load, in one parallel round-trip; then the exercise rows are decorated with
+// last-used weight and muscle freshness and merged with the user's gym exercises.
+async function _loadPlannerInputs(env, user_id, coach_sim) {
+  const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, recoveryResult, lastWeightsResult] = await Promise.all([
+    env.DB.prepare(
+      `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
+              primary_muscles_json, secondary_muscles_json
+       FROM exercises WHERE is_active = 1
+         -- Global library only. Gym-scoped rows (gym_id set) are fetched below,
+         -- JOINed to the user's ACTIVE memberships and carrying the gym's branding.
+         -- Without this clause every gym's private exercise reached every user's
+         -- planner, pins and custom_steps — latent while no gym has created one,
+         -- a leak the day one does — and members received theirs twice.
+         AND gym_id IS NULL`
+    ).all(),
+    user_id
+      ? env.DB.prepare(
+          `SELECT units, training_goal, experience_level, intensity_pref,
+                  session_duration_min, days_per_week_target, preferences_json
+           FROM user_preferences WHERE user_id = ? LIMIT 1`
+        ).bind(user_id).first()
+      : Promise.resolve(null),
+    env.DB.prepare(
+      `SELECT slug, name, session_type, difficulty, duration_min, template_json
+       FROM session_templates WHERE is_active = 1`
+    ).all(),
+    user_id
+      ? env.DB.prepare(
+          `SELECT sex, weight_kg, height_cm FROM user_preferences WHERE user_id = ? LIMIT 1`
+        ).bind(user_id).first()
+      : Promise.resolve(null),
+    env.DB.prepare(
+      `SELECT id, slug, name, sub_goal, workout_type, tss_estimate, duration_min, intervals_json
+       FROM cycling_workouts WHERE is_active = 1`
+    ).all(),
+    // Cycling protocol source (sport='cycling'); fallback to cycling_workouts table when pool is empty
+    env.DB.prepare(
+      `SELECT wp.id AS wp_id, wp.slug, wp.name, wp.tags_json,
+              wps.step_order, wps.step_type, wps.duration_sec, wps.sets,
+              wps.intensity_json, wps.notes_json
+       FROM workout_protocols wp
+       JOIN workout_protocol_steps wps ON wps.protocol_id = wp.id
+       WHERE wp.sport = 'cycling'
+       ORDER BY wp.id, wps.step_order`
+    ).all(),
+    // DB-backed run programme schedule items; fallback to RUN_PROGRAMS constant when query returns nothing
+    env.DB.prepare(
+      `SELECT pti.program_template_id, pti.block_week, pti.session_order, e.slug
+       FROM program_template_items pti
+       JOIN exercises e ON e.id = pti.exercise_id
+       WHERE pti.program_template_id IN ('run-5km','run-10km','run-15km','run-20km','run-30km')
+       ORDER BY pti.program_template_id, pti.block_week, pti.session_order`
+    ).all(),
+    // Custom gym exercises with branding — scoped to user's active memberships
+    user_id
+      ? env.DB.prepare(
+          `SELECT e.id, e.name, e.category AS exercise_type, e.equipment_required_json,
+                  e.instructions_markdown, g.branding_json
+           FROM exercises e
+           JOIN gyms g ON g.id = e.gym_id
+           JOIN gym_memberships gm ON gm.gym_id = e.gym_id AND gm.user_id = ? AND gm.status = 'active'
+           WHERE e.gym_id IS NOT NULL AND e.is_active = 1`
+        ).bind(user_id).all()
+      : Promise.resolve(null),
+    // C-F7 / R590 — recent training load per muscle, so the planner can avoid
+    // stacking work on a muscle group that has not recovered.
+    user_id
+      ? env.DB.prepare(RECOVERY_QUERY).bind(user_id, Date.now() - RECOVERY_WINDOW_DAYS * 86_400_000).all()
+      : Promise.resolve(null),
+    // C-F6 — last weight the athlete actually used per exercise, so a prescribed
+    // load starts from their real history rather than a guess. Newest row wins.
+    user_id
+      ? env.DB.prepare(
+          `SELECT es.exercise_id, es.actual_json, ex.date
+             FROM execution_steps es
+             JOIN executions ex ON ex.id = es.execution_id
+            WHERE ex.user_id = ? AND ex.status = 'completed'
+              AND es.actual_json LIKE '%weight_kg%'
+            ORDER BY COALESCE(ex.ended_at_ms, ex.created_at_ms) DESC
+            LIMIT 400`
+        ).bind(user_id).all()
+      : Promise.resolve(null),
+  ]);
+
+  // exercise_id → what the athlete actually did last time. C-F8 shows this beside
+  // today's target, which is where progression stops being a number in a chart and
+  // becomes something you can feel.
+  const lastWeightByExercise = new Map();
+  const lastPerfByExercise = new Map();
+  for (const row of (lastWeightsResult?.results ?? [])) {
+    if (lastWeightByExercise.has(row.exercise_id)) continue; // ordered newest first
+    try {
+      const a = JSON.parse(row.actual_json);
+      const w = (a?.weight_kg ?? []).filter((x) => Number(x) > 0);
+      if (!w.length) continue;
+      const top = Math.max(...w);
+      lastWeightByExercise.set(row.exercise_id, top);
+      // Reps performed on the heaviest set, so "last time" describes one real set
+      // rather than mixing the top weight with an unrelated rep count.
+      const idx = a.weight_kg.findIndex((x) => Number(x) === top);
+      lastPerfByExercise.set(row.exercise_id, {
+        weight_kg: top,
+        reps: a.reps_per_set?.[idx] ?? null,
+        date: row.date ?? null,
+      });
+    } catch { /* skip malformed */ }
+  }
+  // Use unified protocols when available; fall back to legacy cycling_workouts
+  const protocolRows = cyclingProtocolsResult?.results ?? [];
+  const cyclingWorkouts = protocolRows.length > 0
+    ? buildCyclingWorkoutsFromProtocols(protocolRows)
+    : (cyclingWorkoutsResult?.results ?? []);
+
+  // Use DB-backed run programme schedule when available; fall back to RUN_PROGRAMS constant in planner
+  const runProgramItemRows = runProgramItemsResult?.results ?? [];
+  const runPrograms = runProgramItemRows.length > 0
+    ? buildRunProgramsFromTemplates(runProgramItemRows)
+    : null;
+
+  const customExRows = customExResult?.results ?? [];
+  // C-F6 — hang the athlete's last used weight on the exercise row itself. The
+  // planner passes exercises through by reference, so _assembleSession can seed a
+  // target load without another positional parameter on an already long signature.
+  // R590 — an exercise is only as fresh as its most fatigued primary muscle. A
+  // squat is not a good idea because the glutes recovered if the quads have not.
+  const freshness = user_id
+    ? computeRecovery(recoveryResult?.results ?? [], Date.now()).freshness
+    : null;
+
+  for (const ex of exResult.results) {
+    const last = lastWeightByExercise.get(ex.id);
+    if (last != null) ex.last_weight_kg = last;
+    const perf = lastPerfByExercise.get(ex.id);
+    if (perf) ex.last_performance = perf;
+    if (freshness) {
+      const regions = musclesFromJson(ex.primary_muscles_json);
+      if (regions.size > 0) {
+        ex.muscle_freshness = Math.min(...[...regions].map((r) => freshness[r] ?? 100));
+      }
+    }
+  }
+
+  const allExercises = [
+    ...exResult.results,
+    ...customExRows.map(ce => {
+      const branding = ce.branding_json ? JSON.parse(ce.branding_json) : {};
+      const logoUrl = branding.logo_data_url ?? null;
+      return {
+        id: ce.id,
+        slug: `custom-${ce.id}`,
+        name: ce.name,
+        category: ce.exercise_type ?? 'strength',
+        tags_json: '[]',
+        equipment_required_json: ce.equipment_required_json ?? '["none"]',
+        media_json: null,
+        instructions_json: ce.instructions_markdown
+          ? JSON.stringify({ steps: ce.instructions_markdown.split('\n').filter(s => s.trim()), cues: [] })
+          : null,
+        alternatives_json: null,
+        metrics_json: null,
+        ...(logoUrl ? { trainer_logo_url: logoUrl, trainer_logo_bg: branding.logo_bg_color ?? '#0a0a0a' } : {}),
+      };
+    }),
+  ];
+  const allTemplates = templates.results;
+  const prefs = userPrefs
+    ? {
+        ...userPrefs,
+        preferences: userPrefs.preferences_json
+          ? JSON.parse(userPrefs.preferences_json)
+          : {},
+      }
+    : null;
+
+  // Allow caller to override coach state (used by "Coming Up" preview to simulate future weeks)
+  if (coach_sim && prefs) {
+    prefs.preferences = { ...prefs.preferences, ...coach_sim };
+  }
+  return { allExercises, allTemplates, prefs, userProfileRow, cyclingWorkouts, runPrograms };
+}
+
+// Pro flag — gates structured coaching programs (R556, R557, polarised)
+// Check entitlements table first; fall back to manual isPro preference override.
+async function _resolveIsPro(env, user_id, prefs) {
+  let isPro = !!(prefs?.preferences?.isPro);
+  if (user_id && !isPro) {
+    const isProRow = await env.DB.prepare(
+      `SELECT id FROM entitlements WHERE user_id = ? AND status IN ('active','trialing','grace') AND ends_at_ms > ? LIMIT 1`
+    ).bind(user_id, Date.now()).first();
+    isPro = !!isProRow;
+  }
+  return isPro;
+}
+
+// Resolve cycle + pregnancy context from DB when user_id is present
+async function _resolveBodyContext(env, user_id, date, cycle_context, bodyProfile) {
+  let resolvedCycleContext = cycle_context ?? null;
+  let pregnancyContext = null;
+
+  if (user_id) {
+    const cycleRow = await env.DB.prepare(
+      `SELECT tracking_mode, cycle_length_days, last_period_start,
+              mode, pregnancy_due_date, postnatal_birth_date, postnatal_birth_type,
+              postnatal_cleared_for_exercise
+       FROM cycle_profile WHERE user_id = ? LIMIT 1`
+    ).bind(user_id).first();
+
+    if (cycleRow) {
+      const bodyMode = cycleRow.mode ?? 'standard';
+
+      if (bodyMode === 'pregnant') {
+        const week = calculatePregnancyWeek(cycleRow.pregnancy_due_date, date);
+        pregnancyContext = {
+          mode: 'pregnant',
+          week,
+          trimester: getTrimester(week),
+          past_due: week != null && week > 40,
+        };
+      } else if (bodyMode === 'postnatal') {
+        const postnatalPhase = getPostnatalPhase(cycleRow.postnatal_birth_date, cycleRow.postnatal_birth_type, date);
+        pregnancyContext = {
+          mode: 'postnatal',
+          postnatal_phase: postnatalPhase,
+          postnatal_birth_type: cycleRow.postnatal_birth_type ?? null,
+          postnatal_cleared_for_exercise: cycleRow.postnatal_cleared_for_exercise ?? 0,
+        };
+      } else if (bodyMode === 'perimenopause') {
+        pregnancyContext = { mode: 'perimenopause' };
+      } else if (bodyMode === 'standard' && cycleRow.tracking_mode === 'smart' && !resolvedCycleContext && bodyProfile.sex === 'female') {
+        resolvedCycleContext = calculateCyclePhase(cycleRow.last_period_start, cycleRow.cycle_length_days, date);
+      }
+    }
+  }
+  return { resolvedCycleContext, pregnancyContext };
+}
+
+// The check-in the planner sees: the weekly schedule's per-day time budget when
+// the check-in set none, minus the user's configured time overhead.
+function _effectiveCheckin(checkin, prefs, date) {
+  // Inject per-day time_budget from weekly schedule when no check-in override
+  const weeklySchedule = prefs?.preferences?.weekly_schedule;
+  const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date(date + 'T12:00:00').getDay()];
+  const scheduledDuration = weeklySchedule?.[dayKey];
+  let effectiveCheckin = checkin ?? {};
+  if (effectiveCheckin.time_budget == null && scheduledDuration != null) {
+    effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
+  }
+
+  // Subtract time overhead when enabled — picks short profile (≤30 min) or long profile (>30 min)
+  const overhead = prefs?.preferences?.time_overhead;
+  if (overhead?.enabled) {
+    const rawBudget = effectiveCheckin.time_budget ?? prefs?.session_duration_min ?? 30;
+    const profile = rawBudget <= 30 ? (overhead.short ?? overhead) : (overhead.long ?? overhead);
+    const presetTotal = Object.values(profile.presets ?? {}).reduce((s, v) => s + (v || 0), 0);
+    const customTotal = (profile.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+    const totalOverhead = presetTotal + customTotal;
+    if (totalOverhead > 0) {
+      effectiveCheckin = { ...effectiveCheckin, time_budget: Math.max(5, rawBudget - totalOverhead) };
+    }
+  }
+  return effectiveCheckin;
+}
+
+// Fetch progression state + cycling TSB in parallel (ignored for bonus sessions)
+async function _loadTrainingHistory(env, user_id, date, prefs, bonus_session) {
+  let progressionState = null;
+  let cyclingTsb = null;
+  let cyclingSessionsLast7 = 0;
+  let runSessionsLast7 = 0;
+  let crossRunsLast7 = 0;
+  let assignedProgramRow = null;
+  const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
+  const isRunCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
+  const isCrossTrainActive = !!(isCyclingCoachActive && prefs?.preferences?.cycling_coach?.run_cross_training);
+  // Rolling 7-day window: count recent sessions by type for scheduling decisions
+  const sevenDaysAgo = new Date(Date.parse(date + 'T00:00:00Z') - 7 * 86400000).toISOString().slice(0, 10);
+  if (user_id && !bonus_session) {
+    const fetches = [
+      env.DB.prepare(
+        `SELECT scores_json, last_computed_at_ms FROM user_progression WHERE user_id = ? LIMIT 1`
+      ).bind(user_id).first(),
+      env.DB.prepare(
+        `SELECT date FROM executions WHERE user_id = ? AND status != 'skipped' ORDER BY date DESC LIMIT 1`
+      ).bind(user_id).first(),
+      isCyclingCoachActive
+        ? env.DB.prepare(
+            `SELECT date, tss_actual, tss_planned FROM executions WHERE user_id = ? AND tss_source IS NOT NULL AND (execution_type NOT LIKE 'strava_%' OR execution_type = 'strava_ride') ORDER BY date ASC`
+          ).bind(user_id).all()
+        : Promise.resolve(null),
+      // Rolling window counts
+      user_id
+        ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+        : Promise.resolve(null),
+      user_id && isRunCoachActive
+        ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'run_coach' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+        : Promise.resolve(null),
+      user_id && isCrossTrainActive
+        ? env.DB.prepare(`SELECT COUNT(*) as cnt FROM executions WHERE user_id = ? AND execution_type = 'cycling_cross_run' AND date >= ? AND date < ?`).bind(user_id, sevenDaysAgo, date).first()
+        : Promise.resolve(null),
+      // Trainer-assigned program session for today — scoped to gyms where user is a client
+      user_id
+        ? env.DB.prepare(`
+            SELECT p.name AS program_name, ps.name AS session_name,
+                   (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id) AS total_sessions,
+                   (SELECT COUNT(*) FROM assigned_sessions WHERE program_assignment_id = pa.id AND scheduled_date <= ?) AS session_number
+            FROM program_assignments pa
+            JOIN programs p ON p.id = pa.program_id
+            JOIN assigned_sessions asgn ON asgn.program_assignment_id = pa.id
+            JOIN program_sessions ps ON ps.id = asgn.session_template_id
+            WHERE pa.client_user_id = ? AND pa.status = 'active' AND pa.start_date <= ?
+              AND asgn.scheduled_date = ? AND asgn.status = 'scheduled'
+              AND pa.gym_id IN (SELECT gym_id FROM gym_memberships WHERE user_id = ? AND role = 'client' AND status = 'active')
+            LIMIT 1
+          `).bind(date, user_id, date, date, user_id).first()
+        : Promise.resolve(null),
+    ];
+    const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult] = await Promise.all(fetches);
+    assignedProgramRow = assignedProgramResult ?? null;
+    if (progRow) {
+      progressionState = {
+        scores: JSON.parse(progRow.scores_json),
+        chartMode: prefs?.preferences?.progression_chart_mode
+          ?? { health:'balanced', strength:'power', fat_loss:'endurance',
+               muscle_gain:'power', endurance:'endurance', mobility:'mobility' }[prefs?.training_goal ?? 'health']
+          ?? 'balanced',
+        last_workout_date: lastExRow?.date ?? null,
+      };
+    }
+    if (tssResult?.results?.length) {
+      cyclingTsb = computeCyclingTsb(tssResult.results, date);
+    }
+    cyclingSessionsLast7 = cyclingCountRow?.cnt ?? 0;
+    runSessionsLast7 = runCountRow?.cnt ?? 0;
+    crossRunsLast7 = crossRunCountRow?.cnt ?? 0;
+  }
+  return { progressionState, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, assignedProgramRow };
+}
+
+// ------------------------------------------------------------------
+// Military strength session DB lookup
+// Pre-compute military phase to know which session type is scheduled.
+// For strength sessions (kracht / kracht_marsen / circuit) only:
+//   fetch the ordered exercise list from program_template_items.
+// Run/cooper sessions keep existing progressive-level logic.
+// Falls back to null → runPlanner uses existing military pool path.
+// ------------------------------------------------------------------
+async function _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCheckin, bonus_session) {
+  let militaryTemplateItems = null;
+  const _pi = prefs?.preferences?.primary_intent ?? null;
+  const isMilCoachActiveForFetch = !!(prefs?.preferences?.military_coach?.active)
+    && (_pi === null || _pi === 'military');
+  if (user_id && !bonus_session && isMilCoachActiveForFetch) {
+    try {
+      const milCoachPrefs = prefs.preferences.military_coach;
+      const prePhase = computeMilitaryPhase(milCoachPrefs, effectiveCheckin, date);
+      const { cyclePosn, clusterLive, sessionType: preSessionType } = prePhase;
+
+      // Only strength sessions are DB-backed; run/cooper use progressive level logic
+      const STRENGTH_DAY_INDEX = { kracht: 1, kracht_marsen: 4, circuit: 1 };
+      const dayIndex = STRENGTH_DAY_INDEX[preSessionType];
+
+      if (dayIndex !== undefined) {
+        const track = milCoachPrefs.track ?? 'keuring';
+        const templateSlug = track === 'opleiding'
+          ? `opleiding-cluster-${clusterLive}`
+          : (clusterLive === 0 ? 'keuring-basis' : `keuring-cluster-${clusterLive}`);
+
+        const tmResult = await env.DB.prepare(`
+          SELECT e.id, e.slug, e.name, e.category, e.tags_json, e.equipment_required_json,
+                 e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json
+          FROM program_templates pt
+          JOIN program_template_items pti ON pt.id = pti.program_template_id
+          JOIN exercises e ON pti.exercise_id = e.id
+          WHERE pt.slug = ? AND pti.block_week = ? AND pti.day_index = ?
+          ORDER BY pti.session_order
+        `).bind(templateSlug, cyclePosn, dayIndex).all();
+
+        if (tmResult.results?.length >= 3) {
+          militaryTemplateItems = tmResult.results;
+        }
+      }
+    } catch {
+      // DB lookup failed — militaryTemplateItems stays null → fallback to pool path
+    }
+  }
+  return militaryTemplateItems;
+}
+
+// Inject trainer-assigned program coaching note
+function _attachAssignedProgram(plan, assignedProgramRow) {
+  if (assignedProgramRow?.program_name) {
+    const sessNum = assignedProgramRow.session_number ?? 1;
+    const total = assignedProgramRow.total_sessions ?? 1;
+    plan.session_notes = [
+      `Van je trainer: ${assignedProgramRow.program_name} — sessie ${sessNum} van ${total}`,
+      ...(plan.session_notes ?? []),
+    ];
+    plan.assigned_program = {
+      program_name: assignedProgramRow.program_name,
+      session_name: assignedProgramRow.session_name,
+      session_number: sessNum,
+      total_sessions: total,
+    };
+  }
+}
+
+// Upsert today's day_plans row and return its id, or null when there is no
+// signed-in user row to own it (the caller then answers saved: false). The row
+// may already exist (conflict on user_id+date), so the stored id is re-read.
+// Every path writes generated_by: a user-authored plan is protected by that
+// column, so an engine or adapt overwrite must relabel the row.
+async function _upsertDayPlan(env, user_id, date, plan, { generatedBy, engineVersion, seed, nowMs = null }) {
+  if (!user_id) return null;
+  const userExists = await env.DB.prepare(
+    `SELECT id FROM users WHERE id = ? LIMIT 1`
+  ).bind(user_id).first();
+  if (!userExists) return null;
+
+  const newId = crypto.randomUUID();
+  const now = nowMs ?? Date.now();
+  await env.DB.prepare(`
+    INSERT INTO day_plans
+      (id, user_id, date, plan_status, plan_json, generated_by, engine_version, seed, created_at_ms, updated_at_ms)
+    VALUES (?, ?, ?, 'final', ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(user_id, date) DO UPDATE SET
+      plan_json = excluded.plan_json,
+      generated_by = excluded.generated_by,
+      engine_version = excluded.engine_version,
+      updated_at_ms = excluded.updated_at_ms
+  `).bind(newId, user_id, date, JSON.stringify(plan), generatedBy, engineVersion, seed, now, now).run();
+
+  const row = await env.DB.prepare(
+    `SELECT id FROM day_plans WHERE user_id = ? AND date = ? LIMIT 1`
+  ).bind(user_id, date).first();
+  return row?.id ?? newId;
 }
 
 export async function onRequestGet({ request, env }) {
@@ -1209,22 +1186,7 @@ export function continuousCardioCapSec(condScore, bmi, ex) {
   return capMin * 60;
 }
 
-// ---------------------------------------------------------------------------
-// Rest duration helper — used per step in the plan
-// ---------------------------------------------------------------------------
-function getDefaultRest(exercise, slotType) {
-  const tags = JSON.parse(exercise?.tags_json || '[]');
-  if (slotType === 'micro') return 20;
-  if (tags.includes('pelvic_floor')) return 30;
-  if (tags.includes('mobility')) return 20;
-  if (tags.includes('run_warmup')) return 10;
-  // Run intervals encode their walk-recovery duration in metrics_json
-  const metrics = exercise?.metrics_json ? JSON.parse(exercise.metrics_json) : {};
-  if (metrics.custom_rest_sec != null) return metrics.custom_rest_sec;
-  if (tags.includes('cardio')) return 30;
-  if (tags.includes('bodyweight')) return 45;
-  return 60;
-}
+// getDefaultRest — rest duration per step — lives in _shared/session.js.
 
 // ---------------------------------------------------------------------------
 
@@ -3575,22 +3537,10 @@ function _assembleSession(ctx) {
 }
 
 
-/**
- * Session time in seconds, by the same arithmetic as the client's estimateMins()
- * (planUtils.js): work + rest per set, no rest after the very last set. The
- * client rounds the result up to the next 5 minutes; the fit below aims at the
- * raw budget, so what the user reads never exceeds it by more than that rounding.
- */
-function _estimateSessionSec(steps) {
-  return steps.reduce((t, st, i) => {
-    const sets = st.sets ?? 3;
-    const active = st.target_duration_sec
-      ? st.target_duration_sec * sets
-      : (st.target_reps ?? 10) * sets * 4;
-    const restPeriods = i === steps.length - 1 ? Math.max(0, sets - 1) : sets;
-    return t + active + (st.rest_sec ?? 45) * restPeriods;
-  }, 0);
-}
+// Session time in seconds is _shared/session.js estimateSessionSec — the
+// client's estimateMins() arithmetic, unrounded. The client rounds up to the
+// next 5 minutes; the fit below aims at the raw budget, so what the user reads
+// never exceeds it by more than that rounding (used by _fitToBudget below).
 
 /**
  * W3.4 — bound TOTAL session time.
@@ -3613,7 +3563,7 @@ function _fitToBudget(ctx, steps, protectedIds, keepIds = new Set()) {
   if (ctx.unlimited || !ctx.budget || ctx.slot_type === 'rest' || steps.length === 0) return steps;
   if (ctx.runProgramOverride || ctx.crossTrainingOverride || ctx.cyclingProgramOverride || ctx.militaryProgramOverride) return steps;
   const limit = ctx.budget * 60;
-  const before = _estimateSessionSec(steps);
+  const before = estimateSessionSec(steps);
   if (before <= limit) return steps;
 
   const byId = new Map(ctx.exercises.map(e => [e.id, e]));
@@ -3623,7 +3573,7 @@ function _fitToBudget(ctx, steps, protectedIds, keepIds = new Set()) {
   let trimmed = 0;
   let dropped = 0;
 
-  while (_estimateSessionSec(out) > limit) {
+  while (estimateSessionSec(out) > limit) {
     const cands = out.filter(st => !isProtected(st) && !fixedSets(st) && (st.sets ?? 1) > 2);
     if (!cands.length) break;
     const maxSets = Math.max(...cands.map(st => st.sets));
@@ -3632,7 +3582,7 @@ function _fitToBudget(ctx, steps, protectedIds, keepIds = new Set()) {
     const group = pick.group_id ? out.filter(st => st.group_id === pick.group_id) : [pick];
     for (const st of group) { st.sets -= 1; trimmed++; }
   }
-  while (_estimateSessionSec(out) > limit && out.length > 2) {
+  while (estimateSessionSec(out) > limit && out.length > 2) {
     let idx = -1;
     // W4.4 — a pinned exercise may lose sets like any pick, but is never dropped.
     for (let i = out.length - 1; i >= 0; i--) if (!isProtected(out[i]) && !keepIds.has(out[i].exercise_id)) { idx = i; break; }
@@ -3647,7 +3597,7 @@ function _fitToBudget(ctx, steps, protectedIds, keepIds = new Set()) {
   }
 
   if (trimmed || dropped) {
-    const after = _estimateSessionSec(out);
+    const after = estimateSessionSec(out);
     ctx.trace.push(`R595 — Session fitted to your ${ctx.budget}-min budget: ${trimmed} set(s) trimmed`
       + (dropped ? `, ${dropped} exercise(s) dropped` : '')
       + ` (~${Math.ceil(before / 60)} → ~${Math.ceil(after / 60)} min)`);
@@ -3761,14 +3711,6 @@ export function runPlanner(...args) {
 // other field is rebuilt from the library row by _stepFor, so a custom step is
 // shaped exactly like an engine step and routes to progression the same way.
 
-export const CUSTOM_STEP_LIMITS = {
-  sets:                [1, 10],
-  target_reps:         [1, 100],
-  target_duration_sec: [5, 7200],
-  rest_sec:            [0, 600],
-};
-export const MAX_CUSTOM_STEPS = 20;
-export const MAX_PINS = 3;
 export const USER_PLAN_TRACE = 'USER — Je hebt deze sessie zelf samengesteld';
 
 function _clampInt(v, [lo, hi]) {
@@ -3776,40 +3718,6 @@ function _clampInt(v, [lo, hi]) {
   const n = Number(v);
   if (!Number.isFinite(n)) return null;
   return Math.min(hi, Math.max(lo, Math.round(n)));
-}
-
-/** Shape-only check, cheap enough to run before any database work. */
-export function customStepsShapeError(raw) {
-  if (!Array.isArray(raw)) return 'custom_steps must be an array';
-  if (raw.length < 1) return 'custom_steps is empty';
-  if (raw.length > MAX_CUSTOM_STEPS) return `custom_steps has more than ${MAX_CUSTOM_STEPS} steps`;
-  for (const [i, st] of raw.entries()) {
-    if (!st || typeof st !== 'object') return `custom_steps[${i}] is not an object`;
-    const id = st.exercise_id;
-    if ((typeof id !== 'string' && typeof id !== 'number') || String(id).trim() === '') {
-      return `custom_steps[${i}].exercise_id is missing`;
-    }
-  }
-  return null;
-}
-
-/** Shape-only check for W4.4 pins. */
-export function pinnedIdsShapeError(raw) {
-  if (!Array.isArray(raw)) return 'pinned_exercise_ids must be an array';
-  if (raw.length < 1 || raw.length > MAX_PINS) return `pinned_exercise_ids takes 1–${MAX_PINS} ids`;
-  if (raw.some(id => (typeof id !== 'string' && typeof id !== 'number') || String(id).trim() === '')) {
-    return 'pinned_exercise_ids contains an empty id';
-  }
-  return null;
-}
-
-/**
- * W4.1 — PROTECT THE OVERRIDE. An automatic regeneration (app open, check-in,
- * retry) must never replace a session the user wrote. Replacing it is an
- * explicit action that carries `replace_user_plan: true`.
- */
-export function preservesUserPlan(existingRow, body) {
-  return existingRow?.generated_by === 'user' && body?.replace_user_plan !== true;
 }
 
 /**

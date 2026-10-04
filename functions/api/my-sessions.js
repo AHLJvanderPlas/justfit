@@ -16,7 +16,8 @@
 import { getUser } from './_shared/auth.js';
 // The same shape check and limits POST /api/plan applies to custom_steps, so a
 // template that saves here is a template that installs there.
-import { customStepsShapeError, CUSTOM_STEP_LIMITS } from './plan.js';
+import { customStepsShapeError, CUSTOM_STEP_LIMITS } from './_shared/planRequest.js';
+import { estimateMins } from './_shared/session.js';
 
 export const MAX_TEMPLATES = 30;
 export const MAX_LIST = 50;
@@ -32,22 +33,8 @@ function clampInt(v, [lo, hi]) {
   return Math.min(hi, Math.max(lo, Math.round(n)));
 }
 
-// Port of estimateMins (packages/client-app/src/planUtils.js) for a main
-// session, so the list shows the number the builder and Today card show.
-export function estimateMinutes(steps) {
-  if (!steps.length) return 20;
-  const totalSec = steps.reduce((s, step, i) => {
-    const sets = step.sets ?? 3;
-    const isLast = i === steps.length - 1;
-    const active = step.target_duration_sec
-      ? step.target_duration_sec * sets
-      : (step.target_reps ?? 10) * sets * 4;
-    const restPeriods = isLast ? Math.max(0, sets - 1) : sets;
-    return s + active + (step.rest_sec ?? 45) * restPeriods;
-  }, 0);
-  const rawMin = Math.max(1, Math.ceil(totalSec / 60));
-  return rawMin > 20 ? Math.ceil(rawMin / 5) * 5 : rawMin;
-}
+// The number the builder and Today card show, for a main session.
+export const estimateMinutes = (steps) => estimateMins({ slot_type: 'main', steps });
 
 function cleanName(raw) {
   if (typeof raw !== 'string') return null;
