@@ -699,6 +699,21 @@ else
   fail "user override: ${OVERRIDE}"
 fi
 
+# ── W4.3 — saved trainings ("Mijn trainingen"), at the request level ────────
+# Drives functions/api/my-sessions.js against in-memory SQLite built from
+# migration 0117 itself: 401 without a session on every verb, unknown/inactive
+# exercise ids are 400, another user's template cannot be read, updated or
+# deleted, the 30-per-user cap holds, est_minutes matches the client's
+# estimateMins, and apiClient.useMySession installs through the real POST
+# /api/plan custom_steps path — generated_by='user', the template's exercise ids
+# in order.
+MYSESS=$(node --no-warnings scripts/my-sessions-requests.mjs 2>&1)
+if [ "$MYSESS" = "OK" ]; then
+  ok "saved trainings (W4.3): auth, validation, ownership, 30-cap and one-tap reuse via custom_steps hold over HTTP"
+else
+  fail "saved trainings: ${MYSESS}"
+fi
+
 # ── C-F17 — the self-assessment must be measurable and recordable ──────────
 # dcp.last was read in four places and written by none, so the card sat at 0/19
 # and R593/R594 biased toward a baseline that never existed. R598 schedules the

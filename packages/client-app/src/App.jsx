@@ -45,6 +45,7 @@ const CoachView     = lazy(() => import("./CoachView.jsx"));
 const AssessmentView = lazy(() => import("./AssessmentView.jsx"));
 // W4.2 — "Ik doe iets anders". Lazy: only loaded when someone opens it.
 const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
+import { UseMyTraining } from "./MyTrainings.jsx";
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
@@ -1840,7 +1841,7 @@ function splitTitle(name) {
   return [upper.slice(0, i), upper.slice(i + 1)];
 }
 
-function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onBuildOwn, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade }) {
+function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onBuildOwn, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, myTemplates, onUseTemplate }) {
   const intensityColor = {
     low: C.successSoft,
     moderate: C.emerald,
@@ -2197,6 +2198,9 @@ function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, today
                     {t("I'm doing something else")} →
                   </button>
                 )}
+                {/* W4.3 — one-tap reuse of a saved training. Not offered over a
+                    session the user already wrote today: the override is in place. */}
+                {!plan.authored_by_user && <UseMyTraining templates={myTemplates} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
                     Je dagelijkse plan staat klaar.{" "}
@@ -2832,6 +2836,21 @@ export default function App() {
   }, []);
   const [showWhyNot, setShowWhyNot] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  // W4.3 — saved trainings, and what the builder opens with (a template to
+  // edit, and the safety notes of a one-tap use that needs an acknowledgement).
+  const [myTemplates, setMyTemplates] = useState([]);
+  const [builderTemplate, setBuilderTemplate] = useState(null);
+  const [builderNotes, setBuilderNotes] = useState(null);
+  const openBuilder = (tpl = null, notes = null) => {
+    setBuilderTemplate(tpl); setBuilderNotes(notes); setShowBuilder(true);
+  };
+  const handleTemplateSaved = (tpl) => setMyTemplates((list) => [tpl, ...list.filter((x) => x.id !== tpl.id)]);
+  const handleDeleteTemplate = async (tpl) => {
+    let ok = false;
+    try { ok = await api.deleteMySession(tpl.id); } catch { ok = false; }
+    if (ok) setMyTemplates((list) => list.filter((x) => x.id !== tpl.id));
+    return ok;
+  };
   const [inBonusWorkout, setInBonusWorkout] = useState(false);
   const [bonusPlan, setBonusPlan] = useState(null);
 
@@ -3076,6 +3095,10 @@ export default function App() {
     api
       .getAvailableSessions(token)
       .then((data) => { if (Array.isArray(data?.sessions)) setAvailableSessions(data.sessions); })
+      .catch(() => {});
+    api
+      .getMySessions()
+      .then((list) => { if (Array.isArray(list)) setMyTemplates(list); })
       .catch(() => {});
     api
       .getClientPackages(token)
@@ -3596,6 +3619,21 @@ export default function App() {
     }
   }, [userId, today]);
 
+  // W4.3 — use a saved training today. Goes through POST /api/plan custom_steps
+  // (the W4.1 contract), so a blocking safety note comes back as a 409: the
+  // builder opens preloaded with the notes and asks for the acknowledgement there.
+  // Returns { ok } or { error } for the calling card to show.
+  const handleUseTemplate = async (tpl) => {
+    let res;
+    try { res = await api.useMySession(tpl, today); } catch { return { error: "network" }; }
+    const { status, data } = res;
+    if (status === 409) { openBuilder(tpl, data.safety_notes ?? []); return { ok: true }; }
+    if (status !== 200 || !data.ok) return { error: data.error === "unknown_exercise" ? "unknown_exercise" : "failed" };
+    setPlan(data.plan); setPlanError(null);
+    setView("today");
+    return { ok: true };
+  };
+
   // Route: /trainer-invite?t=<token> and /connect?t=<token> — full-screen sub-flows
   const _appPath = window.location.pathname;
   const _appParams = new URLSearchParams(window.location.search);
@@ -3900,7 +3938,9 @@ export default function App() {
                   onLogActivity={handleLogActivity}
                   onBonusSession={handleBonusSelect}
                   onWhyNot={() => setShowWhyNot(true)}
-                  onBuildOwn={() => setShowBuilder(true)}
+                  onBuildOwn={() => openBuilder()}
+                  myTemplates={myTemplates}
+                  onUseTemplate={handleUseTemplate}
                   onCheckIn={() => setShowCheckIn(true)}
                   prefs={prefs}
                   planError={planError}
@@ -3937,6 +3977,11 @@ export default function App() {
                   onAvailableSessionsChange={setAvailableSessions}
                   onClientSessionsChange={setClientSessions}
                   clientPackages={clientPackages}
+                  myTemplates={myTemplates}
+                  onUseTemplate={handleUseTemplate}
+                  onEditTemplate={(tpl) => openBuilder(tpl)}
+                  onBuildOwn={() => openBuilder()}
+                  onDeleteTemplate={handleDeleteTemplate}
                 />
               </Suspense>
             )}
@@ -4187,7 +4232,7 @@ export default function App() {
         <WhyNotModal
           onRegen={handleWhyNotRegen}
           onRestDay={handleRestDay}
-          onBuildOwn={() => { setShowWhyNot(false); setShowBuilder(true); }}
+          onBuildOwn={() => { setShowWhyNot(false); openBuilder(); }}
           userAuthored={!!plan?.authored_by_user}
           onClose={() => setShowWhyNot(false)}
         />
@@ -4199,6 +4244,9 @@ export default function App() {
             today={today}
             onClose={() => setShowBuilder(false)}
             onInstalled={(p) => { if (p) { setPlan(p); setPlanError(null); } }}
+            template={builderTemplate}
+            initialNotes={builderNotes}
+            onTemplateSaved={handleTemplateSaved}
           />
         </Suspense>
       )}
