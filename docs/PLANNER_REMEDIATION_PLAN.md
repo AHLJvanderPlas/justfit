@@ -249,7 +249,17 @@ fit user being de-loaded for their mass alone.
 Scope: small, lands with W3.2. Flagged rather than assumed, because it is a change of
 behaviour and not merely of wording.
 
-## 5. Recommended order
+## 5. Status — 2026-10-04: complete
+
+Every wave shipped. Smoke 53 → 73, `npm test` 206/206, matrix 41 personas × 9 properties
+× 60 dates, `KNOWN_GAPS` empty. Decisions recorded in §4 and in CLAUDE.md.
+
+**Still open, deliberately:** `1040` regenerated but the generator rewrites all three
+baselines together — treat it as one artefact. The CLAUDE.md inline-style rule conflict
+(security guardrail says none new; client-app convention says all inline) was followed as
+"match the app"; resolving it is a CSP project, not a planner one.
+
+## 5a. Recommended order (as planned)
 
 ```
 Wave 0  live bugs            █                      1 deploy   ← start here

@@ -1344,6 +1344,25 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-04 — remediation complete (W4b + decisions + follow-ups)
+
+- **W4b — saved templates.** Migration 0117 `user_session_templates`; `GET/POST/DELETE
+  /api/my-sessions` (30/user, enforced inside the INSERT); "Bewaar als sjabloon" in the builder,
+  "Mijn trainingen" on the Coach tab, "Gebruik mijn training · {name}" on the Today card.
+  Install = `custom_steps`, so the W4a contract is unchanged. Harness
+  `scripts/my-sessions-requests.mjs`. Verified live incl. account deletion.
+- **Decisions (2026-10-04):** pins exempt from the C-G4 cap; unmeasured users allowed 20 min
+  continuous cardio (measured-15 keeps 10); R524 kept as protective slow start inside the
+  floored stack.
+- **Fixes:** gym-private exercises never reach non-members (planner base query, public
+  library endpoint, template save — members also got theirs twice before); R593/R594
+  deterministic (`ctx.planDateMs`); GDPR export now includes `day_plans` + templates; table-drift
+  guard scans single-quoted SQL too (caught `auth.js → user_session_templates` before 0117 was
+  applied); baseline 1020/1030/1040 regenerated from live D1.
+- **Corrected claim:** the D1 `awards` table is never read; migration 0033 inserted nothing
+  (CHECK violation swallowed by `INSERT OR IGNORE`). Harmless; documented, not "fixed".
+- Smoke 70 → **73**; `npm test` 206/206. Next migration **0118**.
+
 ### Shipped 2026-10-03 — remediation Waves 3, 4a, 5, 6
 
 - **W3** — pool rebuilds can no longer discard earlier filters (`_safePool` + recorded guards
