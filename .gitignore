@@ -31,3 +31,6 @@ test-results/
 
 # agent worktrees are scratch, never source
 .claude/worktrees/
+
+# e2e suite's own local D1, rebuilt every run
+.wrangler/e2e-state/

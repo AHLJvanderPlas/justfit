@@ -16,7 +16,9 @@
     "test": "npm run test --workspace=client-app && npm run test --workspace=@justfit/shared",
     "e2e": "npx playwright test",
     "release": "npm run smoke && npm run e2e",
-    "lint:functions": "eslint functions --no-warn-ignored"
+    "lint:functions": "eslint functions --no-warn-ignored",
+    "baseline:schema": "node scripts/generate-baseline-schema.mjs",
+    "baseline:seeds": "node scripts/generate-baseline-seeds.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.60.0"

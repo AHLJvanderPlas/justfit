@@ -26,7 +26,7 @@ Apply the six baseline files **in this exact order**:
 
 ```bash
 # Step 1 — Training schema (must come before core: execution_steps references exercises)
-npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1010_schema_training.sql
+npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1010_schema_training.sql (superseded, one no-op; all schema is in 1000)
 
 # Step 2 — Core schema (users, auth, planning, executions, integrations)
 npx wrangler d1 execute <db-name> --remote --file migrations/baseline/1000_schema_core.sql
@@ -139,3 +139,16 @@ All 52 originally-deferred military `program_template_items` are now resolved:
 - Migration 0049: 50 items (`optillen-vanaf-de-grond` ×48, `til-draagtest-gewicht-plaatsen-naar-heupen` ×1, `til-draagtest-full-exercise` ×1)
 
 The baseline (`1040_seed_military.sql`) reflects all 1919 template items.
+
+## Regenerating the baseline (2026-10-04 onward)
+
+The schema baseline is generated, not maintained:
+
+```bash
+npm run baseline:schema   # 1000_schema_core.sql + 1010 stub + scripts/fixtures/live-columns.json
+npm run baseline:seeds    # 1020 / 1030 / 1040
+```
+
+Both are read-only against live D1. Smoke check G1 fails if `1000_schema_core.sql` no longer
+matches `live-columns.json`. The e2e suite bootstraps its own database from these files on every
+run, so they are exercised continuously rather than only when a new environment is created.

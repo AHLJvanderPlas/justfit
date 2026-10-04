@@ -11,8 +11,11 @@
 
 import { test, expect } from '@playwright/test';
 import { execSync } from 'child_process';
+import { PERSIST } from './global-setup.js';
 
-const CWD = '/Users/alexander/Documents/Projects/justfit/justfit-app';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+const CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');   // repo root, not a hardcoded path
 
 /** Sign up a fresh user via UI, return {email, password}. Token lands in localStorage. */
 async function signupFresh(page, suffix = '') {
@@ -108,7 +111,7 @@ test('consent gate — blocks Coach tab then clears after signing', async ({ pag
 
   // Insert gym_membership (assigned_trainer set, no consent_json)
   execSync(
-    `npx wrangler d1 execute justfit-db --local --command ` +
+    `npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --command ` +
     `"INSERT OR REPLACE INTO gym_memberships (id, gym_id, user_id, role, status, assigned_trainer_user_id, created_at_ms, updated_at_ms) ` +
     `VALUES ('e2e-gm-consent-${userId.slice(0,8)}', 'e2e-gym-open', '${userId}', 'client', 'active', 'e2e-trainer-usr', 1, 1)"`,
     { cwd: CWD, stdio: 'pipe' },

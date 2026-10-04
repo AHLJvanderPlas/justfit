@@ -92,13 +92,14 @@ These rules apply to EVERY task in EVERY session, without exception.
 - Never leave uncommitted changes
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
-## E2E release gate (every release)
-`npm run e2e` runs the Playwright journey suite (10 journeys, local D1, `wrangler pages dev` on :8788 —
-reused if already up, otherwise built and started automatically; ~40 s). It is part of `npm run release`,
-so it runs before **every** push, not only before structural changes: Waves 4a/4b changed `App.jsx`
-substantially and nobody ran e2e, because nothing called it. `smoke` alone is the inner loop, not the gate.
-Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open + 409),
-trainer-invite accept, consent gate block/sign, workout, billing ×2, settings.
+## E2E release gate (Phase 4+ structural PRs)
+`npm run e2e` runs the Playwright journey suite (10 journeys). It is part of `npm run release`.
+**The suite builds its own local D1** (`.wrangler/e2e-state`, gitignored) **from
+`migrations/baseline/` on every run** — so a green run means green against production's schema,
+not against whatever a developer's local database has accumulated. It works from a fresh clone
+or git worktree: a throwaway `.dev.vars` is written when none exists and removed afterwards.
+Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open +
+409), trainer-invite accept, consent gate block/sign, workout, billing ×2, settings.
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
@@ -1839,19 +1840,21 @@ so an unrecorded or edited migration turns smoke red.
 
 ```
 migrations/baseline/
-  1010_schema_training.sql  — training tables (run FIRST)
-  1000_schema_core.sql      — all other tables (run SECOND)
-  1020_seed_exercises.sql   — exercise/template/awards seed reference
-  1030_seed_cycling.sql     — cycling workouts seed reference
-  1040_seed_military.sql    — military programme data seed reference
-migrations/legacy/
-  README.md                 — explains that migrations/*.sql are the audit trail
-docs/
-  database-bootstrap.md     — full bootstrap procedure for new environments
+  1010_schema_training.sql  — SUPERSEDED: one no-op statement; kept so the documented order holds
+  1000_schema_core.sql      — ALL tables + indexes, GENERATED from live sqlite_master
+  1020_seed_exercises.sql   — exercises + session templates, GENERATED
+  1030_seed_cycling.sql     — cycling workouts, GENERATED
+  1040_seed_military.sql    — military programme data, GENERATED
 ```
 
-The baseline files contain **merged** CREATE TABLE definitions — no ALTER TABLE chains.
-The legacy migrations (`migrations/000X_*.sql`) remain in place as the audit trail.
+**Never hand-edit a baseline.** Regenerate (read-only against live D1):
+`npm run baseline:schema` (1000 + 1010 + `scripts/fixtures/live-columns.json`) and
+`npm run baseline:seeds` (1020/1030/1040). Smoke check **G1** loads the baseline into sqlite and
+compares every table's columns to the fixture; a drifted baseline fails the gate. The old
+hand-maintained files had drifted by three tables and six columns, and the e2e fixture inserted
+a `gyms.type` column production does not have — the gate only passed because the main
+checkout's local D1 was a months-old artefact. The legacy migrations (`migrations/000N_*.sql`)
+remain the audit trail; `schema_migrations` is the ledger.
 
 ### Rules
 

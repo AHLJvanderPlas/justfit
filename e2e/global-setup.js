@@ -5,8 +5,7 @@
  */
 
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync, existsSync } from 'fs';
-import { randomBytes } from 'crypto';
+import { writeFileSync, unlinkSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
@@ -16,12 +15,19 @@ import { dirname, resolve } from 'path';
 // agents could not run the e2e gate from a git worktree because this pointed at the
 // main checkout: fixtures went into one local D1 while the server read another.
 const CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+// The e2e suite gets its OWN local D1, wiped and rebuilt from the baseline on
+// every run. Until 2026-10-04 it shared the developer's local database, which in
+// the main checkout was a months-old artefact carrying columns production does
+// not have — so the gate passed there and nowhere else, and tested a schema
+// that was not production's. playwright.config.js passes the same path to
+// `wrangler pages dev --persist-to`, so the server reads what this seeds.
+export const PERSIST = join(CWD, '.wrangler', 'e2e-state');
 
 function localSql(sql, label) {
   const f = join(tmpdir(), `jf-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
   try {
     writeFileSync(f, sql, 'utf8');
-    execSync(`npx wrangler d1 execute justfit-db --local --file ${f}`, {
+    execSync(`npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --file ${f}`, {
       cwd: CWD, stdio: 'pipe',
     });
   } catch (e) {
@@ -34,108 +40,30 @@ function localSql(sql, label) {
 }
 
 export default async function globalSetup() {
-  // .dev.vars is gitignored (it holds real secrets), so a fresh worktree has none and
-  // wrangler pages dev starts without JWT_SECRET. The e2e server only ever signs
-  // cookies for users it creates itself against local D1, so a throwaway secret is
-  // correct here. Written only when absent, removed on teardown — never touches a
-  // developer's real file.
-  const devVars = join(CWD, '.dev.vars');
-  const wroteDevVars = !existsSync(devVars);
-  if (wroteDevVars) {
-    writeFileSync(devVars,
-      `JWT_SECRET=e2e-local-only-${randomBytes(24).toString('hex')}\nRESEND_API_KEY=re_e2e_placeholder\n`, 'utf8');
-    console.log('[e2e-setup] wrote a throwaway .dev.vars (none present)');
-  }
-  const teardown = () => { if (wroteDevVars) { try { unlinkSync(devVars); } catch { /* ignore */ } } };
-  process.on('exit', teardown);
-
-  // A fresh checkout (or git worktree) has an EMPTY local D1. The main checkout's
-  // local database was built up by months of runs, which hid this: the patches
-  // below assume the base schema exists. Bootstrap it from the baseline files
-  // when it does not — the same two files docs/database-bootstrap.md names, in
-  // the order it names them.
-  let hasSchema = false;
+  // Always start from nothing and build production's schema from the baseline,
+  // which scripts/generate-baseline-schema.mjs regenerates from live sqlite_master.
+  // If the suite passes here, it passed against production's schema.
+  //
+  // Reset by SQL, never by deleting files: Playwright starts the web server
+  // BEFORE globalSetup, so the server already has this database open. Deleting
+  // the directory under it left every journey timing out on its first navigation.
+  // Tables are dropped in reverse creation order so children go before parents.
   try {
     const out = execSync(
-      `npx wrangler d1 execute justfit-db --local --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"`,
+      `npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND name NOT LIKE '_cf%' ORDER BY rowid DESC"`,
       { cwd: CWD, stdio: 'pipe' }).toString();
-    hasSchema = /"name":\s*"users"/.test(out);
-  } catch { /* treat as empty */ }
-  if (!hasSchema) {
-    console.log('[e2e-setup] local D1 has no schema — bootstrapping from migrations/baseline');
-    for (const f of ['migrations/baseline/1010_schema_training.sql', 'migrations/baseline/1000_schema_core.sql',
-                     'migrations/baseline/1020_seed_exercises.sql', 'migrations/baseline/1030_seed_cycling.sql',
-                     'migrations/baseline/1040_seed_military.sql']) {
-      execSync(`npx wrangler d1 execute justfit-db --local --file ${f}`, { cwd: CWD, stdio: 'pipe' });
+    const names = (JSON.parse(out)[0]?.results ?? []).map(r => r.name);
+    if (names.length) {
+      localSql('PRAGMA foreign_keys = OFF;\n' + names.map(n => `DROP TABLE IF EXISTS "${n}";`).join('\n'), 'drop-all');
+      console.log(`[e2e-setup] dropped ${names.length} table(s) from the previous run`);
     }
+  } catch { /* an empty database has nothing to drop */ }
+  console.log('[e2e-setup] bootstrapping the e2e D1 from migrations/baseline');
+  for (const f of ['migrations/baseline/1010_schema_training.sql', 'migrations/baseline/1000_schema_core.sql',
+                   'migrations/baseline/1020_seed_exercises.sql', 'migrations/baseline/1030_seed_cycling.sql',
+                   'migrations/baseline/1040_seed_military.sql']) {
+    execSync(`npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --file ${f}`, { cwd: CWD, stdio: 'pipe' });
   }
-
-  // ── 1. Schema patches (idempotent — errors on dup column are silenced) ───
-  localSql(`
-    ALTER TABLE gyms ADD COLUMN trainer_token TEXT;
-    ALTER TABLE gyms ADD COLUMN sub_status TEXT;
-    ALTER TABLE gyms ADD COLUMN sub_tier TEXT;
-    ALTER TABLE gyms ADD COLUMN sub_ends_at_ms INTEGER;
-  `, 'gyms-cols');
-
-  // Migration 0096 (user_profile → user_preferences merge) — plan.js reads these directly
-  localSql(`
-    ALTER TABLE user_preferences ADD COLUMN sex       TEXT;
-    ALTER TABLE user_preferences ADD COLUMN height_cm REAL;
-    ALTER TABLE user_preferences ADD COLUMN weight_kg REAL;
-  `, 'user-preferences-body-cols');
-
-  localSql(`
-    CREATE TABLE IF NOT EXISTS trainer_switch_requests (
-      id                   TEXT PRIMARY KEY,
-      gym_id               TEXT NOT NULL,
-      client_user_id       TEXT NOT NULL,
-      from_trainer_user_id TEXT,
-      to_trainer_user_id   TEXT NOT NULL,
-      initiated_by         TEXT NOT NULL DEFAULT 'client',
-      client_message       TEXT,
-      status               TEXT NOT NULL DEFAULT 'pending',
-      decided_by_user_id   TEXT,
-      decline_reason       TEXT,
-      created_at_ms        INTEGER NOT NULL,
-      decided_at_ms        INTEGER
-    );
-    CREATE TABLE IF NOT EXISTS support_requests (
-      id                   TEXT PRIMARY KEY,
-      gym_id               TEXT NOT NULL,
-      client_user_id       TEXT NOT NULL,
-      message              TEXT NOT NULL,
-      broadcast            INTEGER NOT NULL DEFAULT 0,
-      status               TEXT NOT NULL DEFAULT 'open',
-      accepted_by_user_id  TEXT,
-      reply_message        TEXT,
-      created_at_ms        INTEGER NOT NULL,
-      accepted_at_ms       INTEGER,
-      resolved_at_ms       INTEGER
-    );
-  `, 'switch-support-tables');
-
-  localSql(`
-    ALTER TABLE gym_memberships ADD COLUMN consent_json TEXT;
-    ALTER TABLE gym_memberships ADD COLUMN conv_unread_client INTEGER DEFAULT 0;
-    ALTER TABLE gym_memberships ADD COLUMN trainer_message TEXT;
-    ALTER TABLE gym_memberships ADD COLUMN trainer_message_sent_at_ms INTEGER;
-    ALTER TABLE gym_memberships ADD COLUMN support_trainer_user_id TEXT;
-    ALTER TABLE gym_memberships ADD COLUMN goal_override TEXT;
-    ALTER TABLE gym_memberships ADD COLUMN intensity_modifier INTEGER DEFAULT 0;
-    ALTER TABLE gym_memberships ADD COLUMN training_days_json TEXT;
-    ALTER TABLE gym_memberships ADD COLUMN conv_unread_trainer INTEGER DEFAULT 0;
-    ALTER TABLE gym_memberships ADD COLUMN conv_last_msg_at_ms INTEGER;
-  `, 'gm-cols');
-
-  // ── 1b. Cleanup accumulated test state ───────────────────────────────────
-  // Each run of Journey 6 inserts an ACTIVE gym_membership in e2e-gym-open (unique per user).
-  // After free_tier_client_limit runs the open gym appears full to Journeys 3 and 5.
-  // Journey 2 (guest_signup) hits isRateLimited after 5 runs via the 'guest:ip:unknown' bucket.
-  localSql(`
-    DELETE FROM gym_memberships WHERE gym_id IN ('e2e-gym-open', 'e2e-gym-full') AND role = 'client';
-    DELETE FROM auth_rate_limits WHERE bucket LIKE 'guest:ip:%';
-  `, 'cleanup-test-state');
 
   // ── 2. Seed fixture data ─────────────────────────────────────────────────
   localSql(`
@@ -149,34 +77,29 @@ export default async function globalSetup() {
 
     -- Gym: open (limit=10, FIT-e2etopen)
     INSERT OR IGNORE INTO gyms (
-      id, slug, name, type, owner_user_id,
-      trainer_token, sub_tier, sub_status, subscription_tier, subscription_status,
+      id, slug, name, owner_user_id,
+      trainer_token, sub_tier, sub_status,
       free_tier_client_limit, model, switch_auto_approve, encryption_key_enc,
       created_at_ms, updated_at_ms
     ) VALUES (
-      'e2e-gym-open', 'e2e-gym-open', 'E2E Gym Open', 'solo', 'e2e-trainer-usr',
-      'e2etopen', 'starter', 'trialing', 'starter', 'active',
+      'e2e-gym-open', 'e2e-gym-open', 'E2E Gym Open', 'e2e-trainer-usr',
+      'e2etopen', 'starter', 'trialing',
       10, 'staff', 0, 'E2E_PENDING_KEY',
       1, 1
     );
-    -- Patch trainer_token in case gym row was inserted before column existed
-    UPDATE gyms SET trainer_token='e2etopen', sub_tier='starter', sub_status='trialing'
-    WHERE id='e2e-gym-open';
 
     -- Gym: full (limit=0, FIT-e2etfull)
     INSERT OR IGNORE INTO gyms (
-      id, slug, name, type, owner_user_id,
-      trainer_token, sub_tier, sub_status, subscription_tier, subscription_status,
+      id, slug, name, owner_user_id,
+      trainer_token, sub_tier, sub_status,
       free_tier_client_limit, model, switch_auto_approve, encryption_key_enc,
       created_at_ms, updated_at_ms
     ) VALUES (
-      'e2e-gym-full', 'e2e-gym-full', 'E2E Gym Full', 'solo', 'e2e-trainer-usr',
-      'e2etfull', 'starter', 'trialing', 'starter', 'active',
+      'e2e-gym-full', 'e2e-gym-full', 'E2E Gym Full', 'e2e-trainer-usr',
+      'e2etfull', 'starter', 'trialing',
       0, 'staff', 0, 'E2E_PENDING_KEY',
       1, 1
     );
-    UPDATE gyms SET trainer_token='e2etfull', sub_tier='starter', sub_status='trialing', free_tier_client_limit=0
-    WHERE id='e2e-gym-full';
 
     -- Owner memberships
     INSERT OR IGNORE INTO gym_memberships (
@@ -190,5 +113,5 @@ export default async function globalSetup() {
     VALUES ('e2e-invite', 'e2e-gym-open', 'e2e-invited@justfit.cc', 'e2einvite12345678', 'pending', 1, 9999999999999);
   `, 'seed-data');
 
-  console.log('[e2e-setup] Schema patches and fixture data applied.');
+  console.log('[e2e-setup] Baseline bootstrapped and fixture data applied.');
 }
