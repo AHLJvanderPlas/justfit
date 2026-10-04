@@ -5,11 +5,17 @@
  */
 
 import { execSync } from 'child_process';
-import { writeFileSync, unlinkSync } from 'fs';
+import { writeFileSync, unlinkSync, existsSync } from 'fs';
+import { randomBytes } from 'crypto';
 import { tmpdir } from 'os';
 import { join } from 'path';
 
-const CWD = '/Users/alexander/Documents/Projects/justfit/justfit-app';
+import { fileURLToPath } from 'url';
+import { dirname, resolve } from 'path';
+// The repo root, derived from this file — not a hardcoded absolute path. Two review
+// agents could not run the e2e gate from a git worktree because this pointed at the
+// main checkout: fixtures went into one local D1 while the server read another.
+const CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 
 function localSql(sql, label) {
   const f = join(tmpdir(), `jf-e2e-${Date.now()}-${Math.random().toString(36).slice(2)}.sql`);
@@ -28,6 +34,42 @@ function localSql(sql, label) {
 }
 
 export default async function globalSetup() {
+  // .dev.vars is gitignored (it holds real secrets), so a fresh worktree has none and
+  // wrangler pages dev starts without JWT_SECRET. The e2e server only ever signs
+  // cookies for users it creates itself against local D1, so a throwaway secret is
+  // correct here. Written only when absent, removed on teardown — never touches a
+  // developer's real file.
+  const devVars = join(CWD, '.dev.vars');
+  const wroteDevVars = !existsSync(devVars);
+  if (wroteDevVars) {
+    writeFileSync(devVars,
+      `JWT_SECRET=e2e-local-only-${randomBytes(24).toString('hex')}\nRESEND_API_KEY=re_e2e_placeholder\n`, 'utf8');
+    console.log('[e2e-setup] wrote a throwaway .dev.vars (none present)');
+  }
+  const teardown = () => { if (wroteDevVars) { try { unlinkSync(devVars); } catch { /* ignore */ } } };
+  process.on('exit', teardown);
+
+  // A fresh checkout (or git worktree) has an EMPTY local D1. The main checkout's
+  // local database was built up by months of runs, which hid this: the patches
+  // below assume the base schema exists. Bootstrap it from the baseline files
+  // when it does not — the same two files docs/database-bootstrap.md names, in
+  // the order it names them.
+  let hasSchema = false;
+  try {
+    const out = execSync(
+      `npx wrangler d1 execute justfit-db --local --json --command "SELECT name FROM sqlite_master WHERE type='table' AND name='users'"`,
+      { cwd: CWD, stdio: 'pipe' }).toString();
+    hasSchema = /"name":\s*"users"/.test(out);
+  } catch { /* treat as empty */ }
+  if (!hasSchema) {
+    console.log('[e2e-setup] local D1 has no schema — bootstrapping from migrations/baseline');
+    for (const f of ['migrations/baseline/1010_schema_training.sql', 'migrations/baseline/1000_schema_core.sql',
+                     'migrations/baseline/1020_seed_exercises.sql', 'migrations/baseline/1030_seed_cycling.sql',
+                     'migrations/baseline/1040_seed_military.sql']) {
+      execSync(`npx wrangler d1 execute justfit-db --local --file ${f}`, { cwd: CWD, stdio: 'pipe' });
+    }
+  }
+
   // ── 1. Schema patches (idempotent — errors on dup column are silenced) ───
   localSql(`
     ALTER TABLE gyms ADD COLUMN trainer_token TEXT;
