@@ -185,7 +185,7 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(row('pro').generated_by === 'user', `a user plan over an engine row kept generated_by=${row('pro').generated_by}`);
 }
 
-// 5. C-G4: a free user may always author their own session; pins are an engine re-roll and stay capped.
+// 5. C-G4: a free user may always author their own session, and pin into one.
 {
   const eng = await post('free', {});
   check(row('free')?.generated_by === 'engine', `free user's first plan not stored (${eng.status})`);
@@ -196,6 +196,13 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
     `custom_steps must be exempt from the C-G4 cap, got ${mine.status} capped=${mine.body.plan?.capped} row=${row('free')?.generated_by}`);
   const kept = await post('free', {});
   check(kept.body.preserved === true, 'a free user\'s own session did not survive the next auto-generate');
+  // Decided 2026-10-04: pins are exempt from the cap too. Pinning the two
+  // exercises your physio gave you is telling the coach what you need, not
+  // re-rolling for a nicer plan. replace_user_plan is sent because the row is
+  // user-authored at this point; the thing under test is `capped`.
+  const pinned = await post('free', { pinned_exercise_ids: [S('push-up').exercise_id], replace_user_plan: true });
+  check(pinned.status === 200 && pinned.body.plan?.capped !== true && (pinned.body.plan?.pinned ?? []).length === 1,
+    `pins must be exempt from the C-G4 cap, got ${pinned.status} capped=${pinned.body.plan?.capped} pinned=${JSON.stringify(pinned.body.plan?.pinned)}`);
 }
 
 // 6. Blocking notes need an explicit acknowledgement; advisory ones never block.

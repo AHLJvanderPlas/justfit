@@ -260,6 +260,13 @@ const PERSONAS = [
   // who owns a treadmill was offered it. The property test catches it by duration.
   { id: 'treadmill-deconditioned', goal: 'fat_loss', experience: 'beginner',
     equipment: ['none', 'treadmill', 'rowing_machine', 'exercise_bike'], conditioning: 15 },   // R555 (property)
+  // Same kit, NO progression row. Decided 2026-10-04: an unmeasured user is allowed
+  // 20 min of continuous cardio, so a 20-min easy ride must be ELIGIBLE here while
+  // the measured-15 persona above keeps its 10-min band. expectCardioReach makes the
+  // property fail if the planner never offers anything in the 10–20 min window —
+  // without it, the band could silently regress to 10 and nothing would notice.
+  { id: 'unmeasured-new-user', goal: 'fat_loss', experience: 'beginner', noProgression: true,
+    equipment: ['none', 'treadmill', 'rowing_machine', 'exercise_bike'], expectCardioReachSec: 1200 },
   { id: 'bmi19-advanced', weight_kg: 58, height_cm: 175, experience: 'advanced', goal: 'strength',
     equipment: HOME_KIT },
 
@@ -381,6 +388,7 @@ for (const p of PERSONAS) {
   const waives = (gap) => (p.gaps ?? []).includes(gap);
   const seen = new Map();                 // prop → first verdict, failures winning
   const notes = new Set();                // persona-level expectation breaches
+  let longestCardioSeen = 0;              // W3.1 reach — longest continuous effort offered
   let DATE = DATES[0];
   const say = (prop, state, detail) => {
     const prev = seen.get(prop);
@@ -443,9 +451,14 @@ for (const p of PERSONAS) {
         // library row — reading it off the step would make this check unfailable.
         const row = exById.get(s.exercise_id);
         if (!p.prescribed && row && isLongContinuousCardio(row)) {
-          const cap = continuousCardioCapSec(p.noProgression ? 15 : (p.conditioning ?? 40), bmiOf(p), row);
+          // Mirror the caller exactly: with no progression row the planner passes
+          // the RAW reading (undefined), and the cap grants an unmeasured user 20 min
+          // (decided 2026-10-04). Passing 15 here would assert the old band and
+          // contradict the planner on precisely the case that changed.
+          const cap = continuousCardioCapSec(p.noProgression ? undefined : (p.conditioning ?? 40), bmiOf(p), row);
           const len = s.target_duration_sec ?? 0;
           if (len > cap) bad.push(`${s.exercise_slug}<${Math.round(len / 60)}min > ${Math.round(cap / 60)}min band>`);
+          if (len > longestCardioSeen) longestCardioSeen = len;
         }
       }
       // W3.0 — the backstop removed a step that a rebuild let through. The user
@@ -577,6 +590,21 @@ for (const p of PERSONAS) {
       }
     }
   }  // ── end of the date sweep ──
+
+  // Decided 2026-10-04: an unmeasured user is allowed 20 min of continuous
+  // cardio. Two halves, both needed: the cap must GRANT it (a regression to 10
+  // fails here), and the planner must actually OFFER something long over the
+  // sweep (a cap that grants 20 while the pool never contains a 10+ min effort
+  // would pass the first half and mean nothing).
+  if (p.expectCardioReachSec) {
+    const granted = continuousCardioCapSec(undefined, bmiOf(p), { tags_json: '["low_impact","cardio"]', category: 'cardio' });
+    if (granted < p.expectCardioReachSec) {
+      notes.add(`unmeasured cardio allowance is ${Math.round(granted / 60)} min, decided ${Math.round(p.expectCardioReachSec / 60)}`);
+    }
+    if (longestCardioSeen < 600) {
+      notes.add(`no continuous cardio of 10+ min was ever offered across the sweep (longest ${Math.round(longestCardioSeen / 60)} min) — the allowance is granted but unreachable`);
+    }
+  }
 
   for (const n of notes) errs.push(`${p.id}: ${n}`);
   for (const [prop, r] of seen) {

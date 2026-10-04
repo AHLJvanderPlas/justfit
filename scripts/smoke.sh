@@ -630,6 +630,18 @@ case "$EXPL" in
   *)   fail "explainability: ${EXPL}" ;;
 esac
 
+# ── W6.4 — the planner never reads the wall clock for a DCP age ────────────
+# The planner is deterministic by design (planDateMs replaced Date.now() in the
+# sport-bias guardrail and mobility-decay rule). Two DCP sites called
+# dcpAgeFrom(birth_year) with no date, so the same plan request could change
+# answer across a birthday. Every call must pass the plan date.
+BARE=$(grep -nE "dcpAgeFrom\([^)]*\)" functions/api/plan.js | grep -v "planDateMs" || true)
+if [ -z "$BARE" ]; then
+  ok "every dcpAgeFrom call in the planner passes the plan date"
+else
+  fail "dcpAgeFrom called without the plan date (wall-clock dependency): ${BARE}"
+fi
+
 # ── W5.1 — cardio always credits the Cardio axis, in BOTH mappers ──────────
 # plan.js (progGetExerciseAxis, selection reasoning) and execution.js
 # (progExerciseToAxis, credit on save) each map an exercise to a progression

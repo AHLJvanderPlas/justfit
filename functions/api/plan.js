@@ -313,14 +313,16 @@ export async function onRequestPost({ request, env }) {
     // A user-authored session (custom_steps) is exempt for the same reason: the
     // cap makes RE-ROLLING THE ENGINE a paid feature; writing your own session
     // is not a re-roll, generates nothing, and cannot be used to farm one. Pins
-    // (W4.4) are NOT exempt — the engine builds that session.
+    // (W4.4) are exempt for the same reason, decided 2026-10-04: pinning your
+    // physio's two exercises is telling the coach what you need, not re-rolling
+    // for a nicer plan, and a pin request cannot be used to farm sessions either.
     //
     // force_assessment is exempt. The daily cap exists so re-rolling for a nicer
     // session is a paid feature; asking to measure yourself is neither a re-roll
     // nor a nicety — it is the input every DCP number downstream depends on, and
     // charging for it would make the bias aim at a stale baseline. The request
     // is explicit and user-initiated, so it cannot be used to farm new sessions.
-    if (user_id && !isPro && !bonus_session && !force_assessment && !isCustom) {
+    if (user_id && !isPro && !bonus_session && !force_assessment && !isCustom && !hasPins) {
       const existingPlan = existingRow;
       if (existingPlan) {
         try {
@@ -1187,6 +1189,12 @@ export function continuousCardioCapSec(condScore, bmi, ex) {
     : c < T.RUN_LEVEL_5 ? 30
     : c < T.RUN_LEVEL_6 ? 45
     : Infinity;
+  // No measurement at all is not the same as a measured 15. The 15 default is
+  // shared with R555's run-interval levels and must stay, but a brand-new user
+  // losing a 20-minute easy ride on day one was judged too cautious (decided
+  // 2026-10-04): the unmeasured case alone is allowed 20 minutes. A MEASURED
+  // deconditioned athlete keeps the 10-minute band — that number is earned.
+  if (condScore == null) capMin = Math.max(capMin, 20);
   const weightBearingImpact = !hasTags(ex, 'low_impact');
   if (bmi != null && weightBearingImpact) {
     if (bmi >= T.BMI_STRICT) capMin = Math.min(capMin, 0);
@@ -2088,7 +2096,11 @@ function _selectCoachBlueprint(ctx) {
   //      running shoes and carries no `running` tag.
   // Both are registered as one guard, so no later rebuild can re-admit either.
   {
-    const condScore = ctx.progressionState?.scores?.conditioning?.endurance ?? 15;
+    // condMeasured is the raw reading (undefined when there is no progression
+    // row); condScore is the R555 working value with its 15 default. The cardio
+    // cap needs the former — "never measured" is a different fact from "measured 15".
+    const condMeasured = ctx.progressionState?.scores?.conditioning?.endurance;
+    const condScore = condMeasured ?? 15;
     let runLevel = null;
     let intervalEx = null;
     if (hasRunningShoes) {
@@ -2105,7 +2117,7 @@ function _selectCoachBlueprint(ctx) {
     const before = ctx.pool.length;
     const runsBefore = ctx.pool.filter(ex => isRunVolumeExercise(ex)).length;
     const overBand = (ex) => isLongContinuousCardio(ex)
-      && longCardioSec(ex) > continuousCardioCapSec(condScore, ctx.bmi, ex);
+      && longCardioSec(ex) > continuousCardioCapSec(condMeasured, ctx.bmi, ex);
     _poolGuard(ctx, 'continuous_cardio', 'R555', (ex) =>
       (intervalEx && ex.id === intervalEx.id) || (!isRunVolumeExercise(ex) && !overBand(ex)));
     const removed = before - ctx.pool.length;
@@ -2612,7 +2624,7 @@ function _selectExercises(ctx) {
     let _dcpBias = null;
     const _dcpB = prefs?.preferences?.military_coach?.dcp;
     if (_dcpB?.enabled && _dcpB?.bias_enabled) {
-      const dn = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcpB.birth_year));
+      const dn = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcpB.birth_year, ctx.planDateMs));
       if (dn) {
         const lastB = _dcpB.last ?? {};
         const pushP  = dcpProgress(lastB.pushups ?? 0, dn.pushups);
@@ -2758,7 +2770,7 @@ function _selectExercises(ctx) {
   const _dcp = prefs?.preferences?.military_coach?.dcp;
   const _dcpIsTarget = dcpCardVisible(_dcp, !!prefs?.preferences?.military_coach?.active);
   if (_dcpIsTarget && shuffled.length && ctx.slot_type !== 'rest' && ctx.isStandardMode) {
-    const norms = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year));
+    const norms = getDcpNorms(ctx.sex ?? prefs?.sex, dcpAgeFrom(_dcp.birth_year, ctx.planDateMs));
     if (norms) {
       const last = _dcp.last ?? {};
       const push  = dcpProgress(last.pushups ?? 0, norms.pushups);
