@@ -205,6 +205,26 @@ const api = {
     return all.filter((ex) => slugs.includes(ex.slug));
   },
 
+  // Need C — record a session done outside the app, for today or up to 6 days back.
+  // `steps` come from logSession.loggedStep (stepsActualRef shape, prescribed {}).
+  // Returns { status, data }; 400 date_out_of_range carries the server's window.
+  async logSession(date, { steps, perceivedExertion = null, notes = null }) {
+    const res = await fetch("/api/execution", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        date,
+        session_type: "logged",
+        perceived_exertion: perceivedExertion,
+        notes: notes || undefined,
+        steps,
+      }),
+    });
+    let data = {};
+    try { data = await res.json(); } catch { /* empty body */ }
+    return { status: res.status, data };
+  },
+
   async saveActivity(userId, date, executionType, durationSec) {
     const res = await fetch("/api/execution", {
       method: "POST",

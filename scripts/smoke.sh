@@ -832,6 +832,21 @@ else
   fail "saved trainings: ${MYSESS}"
 fi
 
+# ── Need C — log a session done elsewhere, at the request level ────────────
+# Drives functions/api/execution.js against in-memory SQLite carrying the
+# production executions / execution_steps / user_progression(_events) DDL from
+# the baseline, through the real client path (logSession.loggedStep →
+# apiClient.logSession): today unchanged, today−6 saves, today−7 and tomorrow are
+# 400 date_out_of_range, a backfilled session's progression event falls on the
+# session's day (and does not wind a newer stimulus clock back), a skipped step
+# earns nothing, notes round-trip, and the owner's own session reads back intact.
+EXECREQ=$(node --no-warnings scripts/execution-requests.mjs 2>&1)
+if [ "$EXECREQ" = "OK" ]; then
+  ok "logged sessions (need C): 6-day window, session-dated credit, skip = no stimulus, notes round-trip hold over HTTP"
+else
+  fail "logged sessions: ${EXECREQ}"
+fi
+
 # ── C-F17 — the self-assessment must be measurable and recordable ──────────
 # dcp.last was read in four places and written by none, so the card sat at 0/19
 # and R593/R594 biased toward a baseline that never existed. R598 schedules the

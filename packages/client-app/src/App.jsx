@@ -345,6 +345,16 @@ export default function App() {
   const openBuilder = (tpl = null, notes = null) => {
     setBuilderTemplate(tpl); setBuilderNotes(notes); setShowBuilder(true);
   };
+  // Score + history after a save outside WorkoutView (activity, rest day, a session logged afterwards).
+  const refreshScoreHistory = useCallback(async () => {
+    const [s, h] = await Promise.all([api.getScore(), api.getHistory()]);
+    setScore(s); setHistory(h.results); setHistoryTruncated(!!h.truncated);
+  }, []);
+  // Need C — a session logged from PlanWeekView (today … today−6).
+  const handleLogged = async (date) => {
+    await refreshScoreHistory().catch((e) => console.error("Refresh after logging failed:", e));
+    if (date === today) { setTodayCompleted(true); localStorage.setItem(`jf_completed_${today}`, "1"); }
+  };
   const handleTemplateSaved = (tpl) => setMyTemplates((list) => [tpl, ...list.filter((x) => x.id !== tpl.id)]);
   const handleDeleteTemplate = async (tpl) => {
     let ok = false;
@@ -1067,20 +1077,14 @@ export default function App() {
     async (executionType, durationMin) => {
       try {
         await api.saveActivity(userId, today, executionType, durationMin * 60);
-        const [newScore, newHistory] = await Promise.all([
-          api.getScore(),
-          api.getHistory(),
-        ]);
-        setScore(newScore);
-        setHistory(newHistory.results);
-        setHistoryTruncated(!!newHistory.truncated);
+        await refreshScoreHistory();
         setActivityToast("Activity logged ✓");
         setTimeout(() => setActivityToast(""), 3000);
       } catch (e) {
         console.error("Failed to log activity:", e);
       }
     },
-    [userId, today],
+    [userId, today, refreshScoreHistory],
   );
 
   const handleWhyNotRegen = useCallback(
@@ -1104,13 +1108,7 @@ export default function App() {
     setShowWhyNot(false);
     try {
       await api.saveActivity(userId, today, "recovery", 0);
-      const [newScore, newHistory] = await Promise.all([
-        api.getScore(),
-        api.getHistory(),
-      ]);
-      setScore(newScore);
-      setHistory(newHistory.results);
-      setHistoryTruncated(!!newHistory.truncated);
+      await refreshScoreHistory();
       setTodayCompleted(true);
       localStorage.setItem(`jf_completed_${today}`, "1");
       setCompletedSession({ name: "Rest Day", duration_sec: 0 });
@@ -1118,7 +1116,7 @@ export default function App() {
     } catch (e) {
       console.error("Failed to log rest day:", e);
     }
-  }, [userId, today]);
+  }, [userId, today, refreshScoreHistory]);
 
   // W4.3 — use a saved training today. Goes through POST /api/plan custom_steps
   // (the W4.1 contract), so a blocking safety note comes back as a 409: the
@@ -1489,7 +1487,7 @@ export default function App() {
               </Suspense>
             )}
             {view === "plan" && (
-              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} />
+              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} onLogged={handleLogged} />
             )}
             {view === "history" && (
               <HistoryView

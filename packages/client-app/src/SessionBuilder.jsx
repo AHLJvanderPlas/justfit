@@ -12,6 +12,11 @@
 // pregnancy hard contraindication) asks for an explicit acknowledgement.
 //
 // Principle 7: one thumb, glanceable. Add, nudge, go — not a settings screen.
+//
+// mode="log" (need C): the same sheet records a session done OUTSIDE the app, for
+// `date` (today … today−6). Per exercise: what was done per set, rest between sets,
+// or "Overgeslagen". Saved through POST /api/execution as session_type 'logged' in
+// stepsActualRef's shape (logSession.js), so it counts exactly like an in-app session.
 import { useState, useEffect, useRef } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { estimateMins } from "./planUtils.js";
@@ -19,6 +24,7 @@ import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { RULE_LABELS } from "./messagePolicy.js";
 import { t, useLang } from "./i18n.js";
 import api from "./apiClient.js";
+import { parseSetList, loggedStep, logDayLabel } from "./logSession.js";
 
 // Mirrors the server's CUSTOM_STEP_LIMITS; the server clamps again regardless.
 const LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
@@ -97,11 +103,12 @@ function NoteCard({ note }) {
 // `template` (W4.3): open preloaded from a saved training, offering "Sjabloon
 // bijwerken". `initialNotes`: the safety notes of a 409 from a one-tap use, so
 // the acknowledgement is asked here, where the notes have context.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved }) {
-  useLang();
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, mode: sheetMode = "plan", date = null, onLogged }) {
+  const lang = useLang();
+  const isLog = sheetMode === "log";
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
-  const [mode, setMode] = useState("build");          // 'build' | 'pin'
+  const [mode, setMode] = useState(isLog ? "log" : "build");  // 'build' | 'pin' | 'log'
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const [steps, setSteps] = useState([]);
@@ -120,6 +127,10 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   const [tplBusy, setTplBusy] = useState(false);
   const [tplMsg, setTplMsg] = useState(null);          // { err, text }
   const [dropped, setDropped] = useState(0);
+  // Log mode — what was done, not a target.
+  const [logRows, setLogRows] = useState([]);
+  const [logNote, setLogNote] = useState("");
+  const [logRpe, setLogRpe] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -184,6 +195,38 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     resetSafety();
   };
   const remove = (key) => { setSteps((s) => s.filter((st) => st.key !== key)); resetSafety(); };
+
+  // ── Log mode rows ───────────────────────────────────────────────────────
+  const addLogRow = (ex) => {
+    if (logRows.length >= MAX_STEPS) return;
+    keyRef.current += 1;
+    const r = rowFor(ex, keyRef.current);
+    setLogRows((rs) => [...rs, { key: r.key, ex, canToggle: r.canToggle, useTime: r.useTime, text: "", rest: r.rest, skipped: false }]);
+    setError(null);
+  };
+  const patchLog = (key, p) => { setLogRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r))); setError(null); };
+  const moveLog = (i, d) => setLogRows((rs) => {
+    const j = i + d;
+    if (j < 0 || j >= rs.length) return rs;
+    const out = rs.slice();
+    [out[i], out[j]] = [out[j], out[i]];
+    return out;
+  });
+  const logParsed = logRows.map((r) => (r.skipped ? { values: [] } : parseSetList(r.text, r.useTime ? "sec" : "reps")));
+  // Something must have been done: a session of only skipped exercises is not a record.
+  const canLog = isLog && !busy && logRows.some((r) => !r.skipped) && logParsed.every((p) => p.values);
+  const saveLog = async () => {
+    setBusy(true); setError(null);
+    const logSteps = logRows.map((r) => loggedStep({ exerciseId: r.ex.id, setsText: r.text, unit: r.useTime ? "sec" : "reps", restSec: r.rest, skipped: r.skipped }));
+    let res;
+    try { res = await api.logSession(date, { steps: logSteps, perceivedExertion: logRpe, notes: logNote.trim() || null }); }
+    catch { res = { status: 0, data: {} }; }
+    setBusy(false);
+    if (res.status === 200 && res.data?.ok) { onLogged?.(date); onClose(); return; }
+    setError(res.data?.error === "date_out_of_range"
+      ? t("You can log a training for today and the 6 days before it.")
+      : t("Could not save your training — check your connection and try again."));
+  };
   const togglePin = (id) => {
     setPins((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= MAX_PINS ? p : [...p, id]));
     setError(null);
@@ -337,7 +380,10 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   } else {
     body = (
       <>
-        {/* Mode switch */}
+        {/* Mode switch — not in log mode, which has one job */}
+        {isLog ? (
+          <p className="jf-log-intro">{t("Fill in what you did. It counts for your progress on that day.")}</p>
+        ) : (<>
         <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
           <button type="button" onClick={() => { setMode("build"); setError(null); }} style={{ ...chip(mode === "build"), flex: 1 }}>{t("Build it myself")}</button>
           <button type="button" onClick={() => { setMode("pin"); setError(null); }} style={{ ...chip(mode === "pin"), flex: 1 }}>{t("Pin + coach fills")}</button>
@@ -347,6 +393,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
             ? t("Pick exercises from the library. They count for your progress like any session.")
             : t("Pin up to 3 exercises you want today. The coach completes the session around them.")}
         </p>
+        </>)}
 
         {/* Search */}
         <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
@@ -379,7 +426,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
               <button
                 key={ex.id}
                 type="button"
-                onClick={() => (mode === "build" ? addStep(ex) : togglePin(ex.id))}
+                onClick={() => (mode === "log" ? addLogRow(ex) : mode === "build" ? addStep(ex) : togglePin(ex.id))}
                 style={{
                   width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", textAlign: "left",
                   border: "none", borderTop: i ? `1px solid ${C.border}` : "none", background: pinned ? "var(--accent-dim)" : "transparent",
@@ -393,7 +440,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
                   </span>
                 </span>
                 <span style={{ ...mono(12), color: pinned || added ? "var(--accent)" : C.muted, fontWeight: 700 }}>
-                  {mode === "build" ? (added ? "+1" : "+") : (pinned ? t("Pinned") : t("Pin"))}
+                  {mode === "log" ? (logRows.some((r) => r.ex.id === ex.id) ? "+1" : "+") : mode === "build" ? (added ? "+1" : "+") : (pinned ? t("Pinned") : t("Pin"))}
                 </span>
               </button>
             );
@@ -469,6 +516,95 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
           </div>
         )}
 
+        {/* Log mode: what was done */}
+        {mode === "log" && (
+          <div className="jf-log">
+            <div className="jf-log__eyebrow">{t("What you did")}</div>
+            {logRows.length === 0 && <div className="jf-log__empty">{t("Tap an exercise above to add it.")}</div>}
+            {logRows.map((r, i) => {
+              const p = logParsed[i];
+              const bad = !r.skipped && r.text.trim() !== "" && !p.values;
+              return (
+                <div key={r.key} className={`jf-log-row${r.skipped ? " jf-log-row--skipped" : ""}`}>
+                  <div className="jf-log-row__head">
+                    <span className="jf-log-row__num">{i + 1}</span>
+                    <span className="jf-log-row__name">{r.ex.name}</span>
+                    <button type="button" className="jf-log-icon" aria-label={t("Move up")} disabled={i === 0} onClick={() => moveLog(i, -1)}>↑</button>
+                    <button type="button" className="jf-log-icon" aria-label={t("Move down")} disabled={i === logRows.length - 1} onClick={() => moveLog(i, 1)}>↓</button>
+                    <button type="button" className="jf-log-icon" aria-label={t("Remove")} onClick={() => setLogRows((rs) => rs.filter((x) => x.key !== r.key))}>×</button>
+                  </div>
+                  {!r.skipped && (
+                    <div className="jf-log-row__fields">
+                      <label className="jf-log-field jf-log-field--wide">
+                        <span className="jf-log-field__label">{r.useTime ? t("Seconds per set") : t("Reps per set")}</span>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          className={`jf-log-input${bad ? " jf-log-input--bad" : ""}`}
+                          value={r.text}
+                          placeholder={r.useTime ? t("e.g. 60, 60, 45") : t("e.g. 10, 10, 8")}
+                          onChange={(e) => patchLog(r.key, { text: e.target.value })}
+                        />
+                      </label>
+                      <label className="jf-log-field">
+                        <span className="jf-log-field__label">{t("Rest (s)")}</span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          max={600}
+                          className="jf-log-input"
+                          value={r.rest}
+                          onChange={(e) => patchLog(r.key, { rest: clamp(Number(e.target.value) || 0, LIM.rest) })}
+                        />
+                      </label>
+                    </div>
+                  )}
+                  {bad && <div className="jf-log-row__error">{t("Use numbers separated by commas, e.g. 10, 10, 8 or 3x10.")}</div>}
+                  {!r.skipped && p.values && (
+                    <div className="jf-log-row__sum">
+                      {t("{n} sets", { n: p.values.length })} · {p.values.join(" · ")}{r.useTime ? " s" : ""}
+                    </div>
+                  )}
+                  <div className="jf-log-row__actions">
+                    {r.canToggle && !r.skipped && (
+                      <button type="button" className="jf-log-link" onClick={() => patchLog(r.key, { useTime: !r.useTime })}>
+                        {r.useTime ? t("Count reps instead") : t("Use time instead")}
+                      </button>
+                    )}
+                    <button type="button" aria-pressed={r.skipped} className={`jf-log-chip${r.skipped ? " jf-log-chip--on" : ""}`}
+                      onClick={() => patchLog(r.key, { skipped: !r.skipped })}>
+                      {t("Skipped")}
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            <label className="jf-log-field jf-log-field--block">
+              <span className="jf-log-field__label">{t("Note")}</span>
+              <textarea
+                className="jf-log-input jf-log-textarea"
+                rows={3}
+                maxLength={1000}
+                value={logNote}
+                placeholder={t("How did it go? Anything you skipped, and why?")}
+                onChange={(e) => setLogNote(e.target.value)}
+              />
+            </label>
+
+            <div className="jf-log-field__label">{t("How did it feel? (optional)")}</div>
+            <div className="jf-log-rpe" role="group" aria-label={t("How did it feel? (optional)")}>
+              {[[3, t("Easy")], [5, t("Just right")], [8, t("Hard")]].map(([v, label]) => (
+                <button key={v} type="button" aria-pressed={logRpe === v} className={`jf-log-chip${logRpe === v ? " jf-log-chip--on" : ""}`}
+                  onClick={() => setLogRpe((cur) => (cur === v ? null : v))}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {needsAck && mode === "build" && (
           <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: 12, borderRadius: 14, background: C.amberDim, border: `1px solid ${C.amberBorder}`, margin: "4px 0 12px", cursor: "pointer" }}>
             <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: "var(--amber)" }} />
@@ -524,7 +660,14 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   // ── Footer (sticky): estimate + the one primary action ──────────────────
   const canSave = mode === "build" && steps.length > 0 && !busy && (!needsAck || ack);
   const canFill = mode === "pin" && pins.length > 0 && !busy;
-  const footer = saved ? null : (
+  const logFooter = (
+    <div className="jf-log-footer">
+      <button type="button" className="jf-log-primary" disabled={!canLog} onClick={saveLog}>
+        {busy ? t("Saving…") : t("Save for {date}", { date: date ? logDayLabel(date, lang) : "" })}
+      </button>
+    </div>
+  );
+  const footer = isLog ? logFooter : saved ? null : (
     <div style={{ position: "sticky", bottom: 0, paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom))", background: C.sheet }}>
       {mode === "build" && (
         <div style={{ display: "flex", justifyContent: "space-between", ...mono(11), marginBottom: 8 }}>
@@ -555,13 +698,13 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
       <div
         role="dialog"
         aria-modal="true"
-        aria-label={t("Your own training")}
+        aria-label={isLog ? t("Log a training") : t("Your own training")}
         onClick={(e) => e.stopPropagation()}
         style={{ width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: C.sheet, border: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", padding: saved ? "16px 16px calc(12px + env(safe-area-inset-bottom))" : "16px 16px 0", boxSizing: "border-box" }}
       >
         <div style={{ width: 40, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 12px" }} />
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase" }}>{t("Your own training")}</div>
+          <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase" }}>{isLog ? t("Log a training") : t("Your own training")}</div>
           <button type="button" aria-label={t("Close")} onClick={onClose} style={iconBtn}>×</button>
         </div>
         {body}

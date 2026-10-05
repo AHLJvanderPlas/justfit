@@ -93,6 +93,23 @@ function progApplyAllDecay(scores, nowMs) {
   return decayed;
 }
 
+// A session logged for an earlier day (POST date < today) is credited at that
+// day, but must not wind a more recent stimulus clock BACK — decay would then run
+// from the older session. For a session saved today eventMs is now, so this is
+// the plain assignment it always was.
+const progLatest = (prev, eventMs) => (prev != null && prev > eventMs ? prev : eventMs);
+
+// The request carries each step's actuals as `actual` (an object — apiClient and
+// WorkoutView's stepsActualRef); a row read back from execution_steps carries
+// `actual_json` (a string). Reading only `actual_json` here meant every POSTed
+// strength step scored as zero sets.
+function progStepActual(step) {
+  if (step?.actual && typeof step.actual === 'object') return step.actual;
+  const raw = typeof step?.actual === 'string' ? step.actual : step?.actual_json;
+  if (!raw) return {};
+  try { return JSON.parse(raw) ?? {}; } catch { return {}; }
+}
+
 function progApplyStimulus(scores, stimulus, eventMs) {
   const updated = structuredClone(scores);
   for (const [axis, gains] of Object.entries(stimulus)) {
@@ -100,7 +117,7 @@ function progApplyStimulus(scores, stimulus, eventMs) {
       const mob = updated.mobility;
       if (gains.mobility > 0) {
         mob.mobility = progApplyGain(mob.mobility, gains.mobility);
-        mob.last_mobility_stimulus_at_ms = eventMs;
+        mob.last_mobility_stimulus_at_ms = progLatest(mob.last_mobility_stimulus_at_ms, eventMs);
         mob.baseline = applyBaselineRatchet(mob.baseline ?? 0, mob.mobility);
       }
       continue;
@@ -109,13 +126,13 @@ function progApplyStimulus(scores, stimulus, eventMs) {
     if (!ax) continue;
     if (gains.power > 0) {
       ax.power = progApplyGain(ax.power, gains.power);
-      ax.last_power_stimulus_at_ms = eventMs;
+      ax.last_power_stimulus_at_ms = progLatest(ax.last_power_stimulus_at_ms, eventMs);
       // Sustained work leaves retained adaptation; the floor rises with it.
       ax.baseline = applyBaselineRatchet(ax.baseline ?? 0, Math.max(ax.power, ax.endurance ?? 0));
     }
     if (gains.endurance > 0) {
       ax.endurance = progApplyGain(ax.endurance, gains.endurance);
-      ax.last_endurance_stimulus_at_ms = eventMs;
+      ax.last_endurance_stimulus_at_ms = progLatest(ax.last_endurance_stimulus_at_ms, eventMs);
     }
     // Cross-training bonus: strength gives small endurance benefit and vice versa
     if (gains.power > 0 && axis !== 'conditioning') {
@@ -164,8 +181,8 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
 
   for (const step of (steps ?? [])) {
     if (!step.exercise_id) continue;
-    const actual = step.actual_json ? JSON.parse(step.actual_json) : {};
-    if (actual.skipped) continue;
+    const actual = progStepActual(step);
+    if (actual.skipped) continue;   // a skipped exercise stays in the record and earns nothing
 
     const exercise = exerciseMap.get(step.exercise_id);
     if (!exercise) continue;
@@ -208,6 +225,17 @@ function progComputeStimulus(steps, execType, totalDurationSec, exerciseMap, _ev
 
 // ─── POST: Save execution + update progression ────────────────────────────────
 
+// Need C (PLANNER_AUDIT_2026-10 §5.2): "log something done elsewhere". A session
+// may be recorded for today or up to LOG_WINDOW_DAYS before it — the UTC date of
+// the request, the same clock the client's `today` uses. Further back is a
+// different product (a diary import), and a future date is never a record.
+export const LOG_WINDOW_DAYS = 6;
+const DAY_MS = 86_400_000;
+const isoDay = (ms) => new Date(ms).toISOString().slice(0, 10);
+export function logWindow(nowMs) {
+  return { from: isoDay(nowMs - LOG_WINDOW_DAYS * DAY_MS), to: isoDay(nowMs) };
+}
+
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
@@ -219,6 +247,16 @@ export async function onRequestPost({ request, env }) {
 
     const id  = crypto.randomUUID();
     const now = Date.now();
+
+    const win = logWindow(now);
+    const validDay = typeof date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(date)
+      && isoDay(Date.parse(`${date}T12:00:00Z`) || 0) === date;
+    if (!validDay || date < win.from || date > win.to) {
+      return Response.json({ error: 'date_out_of_range', window: win }, { status: 400 });
+    }
+    // Progression is credited on the day the work was done, not the day it was
+    // typed in: noon UTC of a past date, the request time for today (unchanged).
+    const sessionMs = date < win.to ? Date.parse(`${date}T12:00:00Z`) : now;
 
     // ── 1a. Compute TSS for cycling coach sessions ────────────────────────────
     // Detected by synthetic exercise_id prefix 'cycling_coach_'.
@@ -267,7 +305,7 @@ export async function onRequestPost({ request, env }) {
       tss_planned_val,
       tss_actual_val,
       tss_source_val,
-      notes?.trim() ?? null,
+      typeof notes === 'string' ? (notes.trim() || null) : null,
       now, now
     ).run();
 
@@ -294,7 +332,7 @@ export async function onRequestPost({ request, env }) {
 
     // ── 3. Update progression (fire-and-forget style, errors don't fail the response) ──
     try {
-      await updateProgression(user_id, id, session_type, duration_sec, steps, env, now);
+      await updateProgression(user_id, id, session_type, duration_sec, steps, env, sessionMs, now);
     } catch (progErr) {
       console.error('Progression update failed (non-fatal):', progErr.message);
     }
@@ -346,7 +384,9 @@ export async function onRequestPost({ request, env }) {
 
 // ─── Progression update helper ────────────────────────────────────────────────
 
-async function updateProgression(userId, executionId, sessionType, durationSec, steps, env, nowMs) {
+// nowMs is the SESSION's time (it drives decay, the stimulus clocks and the
+// event's created_at_ms); writtenAtMs is when the row is actually written.
+async function updateProgression(userId, executionId, sessionType, durationSec, steps, env, nowMs, writtenAtMs = nowMs) {
   // Fetch exercise metadata for all exercise_ids in this session (one query)
   const exerciseIds = [...new Set((steps ?? []).map(s => s.exercise_id).filter(Boolean))];
   const exerciseMap = new Map();
@@ -377,18 +417,13 @@ async function updateProgression(userId, executionId, sessionType, durationSec, 
   // rather than a silent re-baselining nobody can reconstruct. Costs one insert on
   // the sessions where weight was actually logged, and nothing on any other.
   try {
-    const anyLoad = (steps ?? []).some((st) => {
-      try { return (JSON.parse(st.actual_json ?? '{}')?.weight_kg ?? []).some((w) => Number(w) > 0); }
-      catch { return false; }
-    });
+    const anyLoad = (steps ?? []).some((st) =>
+      (progStepActual(st)?.weight_kg ?? []).some((w) => Number(w) > 0));
     if (anyLoad) {
       const unweighted = progComputeStimulus(
         (steps ?? []).map((st) => {
-          try {
-            const a = JSON.parse(st.actual_json ?? '{}');
-            delete a.weight_kg;
-            return { ...st, actual_json: JSON.stringify(a) };
-          } catch { return st; }
+          const { weight_kg: _w, ...a } = progStepActual(st);
+          return { ...st, actual: a, actual_json: undefined };
         }), sessionType, durationSec, exerciseMap, nowMs
       );
       await env.DB.prepare(
@@ -410,12 +445,12 @@ async function updateProgression(userId, executionId, sessionType, durationSec, 
       UPDATE user_progression
       SET scores_json = ?, last_computed_at_ms = ?, updated_at_ms = ?
       WHERE user_id = ?
-    `).bind(JSON.stringify(scoresAfter), nowMs, nowMs, userId).run();
+    `).bind(JSON.stringify(scoresAfter), writtenAtMs, writtenAtMs, userId).run();
   } else {
     await env.DB.prepare(`
       INSERT INTO user_progression (user_id, scores_json, sport_scores_json, last_computed_at_ms, created_at_ms, updated_at_ms)
       VALUES (?, ?, NULL, ?, ?, ?)
-    `).bind(userId, JSON.stringify(scoresAfter), nowMs, nowMs, nowMs).run();
+    `).bind(userId, JSON.stringify(scoresAfter), writtenAtMs, writtenAtMs, writtenAtMs).run();
   }
 
   // Log the event (non-critical — fire and forget any errors)

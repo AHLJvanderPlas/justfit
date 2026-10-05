@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { C } from "./tokens.js";
 import { Icons } from "./icons.jsx";
 import { estimateMins } from "./planUtils.js";
@@ -6,10 +6,13 @@ import api from "./apiClient.js";
 import { deriveChipLabel } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang } from "./i18n.js";
+import { inLogWindow, logDayLabel } from "./logSession.js";
 
+const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
 
-export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs }) {
-  useLang();
+export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged }) {
+  const lang = useLang();
+  const [logDate, setLogDate] = useState(null);   // need C — the day being logged
   const today = new Date().toISOString().split("T")[0];
   const [weekOffset, setWeekOffset] = useState(0);
   const [upcomingPlans, setUpcomingPlans] = useState([]);
@@ -138,6 +141,12 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     if (ex.date) doneByDate[ex.date] = ex;
   });
 
+  // Need C — a day in the visible week, inside the 6-day log window, with nothing
+  // recorded: offer to log what was done there. Newest first; older days show nothing.
+  const loggableDays = onLogged
+    ? days.filter((date) => date <= today && inLogWindow(date, today) && !doneByDate[date]).reverse()
+    : [];
+
   return (
     <div style={{ padding: "0 0 32px" }}>
       <div style={{ marginBottom: 28 }}>
@@ -203,6 +212,26 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           );
         })}
       </div>
+
+      {loggableDays.length > 0 && (
+        <div className="jf-logdays">
+          {loggableDays.map((date) => (
+            <div key={date} className="jf-logday">
+              <span className="jf-logday__day">
+                {date === today ? t("Today") : logDayLabel(date, lang)} · {t("nothing recorded")}
+              </span>
+              <button type="button" className="jf-logday__btn" onClick={() => setLogDate(date)}>
+                {t("Log a training")}
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+      {logDate && (
+        <Suspense fallback={null}>
+          <SessionBuilder mode="log" date={logDate} today={today} prefs={prefs} onClose={() => setLogDate(null)} onLogged={onLogged} />
+        </Suspense>
+      )}
 
       {/* Today's plan — only when viewing current week */}
       {weekOffset === 0 && plan && plan.slot_type !== "rest" && (
@@ -366,11 +395,14 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         {isStravaCard && stravaMeta?.name
                           ? stravaMeta.name
                           : new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                        {h.execution_type === "logged" && <span className="jf-logged-tag">{t("Self-logged")}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
                         {isStravaCard
                           ? [new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
-                          : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
+                          : h.execution_type === "logged"
+                            ? t("Recorded afterwards")
+                            : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
                       </div>
                       {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={chip} /></div> : null; })()}
                       {/* Strava activity name when merged from a separate entry */}
@@ -417,12 +449,17 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         const completedSteps = h.steps.map(s => {
                           const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
                           const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
+                          // A self-logged session keeps what was skipped — the note usually says why.
+                          if (actual?.skipped && h.execution_type === "logged") return { name: s.name, skipped: true };
                           if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
                           const sets = actual.sets_completed;
                           const isTime = pres?.duration_sec && !pres?.reps;
                           const reps = actual.reps_per_set ?? [];
                           const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
-                          const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
+                          // Logged sets are typed in, so show them as written (3/3/3/4/4), not averaged.
+                          const detail = h.execution_type === "logged" && reps.length
+                            ? reps.join("/")
+                            : avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
                           return { name: s.name, sets, detail };
                         }).filter(Boolean);
                         if (!completedSteps.length) return null;
@@ -430,7 +467,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
                             {completedSteps.slice(0, 6).map((s, i) => (
                               <div key={i} style={{ fontSize: 11, color: C.muted }}>
-                                {s.name} · {s.sets} {s.sets !== 1 ? t('sets') : t('set')}{s.detail ? ` × ${s.detail}` : ''}
+                                {s.skipped ? `${s.name} · ${t("skipped")}` : <>{s.name} · {s.sets} {s.sets !== 1 ? t('sets') : t('set')}{s.detail ? ` × ${s.detail}` : ''}</>}
                               </div>
                             ))}
                             {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}

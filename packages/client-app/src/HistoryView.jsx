@@ -1395,7 +1395,10 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   return (
                     <Glass key={session.id} style={{ padding: "14px 16px", marginBottom: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: steps.length ? 10 : 0 }}>
-                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{dateLabel}</div>
+                        <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>
+                          {dateLabel}
+                          {session.execution_type === "logged" && <span className="jf-logged-tag">{t("Self-logged")}</span>}
+                        </div>
                         {mins && <div style={{ ...mono(11), color: C.muted }}>{mins} min</div>}
                       </div>
                       {steps.map((step, i) => {
@@ -1418,6 +1421,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                       {!steps.length && (
                         <div style={{ fontSize: 12, color: C.muted, fontStyle: "italic" }}>{t("No exercises recorded")}</div>
                       )}
+                      {session.execution_type === "logged" && session.notes && <div className="jf-logged-note">{session.notes}</div>}
                     </Glass>
                   );
                 })}
