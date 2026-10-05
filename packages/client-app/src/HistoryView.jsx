@@ -4,6 +4,7 @@ import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+import { summarizeLogged } from "./logSession.js";
 // C-F13 — the DCP is a standing requirement, so it belongs on the screen where
 // someone asks "where am I", not only inside the military programme.
 import { DcpCard } from "./DcpCard.jsx";
@@ -1405,16 +1406,24 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         const prescribed = step.prescribed_json ? JSON.parse(step.prescribed_json) : {};
                         const actual = step.actual_json ? JSON.parse(step.actual_json) : {};
                         const sets = actual.sets_completed ?? prescribed.sets ?? null;
-                        const repArr = actual.reps_per_set;
-                        const reps = repArr?.length ? Math.round(repArr.reduce((a, b) => a + b, 0) / repArr.length) : prescribed.reps ?? null;
-                        const durSec = prescribed.duration_sec ?? null;
-                        const stat = durSec
-                          ? `${sets ?? 1} × ${Math.round(durSec / 60)}min`
-                          : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} sets` : null;
+                        let stat;
+                        if (session.execution_type === "logged") {
+                          // Typed in afterwards: as written, one line — "5 sets · 3/3/3/4/4 @ 60 s".
+                          const sum = summarizeLogged(actual);
+                          stat = actual.skipped ? t("skipped")
+                            : `${sum.sets} ${sum.sets !== 1 ? t("sets") : t("set")}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
+                        } else {
+                          const repArr = actual.reps_per_set;
+                          const reps = repArr?.length ? Math.round(repArr.reduce((a, b) => a + b, 0) / repArr.length) : prescribed.reps ?? null;
+                          const durSec = prescribed.duration_sec ?? null;
+                          stat = durSec
+                            ? `${sets ?? 1} × ${Math.round(durSec / 60)}min`
+                            : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} sets` : null;
+                        }
                         return (
-                          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 0", borderBottom: i < steps.length - 1 ? `1px solid ${C.border}` : "none" }}>
-                            <div style={{ fontSize: 12, color: C.text, fontWeight: 500 }}>{step.name}</div>
-                            {stat && <div style={{ ...mono(11), color: C.muted }}>{stat}</div>}
+                          <div key={i} className="jf-rec-row">
+                            <div className="jf-rec-row__name">{step.name}</div>
+                            {stat && <div className="jf-rec-row__stat">{stat}</div>}
                           </div>
                         );
                       })}

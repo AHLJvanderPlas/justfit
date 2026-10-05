@@ -6,9 +6,9 @@ import api from "./apiClient.js";
 import { deriveChipLabel } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang } from "./i18n.js";
-import { inLogWindow, logDayLabel } from "./logSession.js";
+import { inLogWindow, logDayLabel, summarizeLogged } from "./logSession.js";
 
-const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
+const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
 export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged }) {
   const lang = useLang();
@@ -229,7 +229,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       )}
       {logDate && (
         <Suspense fallback={null}>
-          <SessionBuilder mode="log" date={logDate} today={today} prefs={prefs} onClose={() => setLogDate(null)} onLogged={onLogged} />
+          <LogSessionSheet date={logDate} prefs={prefs} onClose={() => setLogDate(null)} onLogged={onLogged} />
         </Suspense>
       )}
 
@@ -446,31 +446,32 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       )}
                       {/* Exercise steps for app workouts */}
                       {!isStravaCard && h.steps?.length > 0 && (() => {
-                        const completedSteps = h.steps.map(s => {
+                        const logged = h.execution_type === "logged";
+                        const lines = h.steps.map(s => {
                           const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
                           const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
                           // A self-logged session keeps what was skipped — the note usually says why.
-                          if (actual?.skipped && h.execution_type === "logged") return { name: s.name, skipped: true };
+                          if (actual?.skipped && logged) return `${s.name} · ${t("skipped")}`;
                           if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
                           const sets = actual.sets_completed;
+                          const setsLabel = `${sets} ${sets !== 1 ? t('sets') : t('set')}`;
+                          // Logged sets are typed in: one line per exercise, as written —
+                          // "Push-up · 5 sets · 3/3/3/4/4 @ 60 s".
+                          if (logged) {
+                            const sum = summarizeLogged(actual);
+                            return `${s.name} · ${setsLabel}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
+                          }
                           const isTime = pres?.duration_sec && !pres?.reps;
                           const reps = actual.reps_per_set ?? [];
                           const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
-                          // Logged sets are typed in, so show them as written (3/3/3/4/4), not averaged.
-                          const detail = h.execution_type === "logged" && reps.length
-                            ? reps.join("/")
-                            : avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
-                          return { name: s.name, sets, detail };
+                          const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
+                          return `${s.name} · ${setsLabel}${detail ? ` × ${detail}` : ""}`;
                         }).filter(Boolean);
-                        if (!completedSteps.length) return null;
+                        if (!lines.length) return null;
                         return (
-                          <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 2 }}>
-                            {completedSteps.slice(0, 6).map((s, i) => (
-                              <div key={i} style={{ fontSize: 11, color: C.muted }}>
-                                {s.skipped ? `${s.name} · ${t("skipped")}` : <>{s.name} · {s.sets} {s.sets !== 1 ? t('sets') : t('set')}{s.detail ? ` × ${s.detail}` : ''}</>}
-                              </div>
-                            ))}
-                            {completedSteps.length > 6 && <div style={{ fontSize: 11, color: C.subtle }}>+{completedSteps.length - 6} more</div>}
+                          <div className="jf-rec-lines">
+                            {lines.slice(0, 6).map((line, i) => <div key={i} className="jf-rec-line">{line}</div>)}
+                            {lines.length > 6 && <div className="jf-rec-line jf-rec-line--more">+{lines.length - 6} more</div>}
                           </div>
                         );
                       })()}

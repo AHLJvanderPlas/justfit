@@ -714,7 +714,9 @@ fi
 # the client app. The sibling project reached ~3400 before a multi-day CSP
 # refactor; this stops the trajectory today. New styling goes in CSS classes
 # (see CLAUDE.md "Styling"); when a view is migrated, LOWER this number.
-STYLE_CEILING=2392
+# 2392 → 2313 (2026-10-05): SessionBuilder + the two-phase log sheet + the
+# logged-record lines in PlanWeekView/HistoryView moved to styles.css.
+STYLE_CEILING=2313
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -793,7 +795,10 @@ fi
 # bands, injury, pain, recovery, time and kit extremes, DCP, de-load stack) x 8
 # properties, each replanned across 60 dates because selection is a seeded
 # shuffle. Run `node scripts/planner-behaviour.mjs --verbose` for the matrix.
-BEHAV=$(node scripts/planner-behaviour.mjs 2>&1)
+# `|| true` on these harness captures: smoke runs under `set -e`, and a failing
+# command substitution in an assignment would end the script right here — exit 1
+# with the failure message and the summary never printed.
+BEHAV=$(node scripts/planner-behaviour.mjs 2>&1) || true
 if [ "$BEHAV" = "OK" ]; then
   ok "planner behaviour: 41 personas x 9 properties x 60 dates hold end-to-end, nothing waived"
 else
@@ -810,7 +815,7 @@ fi
 # explicit replace relabels the row (every upsert writes generated_by), blocking
 # safety notes are 409 until acknowledged, custom_steps are exempt from the
 # C-G4 cap and pins are not.
-OVERRIDE=$(node --no-warnings scripts/plan-override-requests.mjs 2>&1)
+OVERRIDE=$(node --no-warnings scripts/plan-override-requests.mjs 2>&1) || true
 if [ "$OVERRIDE" = "OK" ]; then
   ok "user override (W4.1/W4.4): validation, clamping, survival, upsert relabel, safety ack, cap exemption hold over HTTP"
 else
@@ -825,7 +830,7 @@ fi
 # estimateMins, and apiClient.useMySession installs through the real POST
 # /api/plan custom_steps path — generated_by='user', the template's exercise ids
 # in order.
-MYSESS=$(node --no-warnings scripts/my-sessions-requests.mjs 2>&1)
+MYSESS=$(node --no-warnings scripts/my-sessions-requests.mjs 2>&1) || true
 if [ "$MYSESS" = "OK" ]; then
   ok "saved trainings (W4.3): auth, validation, ownership, 30-cap and one-tap reuse via custom_steps hold over HTTP"
 else
@@ -840,7 +845,16 @@ fi
 # 400 date_out_of_range, a backfilled session's progression event falls on the
 # session's day (and does not wind a newer stimulus clock back), a skipped step
 # earns nothing, notes round-trip, and the owner's own session reads back intact.
-EXECREQ=$(node --no-warnings scripts/execution-requests.mjs 2>&1)
+# The set-group model the log sheet sends (logSession.js): row expansion, rests
+# per group, timed groups, the typed-shorthand fallback, skipped = 0 sets, and the
+# card order kept into step order. Pure, so node:test, no harness.
+if LOGT_OUT=$(node --test scripts/logSession.test.mjs 2>&1); then
+  ok "log sheet set-group model: $(echo "$LOGT_OUT" | grep -E '^ℹ pass' | sed 's/ℹ //') tests"
+else
+  echo "$LOGT_OUT" | grep -E '^✖ ' | grep -v 'failing tests' | sed 's/ ([0-9.]*ms)$//' | sort -u | sed 's/^/      /'
+  fail "log sheet set-group tests failed (node --test scripts/logSession.test.mjs)"
+fi
+EXECREQ=$(node --no-warnings scripts/execution-requests.mjs 2>&1) || true
 if [ "$EXECREQ" = "OK" ]; then
   ok "logged sessions (need C): 6-day window, session-dated credit, skip = no stimulus, notes round-trip hold over HTTP"
 else

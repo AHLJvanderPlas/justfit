@@ -13,28 +13,23 @@
 //
 // Principle 7: one thumb, glanceable. Add, nudge, go — not a settings screen.
 //
-// mode="log" (need C): the same sheet records a session done OUTSIDE the app, for
-// `date` (today … today−6). Per exercise: what was done per set, rest between sets,
-// or "Overgeslagen". Saved through POST /api/execution as session_type 'logged' in
-// stepsActualRef's shape (logSession.js), so it counts exactly like an in-app session.
+// This sheet plans TARGETS for today. Recording what was DONE on a date is
+// LogSessionSheet.jsx (need C) — a different job with a different shape.
 import { useState, useEffect, useRef } from "react";
-import { C, display, eyebrow, mono } from "./tokens.js";
 import { estimateMins } from "./planUtils.js";
 import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { RULE_LABELS } from "./messagePolicy.js";
-import { t, useLang } from "./i18n.js";
+import { t } from "./i18n.js";
 import api from "./apiClient.js";
-import { parseSetList, loggedStep, logDayLabel } from "./logSession.js";
+import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
 
 // Mirrors the server's CUSTOM_STEP_LIMITS; the server clamps again regardless.
 const LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
 const MAX_STEPS = 20;
 const MAX_PINS = 3;
-const ALWAYS_OWNED = ["none", "chair"];
 
 const parse = (s, d) => { try { return JSON.parse(s || d) ?? JSON.parse(d); } catch { return JSON.parse(d); } };
 const clamp = (v, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v)));
-const equipOf = (ex) => parse(ex?.equipment_required_json, '["none"]');
 
 // Pre-fill only — the planner's own rest for a main session, so the live
 // estimate is honest before the server has seen the session.
@@ -70,18 +65,13 @@ function noteText(n) {
 }
 
 function Stepper({ label, value, display: shown, onDec, onInc }) {
-  const btn = {
-    width: 32, height: 40, borderRadius: 12, border: `1px solid ${C.border}`,
-    background: C.bgCard2, color: C.text, fontSize: 18, fontWeight: 700,
-    cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center",
-  };
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, minWidth: 0 }}>
-      <span style={{ ...mono(9), color: C.muted, letterSpacing: "0.06em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</span>
-      <div style={{ display: "flex", alignItems: "center", gap: 3 }}>
-        <button type="button" aria-label={`${label} −`} onClick={onDec} style={btn}>−</button>
-        <span style={{ ...mono(13), color: C.text, minWidth: 30, textAlign: "center", fontWeight: 700 }}>{shown ?? value}</span>
-        <button type="button" aria-label={`${label} +`} onClick={onInc} style={btn}>+</button>
+    <div className="jf-stepper">
+      <span className="jf-stepper__label">{label}</span>
+      <div className="jf-stepper__row">
+        <button type="button" aria-label={`${label} −`} onClick={onDec} className="jf-stepper__btn">−</button>
+        <span className="jf-stepper__value">{shown ?? value}</span>
+        <button type="button" aria-label={`${label} +`} onClick={onInc} className="jf-stepper__btn">+</button>
       </div>
     </div>
   );
@@ -89,13 +79,9 @@ function Stepper({ label, value, display: shown, onDec, onInc }) {
 
 function NoteCard({ note }) {
   return (
-    <div style={{ marginTop: 8, padding: "8px 12px", borderRadius: 10, background: C.amberDim, border: `1px solid ${C.amberBorder}` }}>
-      <div style={{ ...mono(9), color: C.amber, letterSpacing: "0.12em", textTransform: "uppercase", fontWeight: 700, marginBottom: 2 }}>
-        {note.blocking ? t("Needs your confirmation") : t("Coach advice")}
-      </div>
-      <div style={{ fontSize: 12, color: C.warningSoft, lineHeight: 1.5, fontWeight: 600 }}>
-        {t("The coach would normally leave this out:")} {noteText(note)}
-      </div>
+    <div className="jf-note">
+      <div className="jf-note__head">{note.blocking ? t("Needs your confirmation") : t("Coach advice")}</div>
+      <div className="jf-note__text">{t("The coach would normally leave this out:")} {noteText(note)}</div>
     </div>
   );
 }
@@ -103,14 +89,10 @@ function NoteCard({ note }) {
 // `template` (W4.3): open preloaded from a saved training, offering "Sjabloon
 // bijwerken". `initialNotes`: the safety notes of a 409 from a one-tap use, so
 // the acknowledgement is asked here, where the notes have context.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, mode: sheetMode = "plan", date = null, onLogged }) {
-  const lang = useLang();
-  const isLog = sheetMode === "log";
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved }) {
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
-  const [mode, setMode] = useState(isLog ? "log" : "build");  // 'build' | 'pin' | 'log'
-  const [query, setQuery] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [mode, setMode] = useState("build");  // 'build' | 'pin'
   const [steps, setSteps] = useState([]);
   const [pins, setPins] = useState([]);
   const [notes, setNotes] = useState(initialNotes ?? []);
@@ -127,10 +109,6 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   const [tplBusy, setTplBusy] = useState(false);
   const [tplMsg, setTplMsg] = useState(null);          // { err, text }
   const [dropped, setDropped] = useState(0);
-  // Log mode — what was done, not a target.
-  const [logRows, setLogRows] = useState([]);
-  const [logNote, setLogNote] = useState("");
-  const [logRpe, setLogRpe] = useState(null);
 
   useEffect(() => {
     let alive = true;
@@ -161,17 +139,6 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     return () => { alive = false; };
   }, [template]);
 
-  // ── Library search ──────────────────────────────────────────────────────
-  // Filtered by the profile's kit by default; "Toon alles" lifts it, because the
-  // user's circumstances today may differ from their profile — the whole point.
-  const owned = new Set([...(prefs?.preferences?.available_equipment ?? ["none"]), ...ALWAYS_OWNED]);
-  const q = query.trim().toLowerCase();
-  const results = (library ?? [])
-    .filter((ex) => showAll || equipOf(ex).every((e) => owned.has(e)))
-    .filter((ex) => !q || ex.name?.toLowerCase().includes(q) || ex.slug?.includes(q))
-    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
-    .slice(0, 40);
-
   // Any change to the session invalidates notes from the last save attempt —
   // they are indexed by step position.
   const resetSafety = () => { setNotes([]); setNeedsAck(false); setAck(false); setError(null); };
@@ -195,38 +162,6 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     resetSafety();
   };
   const remove = (key) => { setSteps((s) => s.filter((st) => st.key !== key)); resetSafety(); };
-
-  // ── Log mode rows ───────────────────────────────────────────────────────
-  const addLogRow = (ex) => {
-    if (logRows.length >= MAX_STEPS) return;
-    keyRef.current += 1;
-    const r = rowFor(ex, keyRef.current);
-    setLogRows((rs) => [...rs, { key: r.key, ex, canToggle: r.canToggle, useTime: r.useTime, text: "", rest: r.rest, skipped: false }]);
-    setError(null);
-  };
-  const patchLog = (key, p) => { setLogRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...p } : r))); setError(null); };
-  const moveLog = (i, d) => setLogRows((rs) => {
-    const j = i + d;
-    if (j < 0 || j >= rs.length) return rs;
-    const out = rs.slice();
-    [out[i], out[j]] = [out[j], out[i]];
-    return out;
-  });
-  const logParsed = logRows.map((r) => (r.skipped ? { values: [] } : parseSetList(r.text, r.useTime ? "sec" : "reps")));
-  // Something must have been done: a session of only skipped exercises is not a record.
-  const canLog = isLog && !busy && logRows.some((r) => !r.skipped) && logParsed.every((p) => p.values);
-  const saveLog = async () => {
-    setBusy(true); setError(null);
-    const logSteps = logRows.map((r) => loggedStep({ exerciseId: r.ex.id, setsText: r.text, unit: r.useTime ? "sec" : "reps", restSec: r.rest, skipped: r.skipped }));
-    let res;
-    try { res = await api.logSession(date, { steps: logSteps, perceivedExertion: logRpe, notes: logNote.trim() || null }); }
-    catch { res = { status: 0, data: {} }; }
-    setBusy(false);
-    if (res.status === 200 && res.data?.ok) { onLogged?.(date); onClose(); return; }
-    setError(res.data?.error === "date_out_of_range"
-      ? t("You can log a training for today and the 6 days before it.")
-      : t("Could not save your training — check your connection and try again."));
-  };
   const togglePin = (id) => {
     setPins((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= MAX_PINS ? p : [...p, id]));
     setError(null);
@@ -307,169 +242,92 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     else onClose();
   };
 
-  // ── Styles ──────────────────────────────────────────────────────────────
-  const chip = (on) => ({
-    padding: "8px 14px", borderRadius: 99, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
-    border: `1px solid ${on ? "var(--accent-border)" : C.border}`,
-    background: on ? "var(--accent-dim)" : "transparent",
-    color: on ? "var(--accent)" : C.muted,
-  });
-  const primary = (enabled) => ({
-    width: "100%", height: 52, borderRadius: 16, border: "none", fontFamily: "inherit",
-    ...display(17, 800), letterSpacing: "0.02em",
-    background: enabled ? "var(--accent)" : C.subtle, color: enabled ? C.onAccent : C.muted,
-    cursor: enabled ? "pointer" : "not-allowed",
-  });
-  const iconBtn = {
-    width: 36, height: 36, borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent",
-    color: C.muted, cursor: "pointer", fontSize: 15, fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center",
-  };
   const libById = new Map((library ?? []).map((ex) => [ex.id, ex]));
   const sessionNotes = notes.filter((n) => n.step_index == null);
+  const chip = (on, extra = "") => `jf-chip${on ? " jf-chip--on" : ""}${extra ? ` ${extra}` : ""}`;
+  const mark = (ex) => {
+    if (mode === "pin") { const p = pins.includes(ex.id); return { label: p ? t("Pinned") : t("Pin"), on: p, active: p }; }
+    const added = steps.some((s) => s.ex.id === ex.id);
+    return { label: added ? "+1" : "+", on: added, active: false };
+  };
 
   // ── Saved state: notes and the R598 offer, then done ────────────────────
   let body;
   if (saved) {
     body = (
-      <div style={{ padding: "8px 0 4px" }}>
-        <div style={{ ...display(26, 900), color: C.text, textTransform: "uppercase", marginBottom: 6 }}>{t("Ready for today")}</div>
+      <div className="jf-sb-saved">
+        <div className="jf-sb-saved__title">{t("Ready for today")}</div>
         {saved.pinsRemoved ? (
           <>
-            <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 8 }}>
-              {t("The coach filled in your session. Some pins were left out for your safety:")}
-            </p>
+            <p className="jf-sb-saved__text">{t("The coach filled in your session. Some pins were left out for your safety:")}</p>
             {saved.pinsRemoved.map((r) => (
-              <div key={r.exercise_id} style={{ marginBottom: 8 }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text }}>{libById.get(r.exercise_id)?.name ?? r.exercise_slug}</div>
+              <div key={r.exercise_id} className="jf-sb-saved__item">
+                <div className="jf-sb-saved__name">{libById.get(r.exercise_id)?.name ?? r.exercise_slug}</div>
                 {r.code
                   ? <NoteCard note={{ code: r.code, blocking: false }} />
-                  : <div style={{ fontSize: 12, color: C.muted }}>{r.guard === "rest_day" ? t("Today is a rest day.") : t("Your coach programme sets today's session.")}</div>}
+                  : <div className="jf-sb-saved__guard">{r.guard === "rest_day" ? t("Today is a rest day.") : t("Your coach programme sets today's session.")}</div>}
               </div>
             ))}
           </>
         ) : (
           <>
-            {notes.length > 0 && (
-              <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 4 }}>
-                {t("Your session is saved as you built it. Keep these in mind:")}
-              </p>
-            )}
+            {notes.length > 0 && <p className="jf-sb-saved__text">{t("Your session is saved as you built it. Keep these in mind:")}</p>}
             {notes.map((n, i) => (
               <div key={i}>
-                {n.step_index != null && <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginTop: 8 }}>{steps[n.step_index]?.ex.name ?? n.exercise_slug}</div>}
+                {n.step_index != null && <div className="jf-sb-saved__name jf-sb-saved__name--spaced">{steps[n.step_index]?.ex.name ?? n.exercise_slug}</div>}
                 <NoteCard note={n} />
               </div>
             ))}
             {saved.assessmentOffer && (
-              <div style={{ marginTop: 16, padding: 14, borderRadius: 14, background: C.bgCard, border: `1px solid ${C.border}` }}>
-                <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 4 }}>{t("Your self-measurement is due")}</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>
-                  {t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}
-                </div>
-                <button type="button" disabled={busy} onClick={() => save(true)} style={{ ...chip(true), width: "100%", padding: "12px 14px" }}>
+              <div className="jf-sb-offer">
+                <div className="jf-sb-offer__title">{t("Your self-measurement is due")}</div>
+                <div className="jf-sb-offer__text">{t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}</div>
+                <button type="button" disabled={busy} onClick={() => save(true)} className={chip(true, "jf-chip--wide")}>
                   {busy ? t("Adding…") : t("Add self-measurement")}
                 </button>
               </div>
             )}
           </>
         )}
-        {error && <div style={{ fontSize: 12, color: C.danger, marginTop: 10 }}>{error}</div>}
-        <button type="button" onClick={onClose} style={{ ...primary(true), marginTop: 18 }}>{t("Done")}</button>
+        {error && <div className="jf-sheet__error">{error}</div>}
+        <button type="button" onClick={onClose} className="jf-primary">{t("Done")}</button>
       </div>
     );
   } else {
     body = (
       <>
-        {/* Mode switch — not in log mode, which has one job */}
-        {isLog ? (
-          <p className="jf-log-intro">{t("Fill in what you did. It counts for your progress on that day.")}</p>
-        ) : (<>
-        <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-          <button type="button" onClick={() => { setMode("build"); setError(null); }} style={{ ...chip(mode === "build"), flex: 1 }}>{t("Build it myself")}</button>
-          <button type="button" onClick={() => { setMode("pin"); setError(null); }} style={{ ...chip(mode === "pin"), flex: 1 }}>{t("Pin + coach fills")}</button>
+        <div className="jf-sb-modes">
+          <button type="button" onClick={() => { setMode("build"); setError(null); }} className={chip(mode === "build", "jf-chip--grow")}>{t("Build it myself")}</button>
+          <button type="button" onClick={() => { setMode("pin"); setError(null); }} className={chip(mode === "pin", "jf-chip--grow")}>{t("Pin + coach fills")}</button>
         </div>
-        <p style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, margin: "0 0 10px" }}>
+        <p className="jf-sheet__intro">
           {mode === "build"
             ? t("Pick exercises from the library. They count for your progress like any session.")
             : t("Pin up to 3 exercises you want today. The coach completes the session around them.")}
         </p>
-        </>)}
 
-        {/* Search */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
-          <input
-            type="search"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t("Search exercises…")}
-            aria-label={t("Search exercises…")}
-            style={{ flex: 1, minWidth: 0, padding: "11px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none" }}
-          />
-          <button type="button" aria-pressed={showAll} onClick={() => setShowAll((v) => !v)} style={chip(showAll)}>{t("Show all")}</button>
-        </div>
-        <div style={{ ...mono(10), color: C.faint, marginBottom: 6 }}>
-          {showAll ? t("All equipment") : t("Filtered on your equipment")}
-        </div>
-        <div style={{ maxHeight: 210, overflowY: "auto", borderRadius: 12, border: `1px solid ${C.border}`, marginBottom: 14 }}>
-          {loadError && <div style={{ padding: 14, fontSize: 12, color: C.danger }}>{t("Could not load the exercise library.")}</div>}
-          {!library && !loadError && <div style={{ padding: 14, fontSize: 12, color: C.muted }}>{t("Loading…")}</div>}
-          {library && results.length === 0 && (
-            <div style={{ padding: 14, fontSize: 12, color: C.muted }}>
-              {showAll ? t("Nothing matches.") : t("Nothing matches your equipment — try Show all.")}
-            </div>
-          )}
-          {results.map((ex, i) => {
-            const kit = equipOf(ex).filter((e) => !ALWAYS_OWNED.includes(e));
-            const pinned = pins.includes(ex.id);
-            const added = steps.some((s) => s.ex.id === ex.id);
-            return (
-              <button
-                key={ex.id}
-                type="button"
-                onClick={() => (mode === "log" ? addLogRow(ex) : mode === "build" ? addStep(ex) : togglePin(ex.id))}
-                style={{
-                  width: "100%", display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", textAlign: "left",
-                  border: "none", borderTop: i ? `1px solid ${C.border}` : "none", background: pinned ? "var(--accent-dim)" : "transparent",
-                  color: C.text, cursor: "pointer", fontFamily: "inherit", minHeight: 48,
-                }}
-              >
-                <span style={{ flex: 1, minWidth: 0 }}>
-                  <span style={{ display: "block", fontSize: 13, fontWeight: 600, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ex.name}</span>
-                  <span style={{ display: "block", ...mono(10), color: C.muted }}>
-                    {t(ex.category ?? "")}{kit.length ? ` · ${kit.join(", ").replace(/_/g, " ")}` : ""}
-                  </span>
-                </span>
-                <span style={{ ...mono(12), color: pinned || added ? "var(--accent)" : C.muted, fontWeight: 700 }}>
-                  {mode === "log" ? (logRows.some((r) => r.ex.id === ex.id) ? "+1" : "+") : mode === "build" ? (added ? "+1" : "+") : (pinned ? t("Pinned") : t("Pin"))}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+        <ExercisePicker library={library} loadError={loadError} prefs={prefs}
+          onPick={(ex) => (mode === "build" ? addStep(ex) : togglePin(ex.id))} mark={mark} />
 
         {/* Build mode: the session */}
         {mode === "build" && (
           <>
-            <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>{t("Your session")}</div>
+            <div className="jf-sheet__eyebrow">{t("Your session")}</div>
             {dropped > 0 && (
-              <div style={{ fontSize: 12, color: C.warningSoft, lineHeight: 1.5, marginBottom: 8 }}>
-                {t("{n} exercise(s) from this training are no longer in the library and were left out.", { n: dropped })}
-              </div>
+              <div className="jf-sb-warn">{t("{n} exercise(s) from this training are no longer in the library and were left out.", { n: dropped })}</div>
             )}
             {sessionNotes.map((n, i) => <NoteCard key={`s${i}`} note={n} />)}
-            {steps.length === 0 && (
-              <div style={{ fontSize: 12, color: C.muted, padding: "6px 0 12px" }}>{t("Tap an exercise above to add it.")}</div>
-            )}
+            {steps.length === 0 && <div className="jf-sheet__empty">{t("Tap an exercise above to add it.")}</div>}
             {steps.map((s, i) => (
-              <div key={s.key} style={{ padding: 12, borderRadius: 14, background: C.bgCard, border: `1px solid ${C.border}`, marginBottom: 10 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 10 }}>
-                  <span style={{ ...mono(11), color: C.faint, width: 18 }}>{i + 1}</span>
-                  <span style={{ flex: 1, minWidth: 0, fontSize: 14, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{s.ex.name}</span>
-                  <button type="button" aria-label={t("Move up")} disabled={i === 0} onClick={() => move(i, -1)} style={{ ...iconBtn, opacity: i === 0 ? 0.35 : 1 }}>↑</button>
-                  <button type="button" aria-label={t("Move down")} disabled={i === steps.length - 1} onClick={() => move(i, 1)} style={{ ...iconBtn, opacity: i === steps.length - 1 ? 0.35 : 1 }}>↓</button>
-                  <button type="button" aria-label={t("Remove")} onClick={() => remove(s.key)} style={iconBtn}>×</button>
+              <div key={s.key} className="jf-sb-step">
+                <div className="jf-sb-step__head">
+                  <span className="jf-sb-step__num">{i + 1}</span>
+                  <span className="jf-sb-step__name">{s.ex.name}</span>
+                  <button type="button" className="jf-icon-btn" aria-label={t("Move up")} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                  <button type="button" className="jf-icon-btn" aria-label={t("Move down")} disabled={i === steps.length - 1} onClick={() => move(i, 1)}>↓</button>
+                  <button type="button" className="jf-icon-btn" aria-label={t("Remove")} onClick={() => remove(s.key)}>×</button>
                 </div>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 4 }}>
+                <div className="jf-sb-steppers">
                   <Stepper label={t("Sets")} value={s.sets}
                     onDec={() => patch(s.key, (st) => ({ sets: clamp(st.sets - 1, LIM.sets) }))}
                     onInc={() => patch(s.key, (st) => ({ sets: clamp(st.sets + 1, LIM.sets) }))} />
@@ -487,8 +345,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
                     onInc={() => patch(s.key, (st) => ({ rest: clamp(st.rest + 15, LIM.rest) }))} />
                 </div>
                 {s.canToggle && (
-                  <button type="button" onClick={() => patch(s.key, (st) => ({ useTime: !st.useTime }))}
-                    style={{ marginTop: 8, background: "none", border: "none", padding: 0, ...mono(10), color: "var(--accent)", cursor: "pointer" }}>
+                  <button type="button" className="jf-link" onClick={() => patch(s.key, (st) => ({ useTime: !st.useTime }))}>
                     {s.useTime ? t("Count reps instead") : t("Use time instead")}
                   </button>
                 )}
@@ -500,14 +357,14 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
 
         {/* Pin mode: what is pinned */}
         {mode === "pin" && (
-          <div style={{ marginBottom: 10 }}>
-            <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>{t("Pinned")} · {pins.length}/{MAX_PINS}</div>
+          <div className="jf-sb-pins">
+            <div className="jf-sheet__eyebrow">{t("Pinned")} · {pins.length}/{MAX_PINS}</div>
             {pins.length === 0
-              ? <div style={{ fontSize: 12, color: C.muted }}>{t("Tap up to 3 exercises above to pin them.")}</div>
+              ? <div className="jf-sheet__empty">{t("Tap up to 3 exercises above to pin them.")}</div>
               : (
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                <div className="jf-sb-pins__chips">
                   {pins.map((id) => (
-                    <button key={id} type="button" onClick={() => togglePin(id)} style={chip(true)}>
+                    <button key={id} type="button" onClick={() => togglePin(id)} className={chip(true)}>
                       {libById.get(id)?.name ?? id} ×
                     </button>
                   ))}
@@ -516,115 +373,20 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
           </div>
         )}
 
-        {/* Log mode: what was done */}
-        {mode === "log" && (
-          <div className="jf-log">
-            <div className="jf-log__eyebrow">{t("What you did")}</div>
-            {logRows.length === 0 && <div className="jf-log__empty">{t("Tap an exercise above to add it.")}</div>}
-            {logRows.map((r, i) => {
-              const p = logParsed[i];
-              const bad = !r.skipped && r.text.trim() !== "" && !p.values;
-              return (
-                <div key={r.key} className={`jf-log-row${r.skipped ? " jf-log-row--skipped" : ""}`}>
-                  <div className="jf-log-row__head">
-                    <span className="jf-log-row__num">{i + 1}</span>
-                    <span className="jf-log-row__name">{r.ex.name}</span>
-                    <button type="button" className="jf-log-icon" aria-label={t("Move up")} disabled={i === 0} onClick={() => moveLog(i, -1)}>↑</button>
-                    <button type="button" className="jf-log-icon" aria-label={t("Move down")} disabled={i === logRows.length - 1} onClick={() => moveLog(i, 1)}>↓</button>
-                    <button type="button" className="jf-log-icon" aria-label={t("Remove")} onClick={() => setLogRows((rs) => rs.filter((x) => x.key !== r.key))}>×</button>
-                  </div>
-                  {!r.skipped && (
-                    <div className="jf-log-row__fields">
-                      <label className="jf-log-field jf-log-field--wide">
-                        <span className="jf-log-field__label">{r.useTime ? t("Seconds per set") : t("Reps per set")}</span>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          className={`jf-log-input${bad ? " jf-log-input--bad" : ""}`}
-                          value={r.text}
-                          placeholder={r.useTime ? t("e.g. 60, 60, 45") : t("e.g. 10, 10, 8")}
-                          onChange={(e) => patchLog(r.key, { text: e.target.value })}
-                        />
-                      </label>
-                      <label className="jf-log-field">
-                        <span className="jf-log-field__label">{t("Rest (s)")}</span>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          min={0}
-                          max={600}
-                          className="jf-log-input"
-                          value={r.rest}
-                          onChange={(e) => patchLog(r.key, { rest: clamp(Number(e.target.value) || 0, LIM.rest) })}
-                        />
-                      </label>
-                    </div>
-                  )}
-                  {bad && <div className="jf-log-row__error">{t("Use numbers separated by commas, e.g. 10, 10, 8 or 3x10.")}</div>}
-                  {!r.skipped && p.values && (
-                    <div className="jf-log-row__sum">
-                      {t("{n} sets", { n: p.values.length })} · {p.values.join(" · ")}{r.useTime ? " s" : ""}
-                    </div>
-                  )}
-                  <div className="jf-log-row__actions">
-                    {r.canToggle && !r.skipped && (
-                      <button type="button" className="jf-log-link" onClick={() => patchLog(r.key, { useTime: !r.useTime })}>
-                        {r.useTime ? t("Count reps instead") : t("Use time instead")}
-                      </button>
-                    )}
-                    <button type="button" aria-pressed={r.skipped} className={`jf-log-chip${r.skipped ? " jf-log-chip--on" : ""}`}
-                      onClick={() => patchLog(r.key, { skipped: !r.skipped })}>
-                      {t("Skipped")}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-
-            <label className="jf-log-field jf-log-field--block">
-              <span className="jf-log-field__label">{t("Note")}</span>
-              <textarea
-                className="jf-log-input jf-log-textarea"
-                rows={3}
-                maxLength={1000}
-                value={logNote}
-                placeholder={t("How did it go? Anything you skipped, and why?")}
-                onChange={(e) => setLogNote(e.target.value)}
-              />
-            </label>
-
-            <div className="jf-log-field__label">{t("How did it feel? (optional)")}</div>
-            <div className="jf-log-rpe" role="group" aria-label={t("How did it feel? (optional)")}>
-              {[[3, t("Easy")], [5, t("Just right")], [8, t("Hard")]].map(([v, label]) => (
-                <button key={v} type="button" aria-pressed={logRpe === v} className={`jf-log-chip${logRpe === v ? " jf-log-chip--on" : ""}`}
-                  onClick={() => setLogRpe((cur) => (cur === v ? null : v))}>
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
         {needsAck && mode === "build" && (
-          <label style={{ display: "flex", gap: 10, alignItems: "flex-start", padding: 12, borderRadius: 14, background: C.amberDim, border: `1px solid ${C.amberBorder}`, margin: "4px 0 12px", cursor: "pointer" }}>
-            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} style={{ width: 22, height: 22, marginTop: 1, flexShrink: 0, accentColor: "var(--amber)" }} />
-            <span style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5 }}>
-              {t("I have read the advice above and choose this session myself.")}
-            </span>
+          <label className="jf-sb-ack">
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="jf-sb-ack__box" />
+            <span className="jf-sb-ack__text">{t("I have read the advice above and choose this session myself.")}</span>
           </label>
         )}
-        {error && <div style={{ fontSize: 12, color: C.danger, margin: "4px 0 10px" }}>{error}</div>}
+        {error && <div className="jf-sheet__error">{error}</div>}
       </>
     );
   }
 
   // ── W4.3: the second, quieter action — save as / update a template ─────
-  const quiet = {
-    width: "100%", minHeight: 44, marginTop: 6, background: "none", border: "none", fontFamily: "inherit",
-    fontSize: 13, fontWeight: 700, color: steps.length ? C.mutedStrong : C.faint, cursor: steps.length ? "pointer" : "not-allowed",
-  };
   const templatePanel = tplOpen ? (
-    <div style={{ marginTop: 10, padding: 12, borderRadius: 14, background: C.bgCard, border: `1px solid ${C.border}` }}>
+    <div className="jf-sb-tpl">
       <input
         type="text"
         value={tplName}
@@ -633,56 +395,49 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
         onChange={(e) => { setTplName(e.target.value); setTplMsg(null); }}
         placeholder={t("Name of your training")}
         aria-label={t("Name of your training")}
-        style={{ width: "100%", boxSizing: "border-box", padding: "11px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard2, color: C.text, fontSize: 14, fontFamily: "inherit", outline: "none", marginBottom: 8 }}
+        className="jf-sb-tpl__input"
       />
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} style={{ ...chip(true), flex: 1, padding: "11px 14px" }}>
+      <div className="jf-sb-tpl__actions">
+        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} className={chip(true, "jf-chip--tall jf-chip--grow")}>
           {tplBusy ? t("Saving…") : tpl ? t("Update template") : t("Save")}
         </button>
         {tpl && (
-          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} style={{ ...chip(false), padding: "11px 14px" }}>
+          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} className={chip(false, "jf-chip--tall")}>
             {t("Save as new")}
           </button>
         )}
-        <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} style={{ ...chip(false), padding: "11px 14px" }}>{t("Cancel")}</button>
+        <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} className={chip(false, "jf-chip--tall")}>{t("Cancel")}</button>
       </div>
-      {tplMsg && <div style={{ fontSize: 12, color: tplMsg.err ? C.danger : "var(--accent)", marginTop: 8 }}>{tplMsg.text}</div>}
+      {tplMsg && <div className={`jf-sb-tpl__msg${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
     </div>
   ) : (
     <>
-      <button type="button" disabled={!steps.length} onClick={() => { setTplOpen(true); setTplMsg(null); }} style={quiet}>
+      <button type="button" disabled={!steps.length} onClick={() => { setTplOpen(true); setTplMsg(null); }} className="jf-sb-quiet">
         {tpl ? t("Update template") : t("Save as template")}
       </button>
-      {tplMsg && <div style={{ fontSize: 12, color: tplMsg.err ? C.danger : "var(--accent)", textAlign: "center", marginBottom: 4 }}>{tplMsg.text}</div>}
+      {tplMsg && <div className={`jf-sb-tpl__msg jf-sb-tpl__msg--center${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
     </>
   );
 
   // ── Footer (sticky): estimate + the one primary action ──────────────────
   const canSave = mode === "build" && steps.length > 0 && !busy && (!needsAck || ack);
   const canFill = mode === "pin" && pins.length > 0 && !busy;
-  const logFooter = (
-    <div className="jf-log-footer">
-      <button type="button" className="jf-log-primary" disabled={!canLog} onClick={saveLog}>
-        {busy ? t("Saving…") : t("Save for {date}", { date: date ? logDayLabel(date, lang) : "" })}
-      </button>
-    </div>
-  );
-  const footer = isLog ? logFooter : saved ? null : (
-    <div style={{ position: "sticky", bottom: 0, paddingTop: 12, paddingBottom: "calc(12px + env(safe-area-inset-bottom))", background: C.sheet }}>
+  const footer = saved ? null : (
+    <div className="jf-sheet__footer">
       {mode === "build" && (
-        <div style={{ display: "flex", justifyContent: "space-between", ...mono(11), marginBottom: 8 }}>
-          <span style={{ color: overBudget ? C.amber : C.mutedStrong }}>
+        <div className="jf-sb-estimate">
+          <span className={`jf-sb-estimate__value${overBudget ? " jf-sb-estimate__value--over" : ""}`}>
             {estimate != null ? `≈ ${estimate} min` : "—"}
           </span>
-          <span style={{ color: C.muted }}>{t("your time")} {budget} min</span>
+          <span className="jf-sb-estimate__budget">{t("your time")} {budget} min</span>
         </div>
       )}
       {mode === "build" ? (
-        <button type="button" disabled={!canSave} onClick={() => save(false)} style={primary(canSave)}>
+        <button type="button" disabled={!canSave} onClick={() => save(false)} className="jf-primary">
           {busy ? t("Saving…") : needsAck ? t("Confirm and use today") : t("Use today")}
         </button>
       ) : (
-        <button type="button" disabled={!canFill} onClick={fill} style={primary(canFill)}>
+        <button type="button" disabled={!canFill} onClick={fill} className="jf-primary">
           {busy ? t("Building…") : t("Let the coach fill in the rest")}
         </button>
       )}
@@ -691,25 +446,9 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   );
 
   return (
-    <div
-      style={{ position: "fixed", inset: 0, zIndex: 110, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.6)" }}
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={isLog ? t("Log a training") : t("Your own training")}
-        onClick={(e) => e.stopPropagation()}
-        style={{ width: "100%", maxWidth: 520, maxHeight: "92dvh", overflowY: "auto", background: C.sheet, border: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", padding: saved ? "16px 16px calc(12px + env(safe-area-inset-bottom))" : "16px 16px 0", boxSizing: "border-box" }}
-      >
-        <div style={{ width: 40, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 12px" }} />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
-          <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase" }}>{isLog ? t("Log a training") : t("Your own training")}</div>
-          <button type="button" aria-label={t("Close")} onClick={onClose} style={iconBtn}>×</button>
-        </div>
-        {body}
-        {footer}
-      </div>
-    </div>
+    <Sheet title={t("Your own training")} onClose={onClose} padded={!!saved}>
+      {body}
+      {footer}
+    </Sheet>
   );
 }
