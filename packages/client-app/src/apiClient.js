@@ -231,7 +231,11 @@ const api = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         date,
-        execution_type: executionType,
+        // The server reads session_type and stores it as execution_type. This sent
+        // execution_type, which the server ignores, so every logged run/walk/bike/
+        // rest day was stored as 'workout' and the step-less cardio stimulus path
+        // never ran for them. Found 2026-10-05 while building backfill logging.
+        session_type: executionType,
         duration_sec: durationSec,
       }),
     });

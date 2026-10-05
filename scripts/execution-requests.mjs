@@ -237,5 +237,15 @@ try {
   errs.push(`harness aborted: ${e?.message ?? e}`);
 }
 
+// saveActivity contract — a step-less cardio activity keeps its type. The client
+// sent `execution_type`, which the server ignores, so every run/walk/bike/rest
+// day landed as 'workout'. The server-side field is session_type; pin it.
+{
+  const r = await POST('erin', { date: today, session_type: 'run', duration_sec: 1500, steps: [] });
+  const row = db.prepare("SELECT execution_type FROM executions WHERE user_id = 'erin' AND date = ? ORDER BY created_at_ms DESC LIMIT 1").get(today);
+  check(r.status === 200 && row?.execution_type === 'run',
+    `a step-less run must be stored as execution_type='run', got ${r.status} ${row?.execution_type}`);
+}
+
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');
 if (errs.length) process.exitCode = 1;
