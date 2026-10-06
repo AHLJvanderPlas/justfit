@@ -93,13 +93,14 @@ These rules apply to EVERY task in EVERY session, without exception.
 - Commit messages must follow conventional format: `feat:`, `fix:`, `chore:`, `refactor:`, `docs:`
 
 ## E2E release gate (Phase 4+ structural PRs)
-`npm run e2e` runs the Playwright journey suite (10 journeys). It is part of `npm run release`.
+`npm run e2e` runs the Playwright journey suite (12 journeys). It is part of `npm run release`.
 **The suite builds its own local D1** (`.wrangler/e2e-state`, gitignored) **from
 `migrations/baseline/` on every run** — so a green run means green against production's schema,
 not against whatever a developer's local database has accumulated. It works from a fresh clone
 or git worktree: a throwaway `.dev.vars` is written when none exists and removed afterwards.
 Journeys covered: signup/onboard/check-in/workout/history, guest mode, FIT-code connect (open +
-409), trainer-invite accept, consent gate block/sign, workout, billing ×2, settings.
+409), trainer-invite accept, consent gate block/sign, workout, billing ×2, settings, own training ×2
+(build → start as extra → complete a set; register for today).
 
 ## Deploy workflow (GitHub auto-deploy suspended)
 - Git push = source backup only (GitHub auto-deploy to Cloudflare Pages is suspended)
@@ -1356,6 +1357,26 @@ Calculated server-side from executions table:
 ## Known Bugs to Fix
 
 None currently. 🟢
+
+### Shipped 2026-10-05/06 — logging, Eigen training, and two safety findings
+
+- **Log a past session** (≤ 6 days back) from Deze Week: two-phase sheet (exercises, then
+  set-group rows `3 × 3 @ 60 s`, "+ Rij" duplicates the last row), credited to the session's
+  day. `execution_type='logged'`. Found while building: **every strength set saved from the app
+  had earned zero progression** — `execution.js` read `step.actual_json`, the client sends
+  `step.actual`. 9 of 12 live workouts affected. Fixed; "Rebuild scores" replays history.
+- **Eigen training** (design: `docs/MANUAL_TRAINING_DESIGN.md`, phase 1 built): Today card
+  line "Eigen training · Lukt dit niet?" → Registreren / Hergebruiken / Samenstellen → run-mode
+  sheet, **"Als extra" by default** (custom_steps + bonus_session, in memory, same advisory
+  pass, never writes day_plans) or "In plaats van". `executions.source_ref` (0122). Both modes
+  cap-exempt. Phase 2 (trainer library) gated on a trainer authoring a session.
+- **R514 and every checkin_json toggle were silently off on the Pro path.** The sheet nests
+  toggles in `checkin_json`; the safety stage read top-level. `flattenCheckin` at the choke
+  point; request-level guard with the sheet's exact payload.
+- `saveActivity` sent `execution_type`; server reads `session_type` — all logged runs/walks/rest
+  days had been stored as `workout`. Fixed.
+- Smoke 89 → 90; e2e 10 → 12; ledger 123 ok; ratchets: App.jsx 1800, plan.js 3827,
+  onRequestPost 99, inline styles 2297.
 
 ### Shipped 2026-10-04 (later) — post-remediation Phases A–F
 

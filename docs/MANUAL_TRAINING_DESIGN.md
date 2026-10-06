@@ -1,7 +1,7 @@
 # Eigen training — functional design
 
 **Date:** 2026-10-06
-**Status:** design, not built. Companion to `PLANNER_AUDIT_2026-10.md` §5 (the override).
+**Status:** Phase 1 built and live 2026-10-06. Phase 2 gated (see §8). Phase 3 pending real use. Companion to `PLANNER_AUDIT_2026-10.md` §5 (the override).
 
 ---
 
