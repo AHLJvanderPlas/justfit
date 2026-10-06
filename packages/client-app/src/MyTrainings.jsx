@@ -3,14 +3,13 @@
 // A session the user built once becomes a habit here. Two surfaces:
 //   MyTrainingsCard   — Coach tab: list, use today, edit (opens the builder
 //                        preloaded), delete with an inline confirm.
-//   UseMyTraining     — Today card: one tap with exactly one template, a picker
-//                        sheet with more.
+//   TemplatePickList  — the list in "Eigen training → Hergebruiken".
 //
-// Neither installs anything itself: both call `onUse(template)`, which goes
-// through POST /api/plan custom_steps (apiClient.useMySession), so safety notes,
-// the blocking acknowledgement and clamping behave exactly as in the builder.
+// Neither installs anything itself: "Use today" calls `onUse(template)`, which
+// goes through POST /api/plan custom_steps (apiClient.useMySession), so safety
+// notes, the blocking acknowledgement and clamping behave as in the builder.
 import { useState } from "react";
-import { C, display, eyebrow, mono } from "./tokens.js";
+import { C, eyebrow, mono } from "./tokens.js";
 import { t, useLang } from "./i18n.js";
 import { ownSessionAssessmentOffer, ownSessionAsTemplate } from "./planUtils.js";
 
@@ -145,70 +144,18 @@ export function OwnSessionAssessmentOffer({ plan, onUse }) {
   );
 }
 
-// ── Today card control ────────────────────────────────────────────────────────
-// Rendered only when today's plan is NOT user-authored, so it never replaces a
-// session the user wrote (the override is already in place when it is).
-export function UseMyTraining({ templates, onUse }) {
+// ── The pick list of saved trainings ──────────────────────────────────────────
+// "Eigen training → Hergebruiken → Mijn trainingen" (MANUAL_TRAINING_DESIGN §3).
+// It replaced the one-tap "Gebruik mijn training" on the Today card, which
+// installed a template IN PLACE of today's plan without asking; picking here
+// leads to the run-mode choice, where "als extra" is the default. Newest first.
+export function TemplatePickList({ templates, busy = false, onPick }) {
   useLang();
-  const [picking, setPicking] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState(null);
-  const list = templates ?? [];
-  if (list.length === 0) return null;
-
-  const use = async (tpl) => {
-    setBusy(true); setError(null);
-    const r = await onUse(tpl);
-    setBusy(false);
-    if (r?.error) setError(errorText(r.error));
-    else setPicking(false);
-  };
-  const single = list.length === 1 ? list[0] : null;
-
-  return (
-    <>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => (single ? use(single) : setPicking(true))}
-        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--accent)", marginTop: 2, textAlign: "center", width: "100%", minHeight: 40, fontFamily: "inherit" }}
-      >
-        {busy && !picking ? t("Saving…") : single ? `${t("Use my training")} · ${single.name}` : `${t("Use my training")} →`}
-      </button>
-      {error && !picking && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>{error}</div>}
-      {picking && (
-        <div
-          style={{ position: "fixed", inset: 0, zIndex: 105, display: "flex", alignItems: "flex-end", justifyContent: "center", background: "rgba(0,0,0,0.6)" }}
-          onClick={() => !busy && setPicking(false)}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-label={t("Choose a training")}
-            onClick={(e) => e.stopPropagation()}
-            style={{ width: "100%", maxWidth: 520, maxHeight: "80dvh", overflowY: "auto", background: C.sheet, border: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", padding: "16px 16px calc(16px + env(safe-area-inset-bottom))", boxSizing: "border-box" }}
-          >
-            <div style={{ width: 40, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 12px" }} />
-            <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 12 }}>{t("Choose a training")}</div>
-            {list.map((tpl) => (
-              <button
-                key={tpl.id}
-                type="button"
-                disabled={busy}
-                onClick={() => use(tpl)}
-                style={{ width: "100%", display: "block", textAlign: "left", padding: "12px 14px", marginBottom: 8, borderRadius: 14, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, cursor: busy ? "wait" : "pointer", fontFamily: "inherit", minHeight: 52 }}
-              >
-                <span style={{ display: "block", fontSize: 14, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tpl.name}</span>
-                <span style={{ display: "block", ...mono(11), color: C.muted, marginTop: 2 }}>{meta(tpl)}</span>
-              </button>
-            ))}
-            {error && <div style={{ fontSize: 12, color: C.danger, margin: "4px 0 10px" }}>{error}</div>}
-            <button type="button" disabled={busy} onClick={() => setPicking(false)} style={{ width: "100%", padding: 13, borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontFamily: "inherit" }}>
-              {busy ? t("Saving…") : t("Cancel")}
-            </button>
-          </div>
-        </div>
-      )}
-    </>
-  );
+  const list = [...(templates ?? [])].sort((a, b) => (b.updated_at_ms ?? b.created_at_ms ?? 0) - (a.updated_at_ms ?? a.created_at_ms ?? 0));
+  return list.map((tpl) => (
+    <button key={tpl.id} type="button" disabled={busy} onClick={() => onPick(tpl)} className="jf-tpl-pick">
+      <span className="jf-tpl-pick__name">{tpl.name}</span>
+      <span className="jf-tpl-pick__meta">{meta(tpl)}</span>
+    </button>
+  ));
 }

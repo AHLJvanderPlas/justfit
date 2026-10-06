@@ -13,7 +13,9 @@ import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS } from "./messagePolicy.js";
 import { t } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
-import { UseMyTraining, OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
+import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
+import { OwnTrainingLine, ExtraDoneCard, SaveAsTemplate } from "./EigenTraining.jsx";
+import { ownLine } from "./ownTraining.js";
 
 // ─── LOG ACTIVITY MODAL ───────────────────────────────────────────────────────
 const ACTIVITY_TYPES = [
@@ -28,7 +30,7 @@ const ACTIVITY_TYPES = [
 const ACTIVITY_DURATIONS = [15, 20, 30, 45, 60, 90];
 
 // ─── DONE CARD ────────────────────────────────────────────────────────────────
-function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone }) {
+function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone, onOwnTraining, canSaveTemplate, onTemplateSaved }) {
   const sessionLabel = completedSession?.name ?? "Session";
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const scoreBump = score > prevScore;
@@ -68,6 +70,8 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
       )}
       {!scoreBump && <div style={{ marginBottom: 16 }} />}
 
+      {/* §6 — a session the user wrote, not started from a saved training */}
+      {canSaveTemplate && <SaveAsTemplate defaultName={completedSession?.name} steps={completedSession?.own_steps} onSaved={onTemplateSaved} />}
       <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
 
       <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
@@ -111,6 +115,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
           </div>
         </div>
       )}
+      <OwnTrainingLine whyNot={false} onOwn={onOwnTraining} />
     </div>
   );
 }
@@ -387,7 +392,7 @@ function splitTitle(name) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onBuildOwn, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, myTemplates, onUseTemplate }) {
+export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
   const intensityColor = {
     low: C.successSoft,
     moderate: C.emerald,
@@ -519,7 +524,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
 
       {/* ── Session area ───────────────────────────── */}
       {todayCompleted ? (
-        <DoneCard score={score} prevScore={prevScore} completedSession={completedSession} onLogActivity={onLogActivity} onBonusSession={onBonusSession} bonusDone={bonusDone} />
+        <DoneCard score={score} prevScore={prevScore} completedSession={completedSession} onLogActivity={onLogActivity} onBonusSession={onBonusSession} bonusDone={bonusDone}
+          onOwnTraining={onOwnTraining} canSaveTemplate={!isGuest && !!completedSession?.own_steps?.length} onTemplateSaved={onTemplateSaved} />
       ) : planError && !plan ? (
         <PlanErrorCard planError={planError} onRetry={onRetryPlan} token={token} prefs={prefs} />
       ) : (
@@ -734,20 +740,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 >
                   {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c={C.onAccent} /></>}
                 </button>
-                {plan.slot_type !== "rest" ? (
-                  <button onClick={onWhyNot} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%", minHeight: 40 }}>
-                    {t("Can't do this today?")}
-                  </button>
-                ) : (
-                  // A rest day is advice too: someone who wants to move anyway can.
-                  <button onClick={onBuildOwn} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, marginTop: 12, textAlign: "center", width: "100%", minHeight: 40 }}>
-                    {t("I'm doing something else")} →
-                  </button>
+                {/* MANUAL_TRAINING_DESIGN §2 — "Eigen training · Lukt dit niet?". A rest day
+                    is advice too: someone who wants to move anyway can, from "Eigen training". */}
+                <OwnTrainingLine whyNot={ownLine({ plan, todayCompleted }).whyNot} onOwn={onOwnTraining} onWhyNot={onWhyNot} />
+                {/* §9 — a session the user wrote is not the military block's session. */}
+                {plan.authored_by_user && prefs?.preferences?.military_coach?.active && (
+                  <div className="jf-own-note">{t("Your own session does not count as a session of your military block.")}</div>
                 )}
-                {/* W4.3 — one-tap reuse of a saved training. Not offered over a
-                    session the user already wrote today: the override is in place.
-                    F8 — on that session, the due self-measurement is offered instead. */}
-                {!plan.authored_by_user && <UseMyTraining templates={myTemplates} onUse={onUseTemplate} />}
+                {/* F8 — on a session the user wrote, the due self-measurement. */}
                 {!todayCompleted && <OwnSessionAssessmentOffer plan={plan} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
@@ -763,11 +763,19 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <p style={{ fontSize: 14, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>
                   Complete the daily check-in to<br />generate today's session.
                 </p>
+                <OwnTrainingLine whyNot={false} onOwn={onOwnTraining} />
               </div>
             )}
           </div>
         </div>
       )}
+
+      {/* ── §6 — today's extra: the done card once, then one line ── */}
+      {extraDone && !extraDone.dismissed && (
+        <ExtraDoneCard extra={extraDone} askPlanDone={!todayCompleted && !!plan && plan.slot_type !== "rest"}
+          onPlanDone={onExtraPlanDone} onDismiss={onExtraDismiss} canSave={!isGuest && !!extraDone.own_steps?.length} onTemplateSaved={onTemplateSaved} />
+      )}
+      {extraDone?.dismissed && <div className="jf-extra-line">{t("Extra: {name}", { name: extraDone.name })} ✓</div>}
 
       {/* ── Why panel + Safety banner ── */}
       {plan && !todayCompleted && (

@@ -152,6 +152,7 @@ export async function onRequestPost({ request, env }) {
       if (built.status !== 200) return Response.json(built.body, { status: built.status });
       const userPlan = built.plan;
       const extra = { safety_notes: built.safety_notes, assessment_offer: built.assessment_offer };
+      if (req.isExtra) return Response.json({ ok: true, saved: false, bonus: true, plan: { ...userPlan, bonus: true }, ...extra });
       const planId = await _upsertDayPlan(env, user_id, date, userPlan,
         { generatedBy: 'user', engineVersion: 'user-authored', seed: 'user', nowMs });
       if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...userPlan }, ...extra });
@@ -189,10 +190,8 @@ export async function onRequestPost({ request, env }) {
       { generatedBy: 'engine', engineVersion: 'v1.9.0', seed: date });
     if (planId) return Response.json({ ok: true, saved: true, plan: { id: planId, ...plan } });
     return Response.json({ ok: true, saved: false, plan });
-
   } catch (e) {
-    console.error('plan.js error:', e.stack ?? e.message ?? e);
-    console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
+    console.error('plan.js error:', e.stack ?? e.message ?? e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
 }
 

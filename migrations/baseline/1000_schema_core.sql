@@ -376,7 +376,7 @@ CREATE TABLE "executions" (
   tss_actual              REAL,
   tss_source              TEXT,
   strava_activity_id      INTEGER,
-  strava_metadata_json    TEXT, program_assignment_id  TEXT, assigned_by_trainer_id TEXT, trainer_notes          TEXT, client_rpe             INTEGER, client_feedback        TEXT, strava_metadata_expires_at_ms INTEGER, strava_upload_activity_id INTEGER, strava_upload_at_ms INTEGER,
+  strava_metadata_json    TEXT, program_assignment_id  TEXT, assigned_by_trainer_id TEXT, trainer_notes          TEXT, client_rpe             INTEGER, client_feedback        TEXT, strava_metadata_expires_at_ms INTEGER, strava_upload_activity_id INTEGER, strava_upload_at_ms INTEGER, source_ref TEXT,
   CHECK (execution_json IS NULL OR json_valid(execution_json))
 ) STRICT;
 

@@ -8,15 +8,18 @@
  *                to reach the server due to network issues (id as key)
  *
  * Mutation queue replay: on app load and on 'online' events, pending mutations
- * are replayed in order. Mutations older than 7 days are expired silently.
+ * are replayed in order. Mutations older than the server's log window (6 days,
+ * LOG_WINDOW_DAYS) are expired: POST /api/execution rejects a date before it, so
+ * keeping one longer only queues a certain 400.
  */
+import { LOG_WINDOW_DAYS } from './logSession.js';
 
 const DB_NAME = 'jf-offline';
 const DB_VERSION = 3;          // bumped: added mutations store
 const PLAN_STORE      = 'plans';
 const EXERCISE_STORE  = 'exercises';
 const MUTATION_STORE  = 'mutations';
-const MUTATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
+export const MUTATION_TTL_MS = LOG_WINDOW_DAYS * 24 * 60 * 60 * 1000; // 6 days — was 7, one day past the server's window
 
 function openDb() {
   return new Promise((resolve, reject) => {

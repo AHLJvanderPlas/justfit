@@ -2,6 +2,55 @@
    (CLAUDE.md "Styling", smoke ratchet B2). Tokens are the CSS custom properties
    tokens.js already reads (--accent, --text, --muted, --overlay-rgb …). */
 
+/* ── App shell globals — moved out of App.jsx's inline <style> element (2026-10-06):
+   a <style> element needs style-src 'unsafe-inline' exactly like a style= attribute. ── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+/* ── UX-7 — touch targets ──
+   Every control gets touch-action: manipulation, which removes iOS Safari's
+   300ms tap delay. The small +/- steppers in Settings keep their 28px look —
+   they are correct visually — while .jf-tap expands the actual hit area to
+   44px with a centred pseudo-element. Enlarging the buttons themselves would
+   have broken layouts that are working. */
+button, [role="button"] { touch-action: manipulation; }
+.jf-tap { position: relative; }
+.jf-tap::after {
+  content: ""; position: absolute; top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px;
+}
+
+/* UX-5 — one skeleton style for every loading placeholder. */
+.jf-skeleton { background: rgba(var(--overlay-rgb),0.07); animation: pulse 1.4s ease-in-out infinite; }
+
+/* ── UX-2 — prefers-reduced-motion ──
+   Applied as a blanket rule rather than per-animation. The login canvas was
+   already handled, but tapScale, tapRing, the rest-ring dashoffset and every
+   inline transition were not, and hunting them one at a time guarantees the
+   next new animation is missed again.
+
+   Spinners are the deliberate exception: rotation in place involves no
+   translation and is not a vestibular trigger, while a loading spinner that
+   does not spin reads as a frozen app. Slowed rather than stopped. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .jf-spin {
+    animation-duration: 1.6s !important;
+    animation-iteration-count: infinite !important;
+  }
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes tapScale { 0%{transform:scale(1)} 40%{transform:scale(0.96)} 100%{transform:scale(1)} }
+@keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
+::-webkit-scrollbar { width: 0; }
+textarea { font-family: inherit; color: inherit; }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
 /* F8 — "Zelfmeting toevoegen" under a session the user wrote (Today card). */
 .jf-own-offer {
   margin-top: 12px;
@@ -294,3 +343,74 @@
 .jf-rec-row:last-child { border-bottom: none; }
 .jf-rec-row__name { font-size: 12px; color: var(--text); font-weight: 500; min-width: 0; }
 .jf-rec-row__stat { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted); text-align: right; }
+
+/* ── "Eigen training" (EigenTraining.jsx, MANUAL_TRAINING_DESIGN.md phase 1) ──
+   Small, always present, never pushy: two quiet text links under START SESSION. */
+.jf-own-line {
+  display: flex; align-items: center; justify-content: center; gap: 2px; flex-wrap: wrap;
+  margin-top: 6px; min-height: 44px;
+}
+.jf-own-line__link {
+  background: none; border: none; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted);
+  padding: 10px 8px; min-height: 40px;
+}
+.jf-own-line__link:hover { color: var(--text); }
+.jf-own-line__dot { font-size: 12px; color: rgba(var(--overlay-rgb), 0.32); }
+.jf-own-note { font-size: 11px; color: var(--muted); text-align: center; line-height: 1.5; margin-top: 2px; }
+
+/* Chooser rows and the run-mode rows: one tap each. */
+.jf-own-row {
+  width: 100%; display: block; text-align: left; padding: 14px 16px; margin-bottom: 10px; min-height: 60px;
+  border-radius: 16px; border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
+  color: var(--text); cursor: pointer; font: inherit;
+}
+.jf-own-row:disabled { opacity: 0.6; cursor: wait; }
+.jf-own-row--default { border-color: var(--accent-border); background: var(--accent-dim); }
+.jf-own-row__verb { display: block; font-size: 15px; font-weight: 800; }
+.jf-own-row--default .jf-own-row__verb { color: var(--accent); }
+.jf-own-row__hint { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
+.jf-own-confirm {
+  padding: 12px; border-radius: 14px; margin-bottom: 10px;
+  background: var(--amber-dim); border: 1px solid var(--amber-border);
+}
+.jf-own-confirm__text { font-size: 12px; color: var(--warning-soft); font-weight: 600; line-height: 1.5; margin-bottom: 10px; }
+.jf-own-busy { font-size: 12px; color: var(--accent); font-weight: 700; margin: 4px 0 10px; }
+.jf-own-back {
+  background: none; border: none; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted);
+  padding: 10px 0; min-height: 40px;
+}
+.jf-own-section { margin-top: 16px; }
+.jf-own-saved { font-size: 12px; color: var(--accent); font-weight: 700; margin: 0 0 14px; }
+
+/* "Mijn trainingen" pick list (MyTrainings.jsx TemplatePickList). */
+.jf-tpl-pick {
+  width: 100%; display: block; text-align: left; padding: 12px 14px; margin-bottom: 8px; min-height: 52px;
+  border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
+  color: var(--text); cursor: pointer; font: inherit;
+}
+.jf-tpl-pick:disabled { cursor: wait; }
+.jf-tpl-pick--soon, .jf-tpl-pick--soon:disabled { cursor: default; opacity: 0.55; }
+.jf-tpl-pick__name { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jf-tpl-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+/* Today: the done card of an extra (§6), then one line. */
+.jf-extra-done {
+  margin: 0 0 16px; padding: 16px 18px; border-radius: 20px;
+  background: var(--accent-dim); border: 1px solid var(--accent-border);
+}
+.jf-extra-done__head { display: flex; align-items: center; gap: 12px; }
+.jf-extra-done__check {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--accent-border); color: var(--accent); font-weight: 900;
+}
+.jf-extra-done__text { flex: 1; min-width: 0; }
+.jf-extra-done__title { font-size: 15px; font-weight: 900; color: var(--text); }
+.jf-extra-done__sub { font-size: 12px; color: var(--muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jf-extra-done__ask { margin-top: 14px; }
+.jf-extra-done__q { font-size: 13px; color: var(--text); font-weight: 600; line-height: 1.5; margin-bottom: 10px; }
+.jf-extra-done__btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.jf-extra-done .jf-sb-quiet { margin-top: 10px; }
+.jf-extra-line {
+  margin: 0 0 16px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em;
+  color: var(--accent); text-align: center;
+}

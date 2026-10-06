@@ -70,13 +70,15 @@ export function parsePlanRequest(body) {
   if (!date) {
     return { status: 400, body: { error: 'date required' } };
   }
-  // A user-authored session is today's plan, never an ephemeral bonus or a
-  // free-tier adapt, and pinning is an engine request — the three do not combine.
+  // A user-authored session is never a free-tier adapt, and pinning is an engine
+  // request — those do not combine. With bonus_session it is "als extra"
+  // (MANUAL_TRAINING_DESIGN §4): the same assembly and advisory pass, returned in
+  // memory and never written to day_plans, so today's plan stays as it is.
   if (isCustom) {
     const err = customStepsShapeError(custom_steps);
     if (err) return { status: 400, body: { ok: false, error: 'invalid_custom_steps', detail: err } };
-    if (bonus_session || adapt_mode || hasPins) {
-      return { status: 400, body: { ok: false, error: 'invalid_custom_steps', detail: 'custom_steps cannot be combined with bonus_session, adapt_mode or pinned_exercise_ids' } };
+    if (adapt_mode || hasPins) {
+      return { status: 400, body: { ok: false, error: 'invalid_custom_steps', detail: 'custom_steps cannot be combined with adapt_mode or pinned_exercise_ids' } };
     }
   }
   if (hasPins) {
@@ -86,9 +88,14 @@ export function parsePlanRequest(body) {
 
   return {
     request: {
-      date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session,
+      date, checkin, completed_exercise_ids, user_profile, cycle_context,
+      // The ENGINE's bonus flag (runPlanner receives it raw). An extra own session
+      // is not an engine bonus: it loads the same history as a replacing one, so
+      // its advisory pass sees exactly what W4.1's does.
+      bonus_session: isCustom ? false : bonus_session,
       coach_sim, adapt_mode, base_plan, custom_steps, session_name,
       isCustom,
+      isExtra:           isCustom && !!bonus_session,
       hasPins,
       pinnedIds:         hasPins ? pinned_exercise_ids.map(String) : [],
       forceAssessment:   !!force_assessment,
@@ -157,6 +164,8 @@ export function needsExistingPlan(body) {
  *                      keeps the exercise selection); without it a free user's
  *                      check-in did nothing once a plan existed (F8, 2026-10-04)
  *   bonus_session      ephemeral, never stored
+ *   custom_steps + bonus_session  "als extra": your own session next to today's
+ *                      plan — generates nothing, stores nothing (reason custom_extra)
  *
  * A stored plan_json that does not parse is never returned: preserve falls
  * through to the cap, and the cap falls through to regenerate — exactly the
@@ -168,6 +177,7 @@ export function needsExistingPlan(body) {
  */
 export function decideExistingPlan({ existingRow, body, isPro }) {
   if (!existingRow) return { decision: 'regenerate', reason: 'no_existing_plan' };
+  if (_present(body?.custom_steps) && body?.bonus_session) return { decision: 'regenerate', reason: 'custom_extra' };
   if (_present(body?.custom_steps)) return { decision: 'regenerate', reason: 'custom_steps' };
   if (body?.bonus_session) return { decision: 'regenerate', reason: 'bonus_session' };
 

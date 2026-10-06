@@ -13,11 +13,12 @@ const WHY_NOT_OPTIONS = [
   { label: "Just need rest",checkin: null },
 ];
 
-// W4.2 — three ways out, not two: adapt the coach's plan, rest, or do
-// something else entirely. When today's plan is the user's OWN session, the
-// adapt chips would replace it, so they first ask (the override is durable —
-// only a confirmed action replaces it, W4.1).
-export default function WhyNotModal({ onRegen, onRestDay, onBuildOwn, onClose, userAuthored }) {
+// Two ways out: adapt the coach's plan, or rest. "Ik doe iets anders" moved to
+// "Eigen training" on the Today card (MANUAL_TRAINING_DESIGN §2), where your own
+// session is a choice of its own rather than a fallback. When today's plan is
+// the user's OWN session, the adapt chips would replace it, so they first ask
+// (the override is durable — only a confirmed action replaces it, W4.1).
+export default function WhyNotModal({ onRegen, onRestDay, onClose, userAuthored }) {
   useLang();
   const [pending, setPending] = useState(null);
   const pick = (opt) => {
@@ -54,13 +55,6 @@ export default function WhyNotModal({ onRegen, onRestDay, onBuildOwn, onClose, u
             </button>
           </div>
         )}
-        <button
-          onClick={onBuildOwn}
-          style={{ width: "100%", minHeight: 52, padding: "12px 16px", borderRadius: 16, marginBottom: 10, cursor: "pointer", fontFamily: "inherit", border: "1px solid var(--accent-border)", background: "var(--accent-dim)", color: "var(--accent)", textAlign: "left" }}
-        >
-          <span style={{ display: "block", fontSize: 14, fontWeight: 900 }}>{t("I'm doing something else")} →</span>
-          <span style={{ display: "block", fontSize: 12, color: C.muted, marginTop: 2 }}>{t("Build your own session, or pin a few exercises and let the coach fill the rest.")}</span>
-        </button>
         <button onClick={onClose} style={{ width: "100%", padding: 13, borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>{t("Cancel")}</button>
       </div>
     </div>

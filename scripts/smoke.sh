@@ -716,7 +716,9 @@ fi
 # (see CLAUDE.md "Styling"); when a view is migrated, LOWER this number.
 # 2392 → 2313 (2026-10-05): SessionBuilder + the two-phase log sheet + the
 # logged-record lines in PlanWeekView/HistoryView moved to styles.css.
-STYLE_CEILING=2313
+# 2313 → 2297 (2026-10-06): "Eigen training" — the Today-card one-tap template
+# picker and WhyNot's build-own button replaced by classed components.
+STYLE_CEILING=2297
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -817,7 +819,7 @@ fi
 # C-G4 cap and pins are not.
 OVERRIDE=$(node --no-warnings scripts/plan-override-requests.mjs 2>&1) || true
 if [ "$OVERRIDE" = "OK" ]; then
-  ok "user override (W4.1/W4.4): validation, clamping, survival, upsert relabel, safety ack, cap exemption hold over HTTP"
+  ok "user override (W4.1/W4.4): validation, clamping, survival, upsert relabel, safety ack, cap exemption, \"als extra\" (no day_plans write, advisory pass) hold over HTTP"
 else
   fail "user override: ${OVERRIDE}"
 fi
@@ -856,7 +858,7 @@ else
 fi
 EXECREQ=$(node --no-warnings scripts/execution-requests.mjs 2>&1) || true
 if [ "$EXECREQ" = "OK" ]; then
-  ok "logged sessions (need C): 6-day window, session-dated credit, skip = no stimulus, notes round-trip hold over HTTP"
+  ok "logged sessions (need C): 6-day window, session-dated credit, skip = no stimulus, notes + source_ref round-trip, rejected saves throw hold over HTTP"
 else
   fail "logged sessions: ${EXECREQ}"
 fi
@@ -1379,9 +1381,11 @@ fi
 # paid ten minutes of reading per cold start. onRequestPost was 581 lines mixing
 # parse, cap/override, planner call and persistence. Ceilings are the numbers F4
 # reached; when a later extraction lowers a count, LOWER the ceiling with it.
-PLAN_CEILING=3829
-APP_CEILING=1833
-POST_CEILING=100
+# 2026-10-06 ("Eigen training"): App.jsx 1833 → 1800 (the shell's inline <style>
+# element moved to styles.css), plan.js 3829 → 3827, onRequestPost 100 → 99.
+PLAN_CEILING=3827
+APP_CEILING=1800
+POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
 APP_NOW=$(wc -l < packages/client-app/src/App.jsx | tr -d " ")
 POST_NOW=$(awk '/^export async function onRequestPost\(/{s=NR} s && NR>s && /^}/{print NR-s+1; exit}' functions/api/plan.js)

@@ -92,6 +92,10 @@ const users = {
   preg: { goal: 'health', sex: 'female' },
   // DCP switched on, never measured → R598 is due (F8 item 6).
   dcp:  { goal: 'health', prefs: { military_coach: { active: false, dcp: { enabled: true, bias_enabled: true, birth_year: 1989 } } } },
+  // MANUAL_TRAINING_DESIGN phase 1 — "als extra" (block 10).
+  xfree: { goal: 'health' },
+  xnone: { goal: 'health' },
+  pain:  { goal: 'health' },
 };
 for (const [id, u] of Object.entries(users)) {
   db.prepare('INSERT INTO users (id) VALUES (?)').run(id);
@@ -142,8 +146,8 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(r2.status === 400, `an inactive exercise must be rejected like an unknown one, got ${r2.status}`);
   const r3 = await post('pro', { custom_steps: Array.from({ length: 21 }, () => S('push-up')) });
   check(r3.status === 400, `more than 20 custom steps must be 400, got ${r3.status}`);
-  const r4 = await post('pro', { custom_steps: [S('push-up')], bonus_session: true });
-  check(r4.status === 400, `custom_steps with bonus_session must be 400, got ${r4.status}`);
+  const r4 = await post('pro', { custom_steps: [S('push-up')], adapt_mode: true });
+  check(r4.status === 400, `custom_steps with adapt_mode must be 400, got ${r4.status}`);
   check(row('pro') === null, 'a rejected custom session wrote a day_plans row');
 }
 
@@ -297,6 +301,56 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(added.status === 200 && added.body.plan?.assessment_planned === true && added.body.plan?.assessment_offer === false && m.length === 2
     && row('dcp')?.generated_by === 'user',
     `"Zelfmeting toevoegen" must re-install the session with both measurement sets, got ${added.status} planned=${added.body.plan?.assessment_planned} sets=${m.length}`);
+}
+
+// 10. MANUAL_TRAINING_DESIGN §4 — "als extra": custom_steps + bonus_session.
+//     The same assembly and advisory pass as a replacing session, returned in
+//     memory; today's day_plans row is never created, changed or relabelled.
+{
+  const steps = [S('push-up', { sets: 3, target_reps: 10 }), S('glute-bridge', { sets: 3, target_reps: 12 })];
+  const eng = await post('xfree', {});
+  const before = row('xfree');
+  check(before?.generated_by === 'engine', `xfree's first plan not stored (${eng.status})`);
+  // A free user who already has today's plan: the extra is not capped and stores nothing.
+  const extra = await post('xfree', { custom_steps: steps, bonus_session: true, session_name: 'Hotelbank' });
+  check(extra.status === 200 && extra.body.bonus === true && extra.body.saved === false && extra.body.plan?.bonus === true
+    && extra.body.plan?.authored_by_user === true && extra.body.plan?.capped !== true && extra.body.plan?.session_name === 'Hotelbank'
+    && extra.body.plan?.steps?.length === 2 && Array.isArray(extra.body.safety_notes),
+    `an extra own session must answer 200 { bonus: true, saved: false, plan: { authored_by_user, bonus } } uncapped, got ${extra.status} ${JSON.stringify(extra.body).slice(0, 200)}`);
+  check(extra.body.plan?.id == null, `an extra must not carry a plan id (no day_plans row exists for it), got ${extra.body.plan?.id}`);
+  check(JSON.stringify(row('xfree')) === JSON.stringify(before),
+    `an extra own session changed today's day_plans row: ${before?.generated_by}/${before?.updated_at_ms} → ${row('xfree')?.generated_by}/${row('xfree')?.updated_at_ms}`);
+  // The same free user may replace instead — that one IS stored, as 'user'.
+  const repl = await post('xfree', { custom_steps: steps });
+  check(repl.status === 200 && repl.body.saved === true && !repl.body.bonus && row('xfree')?.generated_by === 'user' && repl.body.plan?.id === row('xfree')?.id,
+    `a replacing own session must be stored as generated_by=user, got ${repl.status} saved=${repl.body.saved} row=${row('xfree')?.generated_by}`);
+  // An extra over the user's OWN session leaves that one alone too.
+  const own = row('xfree');
+  const extra2 = await post('xfree', { custom_steps: [S('dead-bug')], bonus_session: true });
+  check(extra2.status === 200 && JSON.stringify(row('xfree')) === JSON.stringify(own), 'an extra replaced the user-authored session of today');
+  // No plan yet today: an extra creates none.
+  const none = await post('xnone', { custom_steps: steps, bonus_session: true });
+  check(none.status === 200 && row('xnone') === null, `an extra on a day without a plan wrote a day_plans row (${none.status})`);
+  // Acceptance 6 — the advisory pass runs on an extra: a pain day keeps its amber note.
+  const pain = await post('pain', { custom_steps: steps, bonus_session: true, checkin: { pain_level: 3 } });
+  check(pain.status === 200 && (pain.body.safety_notes ?? []).some(n => n.code === 'R514' && !n.blocking)
+    && (pain.body.plan?.safety_notes ?? []).some(n => n.code === 'R514'),
+    `an extra session on a pain day must carry the R514 advisory note, got ${pain.status} ${JSON.stringify(pain.body.safety_notes)}`);
+  check(row('pain') === null, 'the pain-day extra wrote a day_plans row');
+  // A hard contraindication blocks an extra exactly as it blocks a replacing session.
+  const pregBefore = row('preg');
+  const blocked = await post('preg', { custom_steps: [S('burpee')], bonus_session: true });
+  check(blocked.status === 409 && blocked.body.error === 'safety_ack_required', `a blocking note on an extra must be 409 without ack, got ${blocked.status}`);
+  const acked = await post('preg', { custom_steps: [S('burpee')], bonus_session: true, safety_ack: true });
+  check(acked.status === 200 && acked.body.bonus === true && typeof acked.body.plan?.safety_ack_ms === 'number',
+    `an acknowledged extra must answer 200 with safety_ack_ms, got ${acked.status}`);
+  check(JSON.stringify(row('preg')) === JSON.stringify(pregBefore), 'an (acknowledged) extra changed the pregnant user\'s stored plan');
+  // R598 — offered on an extra too, never inserted silently.
+  const dcpBefore = row('dcp');
+  const dcp = await post('dcp', { custom_steps: steps, bonus_session: true });
+  check(dcp.status === 200 && dcp.body.assessment_offer === true && !(dcp.body.plan?.steps ?? []).some(st => st.max_effort),
+    `a due measurement must be offered (not inserted) on an extra, got offer=${dcp.body.assessment_offer}`);
+  check(JSON.stringify(row('dcp')) === JSON.stringify(dcpBefore), 'an extra changed the dcp user\'s stored plan');
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');

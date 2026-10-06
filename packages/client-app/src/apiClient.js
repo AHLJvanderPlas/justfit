@@ -40,6 +40,21 @@ const api = {
     return { status: res.status, data: data ?? {} };
   },
 
+  // "Eigen training" (MANUAL_TRAINING_DESIGN §4) — start an own session, as an
+  // extra (bonus_session: the server returns it in memory, today's plan stays)
+  // or in place of today's plan. The body comes from ownTraining.ownSessionBody.
+  // Same { status, data } contract as installCustomSession.
+  async startOwnSession(body) {
+    const res = await fetch("/api/plan", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    return { status: res.status, data: data ?? {} };
+  },
+
   // W4.4 — pin 1–3 exercises, the coach fills the rest. Opened from the
   // builder, so it is an explicit replacement of whatever today's plan is.
   async pinAndFill(date, pinnedIds) {
@@ -165,7 +180,12 @@ const api = {
     return data.score ?? 0;
   },
 
-  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null) {
+  // Throws on a non-OK answer (Error with .status and .code) as on a network
+  // failure. It used to return the error body as if it were a success, so a
+  // rejected save (a 400, a 500) marked the day done and the session was lost
+  // with nothing queued and nothing shown. `sourceRef` (MANUAL_TRAINING_DESIGN
+  // §7): 'template:<id>' when the session was started from a saved training.
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null, sourceRef = null) {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -177,6 +197,7 @@ const api = {
         duration_sec: durationSec,
         perceived_exertion: perceivedExertion ?? null,
         notes: notes ?? undefined,
+        source_ref: sourceRef ?? undefined,
         steps: steps.map((s) => ({
           exercise_id: s.exercise_id,
           prescribed: {
@@ -189,7 +210,15 @@ const api = {
         })),
       }),
     });
-    return res.json();
+    let data = null;
+    try { data = await res.json(); } catch { /* non-JSON error page */ }
+    if (!res.ok || !data?.ok) {
+      const err = new Error(data?.error ?? `Execution save failed (${res.status})`);
+      err.status = res.status;
+      err.code = data?.error ?? null;
+      throw err;
+    }
+    return data;
   },
 
   async getHistory() {

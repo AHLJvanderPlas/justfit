@@ -236,14 +236,21 @@ export function logWindow(nowMs) {
   return { from: isoDay(nowMs - LOG_WINDOW_DAYS * DAY_MS), to: isoDay(nowMs) };
 }
 
+// MANUAL_TRAINING_DESIGN §7 — what a performed session was started from (migration
+// 0122). A reference, not a foreign key; the shape is the contract.
+export const SOURCE_REF_PATTERN = /^(template|assigned_session):[A-Za-z0-9_-]{1,64}$/;
+
 export async function onRequestPost({ request, env }) {
   try {
     const body = await request.json();
-    const { date, day_plan_id, session_type, session_program, steps, perceived_exertion, duration_sec, notes } = body;
+    const { date, day_plan_id, session_type, session_program, steps, perceived_exertion, duration_sec, notes, source_ref } = body;
 
     const user_id = await getAuthUserId(request, env);
     if (!user_id) return Response.json({ error: 'unauthorized' }, { status: 401 });
     if (!date) return Response.json({ error: 'date required' }, { status: 400 });
+    if (source_ref != null && (typeof source_ref !== 'string' || !SOURCE_REF_PATTERN.test(source_ref))) {
+      return Response.json({ error: 'invalid_source_ref' }, { status: 400 });
+    }
 
     const id  = crypto.randomUUID();
     const now = Date.now();
@@ -294,8 +301,8 @@ export async function onRequestPost({ request, env }) {
         (id, user_id, date, day_plan_id, execution_type, status,
          total_duration_sec, perceived_exertion,
          tss_planned, tss_actual, tss_source,
-         notes, created_at_ms, updated_at_ms)
-      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?)
+         notes, source_ref, created_at_ms, updated_at_ms)
+      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, user_id, date,
       day_plan_id ?? null,
@@ -306,6 +313,7 @@ export async function onRequestPost({ request, env }) {
       tss_actual_val,
       tss_source_val,
       typeof notes === 'string' ? (notes.trim() || null) : null,
+      source_ref ?? null,
       now, now
     ).run();
 
@@ -796,7 +804,7 @@ export async function onRequestGet({ request, env }) {
         `SELECT id, date, execution_type, status, total_duration_sec,
                 perceived_exertion, tss_planned, tss_actual, tss_source,
                 strava_activity_id, strava_metadata_json,
-                notes, created_at_ms
+                notes, source_ref, created_at_ms
          FROM executions
          WHERE user_id = ?
            ${isPro ? '' : 'AND created_at_ms >= ?'}

@@ -294,7 +294,8 @@
    "client_feedback",
    "strava_metadata_expires_at_ms",
    "strava_upload_activity_id",
-   "strava_upload_at_ms"
+   "strava_upload_at_ms",
+   "source_ref"
   ],
   "exercise_aliases": [
    "id",

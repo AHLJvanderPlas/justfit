@@ -14,6 +14,7 @@ import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
 import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
+import { completedInfo, readExtra, writeExtra, isRetryable, execPayload, execArgs, saveOwnExtra } from "./ownTraining.js";
 
 // ─── VIEW COMPONENTS ──────────────────────────────────────────────────────────
 // WorkoutView: active workout path — split into its own chunk, but the import()
@@ -48,6 +49,7 @@ const CheckInModal = lazy(() => checkInModalPromise);
 const OnboardingModal = lazy(() => import("./OnboardingModal.jsx"));
 const PathChoiceModal = lazy(() => import("./PathChoiceModal.jsx"));
 const WhyNotModal = lazy(() => import("./WhyNotModal.jsx"));
+const EigenTraining = lazy(() => import("./EigenTraining.jsx"));
 const GuestConvertModal = lazy(() => import("./GuestConvertModal.jsx"));
 import Nav from "./Nav.jsx";
 
@@ -337,6 +339,9 @@ export default function App() {
   }, []);
   const [showWhyNot, setShowWhyNot] = useState(false);
   const [showBuilder, setShowBuilder] = useState(false);
+  // MANUAL_TRAINING_DESIGN — "Eigen training": the chooser, and today's extra (§6).
+  const [showOwn, setShowOwn] = useState(false);
+  const [extraDone, setExtraDone] = useState(() => readExtra(today));
   // W4.3 — saved trainings, and what the builder opens with (a template to
   // edit, and the safety notes of a one-tap use that needs an acknowledgement).
   const [myTemplates, setMyTemplates] = useState([]);
@@ -354,6 +359,13 @@ export default function App() {
   const handleLogged = async (date) => {
     await refreshScoreHistory().catch((e) => console.error("Refresh after logging failed:", e));
     if (date === today) { setTodayCompleted(true); localStorage.setItem(`jf_completed_${today}`, "1"); }
+  };
+  // "Plan done?" → yes (§6): today's plan is marked done the way handleLogged does it.
+  const handleExtraPlanDone = () => {
+    const info = { name: extraDone?.name, duration_sec: extraDone?.duration_sec };
+    setTodayCompleted(true); localStorage.setItem(`jf_completed_${today}`, "1");
+    setCompletedSession(info); localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(info));
+    setExtraDone(writeExtra(today, { ...extraDone, dismissed: true }));
   };
   const handleTemplateSaved = (tpl) => setMyTemplates((list) => [tpl, ...list.filter((x) => x.id !== tpl.id)]);
   const handleDeleteTemplate = async (tpl) => {
@@ -624,21 +636,23 @@ export default function App() {
       .then(({ results: h, truncated }) => {
         setHistory(h);
         setHistoryTruncated(!!truncated);
-        // Reconcile completed state against server history (handles cross-device sync)
+        // Reconcile completed state against server history (handles cross-device sync).
+        // An extra (bonus) session alone does not complete today's plan — the user
+        // says so on its done card ("Plan done?", MANUAL_TRAINING_DESIGN §6).
         const todayExecutions = h.filter((ex) => ex.date === today);
-        const hasToday = todayExecutions.length > 0;
-        if (!hasToday) {
+        const bonusSession = todayExecutions.find((ex) => ex.execution_type === "bonus");
+        const mainSession = todayExecutions.find((ex) => ex.execution_type !== "bonus")
+          ?? (localStorage.getItem(`jf_completed_${today}`) === "1" ? bonusSession : undefined);
+        if (!mainSession) {
           // Completed on no device — clear local state
           setTodayCompleted(false);
           setCompletedSession(null);
           localStorage.removeItem(`jf_completed_${today}`);
           localStorage.removeItem(`jf_completed_session_${today}`);
-          setBonusDone(false);
-          localStorage.removeItem(`jf_bonus_${today}`);
+          setBonusDone(!!bonusSession);
+          if (!bonusSession) localStorage.removeItem(`jf_bonus_${today}`);
         } else {
           // Completed on some device — mark done on this device too
-          const mainSession = todayExecutions.find((ex) => ex.execution_type !== "bonus") ?? todayExecutions[0];
-          const bonusSession = todayExecutions.find((ex) => ex.execution_type === "bonus");
           setTodayCompleted(true);
           localStorage.setItem(`jf_completed_${today}`, "1");
           if (mainSession && !localStorage.getItem(`jf_completed_session_${today}`)) {
@@ -728,14 +742,16 @@ export default function App() {
       let remaining = pending.length;
       for (const mut of pending) {
         try {
-          if (mut.type === 'execution') {
-            const p = mut.payload;
-            await api.saveExecution(p.userId, p.planId, p.date, p.steps, p.durationSec, p.perceivedExertion, p.sessionType, p.sessionProgram, p.notes);
-          }
+          if (mut.type === 'execution') await api.saveExecution(...execArgs(mut.payload));
           await removeMutation(mut.id);
           remaining--;
-        } catch {
-          break; // still offline — stop and try again later
+        } catch (e) {
+          if (isRetryable(e)) break; // still offline — stop and try again later
+          // Rejected for good (e.g. older than the server's 6-day window): it would
+          // block every save queued behind it, so drop it — and say so.
+          console.error("Queued execution rejected by the server, dropped:", e.code ?? e.status);
+          await removeMutation(mut.id);
+          remaining--;
         }
       }
       setPendingSyncCount(remaining);
@@ -913,17 +929,8 @@ export default function App() {
           : plan?.cycling_program ? "cycling_coach"
           : plan?.run_program ? "run_coach"
           : "workout";
-        await api.saveExecution(
-          userId,
-          plan?.id,
-          today,
-          mergedSteps,
-          durationSec,
-          perceivedExertion,
-          sessionType,
-          isMilSession ? "military" : null,
-          notes,
-        );
+        await api.saveExecution(userId, plan?.id, today, mergedSteps, durationSec, perceivedExertion,
+          sessionType, isMilSession ? "military" : null, notes, plan?.source_ref ?? null);
         const [newScore, newHistory] = await Promise.all([
           api.getScore(),
           api.getHistory(),
@@ -935,27 +942,25 @@ export default function App() {
         // Mark today as completed
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
-        const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
+        const sessionInfo = completedInfo(plan, durationSec);
         setCompletedSession(sessionInfo);
         localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       } catch (e) {
         console.error("Failed to save execution:", e);
+        // A rejected save is not queued — it would be rejected again; say so instead.
+        if (!isRetryable(e)) { setActivityToast(t("Your session could not be saved.")); setTimeout(() => setActivityToast(""), 4000); setInWorkout(false); setView("today"); return; }
         // Queue for replay when network recovers. Mark today complete optimistically.
         const isMilSession = !!(plan?.military_program);
         const sessionType = plan?.cross_training_run ? "cycling_cross_run"
           : plan?.cycling_program ? "cycling_coach"
           : plan?.run_program ? "run_coach"
           : "workout";
-        await queueMutation('execution', {
-          userId, planId: plan?.id, date: today,
-          steps: stepsActual ?? plan?.steps ?? [],
-          durationSec, perceivedExertion,
-          sessionType, sessionProgram: isMilSession ? "military" : null, notes: null,
-        });
+        await queueMutation('execution', execPayload([userId, plan?.id, today, stepsActual ?? plan?.steps ?? [],
+          durationSec, perceivedExertion, sessionType, isMilSession ? "military" : null, notes, plan?.source_ref]));
         setPendingSyncCount(c => c + 1);
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
-        const sessionInfo = { name: plan?.session_name, duration_sec: durationSec };
+        const sessionInfo = completedInfo(plan, durationSec);
         setCompletedSession(sessionInfo);
         localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       }
@@ -1006,29 +1011,29 @@ export default function App() {
     [cooperPending, userId, plan, today, score, token, prefs],
   );
 
+  // An engine bonus, or an own session "als extra" (authored_by_user: no
+  // day_plans row, so no day_plan_id; its template as source_ref).
   const handleBonusComplete = useCallback(
-    async (durationSec, perceivedExertion, stepsActual) => {
+    async (durationSec, perceivedExertion, stepsActual, notes) => {
+      const own = !!bonusPlan?.authored_by_user;
+      let saved = true;
       try {
-        const mergedSteps = stepsActual ?? bonusPlan?.steps ?? [];
-        await api.saveExecution(userId, bonusPlan?.id, today, mergedSteps, durationSec, perceivedExertion, "bonus");
-        const [newScore, newHistory] = await Promise.all([
-          api.getScore(),
-          api.getHistory(),
-        ]);
-        setScore(newScore);
-        setHistory(newHistory.results);
-        setHistoryTruncated(!!newHistory.truncated);
-        setBonusDone(true);
-        localStorage.setItem(`jf_bonus_${today}`, "1");
-        setActivityToast("Double session — great work.");
-        setTimeout(() => setActivityToast(""), 3000);
+        if (own) await saveOwnExtra(api, { userId, today, plan: bonusPlan, stepsActual, durationSec, perceivedExertion, notes });
+        else await api.saveExecution(userId, bonusPlan?.id, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus");
+        await refreshScoreHistory();
+        if (!own) { setActivityToast("Double session — great work."); setTimeout(() => setActivityToast(""), 3000); }
       } catch (e) {
         console.error("Failed to save bonus execution:", e);
+        saved = isRetryable(e);
+        if (saved && own) { await queueMutation('execution', execPayload([userId, null, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus", null, notes, bonusPlan?.source_ref])); setPendingSyncCount(c => c + 1); }
+        else if (own) { setActivityToast(t("Your session could not be saved.")); setTimeout(() => setActivityToast(""), 4000); }
       }
+      if (saved) { setBonusDone(true); localStorage.setItem(`jf_bonus_${today}`, "1"); }
+      if (saved && own) setExtraDone(writeExtra(today, completedInfo(bonusPlan, durationSec)));
       setInBonusWorkout(false);
       setBonusPlan(null);
     },
-    [userId, bonusPlan, today],
+    [userId, bonusPlan, today, refreshScoreHistory],
   );
 
   const handleDeleteExecution = useCallback(
@@ -1128,7 +1133,7 @@ export default function App() {
     const { status, data } = res;
     if (status === 409) { openBuilder(tpl, data.safety_notes ?? []); return { ok: true }; }
     if (status !== 200 || !data.ok) return { error: data.error === "unknown_exercise" ? "unknown_exercise" : "failed" };
-    setPlan(data.plan); setPlanError(null);
+    setPlan({ ...data.plan, source_ref: tpl.id ? `template:${tpl.id}` : undefined }); setPlanError(null);
     setView("today");
     return { ok: true };
   };
@@ -1162,59 +1167,11 @@ export default function App() {
         WebkitFontSmoothing: "antialiased",
       }}
     >
-      <style>{`
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
-        /* ── UX-7 — touch targets ──
-           Every control gets touch-action: manipulation, which removes iOS Safari's
-           300ms tap delay. The small +/- steppers in Settings keep their 28px look —
-           they are correct visually — while .jf-tap expands the actual hit area to
-           44px with a centred pseudo-element. Enlarging the buttons themselves would
-           have broken layouts that are working. */
-        button, [role="button"] { touch-action: manipulation; }
-        .jf-tap { position: relative; }
-        .jf-tap::after {
-          content: ""; position: absolute; top: 50%; left: 50%;
-          transform: translate(-50%, -50%);
-          width: 44px; height: 44px;
-        }
-
-        /* UX-5 — one skeleton style for every loading placeholder. */
-        .jf-skeleton { background: rgba(var(--overlay-rgb),0.07); animation: pulse 1.4s ease-in-out infinite; }
-
-        /* ── UX-2 — prefers-reduced-motion ──
-           Applied as a blanket rule rather than per-animation. The login canvas was
-           already handled, but tapScale, tapRing, the rest-ring dashoffset and every
-           inline transition were not, and hunting them one at a time guarantees the
-           next new animation is missed again.
-
-           Spinners are the deliberate exception: rotation in place involves no
-           translation and is not a vestibular trigger, while a loading spinner that
-           does not spin reads as a frozen app. Slowed rather than stopped. */
-        @media (prefers-reduced-motion: reduce) {
-          *, *::before, *::after {
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-            scroll-behavior: auto !important;
-          }
-          .jf-spin {
-            animation-duration: 1.6s !important;
-            animation-iteration-count: infinite !important;
-          }
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-        @keyframes tapScale { 0%{transform:scale(1)} 40%{transform:scale(0.96)} 100%{transform:scale(1)} }
-        @keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
-        ::-webkit-scrollbar { width: 0; }
-        textarea { font-family: inherit; color: inherit; }
-        button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-      `}</style>
 
       <div
         style={{ maxWidth: 760, margin: "0 auto", padding: "max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 120px" }}
       >
-        {!inWorkout && (
+        {!inWorkout && !inBonusWorkout && (
           <header
             style={{
               display: "flex",
@@ -1438,8 +1395,12 @@ export default function App() {
                     onLogActivity={handleLogActivity}
                     onBonusSession={handleBonusSelect}
                     onWhyNot={() => setShowWhyNot(true)}
-                    onBuildOwn={() => openBuilder()}
-                    myTemplates={myTemplates}
+                    onOwnTraining={() => setShowOwn(true)}
+                    extraDone={extraDone}
+                    onExtraPlanDone={handleExtraPlanDone}
+                    onExtraDismiss={() => setExtraDone(writeExtra(today, { ...extraDone, dismissed: true }))}
+                    isGuest={!hasEmail}
+                    onTemplateSaved={handleTemplateSaved}
                     onUseTemplate={handleUseTemplate}
                     onCheckIn={() => setShowCheckIn(true)}
                     prefs={prefs}
@@ -1568,7 +1529,7 @@ export default function App() {
         )}
       </div>
 
-      {!inWorkout && (() => {
+      {!inWorkout && !inBonusWorkout && (() => {
         const hasTrainer = !!(trainerData?.assigned_trainer);
         const todayStr = new Date().toISOString().slice(0, 10);
         const coachDot = hasTrainer && (
@@ -1738,7 +1699,6 @@ export default function App() {
           <WhyNotModal
             onRegen={handleWhyNotRegen}
             onRestDay={handleRestDay}
-            onBuildOwn={() => { setShowWhyNot(false); openBuilder(); }}
             userAuthored={!!plan?.authored_by_user}
             onClose={() => setShowWhyNot(false)}
           />
@@ -1755,6 +1715,15 @@ export default function App() {
             initialNotes={builderNotes}
             onTemplateSaved={handleTemplateSaved}
           />
+        </Suspense>
+      )}
+      {showOwn && (
+        <Suspense fallback={null}>
+          <EigenTraining prefs={prefs} today={today} plan={plan} todayCompleted={todayCompleted} templates={myTemplates}
+            hasGym={!!trainerData?.gym_id} isGuest={!hasEmail} isOffline={isOffline} lastCheckin={lastCheckin}
+            onClose={() => setShowOwn(false)} onLogged={handleLogged} onTemplateSaved={handleTemplateSaved}
+            onStartExtra={(p) => { setShowOwn(false); setBonusPlan(p); setInBonusWorkout(true); }}
+            onStartReplace={(p) => { setShowOwn(false); setPlan(p); setPlanError(null); setView("today"); setInWorkout(true); }} />
         </Suspense>
       )}
       {showGuestConvert && (

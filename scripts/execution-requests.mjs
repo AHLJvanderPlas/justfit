@@ -101,17 +101,20 @@ async function call(handler, user, { method = 'GET', query = '', body } = {}) {
 const POST = (user, body) => call(execution.onRequestPost, user, { method: 'POST', body });
 const HISTORY = (user) => call(execution.onRequestGet, user, { query: '?limit=30' });
 
-// The builder's path: logSession.loggedStep → apiClient.logSession → onRequestPost.
-async function logAs(user, date, opts) {
+// The client's own path: apiClient → a fetch stub → onRequestPost, so the payload
+// under test is the one the app sends.
+async function viaClient(user, fn) {
   const orig = globalThis.fetch;
   globalThis.fetch = async (url, init = {}) => {
     const u = new URL(url, 'https://app.test');
-    if (u.pathname !== '/api/execution' || init.method !== 'POST') throw new Error(`logSession called ${init.method} ${u.pathname}`);
+    if (u.pathname !== '/api/execution' || init.method !== 'POST') throw new Error(`client called ${init.method} ${u.pathname}`);
     const req = new Request(u, { ...init, headers: { ...(init.headers ?? {}), Cookie: await cookieFor(user) } });
     return execution.onRequestPost({ request: req, env });
   };
-  try { return await api.logSession(date, opts); } finally { globalThis.fetch = orig; }
+  try { return await fn(); } finally { globalThis.fetch = orig; }
 }
+// The builder's path: logSession.loggedStep → apiClient.logSession → onRequestPost.
+const logAs = (user, date, opts) => viaClient(user, () => api.logSession(date, opts));
 
 const DAY = 86_400_000;
 const today = new Date(T0).toISOString().slice(0, 10);
@@ -231,6 +234,36 @@ try {
   check(e?.steps?.length === 3 && JSON.parse(e.steps[2].actual_json).skipped === true, 'history lost the skipped sit-up');
   const ev = events('alice').at(-1);
   check(JSON.parse(ev?.stimulus_json ?? '{}').push?.power > 0, `the owner's push-ups earned no push stimulus: ${ev?.stimulus_json}`);
+}
+
+// 6. MANUAL_TRAINING_DESIGN §7 / migration 0122 — source_ref. A session started
+//    from a saved training records 'template:<id>' (acceptance 5), through the
+//    client's saveExecution, as the "als extra" path sends it: session_type
+//    'bonus', no day_plan_id. It round-trips in GET. Anything else is 400 and
+//    writes nothing.
+{
+  const tplId = crypto.randomUUID();
+  const saved = await viaClient('bob', () => api.saveExecution('bob', null, today, [pushStep(3)], 600, 5, 'bonus', null, null, `template:${tplId}`));
+  const row = saved?.execution_id ? execRow(saved.execution_id) : null;
+  check(row?.source_ref === `template:${tplId}` && row?.execution_type === 'bonus' && row?.day_plan_id === null,
+    `a session started from a template must store source_ref=template:<id> (bonus, no day_plan_id), got ${JSON.stringify(row && { source_ref: row.source_ref, type: row.execution_type, plan: row.day_plan_id })}`);
+  const h = await HISTORY('bob');
+  check(h.body?.executions?.find(x => x.id === saved?.execution_id)?.source_ref === `template:${tplId}`, 'GET /api/execution does not return source_ref');
+  const plain = await POST('bob', { date: today, session_type: 'workout', steps: [pushStep(1)] });
+  check(execRow(plain.body?.execution_id)?.source_ref === null, 'a session without a source must store source_ref NULL');
+  const asg = await POST('bob', { date: today, session_type: 'workout', steps: [pushStep(1)], source_ref: 'assigned_session:abc-123' });
+  check(asg.status === 200 && execRow(asg.body?.execution_id)?.source_ref === 'assigned_session:abc-123', `assigned_session:<id> must be accepted, got ${asg.status}`);
+  const n = db.prepare('SELECT COUNT(*) AS n FROM executions').get().n;
+  for (const bad of ['template:', 'template:../x', 'programme:1', 'template:' + 'x'.repeat(65), 42, { id: 1 }, '']) {
+    const r = await POST('bob', { date: today, session_type: 'workout', steps: [pushStep(1)], source_ref: bad });
+    check(r.status === 400 && r.body?.error === 'invalid_source_ref', `source_ref ${JSON.stringify(bad)} must be 400 invalid_source_ref, got ${r.status}`);
+  }
+  check(db.prepare('SELECT COUNT(*) AS n FROM executions').get().n === n, 'a rejected source_ref wrote an execution');
+  // The client surfaces a rejected save instead of resolving with the error body (Oct 5 report).
+  let thrown = null;
+  try { await viaClient('bob', () => api.saveExecution('bob', null, dayOff(9), [pushStep(1)], 60, null, 'workout')); } catch (e) { thrown = e; }
+  check(thrown?.status === 400 && thrown?.code === 'date_out_of_range',
+    `apiClient.saveExecution must throw on a 400 (status + code), got ${thrown ? `${thrown.status}/${thrown.code}` : 'a resolved promise'}`);
 }
 
 } catch (e) {

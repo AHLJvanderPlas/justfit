@@ -17,7 +17,7 @@ export async function onRequest(context) {
     env.DB.prepare(`SELECT * FROM users WHERE id = ?`).bind(userId).first(),
     env.DB.prepare(`SELECT * FROM user_preferences WHERE user_id = ?`).bind(userId).first(),
     env.DB.prepare(`SELECT id, date, mood, energy, sleep_hours, stress, created_at_ms FROM daily_checkins WHERE user_id = ? ORDER BY date DESC LIMIT 500`).bind(userId).all(),
-    env.DB.prepare(`SELECT id, date, execution_type, status, total_duration_sec, perceived_exertion, created_at_ms FROM executions WHERE user_id = ? ORDER BY date DESC LIMIT 1000`).bind(userId).all(),
+    env.DB.prepare(`SELECT id, date, execution_type, status, total_duration_sec, perceived_exertion, source_ref, created_at_ms FROM executions WHERE user_id = ? ORDER BY date DESC LIMIT 1000`).bind(userId).all(),
     env.DB.prepare(`SELECT id, gym_id, level, display_name, share_training_history, share_checkins, consented_at_ms FROM trainer_disclosures WHERE user_id = ?`).bind(userId).all(),
     env.DB.prepare(`SELECT id, gym_id, experience_level, completed_at_ms FROM client_intake WHERE user_id = ?`).bind(userId).all(),
     env.DB.prepare(`SELECT id, program_id, gym_id, start_date, status, adherence_pct FROM program_assignments WHERE client_user_id = ? LIMIT 200`).bind(userId).all(),

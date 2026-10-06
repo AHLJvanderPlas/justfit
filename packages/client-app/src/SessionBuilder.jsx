@@ -89,7 +89,12 @@ function NoteCard({ note }) {
 // `template` (W4.3): open preloaded from a saved training, offering "Sjabloon
 // bijwerken". `initialNotes`: the safety notes of a 409 from a one-tap use, so
 // the acknowledgement is asked here, where the notes have context.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved }) {
+// `onStart` ("Eigen training → Samenstellen", MANUAL_TRAINING_DESIGN §3): the
+// primary action is "Starten" and installs nothing — it hands the session to
+// the run-mode choice, which asks the server (and any acknowledgement) itself.
+// Pinning is an engine re-plan of today, so it is not offered there.
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null }) {
+  const startMode = typeof onStart === "function";
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
   const [mode, setMode] = useState("build");  // 'build' | 'pin'
@@ -296,10 +301,10 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   } else {
     body = (
       <>
-        <div className="jf-sb-modes">
+        {!startMode && <div className="jf-sb-modes">
           <button type="button" onClick={() => { setMode("build"); setError(null); }} className={chip(mode === "build", "jf-chip--grow")}>{t("Build it myself")}</button>
           <button type="button" onClick={() => { setMode("pin"); setError(null); }} className={chip(mode === "pin", "jf-chip--grow")}>{t("Pin + coach fills")}</button>
-        </div>
+        </div>}
         <p className="jf-sheet__intro">
           {mode === "build"
             ? t("Pick exercises from the library. They count for your progress like any session.")
@@ -432,7 +437,11 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
           <span className="jf-sb-estimate__budget">{t("your time")} {budget} min</span>
         </div>
       )}
-      {mode === "build" ? (
+      {startMode ? (
+        <button type="button" disabled={!steps.length} onClick={() => onStart({ steps: customSteps, name: tpl?.name ?? t("My training"), template: tpl })} className="jf-primary">
+          {t("Start now")}
+        </button>
+      ) : mode === "build" ? (
         <button type="button" disabled={!canSave} onClick={() => save(false)} className="jf-primary">
           {busy ? t("Saving…") : needsAck ? t("Confirm and use today") : t("Use today")}
         </button>

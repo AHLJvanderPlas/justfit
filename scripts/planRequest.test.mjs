@@ -4,7 +4,7 @@
 // scripts/plan-override-requests.mjs proves the wiring over HTTP for a handful of
 // paths. This file walks the whole decision table: every combination of
 // {isPro} × {no row, engine row, user row, malformed row} × {no exemption,
-// custom_steps, pins, force_assessment, adapt_mode, bonus_session} × {replace_user_plan}.
+// custom_steps, custom_extra, pins, force_assessment, adapt_mode, bonus_session} × {replace_user_plan}.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -25,6 +25,8 @@ const ROWS = {
 const EXEMPTIONS = {
   none:             {},
   custom_steps:     { custom_steps: [{ exercise_id: 'ex1' }] },
+  // "Als extra" (MANUAL_TRAINING_DESIGN §4): an own session NEXT TO today's plan.
+  custom_extra:     { custom_steps: [{ exercise_id: 'ex1' }], bonus_session: true },
   pins:             { pinned_exercise_ids: ['ex1'] },
   force_assessment: { force_assessment: true },
   // The client's base_plan is deliberately different from STORED: an adapt must
@@ -37,6 +39,7 @@ const EXEMPTIONS = {
 // order, independent of how decideExistingPlan is structured.
 function expected({ row, exemption, replace, isPro }) {
   if (row === 'none') return ['regenerate', 'no_existing_plan'];
+  if (exemption === 'custom_extra') return ['regenerate', 'custom_extra'];   // alongside: stores nothing, caps nothing, preserves everything
   if (exemption === 'custom_steps') return ['regenerate', 'custom_steps'];   // writing your own replaces anything
   if (exemption === 'bonus_session') return ['regenerate', 'bonus_session']; // ephemeral, never stored
   const malformed = row.endsWith('Bad');
@@ -68,7 +71,7 @@ test('decision table: every {isPro × row × exemption × replace_user_plan} com
       }
     }
   }
-  assert.equal(n, 2 * 6 * 6 * 2);
+  assert.equal(n, 2 * 6 * 7 * 2);
 });
 
 // Named cases — the ones a reader looks for first.
@@ -150,12 +153,34 @@ test('parse: custom_steps shape', () => {
   assert.equal(err({ date: DATE, custom_steps: [{ exercise_id: ' ' }] }).body.detail, 'custom_steps[0].exercise_id is missing');
 });
 
-test('parse: custom_steps does not combine with bonus, adapt or pins', () => {
-  for (const extra of [{ bonus_session: true }, { adapt_mode: true }, { pinned_exercise_ids: ['a'] }]) {
+test('parse: custom_steps does not combine with adapt or pins', () => {
+  for (const extra of [{ adapt_mode: true }, { pinned_exercise_ids: ['a'] }]) {
     const r = err({ date: DATE, custom_steps: [{ exercise_id: 'a' }], ...extra });
     assert.equal(r.status, 400);
     assert.equal(r.body.error, 'invalid_custom_steps');
   }
+});
+
+test('parse: custom_steps + bonus_session is "als extra", not an engine bonus', () => {
+  const { request } = parsePlanRequest({ date: DATE, custom_steps: [{ exercise_id: 'a' }], bonus_session: true });
+  assert.equal(request.isCustom, true);
+  assert.equal(request.isExtra, true);
+  // The extra loads the same history as a replacing session, so the advisory pass
+  // sees what W4.1's sees — the engine's bonus flag (which skips history) is off.
+  assert.equal(request.bonus_session, false);
+  const replacing = parsePlanRequest({ date: DATE, custom_steps: [{ exercise_id: 'a' }] }).request;
+  assert.equal(replacing.isExtra, false);
+  assert.equal(parsePlanRequest({ date: DATE, bonus_session: true }).request.isExtra, false, 'an engine bonus is not an own extra');
+});
+
+test('C-G4: a free user with today\'s plan may run an own session either way — extra or replacing', () => {
+  for (const row of [ROWS.engine, ROWS.adapt, ROWS.user]) {
+    const extra = decideExistingPlan({ existingRow: row, body: { date: DATE, ...EXEMPTIONS.custom_extra }, isPro: false });
+    assert.deepEqual([extra.decision, extra.reason], ['regenerate', 'custom_extra'], `extra over ${row.generated_by}`);
+    const repl = decideExistingPlan({ existingRow: row, body: { date: DATE, ...EXEMPTIONS.custom_steps }, isPro: false });
+    assert.deepEqual([repl.decision, repl.reason], ['regenerate', 'custom_steps'], `replacing over ${row.generated_by}`);
+  }
+  assert.equal(needsExistingPlan({ date: DATE, ...EXEMPTIONS.custom_extra }), false, 'an extra never reads (or writes) today\'s row');
 });
 
 test('parse: pins shape', () => {
