@@ -205,3 +205,23 @@ export function decideExistingPlan({ existingRow, body, isPro }) {
     : 'pinned_exercise_ids';
   return { decision: 'regenerate', reason };
 }
+
+/**
+ * Flatten a check-in to the shape the planner reads.
+ *
+ * The check-in sheet nests every toggle — pain_level, pain_scope, pain_areas,
+ * no_gear, no_time, no_clothing, traveling, recovery_mode, time_budget — inside
+ * checkin_json (the daily_checkins column) and sends the numeric columns (mood,
+ * energy, sleep_hours, stress) top-level. The safety stage reads top-level only,
+ * so on the full-regenerate path R514 (pain → rest), R515, R516, R559, R510 and
+ * R562–R565 never saw their inputs: a user reporting general pain got a full
+ * session. Free users were protected by accident (adaptExistingPlan reads both
+ * shapes); Pro users were not. Found 2026-10-06. Top-level wins where both exist.
+ */
+export function flattenCheckin(checkin) {
+  const raw = checkin ?? {};
+  let nested = {};
+  if (raw.checkin_json && typeof raw.checkin_json === 'object') nested = raw.checkin_json;
+  else if (typeof raw.checkin_json === 'string') { try { nested = JSON.parse(raw.checkin_json) ?? {}; } catch { nested = {}; } }
+  return { ...nested, ...raw };
+}

@@ -27,8 +27,11 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await signupFresh(page, '-own-a');
   await pickGeneralPath(page);
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  // GET /api/plan generates an in-memory plan when nothing is stored yet, so a
+  // GET fired the instant START SESSION renders can race the app's own storing
+  // POST and come back without an id. Poll until the stored row exists.
+  await expect.poll(async () => (await todaysPlan(page))?.id, { timeout: 15_000, message: 'the general path should have stored today\'s plan' }).toBeTruthy();
   const before = await todaysPlan(page);
-  expect(before?.id, 'the general path should have stored today\'s plan').toBeTruthy();
 
   // The entry: one quiet line, two links (§2).
   await expect(page.getByRole('button', { name: "Can't do this?" })).toBeVisible();

@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-04T10:14:27.271Z",
+ "generated": "2026-10-06T17:09:03.462Z",
  "regenerate": "node scripts/generate-baseline-schema.mjs",
  "columns": {
   "users": [

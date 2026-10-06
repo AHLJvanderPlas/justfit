@@ -9,8 +9,7 @@ import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, 
 import { musclesFromJson } from './_shared/muscles.js';
 import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
 import {
-  parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError,
-} from './_shared/planRequest.js';
+  parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
 // Re-exported for existing importers (the request harnesses import them from here).
 export {
   CUSTOM_STEP_LIMITS, MAX_CUSTOM_STEPS, MAX_PINS, customStepsShapeError, pinnedIdsShapeError, preservesUserPlan,
@@ -435,7 +434,8 @@ function _effectiveCheckin(checkin, prefs, date) {
   const weeklySchedule = prefs?.preferences?.weekly_schedule;
   const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date(date + 'T12:00:00').getDay()];
   const scheduledDuration = weeklySchedule?.[dayKey];
-  let effectiveCheckin = checkin ?? {};
+  // Flattened once, here, before anything reads it — see flattenCheckin.
+  let effectiveCheckin = flattenCheckin(checkin);
   if (effectiveCheckin.time_budget == null && scheduledDuration != null) {
     effectiveCheckin = { ...effectiveCheckin, time_budget: scheduledDuration };
   }

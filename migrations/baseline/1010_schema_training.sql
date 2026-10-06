@@ -1,6 +1,6 @@
 -- =============================================================================
 -- JustFit — Training Schema Baseline (superseded)
--- Generated: 2026-10-04T10:14:27.271Z  by scripts/generate-baseline-schema.mjs (read-only SELECT
+-- Generated: 2026-10-06T17:09:03.462Z  by scripts/generate-baseline-schema.mjs (read-only SELECT
 -- against live justfit-db). DO NOT HAND-EDIT: regenerate instead.
 --
 -- All schema — training tables included — is in 1000_schema_core.sql, generated

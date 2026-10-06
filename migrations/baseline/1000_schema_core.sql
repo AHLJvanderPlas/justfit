@@ -1,6 +1,6 @@
 -- =============================================================================
 -- JustFit — Schema Baseline (every table and index, exactly as production holds it)
--- Generated: 2026-10-04T10:14:27.271Z  by scripts/generate-baseline-schema.mjs (read-only SELECT
+-- Generated: 2026-10-06T17:09:03.462Z  by scripts/generate-baseline-schema.mjs (read-only SELECT
 -- against live justfit-db). DO NOT HAND-EDIT: regenerate instead.
 --
 -- Canonical current state of live D1 at generation time:

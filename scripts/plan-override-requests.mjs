@@ -259,6 +259,29 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(row('pro').generated_by === 'engine', `a pinned plan is engine-built and must say so, got ${row('pro').generated_by}`);
 }
 
+// 10. The check-in reaches the safety rules IN THE SHAPE THE SHEET SENDS. The sheet
+//     nests every toggle inside checkin_json and sends only the numeric columns
+//     top-level; the safety stage read top-level only, so on the full-regenerate
+//     (Pro) path a general-pain check-in produced a full session instead of rest.
+//     The matrix never caught it because its personas hand runPlanner flat
+//     objects. This drives the REQUEST, with the sheet's exact payload.
+{
+  const sheet = { mood: 6, energy: 6, sleep_hours: 7, stress: 4,
+                  checkin_json: { pain_level: 3, pain_scope: 'general', feeling: 2 } };
+  const pro = await post('pro', { checkin: sheet, replace_user_plan: true });
+  check(pro.status === 200 && pro.body.plan?.slot_type === 'rest' && (pro.body.plan?.rule_trace ?? []).some(t => /R514/.test(t)),
+    `Pro full-regenerate with the sheet's nested pain check-in must rest (R514), got slot=${pro.body.plan?.slot_type} R514=${(pro.body.plan?.rule_trace ?? []).some(t => /R514/.test(t))}`);
+  // and no_gear must bite the same way. The harness users own no equipment, so
+  // R516 says "Bodyweight only (profile …)" regardless — give this user a gym
+  // first, so the only way to a bodyweight pool is the nested toggle.
+  db.prepare(`UPDATE user_preferences SET preferences_json = json_set(preferences_json, '$.available_equipment', json('["dumbbell","barbell","pull_up_bar"]')) WHERE user_id = 'pro'`).run();
+  const gear = await post('pro', { checkin: { mood: 6, energy: 6, sleep_hours: 7, stress: 4, checkin_json: { no_gear: true } }, replace_user_plan: true });
+  const r516 = (gear.body.plan?.rule_trace ?? []).filter(t => /R516/.test(t)).join(' | ');
+  check(gear.status === 200 && /Bodyweight only/.test(r516) && /no_gear|geen materiaal|gear/i.test(r516),
+    `nested no_gear must reach R516 as the REASON (user owns dumbbells), trace: ${r516 || 'none'}`);
+  db.prepare(`UPDATE user_preferences SET preferences_json = json_set(preferences_json, '$.available_equipment', json('["none"]')) WHERE user_id = 'pro'`).run();
+}
+
 // 9. A client-written preferences.isPro grants NOTHING. The blob is stored as
 //    sent, and until 2026-10-04 the planner honoured it — any user could POST
 //    {"preferences":{"isPro":true}} and skip the daily cap. Pro is an

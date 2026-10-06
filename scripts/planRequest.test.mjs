@@ -9,8 +9,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, preservesUserPlan,
-  CUSTOM_STEP_LIMITS, MAX_CUSTOM_STEPS, MAX_PINS,
-} from '../functions/api/_shared/planRequest.js';
+  CUSTOM_STEP_LIMITS, MAX_CUSTOM_STEPS, MAX_PINS, flattenCheckin } from '../functions/api/_shared/planRequest.js';
 
 const DATE = '2026-10-05';
 const STORED = { session_name: 'Stored', steps: [{ exercise_id: 'ex1' }] };
@@ -219,3 +218,16 @@ test('unknownPinsError: pins must exist in the user\'s library', () => {
 test('limits are the ones the builder mirrors', () => {
   assert.deepEqual(CUSTOM_STEP_LIMITS, { sets: [1, 10], target_reps: [1, 100], target_duration_sec: [5, 7200], rest_sec: [0, 600] });
 });
+
+// The check-in sheet nests toggles in checkin_json; the planner reads top-level.
+test('flattenCheckin: nested toggles surface top-level; top-level wins; strings and junk tolerated', () => {
+  const sheet = { mood: 6, sleep_hours: 7, checkin_json: { pain_level: 3, pain_scope: 'general', no_gear: true } };
+  const f = flattenCheckin(sheet);
+  assert.equal(f.pain_level, 3); assert.equal(f.pain_scope, 'general'); assert.equal(f.no_gear, true);
+  assert.equal(f.mood, 6, 'top-level numeric columns survive');
+  assert.equal(flattenCheckin({ pain_level: 0, checkin_json: { pain_level: 3 } }).pain_level, 0, 'top-level wins');
+  assert.equal(flattenCheckin({ checkin_json: '{"no_time":true}' }).no_time, true, 'a stringified column is parsed');
+  assert.deepEqual(flattenCheckin({ checkin_json: '{not json' }), { checkin_json: '{not json' }, 'junk does not throw');
+  assert.deepEqual(flattenCheckin(null), {}, 'null check-in is an empty object');
+});
+
