@@ -19,6 +19,7 @@ import { RULE_LABELS } from "./messagePolicy.js";
 import { Sheet } from "./sessionSheet.jsx";
 import { TemplatePickList } from "./MyTrainings.jsx";
 import { runModeChoice, ownSessionBody, checkinForAdvice, sourceRefFor, templateSteps } from "./ownTraining.js";
+import { pickerContextFrom } from "./exerciseSearch.js";
 
 const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
@@ -112,7 +113,7 @@ function noteText(n) {
 }
 
 // ── The chooser and the run-mode sheet ──────────────────────────────────────
-export default function EigenTraining({ prefs, today, plan, todayCompleted, templates, hasGym, isGuest, isOffline, lastCheckin,
+export default function EigenTraining({ prefs, today, plan, todayCompleted, templates, history = [], hasGym, isGuest, isOffline, lastCheckin,
   onClose, onStartExtra, onStartReplace, onLogged, onTemplateSaved, onDeleteTemplate, onPlanInstalled }) {
   useLang();
   const [step, setStep] = useState("chooser");     // chooser | reuse | build | edit | pin | log | mode | result
@@ -124,6 +125,8 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const choice = runModeChoice({ plan, todayCompleted });
+  // v1.3 — what the picker opens on: today's plan, the last 14 days, saved trainings.
+  const pickerContext = pickerContextFrom({ plan, history, templates, today });
 
   // The plan WorkoutView runs carries where it came from (§7: source_ref).
   const start = (mode, startedPlan, p) => {
@@ -169,20 +172,20 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   };
 
   if (step === "log") {
-    return <Suspense fallback={null}><LogSessionSheet date={today} prefs={prefs} onClose={onClose} onLogged={onLogged} /></Suspense>;
+    return <Suspense fallback={null}><LogSessionSheet date={today} prefs={prefs} pickerContext={pickerContext} onClose={onClose} onLogged={onLogged} /></Suspense>;
   }
   if (step === "pin") {
     // Vastzetten: pick 1–3, the coach completes today's plan (replaces it). No run-mode sheet.
     return (
       <Suspense fallback={null}>
-        <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={onPlanInstalled} initialMode="pin" lockMode lastCheckin={lastCheckin} />
+        <SessionBuilder prefs={prefs} pickerContext={pickerContext} today={today} onClose={onClose} onInstalled={onPlanInstalled} initialMode="pin" lockMode lastCheckin={lastCheckin} />
       </Suspense>
     );
   }
   if (step === "build" || step === "edit") {
     return (
       <Suspense fallback={null}>
-        <SessionBuilder prefs={prefs} today={today} onClose={step === "edit" ? () => setStep("reuse") : onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
+        <SessionBuilder prefs={prefs} pickerContext={pickerContext} today={today} onClose={step === "edit" ? () => setStep("reuse") : onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
           template={step === "edit" ? editing : null}
           onStart={({ steps, name, template, safetyAck, notesShown }) => choose({ steps, name, sourceRef: sourceRefFor(template), safetyAck, notesShown })} />
       </Suspense>

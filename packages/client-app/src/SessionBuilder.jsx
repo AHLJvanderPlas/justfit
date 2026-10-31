@@ -97,7 +97,7 @@ function NoteCard({ note }) {
 // v1.1: "Starten" first asks the extra path for advice (a dry run — it stores
 // nothing) with today's `lastCheckin`, shows the notes on the cards, and only
 // then hands over; `onStart` also gets `safetyAck` / `notesShown` for the real request.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null, lastCheckin = null, initialMode = "build", lockMode = false }) {
+export default function SessionBuilder({ prefs, pickerContext = null, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null, lastCheckin = null, initialMode = "build", lockMode = false }) {
   const startMode = typeof onStart === "function";
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -307,7 +307,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   };
 
   const picker = (
-    <ExercisePicker library={library} loadError={loadError} prefs={prefs} inputRef={searchRef}
+    <ExercisePicker library={library} loadError={loadError} prefs={prefs} context={pickerContext} inputRef={searchRef}
       onPick={(ex) => (mode === "build" ? addStep(ex) : togglePin(ex.id))} mark={mark} />
   );
 

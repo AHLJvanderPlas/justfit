@@ -142,7 +142,6 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   background: rgba(var(--overlay-rgb), 0.04); color: var(--text); font: inherit; font-size: 16px; outline: none;
 }
 .jf-pick__input:focus { border-color: var(--accent-border); }
-.jf-pick__filter { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.05em; color: rgba(var(--overlay-rgb), 0.32); margin-bottom: 6px; }
 .jf-pick__list { max-height: 210px; overflow-y: auto; border-radius: 12px; border: 1px solid rgba(var(--overlay-rgb), 0.08); margin-bottom: 14px; }
 .jf-pick__msg { padding: 14px; font-size: 12px; color: var(--muted); }
 .jf-pick__msg--error { color: var(--danger); }
@@ -157,6 +156,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.05em; color: var(--muted); }
 .jf-pick__mark { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-weight: 700; color: var(--muted); }
 .jf-pick__mark--on { color: var(--accent); }
+/* v1.3 — category + kit chips (one scrolling row each), section headers, TEST marker, cap line */
+.jf-pick__chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-bottom: 6px; }
+.jf-pick__chips::-webkit-scrollbar { display: none; }
+.jf-pick__chips .jf-chip { flex: none; padding: 5px 11px; font-size: 11px; white-space: nowrap; }
+.jf-pick__sec {
+  padding: 8px 12px 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.4);
+}
+.jf-pick__group + .jf-pick__group { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-pick__test { color: var(--accent); font-weight: 700; }
+.jf-pick__cap { padding: 10px 12px; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); font-size: 11px; color: var(--muted); }
 
 /* ── SessionBuilder (plan TARGETS for today) ── */
 .jf-sb-modes { display: flex; gap: 8px; margin-bottom: 12px; }

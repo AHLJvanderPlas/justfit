@@ -232,6 +232,9 @@ try {
   const e = h.body?.executions?.find(x => x.id === id);
   check(e?.execution_type === 'logged' && e?.notes === note && e?.date === dayOff(1), `history must return the logged session with its note, got ${JSON.stringify(e)?.slice(0, 200)}`);
   check(e?.steps?.length === 3 && JSON.parse(e.steps[2].actual_json).skipped === true, 'history lost the skipped sit-up');
+  // Builder v1.3 — the picker's "Onlangs gedaan" reads the exercise ids from history.
+  check(JSON.stringify(e?.steps?.map(s => s.exercise_id)) === JSON.stringify([idOf['push-up'], idOf['incline-push-up'], idOf['sit-up']]),
+    `GET history step rows must carry exercise_id, got ${JSON.stringify(e?.steps?.map(s => s.exercise_id))}`);
   const ev = events('alice').at(-1);
   check(JSON.parse(ev?.stimulus_json ?? '{}').push?.power > 0, `the owner's push-ups earned no push stimulus: ${ev?.stimulus_json}`);
 }

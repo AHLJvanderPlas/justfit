@@ -2,7 +2,7 @@
  * Journeys 11–12 (MANUAL_TRAINING_DESIGN.md phase 1): "Eigen training".
  * The gap the Oct 5 build left twice — both sheets driven for real, end to end.
  *
- *  (a) Samenstellen → add push-up → Starten → Als extra → WorkoutView, one set
+ *  (a) Samenstellen → (v1.3: opens on today's plan, cap line, "opdrukken" finds Push-up) → add push-up → Starten → Als extra → WorkoutView, one set
  *      completed → the done card shows the extra and asks "Plan done?", and
  *      today's stored plan is exactly what it was (acceptance 2, end to end).
  *  (b) Registreren → log push-up 3×3 for today → Today shows it completed.
@@ -61,6 +61,17 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await expect(page.getByRole('button', { name: "Can't do this?" })).toBeVisible();
   await page.getByRole('button', { name: 'Own training' }).click();
   await page.getByRole('button', { name: /^Build/ }).click();
+
+  // v1.3 — an empty query opens on today's plan, not on the alphabet's Cooper
+  // tests, and the list says how much it is not showing.
+  const firstGroup = page.locator('.jf-pick__group').first();
+  await expect(firstGroup.locator('.jf-pick__sec')).toHaveText('Today in your plan', { timeout: 10_000 });
+  const planNames = (JSON.parse(before.plan_json).steps ?? []).map((s) => s.name);
+  expect(planNames, 'the first picker row is one of today\'s plan exercises').toContain(await page.locator('.jf-pick__item .jf-pick__name').first().textContent());
+  await expect(page.locator('.jf-pick__cap')).toHaveText(/^40 of \d+ — search or pick a category$/);
+  // Dutch search: "opdrukken" finds Push-up, ranked first.
+  await page.getByPlaceholder('Search exercises…').fill('opdrukken');
+  await expect(page.locator('.jf-pick__item .jf-pick__name').first()).toHaveText('Push-up');
 
   // Samenstellen on a phone: three adds, each landing in view below the last (v1.1).
   await page.setViewportSize({ width: 390, height: 844 });

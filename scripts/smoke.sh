@@ -685,6 +685,24 @@ case "$BASE" in
   *)   fail "schema baseline drifted from production: ${BASE} — run node scripts/generate-baseline-schema.mjs" ;;
 esac
 
+# ── G2 — no two active library rows share a name (builder v1.3, migration 0123) ──
+# The picker listed "4-7-8 Breathing" and "Progressive Muscle Relaxation" twice:
+# two rows each carried the name. 0123 deactivated the unreferenced ones. Load
+# the regenerated baseline into sqlite and fail on any name that two ACTIVE
+# global rows share again. G2_BASELINE_DIR overrides the input (guard break test).
+G2DIR="${G2_BASELINE_DIR:-migrations/baseline}"
+DUPN=$(G2DIR="$G2DIR" node --input-type=module -e '
+import { DatabaseSync } from "node:sqlite"; import fs from "node:fs";
+const dir = process.env.G2DIR; const db = new DatabaseSync(":memory:");
+for (const f of ["1010_schema_training.sql", "1000_schema_core.sql", "1020_seed_exercises.sql"]) db.exec(fs.readFileSync(dir + "/" + f, "utf8"));
+const n = db.prepare("SELECT count(*) AS n FROM exercises WHERE is_active = 1 AND gym_id IS NULL").get().n;
+const dup = db.prepare("SELECT name, count(*) AS c FROM exercises WHERE is_active = 1 AND gym_id IS NULL GROUP BY name HAVING count(*) > 1").all();
+process.stdout.write(n === 0 ? "the baseline loaded no active rows" : dup.length ? dup.map(d => "\"" + d.name + "\" x" + d.c).join("; ") : "OK (" + n + " active rows, all names unique)");' 2>&1 | grep -v Warning | grep -v trace-warnings)
+case "$DUPN" in
+  OK*) ok "exercise library has no duplicate active names — $DUPN" ;;
+  *)   fail "exercise library lists a name twice: ${DUPN} — deactivate or rename the duplicate (see migrations/0123_exercise_dedupe.sql)" ;;
+esac
+
 # ── B1 — no inline script anywhere; script-src carries no 'unsafe-inline' ──
 # The CSP allowed 'unsafe-inline' for scripts because of exactly two inline
 # blocks: the pre-paint theme resolver in index.html and the decorative wave

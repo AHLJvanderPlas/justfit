@@ -7,10 +7,11 @@ import { deriveChipLabel } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang } from "./i18n.js";
 import { inLogWindow, logDayLabel, summarizeLogged } from "./logSession.js";
+import { pickerContextFrom } from "./exerciseSearch.js";
 
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
-export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged }) {
+export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged, templates = [] }) {
   const lang = useLang();
   const [logDate, setLogDate] = useState(null);   // need C — the day being logged
   const today = new Date().toISOString().split("T")[0];
@@ -229,7 +230,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       )}
       {logDate && (
         <Suspense fallback={null}>
-          <LogSessionSheet date={logDate} prefs={prefs} onClose={() => setLogDate(null)} onLogged={onLogged} />
+          <LogSessionSheet date={logDate} prefs={prefs} pickerContext={pickerContextFrom({ plan, history, templates, today })} onClose={() => setLogDate(null)} onLogged={onLogged} />
         </Suspense>
       )}
 

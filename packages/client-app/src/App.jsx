@@ -1448,7 +1448,7 @@ export default function App() {
               </Suspense>
             )}
             {view === "plan" && (
-              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} onLogged={handleLogged} />
+              <PlanWeekView history={history} plan={plan} userId={userId} onDeleteExecution={handleDeleteExecution} prefs={prefs} onLogged={handleLogged} templates={myTemplates} />
             )}
             {view === "history" && (
               <HistoryView
@@ -1719,7 +1719,7 @@ export default function App() {
       )}
       {showOwn && (
         <Suspense fallback={null}>
-          <EigenTraining prefs={prefs} today={today} plan={plan} todayCompleted={todayCompleted} templates={myTemplates}
+          <EigenTraining prefs={prefs} today={today} plan={plan} todayCompleted={todayCompleted} templates={myTemplates} history={history}
             hasGym={!!trainerData?.gym_id} isGuest={!hasEmail} isOffline={isOffline} lastCheckin={lastCheckin} onPlanInstalled={(p) => { if (p) { setPlan(p); setPlanError(null); } }}
             onClose={() => setShowOwn(false)} onLogged={handleLogged} onTemplateSaved={handleTemplateSaved} onDeleteTemplate={handleDeleteTemplate}
             onStartExtra={(p) => { setShowOwn(false); setBonusPlan(p); setInBonusWorkout(true); }}

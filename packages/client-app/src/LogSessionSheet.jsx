@@ -43,7 +43,7 @@ function itemFor(ex, key, rowKey) {
 const rowState = (row, unit) => (String(row.value).trim() === "" ? { todo: true } : rowGroups(row, unit));
 const unitSuffix = (unit) => (unit === "sec" ? " s" : "");
 
-export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
+export default function LogSessionSheet({ prefs, pickerContext = null, date, onClose, onLogged }) {
   const lang = useLang();
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -180,7 +180,7 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
             </div>
           ))}
         </div>
-        <ExercisePicker library={library} loadError={loadError} prefs={prefs} inputRef={searchRef} onPick={add}
+        <ExercisePicker library={library} loadError={loadError} prefs={prefs} context={pickerContext} inputRef={searchRef} onPick={add}
           mark={(ex) => { const n = countFor(ex); return { label: n ? `+${n + 1}` : "+", on: n > 0, active: false }; }} />
       </>
     );
