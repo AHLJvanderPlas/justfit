@@ -1270,7 +1270,10 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "40px 20px max(40px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center", minHeight: "calc(100dvh - 80px)", justifyContent: "center" }}>
               {/* Set complete label */}
               <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, letterSpacing: "0.1em", textTransform: "uppercase" }}>
-                {t('Set {n} of {total} complete \u2713', { n: currentSet - 1, total: totalSets })}
+                {/* currentSet increments at the END of rest (natural expiry and skip
+                    both), so during rest it already IS the set just finished. The old
+                    `currentSet - 1` showed "Set 0 van 3 klaar" after the first set. */}
+                {t('Set {n} of {total} complete \u2713', { n: currentSet, total: totalSets })}
               </div>
 
               {/* Breathing reminder (pregnancy/postnatal only, auto-dismisses in 3s) */}

@@ -20,6 +20,7 @@ test('workout state machine — rep taps, set completion, rest skip, RPE, histor
   const sessionDone = page.getByText('Session done!');
   const tapZone = page.getByRole('button', { name: 'TAP TO COUNT REP' });
   let repsTapped = false;
+  let restLabelChecked = false;
 
   // Drive whatever phase is on screen until the feedback screen appears.
   for (let i = 0; i < 60 && !(await sessionDone.isVisible()); i++) {
@@ -39,12 +40,25 @@ test('workout state machine — rep taps, set completion, rest skip, RPE, histor
       await allDone.click();
       continue;
     }
-    if (await skipRest.isVisible()) { await skipRest.click(); continue; }
+    if (await skipRest.isVisible()) {
+      // The rest screen names the set just finished. currentSet only increments
+      // when rest ENDS, so the label must read the same number the header does —
+      // "Set 0 of 3 complete" after the first set was a live off-by-one.
+      const label = await page.getByText(/Set \d+ of \d+ complete/).textContent();
+      const header = await page.getByText(/^Set \d+\/\d+$/).textContent();
+      const n = Number(label.match(/Set (\d+) of/)[1]);
+      const h = Number(header.match(/Set (\d+)\//)[1]);
+      expect(n, `rest label "${label}" must name a completed set (never 0)`).toBeGreaterThanOrEqual(1);
+      expect(n, `rest label "${label}" must agree with the header "${header}"`).toBe(h);
+      restLabelChecked = true;
+      await skipRest.click(); continue;
+    }
     if (await skipExercise.isVisible()) { await skipExercise.click(); continue; }
     await page.waitForTimeout(250);
   }
 
   expect(repsTapped, 'at least one rep-based exercise should have been tapped').toBe(true);
+  expect(restLabelChecked, 'the rest phase should have been seen at least once').toBe(true);
   await expect(sessionDone).toBeVisible();
 
   // RPE feedback screen → log the session
