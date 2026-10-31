@@ -81,21 +81,25 @@ function shape(row) {
 async function addRowMeta(env, userId, templates) {
   for (const tp of templates) { tp.step_names = []; tp.last_done_at = null; }
   if (!templates.length) return;
-  const ids = [...new Set(templates.flatMap(tp => tp.steps.map(st => String(st.exercise_id))))];
+  // One bound JSON array per query: D1 allows 100 bound parameters per statement
+  // and 30 templates x 20 steps can hold more distinct ids than that.
+  const idOf = (st) => (st?.exercise_id == null ? null : String(st.exercise_id));
+  const ids = [...new Set(templates.flatMap(tp => tp.steps.map(idOf)).filter(Boolean))];
   const nameById = new Map();
   if (ids.length) {
     const ex = await env.DB.prepare(
-      `SELECT id, name FROM exercises WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
-    ).bind(...ids).all();
+      'SELECT id, name FROM exercises WHERE is_active = 1 AND id IN (SELECT value FROM json_each(?))'
+    ).bind(JSON.stringify(ids)).all();
     for (const r of ex.results ?? []) nameById.set(String(r.id), r.name);
   }
   for (const tp of templates) {
-    tp.step_names = tp.steps.map(st => nameById.get(String(st.exercise_id))).filter(Boolean).slice(0, 3);
+    tp.step_names = tp.steps.map(st => nameById.get(idOf(st))).filter(Boolean).slice(0, 3);
   }
+  const refs = templates.map(tp => `template:${tp.id}`);
   const done = await env.DB.prepare(
     `SELECT source_ref, MAX(date) AS last_done_at FROM executions
-      WHERE user_id = ? AND source_ref LIKE 'template:%' GROUP BY source_ref`
-  ).bind(userId).all();
+      WHERE user_id = ? AND source_ref IN (SELECT value FROM json_each(?)) GROUP BY source_ref`
+  ).bind(userId, JSON.stringify(refs)).all();
   const lastBy = new Map((done.results ?? []).map(r => [r.source_ref, r.last_done_at]));
   for (const tp of templates) tp.last_done_at = lastBy.get(`template:${tp.id}`) ?? null;
 }

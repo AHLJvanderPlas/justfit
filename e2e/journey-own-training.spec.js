@@ -166,7 +166,7 @@ test('own training (c) — reuse: edit, rename, delete', async ({ page }) => {
   await page.getByRole('button', { name: /^Reuse/ }).click();
   await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel$/ })).toBeVisible();
   await expect(page.locator('.jf-tpl-pick__names')).toHaveText('Push-up · Plank');
-  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: /^More Hotel/ }).click();
   await page.getByRole('button', { name: 'Edit', exact: true }).click();
   await expect(page.locator('.jf-sb-step')).toHaveCount(2);
   await page.getByRole('button', { name: 'Update template' }).click();
@@ -175,14 +175,15 @@ test('own training (c) — reuse: edit, rename, delete', async ({ page }) => {
   await nameInput.fill('Hotel 2');
   await page.getByRole('button', { name: 'Update template' }).click();
   await expect(page.getByText('Saved in My trainings.')).toBeVisible();
+  // Closing the edit builder goes back to Hergebruiken, not out of the sheet.
   await page.getByRole('button', { name: 'Close' }).click();
-
-  await page.getByRole('button', { name: 'Own training' }).click();
-  await page.getByRole('button', { name: /^Reuse/ }).click();
   await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel 2$/ })).toBeVisible();
   await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel$/ })).toHaveCount(0);
   await expect(page.locator('.jf-tpl-pick__names')).toHaveText('Push-up · Plank');
-  await page.getByRole('button', { name: 'More' }).click();
+  // The rename reached the server, not just App state.
+  const stored = await (await page.request.get('/api/my-sessions')).json();
+  expect(stored.templates.map((x) => x.name)).toEqual(['Hotel 2']);
+  await page.getByRole('button', { name: /^More Hotel 2/ }).click();
   await page.getByRole('button', { name: 'Delete', exact: true }).click();
   await expect(page.getByText('Delete this training?')).toBeVisible();
   await page.getByRole('button', { name: 'Yes, delete' }).click();
@@ -204,7 +205,8 @@ test('own training (d) — pin from the chooser: free user, today\'s plan open',
   await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 20_000 });
 
   // The Today card lists it, and the stored plan records the pin.
-  await expect(page.getByText('Push-up', { exact: true }).first()).toBeVisible();
+  const todayCard = page.locator('div', { has: page.getByRole('button', { name: /START SESSION/ }) }).last();
+  await expect(todayCard.getByText('Push-up', { exact: true })).toBeVisible();
   const stored = await todaysPlan(page);
   const plan = JSON.parse(stored.plan_json);
   const pushUp = plan.steps.find((st) => st.name === 'Push-up');

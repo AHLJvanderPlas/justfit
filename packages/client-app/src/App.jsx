@@ -352,8 +352,8 @@ export default function App() {
   };
   // Score + history after a save outside WorkoutView (activity, rest day, a session logged afterwards).
   const refreshScoreHistory = useCallback(async () => {
-    const [s, h] = await Promise.all([api.getScore(), api.getHistory()]);
-    setScore(s); setHistory(h.results); setHistoryTruncated(!!h.truncated);
+    const [s, h, mine] = await Promise.all([api.getScore(), api.getHistory(), api.getMySessions().catch(() => null)]);
+    setScore(s); setHistory(h.results); setHistoryTruncated(!!h.truncated); if (Array.isArray(mine)) setMyTemplates(mine);
   }, []);
   // Need C — a session logged from PlanWeekView (today … today−6).
   const handleLogged = async (date) => {
@@ -931,13 +931,13 @@ export default function App() {
           : "workout";
         await api.saveExecution(userId, plan?.id, today, mergedSteps, durationSec, perceivedExertion,
           sessionType, isMilSession ? "military" : null, notes, plan?.source_ref ?? null);
-        const [newScore, newHistory] = await Promise.all([
+        const [newScore, newHistory, mine] = await Promise.all([
           api.getScore(),
-          api.getHistory(),
+          api.getHistory(), api.getMySessions().catch(() => null),
         ]);
         setPrevScore(score);
         setScore(newScore);
-        setHistory(newHistory.results);
+        setHistory(newHistory.results); if (Array.isArray(mine)) setMyTemplates(mine);
         setHistoryTruncated(!!newHistory.truncated);
         // Mark today as completed
         setTodayCompleted(true);

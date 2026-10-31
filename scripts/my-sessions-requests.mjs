@@ -34,8 +34,10 @@ const idOf = (slug) => {
 // ── D1-shaped adapter over node:sqlite (run() reports meta.changes like D1) ──
 const db = new DatabaseSync(':memory:');
 const missing = (e) => /no such table/.test(String(e?.message));
+const seenSql = [];   // every statement text, so a test can assert on its shape
 const D1 = {
   prepare(sql) {
+    seenSql.push(sql);
     let args = [];
     const stmt = () => { try { return db.prepare(sql); } catch (e) { if (missing(e)) return null; throw e; } };
     return {
@@ -81,7 +83,7 @@ rows.forEach((r, i) => insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_js
 insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0);
 
 const DATE = '2026-10-05';
-for (const id of ['alice', 'bob', 'carol']) {
+for (const id of ['alice', 'bob', 'carol', 'dave']) {
   db.prepare('INSERT INTO users (id) VALUES (?)').run(id);
   db.prepare(`INSERT INTO user_preferences (user_id, training_goal, experience_level, session_duration_min,
     preferences_json, sex, weight_kg, height_cm) VALUES (?,?,?,?,?,?,?,?)`)
@@ -262,6 +264,33 @@ let aliceTpl;
   const m3 = list.find(x => x.id === t3.id);
   check(m3?.step_names?.join(',') === [nm('plank'), nm('sit-up')].join(','), `a retired exercise must be dropped, got ${m3?.step_names?.join(',')}`);
   db.prepare('UPDATE exercises SET is_active = 1 WHERE id = ?').run(idOf('push-up'));
+}
+
+// 9. Row meta at scale and against bad data (v1.2 review).
+{
+  // node:sqlite has no 100-parameter cap like D1, so assert the statement shape instead:
+  // the exercise lookup binds ONE json array (json_each), never one ? per id.
+  const manyIds = rows.slice(0, 130).map((_, i) => 'ex' + i);
+  for (let k = 0; k < 7; k++) {
+    const chunk = manyIds.slice(k * 19, k * 19 + 19);
+    const r = await POST('dave', { name: `Big ${k}`, steps: chunk.map(id => ({ exercise_id: id })) });
+    check(r.status === 200, `big template ${k} must save, got ${r.status}`);
+  }
+  db.prepare("INSERT INTO user_session_templates (id, user_id, name, steps_json, est_minutes, created_at_ms, updated_at_ms) VALUES (?,?,?,?,?,?,?)")
+    .run('bad-steps', 'dave', 'Bad', JSON.stringify([null, 5, { exercise_id: idOf('push-up') }]), 5, 1, 1);
+  seenSql.length = 0;
+  const l = await GET('dave');
+  check(l.status === 200, `GET with > 100 distinct ids and a malformed step must be 200, got ${l.status}`);
+  const bad = (l.body?.templates ?? []).find(x => x.id === 'bad-steps');
+  check(bad?.step_names?.join(',') === rows.find(r => r.slug === 'push-up').name, `a null/non-object step must be skipped, got ${JSON.stringify(bad?.step_names)}`);
+  const big = (l.body?.templates ?? []).filter(x => x.name.startsWith('Big'));
+  check(big.length === 7 && big.every(x => x.step_names.length === 3), 'every big template must still return three names');
+  const lookup = seenSql.filter(q => /FROM exercises/.test(q) && /IN \(/.test(q));
+  check(lookup.length >= 1 && lookup.every(q => /json_each/.test(q) && (q.match(/\?/g) ?? []).length <= 1),
+    `the exercise lookup must bind one json_each array, got: ${lookup.map(q => q.slice(0, 120)).join(' | ')}`);
+  // last_done_at is an exact match on the listed templates' refs, never a LIKE over all runs.
+  const doneSql = seenSql.filter(q => /FROM executions/.test(q));
+  check(doneSql.length === 1 && !/LIKE/.test(doneSql[0]) && /json_each/.test(doneSql[0]), `last_done_at must match exact refs via json_each, got ${doneSql[0]}`);
 }
 
 } catch (e) {

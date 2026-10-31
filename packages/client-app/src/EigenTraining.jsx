@@ -182,7 +182,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   if (step === "build" || step === "edit") {
     return (
       <Suspense fallback={null}>
-        <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
+        <SessionBuilder prefs={prefs} today={today} onClose={step === "edit" ? () => setStep("reuse") : onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
           template={step === "edit" ? editing : null}
           onStart={({ steps, name, template, safetyAck, notesShown }) => choose({ steps, name, sourceRef: sourceRefFor(template), safetyAck, notesShown })} />
       </Suspense>

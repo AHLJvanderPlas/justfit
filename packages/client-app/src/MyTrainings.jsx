@@ -157,7 +157,7 @@ export function TemplatePickList({ templates, busy = false, onPick, onEdit, onDe
           <span className="jf-tpl-pick__meta">{meta(tpl)}</span>
         </button>
         {(onEdit || onDelete) && (
-          <button type="button" className="jf-icon-btn jf-tpl-item__more" aria-label={t("More")} aria-expanded={openId === tpl.id}
+          <button type="button" className="jf-icon-btn jf-tpl-item__more" aria-label={`${t("More")} ${tpl.name}`} aria-expanded={openId === tpl.id}
             onClick={() => { setOpenId(openId === tpl.id ? null : tpl.id); setConfirmId(null); setError(null); }}>⋯</button>
         )}
       </div>
