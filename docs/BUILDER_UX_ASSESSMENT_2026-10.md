@@ -39,7 +39,7 @@ not in the bottom nav for anyone without a trainer.
 | P1 | The picker caps at 40 rows with no notice, sorts alphabetically, and opens on Cooper tests and breathing drills | 🔴 | M |
 | B2 | Sets, reps, time and rest are ± steppers only; no direct entry, unlike the log sheet | 🟡 | M |
 | P2 | Search is English-only on a Dutch UI, and a miss shows the wrong message ("niets past bij je uitrusting") | 🟡 | S now, L for data |
-| B3 | "Vastzetten + aanvullen" (pin + coach fills) is unreachable from the chooser; its Pro gate fires after the work | 🟡 | S |
+| B3 | "Vastzetten + aanvullen" (pin + coach fills) is unreachable from the chooser; the client still carries a dead "Pro feature" branch for it | 🟡 | S |
 | A1 | Labels at 9–10 px in ≈2.8:1 and ≈3.8:1 contrast; stepper buttons 32 px wide | 🟡 | S |
 | P3 | Equipment filter is the profile's kit; "Toon alles" is the only alternative — no per-item chips for "today's gym" | 🟡 | M |
 | B4 | Reps/time toggle is a 10 px mono link; the log sheet uses a chip pair | 🟢 | S |
@@ -105,9 +105,12 @@ builder in Starten mode, which deliberately hides the "Vastzetten + aanvullen" t
 re-plans today; it is not an extra). The tab exists only in the planning-mode builder, which is
 reached from the Coach view (see T1) or from "Lukt dit niet?" — and "Lukt dit niet?" no longer
 has an "Ik doe iets anders" option (18). So "I want push-ups today, you fill in the rest", the
-lightest form of override, is effectively unreachable. When a free user does reach it, the Pro
-gate fires **after** pinning and tapping the primary: "Letting the coach fill in is a Pro
-feature" as an error (code: `data.plan?.capped` checked after the POST).
+lightest form of override, is effectively unreachable. The builder's `fill()` also still checks
+`data.plan?.capped` after the POST and would show "Letting the coach fill in is a Pro feature"
+— but pins have been exempt from the C-G4 cap since 2026-10-04 (`decideExistingPlan`, and
+`plan-override-requests.mjs` asserts it), so that branch can never run. Dead code with a
+misleading string; remove it. *(Corrected 2026-10-31: an earlier draft of this finding said the
+Pro gate fired late. There is no Pro gate on pins.)*
 
 **B4 — The reps/time toggle is a 10 px mono link** ("Tijd gebruiken" / "Reps tellen"), shown
 only on exercises that support both, below the steppers. Easy to miss; the log sheet shows the
@@ -312,14 +315,13 @@ builder preloaded, Starten mode) and **Verwijderen** (inline confirm, as the Coa
 Add the first three exercise names and "laatst gedaan op …" (from `executions.source_ref`) to
 the meta line. The Coach-view card then becomes a secondary surface rather than the only one.
 
-### R6 — Pin + coach fills from the chooser, Pro gate first (fixes B3; S)
+### R6 — Pin + coach fills from the chooser (fixes B3; S)
 
 Add a fourth chooser row — **Vastzetten** · "Kies 1–3 oefeningen, de coach vult aan." — that
 opens the builder in pin mode. Pinning re-plans today, so it goes straight to "Gebruik
-vandaag" semantics (no run-mode sheet) and says so in its intro. For a free user, show the Pro
-note *on the tab* ("Pro") and disable the primary with the reason, instead of returning an
-error after the request. Pins are already cap-exempt on the server; only the client's order
-of checks changes.
+vandaag" semantics (no run-mode sheet) and says so in its intro. Pins are cap-exempt on the
+server for free and Pro alike; remove the client's dead `capped` branch and its "Pro feature"
+string so the message can never mislead.
 
 ### R7 — Accessibility pass (fixes A1; S)
 
@@ -345,7 +347,7 @@ the look; add Escape-to-close on the sheet. If R2 ships, the steppers go anyway.
 | Release | Contents | Guard that fails without it |
 |---|---|---|
 | 1 | R1 layout mirror + R8 polish + R3.4 miss message | e2e: new card in viewport after add; unit test for the miss-message function |
-| 2 | R5 reach saved trainings + R6 pin from chooser | e2e: edit a template from Hergebruiken, rename, reuse shows the new name; harness: pin as free user is refused client-side before any POST |
+| 2 | R5 reach saved trainings + R6 pin from chooser | e2e: edit a template from Hergebruiken, rename, reuse shows the new name; e2e: chooser → Vastzetten → pin as a free user → Today lists the pinned exercise; smoke: no `capped` check left in the pin path |
 | 3 | R3.1–3 picker order, chips, cut notice + D1 data migration | unit test for the ordering function (today's plan first, protocol last); migration row-count check |
 | 4 | R2 one row primitive + R7 accessibility | smoke: no `jf-stepper` left in `SessionBuilder.jsx`; a source scan that every `.jf-chip` and stepper carries `.jf-tap` or ≥ 44 px |
 | 5 | R4 synonym map, then `name_nl` seed | table test for the synonym map; migration refuses a zero-row seed (already enforced) |
