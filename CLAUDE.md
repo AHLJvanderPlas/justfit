@@ -1358,6 +1358,27 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-31 — session builder v1.1 (plan: `docs/BUILDER_UX_PLAN_2026-10.md`)
+
+- Samenstellen reads list → picker → footer: an added exercise lands as the last card,
+  scrolled into view and outlined; "+ Oefening toevoegen" in the footer jumps to the search.
+  The same shape as Registreren (the two sheets had contradicted each other).
+- Starten runs the extra path once as a **preview** (it stores nothing) and shows the coach's
+  notes on the cards before the run-mode choice; a blocking note asks for the acknowledgement
+  inline. `previewOutcome` in `ownTraining.js` decides (blocked / notes / clear / error /
+  stale) — a response that arrives after an edit is ignored by generation counter.
+- `exerciseSearch.js` (new): `filterLibrary` + `emptyMessage` — a miss now says "Geen
+  oefening gevonden voor '…'" instead of blaming the equipment filter.
+- Auto-name "Push-up + Plank" for an unsaved session; template panel above the footer,
+  confirmation clears after 3 s.
+- Registreren: quiet "Overgeslagen" link, unit placeholders, default rest among the chips,
+  and `actual.unit` ("reps" | "sec") stored so timed work reads "30/30/30 s".
+- Tests: vitest 252; `logSession.test.mjs` unit cases; e2e (a) asserts each added card is in
+  the viewport and the search sits below the list. Ratchets unchanged (App.jsx 1800, plan.js
+  3827, onRequestPost 99, inline styles 2297). Commits 162f89a + 9b5f089.
+- Assessment: `docs/BUILDER_UX_ASSESSMENT_2026-10.md`. Next: v1.2 (reach saved trainings,
+  Vastzetten from the chooser).
+
 ### Shipped 2026-10-05/06 — logging, Eigen training, and two safety findings
 
 - **Log a past session** (≤ 6 days back) from Deze Week: two-phase sheet (exercises, then

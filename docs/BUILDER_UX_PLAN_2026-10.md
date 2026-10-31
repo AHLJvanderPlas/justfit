@@ -5,12 +5,12 @@
 log-sheet items L1a–d, the data items D1 and the shell language X1). Nothing from the
 assessment's "Not recommended" section is in here.
 **Baseline:** "Eigen training" phase 1 as deployed in commit `7c2dbe3` = **builder v1.0**.
-**Status:** planned. Each version below flips to *live* with its commit and deploy evidence
-when it ships; this file is the tracker.
+**Status:** v1.1 live; v1.2–v1.6 planned. Each version below flips to *live* with its commit
+and deploy evidence when it ships; this file is the tracker.
 
 | Version | Name | Fixes | Effort | Build | Review | Server | Migration |
 |---|---|---|---|---|---|---|---|
-| v1.1 | List first, then the picker | B1 B5 B6 L1a–d, miss message (P2 copy) | 1 day | Sonnet | Opus | — | — |
+| v1.1 ✅ live 2026-10-31 (162f89a + 9b5f089; vitest 252, smoke 90, e2e 12; served = built) | List first, then the picker | B1 B5 B6 L1a–d, miss message (P2 copy) | 1 day | Sonnet | Opus | — | — |
 | v1.2 | Reach what you saved; pin from the chooser | T1 T2 B3 | 1 day | Sonnet | Opus | my-sessions GET (+2 fields) | — |
 | v1.3 | A browsable library, in Dutch too | P1 P3 D1, R4 synonyms | 2 days | Opus (order + data) · Sonnet (UI) | Fable | execution GET (+1 column) | 0123 (data) |
 | v1.4 | One row for numbers; reachable controls | B2 B4 B7 A1 | 2 days | Opus | Fable | — | — |
