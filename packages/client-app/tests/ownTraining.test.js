@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   ownLine, runModeChoice, ownSessionBody, checkinForAdvice, sourceRefFor, completedInfo,
-  isRetryable, execPayload, execArgs, saveOwnExtra, sessionName,
+  isRetryable, execPayload, execArgs, saveOwnExtra, sessionName, previewOutcome,
 } from '../src/ownTraining.js';
 import api from '../src/apiClient.js';
 import { LOG_WINDOW_DAYS } from '../../../functions/api/execution.js';
@@ -134,4 +134,19 @@ describe('v1.1 — sessionName: a session you did not name', () => {
     expect(sessionName([], '  ')).toBe('Mijn training');
     expect(sessionName([], null, 'My training')).toBe('My training');
   });
+});
+
+describe('v1.1 — previewOutcome: what Starten does with the advice', () => {
+  const note = { code: 'R539', blocking: true, step_index: 0 };
+  const table = [
+    ['409 → blocked', { status: 409, data: { safety_notes: [note] } }, { kind: 'blocked', notes: [note] }],
+    ['200 + notes → notes', { status: 200, data: { ok: true, safety_notes: [note] } }, { kind: 'notes', notes: [note], offer: false }],
+    ['200 clean → clear', { status: 200, data: { ok: true } }, { kind: 'clear', offer: false }],
+    ['200 clean + offer → clear with offer', { status: 200, data: { ok: true, assessment_offer: true } }, { kind: 'clear', offer: true }],
+    ['500 → error', { status: 500, data: {} }, { kind: 'error' }],
+    ['no response → error', {}, { kind: 'error' }],
+    ['answer for an older session → stale', { status: 409, data: { safety_notes: [note] }, gen: 1, current: 2 }, { kind: 'stale' }],
+    ['stale beats a clean 200', { status: 200, data: { ok: true }, gen: 3, current: 4 }, { kind: 'stale' }],
+  ];
+  for (const [name, input, want] of table) it(name, () => expect(previewOutcome(input)).toEqual(want));
 });

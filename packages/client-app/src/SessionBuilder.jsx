@@ -22,7 +22,7 @@ import { RULE_LABELS } from "./messagePolicy.js";
 import { t } from "./i18n.js";
 import api from "./apiClient.js";
 import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
-import { ownSessionBody, checkinForAdvice, sessionName } from "./ownTraining.js";
+import { ownSessionBody, checkinForAdvice, sessionName, previewOutcome } from "./ownTraining.js";
 
 // Mirrors the server's CUSTOM_STEP_LIMITS; the server clamps again regardless.
 const LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
@@ -111,6 +111,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
   const keyRef = useRef(0);
+  const genRef = useRef(0);   // bumped by every edit; a preview answered after one is stale
   // W4.3 — the saved training this sheet edits (null: a new one).
   const [tpl, setTpl] = useState(template);
   const [tplOpen, setTplOpen] = useState(false);
@@ -174,7 +175,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
 
   // Any change to the session invalidates notes from the last save attempt —
   // they are indexed by step position.
-  const resetSafety = () => { setNotes([]); setNeedsAck(false); setAck(false); setError(null); setPreviewed(false); };
+  const resetSafety = () => { genRef.current += 1; setNotes([]); setNeedsAck(false); setAck(false); setError(null); setPreviewed(false); };
 
   const addStep = (ex) => {
     if (steps.length >= MAX_STEPS) return;
@@ -271,15 +272,16 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     const name = sessionName(steps, tpl?.name, t("My training"));
     const go = (extra) => onStart({ steps: customSteps, name, template: tpl, ...extra });
     if (previewed) { go({ safetyAck: ack, notesShown: true }); return; }
+    const gen = genRef.current;
     setBusy(true); setError(null);
     let res = null;
     try { res = await api.startOwnSession(ownSessionBody({ date: today, steps: customSteps, name, mode: "extra", checkin: checkinForAdvice(lastCheckin, today) })); }
     catch { res = null; }   // the real request reports a connection problem itself
     setBusy(false);
-    const data = res?.data ?? {};
-    const n = data.safety_notes ?? [];
-    if (res?.status === 409) { setNotes(n); setNeedsAck(true); setAck(false); setPreviewed(true); return; }
-    if (res?.status === 200 && n.length) { setNotes(n); setPreviewed(true); return; }
+    const out = previewOutcome({ status: res?.status, data: res?.data, gen, current: genRef.current });
+    if (out.kind === "stale") return;   // the session changed while we asked: nothing here applies to it
+    if (out.kind === "blocked") { setNotes(out.notes); setNeedsAck(true); setAck(false); setPreviewed(true); return; }
+    if (out.kind === "notes") { setNotes(out.notes); setPreviewed(true); return; }
     go();
   };
 
@@ -407,7 +409,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
               <div className="jf-sb-warn">{t("{n} exercise(s) from this training are no longer in the library and were left out.", { n: dropped })}</div>
             )}
             {sessionNotes.map((n, i) => <NoteCard key={`s${i}`} note={n} />)}
-            {steps.length === 0 && <div className="jf-sheet__empty">{t("Tap an exercise below to add it.")}</div>}
+            {steps.length === 0 && <div className="jf-sheet__empty">{t("Search below and tap an exercise to add it.")}</div>}
             {steps.map((s, i) => (
               <div key={s.key} data-sb-key={s.key} className={`jf-sb-step${s.key === lastAdded ? " jf-sb-step--new" : ""}`}>
                 <div className="jf-sb-step__head">

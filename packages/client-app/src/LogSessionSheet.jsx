@@ -231,7 +231,7 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
                           <span className="jf-log-sym">×</span>
                           <input className={`jf-log-val jf-log-val--value${bad && st.error !== "sets" && st.error !== "rest" ? " jf-log-val--bad" : ""}`}
                             type="text" inputMode="decimal" aria-label={`${x.unit === "sec" ? t("Seconds") : t("Reps")} ${ri + 1}`}
-                            placeholder={x.unit === "sec" ? "sec" : "reps"} value={r.value}
+                            placeholder={x.unit === "sec" ? t("sec (unit)") : t("reps (unit)")} value={r.value}
                             onChange={(e) => patchRow(x.key, r.key, { value: e.target.value })}
                             onBlur={() => expandShorthand(x, r)} />
                           {x.unit === "sec" && <span className="jf-log-sym">s</span>}

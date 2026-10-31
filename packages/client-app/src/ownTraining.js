@@ -73,6 +73,18 @@ export function sessionName(steps, tplName = null, fallback = "Mijn training") {
   return names.length ? names.join(" + ") : fallback;
 }
 
+// What Starten does with the advisory preview's answer. `gen` is the builder's
+// edit generation when the request left, `current` the one now: an edit in
+// between makes the answer stale — about steps that no longer exist.
+export function previewOutcome({ status, data, gen = 0, current = 0 } = {}) {
+  if (gen !== current) return { kind: "stale" };
+  const notes = data?.safety_notes ?? [];
+  const offer = !!data?.assessment_offer;
+  if (status === 409) return { kind: "blocked", notes };
+  if (status === 200 && data?.ok !== false) return notes.length ? { kind: "notes", notes, offer } : { kind: "clear", offer };
+  return { kind: "error" };
+}
+
 // §7 — what the execution records as its origin (migration 0122).
 export const sourceRefFor = (template) => (template?.id ? `template:${template.id}` : null);
 
