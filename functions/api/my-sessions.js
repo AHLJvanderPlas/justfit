@@ -6,7 +6,8 @@
 // pass, the blocking-note acknowledgement and overwrite protection all run at
 // use time, against the athlete's state on that day.
 //
-//   GET                         → { ok, templates: [{ id, name, steps, est_minutes, created_at_ms, updated_at_ms }] }
+//   GET                         → { ok, templates: [{ id, name, steps, est_minutes, created_at_ms, updated_at_ms,
+//                                 step_names (first 3, step order), last_done_at (date | null) }] }
 //                                 last saved first, at most 50
 //   POST { id?, name, steps[] } → { ok, template }   create, or update when id is the user's own (404 otherwise)
 //   DELETE ?id=                 → 204, or 404 when it is not the user's
@@ -74,6 +75,31 @@ function shape(row) {
   };
 }
 
+// v1.2 row meta, two queries for the whole list: `step_names` (the first three
+// exercise names, in step order; an id no longer in the library is dropped) and
+// `last_done_at` (latest executions.date started from the template, else null).
+async function addRowMeta(env, userId, templates) {
+  for (const tp of templates) { tp.step_names = []; tp.last_done_at = null; }
+  if (!templates.length) return;
+  const ids = [...new Set(templates.flatMap(tp => tp.steps.map(st => String(st.exercise_id))))];
+  const nameById = new Map();
+  if (ids.length) {
+    const ex = await env.DB.prepare(
+      `SELECT id, name FROM exercises WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
+    ).bind(...ids).all();
+    for (const r of ex.results ?? []) nameById.set(String(r.id), r.name);
+  }
+  for (const tp of templates) {
+    tp.step_names = tp.steps.map(st => nameById.get(String(st.exercise_id))).filter(Boolean).slice(0, 3);
+  }
+  const done = await env.DB.prepare(
+    `SELECT source_ref, MAX(date) AS last_done_at FROM executions
+      WHERE user_id = ? AND source_ref LIKE 'template:%' GROUP BY source_ref`
+  ).bind(userId).all();
+  const lastBy = new Map((done.results ?? []).map(r => [r.source_ref, r.last_done_at]));
+  for (const tp of templates) tp.last_done_at = lastBy.get(`template:${tp.id}`) ?? null;
+}
+
 export async function onRequestGet({ request, env }) {
   try {
     const user = await getUser(request, env);
@@ -83,7 +109,9 @@ export async function onRequestGet({ request, env }) {
          FROM user_session_templates WHERE user_id = ?
         ORDER BY updated_at_ms DESC, created_at_ms DESC LIMIT ${MAX_LIST}`
     ).bind(user.userId).all();
-    return json({ ok: true, templates: (rows.results ?? []).map(shape) });
+    const templates = (rows.results ?? []).map(shape);
+    await addRowMeta(env, user.userId, templates);
+    return json({ ok: true, templates });
   } catch (e) {
     console.error('GET /api/my-sessions', e);
     return json({ error: 'Internal error' }, 500);
@@ -134,7 +162,9 @@ export async function onRequestPost({ request, env }) {
         `SELECT id, name, steps_json, est_minutes, created_at_ms, updated_at_ms
            FROM user_session_templates WHERE id = ? AND user_id = ?`
       ).bind(id, user.userId).first();
-      return json({ ok: true, template: shape(row) });
+      const tpl = shape(row);
+      await addRowMeta(env, user.userId, [tpl]);   // the list row keeps its names / last-done after a save
+      return json({ ok: true, template: tpl });
     }
 
     // The cap is part of the INSERT, so two concurrent saves cannot both slip under it.
@@ -145,7 +175,9 @@ export async function onRequestPost({ request, env }) {
         WHERE (SELECT COUNT(*) FROM user_session_templates WHERE user_id = ?) < ${MAX_TEMPLATES}`
     ).bind(newId, user.userId, name, stepsJson, est, now, now, user.userId).run();
     if (!r.meta?.changes) return json({ ok: false, error: 'template_limit', limit: MAX_TEMPLATES }, 400);
-    return json({ ok: true, template: { id: newId, name, steps, est_minutes: est, created_at_ms: now, updated_at_ms: now } });
+    const created = { id: newId, name, steps, est_minutes: est, created_at_ms: now, updated_at_ms: now };
+    await addRowMeta(env, user.userId, [created]);
+    return json({ ok: true, template: created });
   } catch (e) {
     console.error('POST /api/my-sessions', e);
     return json({ error: 'Internal error' }, 500);

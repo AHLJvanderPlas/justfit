@@ -97,11 +97,11 @@ function NoteCard({ note }) {
 // v1.1: "Starten" first asks the extra path for advice (a dry run — it stores
 // nothing) with today's `lastCheckin`, shows the notes on the cards, and only
 // then hands over; `onStart` also gets `safetyAck` / `notesShown` for the real request.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null, lastCheckin = null }) {
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null, lastCheckin = null, initialMode = "build", lockMode = false }) {
   const startMode = typeof onStart === "function";
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
-  const [mode, setMode] = useState("build");  // 'build' | 'pin'
+  const [mode, setMode] = useState(initialMode === "pin" ? "pin" : "build");  // 'build' | 'pin'
   const [steps, setSteps] = useState([]);
   const [pins, setPins] = useState([]);
   const [notes, setNotes] = useState(initialNotes ?? []);
@@ -292,10 +292,6 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     setBusy(false);
     const { status, data } = res;
     if (status !== 200 || !data.ok) { setError(t("Could not build the session — check your connection and try again.")); return; }
-    if (data.plan?.capped) {
-      setError(t("Letting the coach fill in is a Pro feature. You can still build the whole session yourself."));
-      return;
-    }
     onInstalled(data.plan);
     if (data.plan?.pins_removed?.length) setSaved({ pinsRemoved: data.plan.pins_removed });
     else onClose();
@@ -389,14 +385,14 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   } else {
     body = (
       <>
-        {!startMode && <div className="jf-sb-modes">
+        {!startMode && !lockMode && <div className="jf-sb-modes">
           <button type="button" onClick={() => { setMode("build"); setError(null); }} className={chip(mode === "build", "jf-chip--grow")}>{t("Build it myself")}</button>
           <button type="button" onClick={() => { setMode("pin"); setError(null); }} className={chip(mode === "pin", "jf-chip--grow")}>{t("Pin + coach fills")}</button>
         </div>}
         <p className="jf-sheet__intro">
           {mode === "build"
             ? t("Pick exercises from the library. They count for your progress like any session.")
-            : t("Pin up to 3 exercises you want today. The coach completes the session around them.")}
+            : t("Pin 1–3 exercises. The coach completes today's session around them — this replaces today's plan.")}
         </p>
 
         {mode === "pin" && picker}

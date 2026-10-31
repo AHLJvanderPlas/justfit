@@ -399,6 +399,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   color: var(--text); cursor: pointer; font: inherit;
 }
 .jf-tpl-pick:disabled { cursor: wait; }
+.jf-tpl-item { margin-bottom: 8px; }
+.jf-tpl-item__top { display: flex; align-items: stretch; gap: 8px; }
+.jf-tpl-item .jf-tpl-pick { flex: 1; width: auto; min-width: 0; margin-bottom: 0; }
+.jf-tpl-item__more { width: 44px; height: auto; min-height: 44px; font-size: 18px; border-radius: 14px; }
+.jf-tpl-item__actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 8px 2px 2px; }
+.jf-tpl-item__actions .jf-mt-btn { flex: 1; }
+.jf-tpl-item__actions--confirm .jf-mt__ask { flex: 1 1 100%; }
+.jf-tpl-pick__names { display: block; font-size: 12px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jf-tpl-pick--soon, .jf-tpl-pick--soon:disabled { cursor: default; opacity: 0.55; }
 .jf-tpl-pick__name { display: block; font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jf-tpl-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted); margin-top: 2px; }
@@ -424,3 +432,31 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   margin: 0 0 16px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em;
   color: var(--accent); text-align: center;
 }
+
+/* "Mijn trainingen" card on the Coach tab (MyTrainings.jsx MyTrainingsCard). */
+.jf-mt { margin-bottom: 28px; }
+.jf-mt__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.jf-mt__panel { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 28px; padding: 16px 18px; }
+.jf-mt__empty { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
+.jf-mt__item { padding: 12px 0; }
+.jf-mt__item + .jf-mt__item { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-mt__name { font-size: 15px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jf-mt__names { font-size: 12px; color: var(--text-soft); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.jf-mt__meta { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; color: var(--muted); margin: 2px 0 10px; }
+.jf-mt__confirm { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.jf-mt__ask { font-size: 12px; color: var(--text); font-weight: 600; flex: 1 1 100%; }
+.jf-mt__btns { display: flex; gap: 8px; }
+.jf-mt__error { font-size: 12px; color: var(--danger); margin-top: 8px; }
+.jf-mt__add {
+  margin-top: 6px; background: none; border: none; padding: 8px 0; cursor: pointer; color: var(--accent);
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em;
+}
+.jf-mt-btn {
+  padding: 8px 12px; min-height: 40px; border-radius: 12px; font-size: 12px; font-weight: 800; cursor: pointer; font-family: inherit;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--muted);
+}
+.jf-mt-btn:disabled { opacity: 0.6; cursor: wait; }
+.jf-mt-btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-mt-btn--danger { color: var(--danger); border-color: var(--danger); }
+.jf-mt-btn--wide { width: 100%; }
+.jf-mt-btn--grow { flex: 1; }

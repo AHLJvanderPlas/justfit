@@ -235,6 +235,35 @@ let aliceTpl;
   }
 }
 
+// 8. Row meta (v1.2): step_names in step order (first three, retired ids dropped), last_done_at from executions.source_ref.
+{
+  const t1 = (await POST('bob', { name: 'Meta', steps: [S('plank'), S('push-up'), S('dead-bug'), S('sit-up')] })).body.template;
+  const t2 = (await POST('bob', { name: 'Never', steps: [S('sit-up')] })).body.template;
+  const t3 = (await POST('bob', { name: 'Gone', steps: [S('push-up'), S('plank'), S('sit-up')] })).body.template;
+  const nm = (slug) => rows.find(r => r.slug === slug).name;
+  // Created only now: the planner treats a missing executions table as no history.
+  db.exec('CREATE TABLE executions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT, source_ref TEXT) STRICT');
+  check(t1.step_names?.join(',') === [nm('plank'), nm('push-up'), nm('dead-bug')].join(','), `POST must return the same step_names, got ${t1.step_names?.join(',')}`);
+  const insX = db.prepare('INSERT INTO executions (id, user_id, date, source_ref) VALUES (?,?,?,?)');
+  insX.run('x1', 'bob', '2026-10-20', `template:${t1.id}`);
+  insX.run('x2', 'bob', '2026-10-28', `template:${t1.id}`);
+  insX.run('x3', 'bob', '2026-10-25', `template:${t1.id}`);
+  insX.run('x4', 'alice', '2026-10-30', `template:${t1.id}`);   // another user's run never counts
+  insX.run('x5', 'bob', '2026-10-29', null);
+  const find = async () => (await GET('bob')).body.templates;
+  let list = await find();
+  const m1 = list.find(x => x.id === t1.id), m2 = list.find(x => x.id === t2.id);
+  check(m1?.last_done_at === '2026-10-28', `last_done_at must be the latest own execution date, got ${m1?.last_done_at}`);
+  check(m2?.last_done_at === null, `last_done_at must be null for a never-used template, got ${m2?.last_done_at}`);
+  const want = [nm('plank'), nm('push-up'), nm('dead-bug')].join(',');
+  check(m1?.step_names?.join(',') === want, `step_names must be the first three in step order: want ${want}, got ${m1?.step_names?.join(',')}`);
+  db.prepare('UPDATE exercises SET is_active = 0 WHERE id = ?').run(idOf('push-up'));
+  list = await find();
+  const m3 = list.find(x => x.id === t3.id);
+  check(m3?.step_names?.join(',') === [nm('plank'), nm('sit-up')].join(','), `a retired exercise must be dropped, got ${m3?.step_names?.join(',')}`);
+  db.prepare('UPDATE exercises SET is_active = 1 WHERE id = ?').run(idOf('push-up'));
+}
+
 } catch (e) {
   errs.push(`harness aborted: ${e?.message ?? e}`);
 }

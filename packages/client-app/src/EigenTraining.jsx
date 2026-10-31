@@ -113,9 +113,10 @@ function noteText(n) {
 
 // ── The chooser and the run-mode sheet ──────────────────────────────────────
 export default function EigenTraining({ prefs, today, plan, todayCompleted, templates, hasGym, isGuest, isOffline, lastCheckin,
-  onClose, onStartExtra, onStartReplace, onLogged, onTemplateSaved }) {
+  onClose, onStartExtra, onStartReplace, onLogged, onTemplateSaved, onDeleteTemplate, onPlanInstalled }) {
   useLang();
-  const [step, setStep] = useState("chooser");     // chooser | reuse | build | log | mode | result
+  const [step, setStep] = useState("chooser");     // chooser | reuse | build | edit | pin | log | mode | result
+  const [editing, setEditing] = useState(null);    // the saved training being edited (step "edit")
   const [pending, setPending] = useState(null);    // { steps, name, sourceRef }
   const [confirmReplace, setConfirmReplace] = useState(false);
   const [result, setResult] = useState(null);      // { mode, notes, needsAck, offer, plan, opts }
@@ -170,10 +171,19 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   if (step === "log") {
     return <Suspense fallback={null}><LogSessionSheet date={today} prefs={prefs} onClose={onClose} onLogged={onLogged} /></Suspense>;
   }
-  if (step === "build") {
+  if (step === "pin") {
+    // Vastzetten: pick 1–3, the coach completes today's plan (replaces it). No run-mode sheet.
+    return (
+      <Suspense fallback={null}>
+        <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={onPlanInstalled} initialMode="pin" lockMode lastCheckin={lastCheckin} />
+      </Suspense>
+    );
+  }
+  if (step === "build" || step === "edit") {
     return (
       <Suspense fallback={null}>
         <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
+          template={step === "edit" ? editing : null}
           onStart={({ steps, name, template, safetyAck, notesShown }) => choose({ steps, name, sourceRef: sourceRefFor(template), safetyAck, notesShown })} />
       </Suspense>
     );
@@ -199,6 +209,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
           </div>
         ) : (
           <TemplatePickList templates={list} busy={busy}
+            onEdit={(tpl) => { setEditing(tpl); setStep("edit"); }} onDelete={onDeleteTemplate}
             onPick={(tpl) => choose({ steps: templateSteps(tpl), name: tpl.name, sourceRef: sourceRefFor(tpl) })} />
         )}
         {/* Phase 2 (§8): the trainer's sessions. Shown only to a gym member, as a placeholder. */}
@@ -311,6 +322,12 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
         <span className="jf-own-row__verb">{t("Build")}</span>
         <span className="jf-own-row__hint">{t("Build a session now and start it.")}</span>
       </button>
+      {!todayCompleted && (
+        <button type="button" className="jf-own-row" onClick={() => setStep("pin")}>
+          <span className="jf-own-row__verb">{t("Pin")}</span>
+          <span className="jf-own-row__hint">{t("Pick 1–3 exercises, the coach fills in.")}</span>
+        </button>
+      )}
     </Sheet>
   );
 }

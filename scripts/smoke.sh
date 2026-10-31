@@ -718,12 +718,23 @@ fi
 # logged-record lines in PlanWeekView/HistoryView moved to styles.css.
 # 2313 → 2297 (2026-10-06): "Eigen training" — the Today-card one-tap template
 # picker and WhyNot's build-own button replaced by classed components.
-STYLE_CEILING=2297
+# 2297 → 2278 (2026-10-31): builder v1.2 — MyTrainings.jsx (all 19 style={{ }} props, plus 4
+# style={fn()} ones) moved to .jf-mt* / .jf-tpl-item* classes.
+STYLE_CEILING=2278
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
 else
   fail "inline styles rose to $STYLE_NOW (ceiling $STYLE_CEILING) — new styling must be a CSS class, see CLAUDE.md"
+fi
+
+# ── Builder v1.2 — the dead "Pro feature" branch stays gone ─────────────────
+# POST /api/plan exempts pins from the free cap, so `fill()` never sees `capped`;
+# the client branch and its string were dead code that promised a paywall.
+if grep -q "capped" packages/client-app/src/SessionBuilder.jsx || grep -q "Pro feature" packages/client-app/src/i18n.js; then
+  fail "SessionBuilder.jsx still has a 'capped' branch, or i18n.js a 'Pro feature' string — pins are cap-exempt on the server"
+else
+  ok "no dead 'capped' / 'Pro feature' branch in the builder"
 fi
 
 # ── W7 — gym-private exercises stay private ────────────────────────────────

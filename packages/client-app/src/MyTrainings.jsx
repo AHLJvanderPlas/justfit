@@ -9,28 +9,13 @@
 // goes through POST /api/plan custom_steps (apiClient.useMySession), so safety
 // notes, the blocking acknowledgement and clamping behave as in the builder.
 import { useState } from "react";
-import { C, eyebrow, mono } from "./tokens.js";
 import { t, useLang } from "./i18n.js";
+import { templateMeta as meta, templateNames as namesLine } from "./templateMeta.js";
 import { ownSessionAssessmentOffer, ownSessionAsTemplate } from "./planUtils.js";
 
 const errorText = (code) => (code === "unknown_exercise"
   ? t("One of these exercises is no longer in the library — edit the training and try again.")
   : t("Could not start this training — check your connection and try again."));
-
-function meta(tpl) {
-  const n = tpl.steps?.length ?? 0;
-  const parts = [];
-  if (tpl.est_minutes != null) parts.push(`≈ ${tpl.est_minutes} min`);
-  parts.push(n === 1 ? t("1 exercise") : t("{n} exercises", { n }));
-  return parts.join(" · ");
-}
-
-const smallBtn = (accent) => ({
-  padding: "8px 12px", minHeight: 40, borderRadius: 12, fontSize: 12, fontWeight: 800, cursor: "pointer", fontFamily: "inherit",
-  border: `1px solid ${accent ? "var(--accent-border)" : C.border}`,
-  background: accent ? "var(--accent-dim)" : "transparent",
-  color: accent ? "var(--accent)" : C.muted,
-});
 
 // ── Coach tab card ────────────────────────────────────────────────────────────
 export function MyTrainingsCard({ templates, onUse, onEdit, onCreate, onDelete, todayUserAuthored }) {
@@ -57,57 +42,58 @@ export function MyTrainingsCard({ templates, onUse, onEdit, onCreate, onDelete, 
 
   const list = templates ?? [];
   return (
-    <div style={{ marginBottom: 28 }}>
-      <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>{t("MY TRAININGS")}</div>
-      <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 28, padding: "16px 18px" }}>
+    <div className="jf-mt">
+      <div className="jf-mt__eyebrow">{t("MY TRAININGS")}</div>
+      <div className="jf-mt__panel">
         {list.length === 0 ? (
           <>
-            <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.5, marginBottom: 12 }}>
+            <div className="jf-mt__empty">
               {t("Save a session you built and reuse it with one tap.")}
             </div>
-            <button type="button" onClick={onCreate} style={{ ...smallBtn(true), width: "100%" }}>{t("Build a training")} →</button>
+            <button type="button" onClick={onCreate} className="jf-mt-btn jf-mt-btn--accent jf-mt-btn--wide">{t("Build a training")} →</button>
           </>
         ) : (
           <>
-            {list.map((tpl, i) => (
-              <div key={tpl.id} style={{ padding: "12px 0", borderTop: i ? `1px solid ${C.border}` : "none" }}>
-                <div style={{ fontSize: 15, fontWeight: 700, color: C.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tpl.name}</div>
-                <div style={{ ...mono(11), color: C.muted, margin: "2px 0 10px" }}>{meta(tpl)}</div>
+            {list.map((tpl) => (
+              <div key={tpl.id} className="jf-mt__item">
+                <div className="jf-mt__name">{tpl.name}</div>
+                {namesLine(tpl) && <div className="jf-mt__names">{namesLine(tpl)}</div>}
+                <div className="jf-mt__meta">{meta(tpl)}</div>
                 {confirmDelete === tpl.id ? (
-                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                    <span style={{ fontSize: 12, color: C.text, fontWeight: 600, flex: "1 1 100%" }}>{t("Delete this training?")}</span>
-                    <button type="button" disabled={busy === tpl.id} onClick={() => del(tpl)} style={{ ...smallBtn(false), color: C.danger, borderColor: C.danger }}>
+                  <div className="jf-mt__confirm">
+                    <span className="jf-mt__ask">{t("Delete this training?")}</span>
+                    <button type="button" disabled={busy === tpl.id} onClick={() => del(tpl)} className="jf-mt-btn jf-mt-btn--danger">
                       {t("Yes, delete")}
                     </button>
-                    <button type="button" onClick={() => setConfirmDelete(null)} style={smallBtn(false)}>{t("Cancel")}</button>
+                    <button type="button" onClick={() => setConfirmDelete(null)} className="jf-mt-btn">{t("Cancel")}</button>
                   </div>
                 ) : confirmReplace === tpl.id ? (
-                  <div style={{ padding: 12, borderRadius: 14, background: C.amberDim, border: `1px solid ${C.amberBorder}` }}>
-                    <div style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5, marginBottom: 10 }}>
+                  <div className="jf-own-confirm">
+                    <div className="jf-own-confirm__text">
                       {t("This replaces the session you built yourself today.")}
                     </div>
-                    <div style={{ display: "flex", gap: 8 }}>
-                      <button type="button" disabled={busy === tpl.id} onClick={() => use(tpl)} style={{ ...smallBtn(true), flex: 1 }}>
+                    <div className="jf-mt__btns">
+                      <button type="button" disabled={busy === tpl.id} onClick={() => use(tpl)} className="jf-mt-btn jf-mt-btn--accent jf-mt-btn--grow">
                         {busy === tpl.id ? t("Saving…") : t("Replace today's session")}
                       </button>
-                      <button type="button" onClick={() => setConfirmReplace(null)} style={smallBtn(false)}>{t("Cancel")}</button>
+                      <button type="button" onClick={() => setConfirmReplace(null)} className="jf-mt-btn">{t("Cancel")}</button>
                     </div>
                   </div>
                 ) : (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <button type="button" disabled={busy === tpl.id} onClick={() => use(tpl)} style={{ ...smallBtn(true), flex: 1 }}>
+                  <div className="jf-mt__btns">
+                    <button type="button" disabled={busy === tpl.id} onClick={() => use(tpl)} className="jf-mt-btn jf-mt-btn--accent jf-mt-btn--grow">
                       {busy === tpl.id ? t("Saving…") : t("Use today")}
                     </button>
-                    <button type="button" onClick={() => onEdit(tpl)} style={smallBtn(false)}>{t("Edit")}</button>
-                    <button type="button" aria-label={`${t("Delete")} ${tpl.name}`} onClick={() => { setConfirmDelete(tpl.id); setConfirmReplace(null); }} style={smallBtn(false)}>
+                    <button type="button" onClick={() => onEdit(tpl)} className="jf-mt-btn">{t("Edit")}</button>
+                    <button type="button" aria-label={`${t("Delete")} ${tpl.name}`} onClick={() => { setConfirmDelete(tpl.id); setConfirmReplace(null); }} className="jf-mt-btn">
                       {t("Delete")}
                     </button>
                   </div>
                 )}
-                {error?.id === tpl.id && <div style={{ fontSize: 12, color: C.danger, marginTop: 8 }}>{error.text}</div>}
+                {error?.id === tpl.id && <div className="jf-mt__error">{error.text}</div>}
               </div>
             ))}
-            <button type="button" onClick={onCreate} style={{ marginTop: 6, background: "none", border: "none", padding: "8px 0", ...mono(11), color: "var(--accent)", cursor: "pointer" }}>
+            <button type="button" onClick={onCreate} className="jf-mt__add">
               + {t("Build a training")}
             </button>
           </>
@@ -149,13 +135,45 @@ export function OwnSessionAssessmentOffer({ plan, onUse }) {
 // It replaced the one-tap "Gebruik mijn training" on the Today card, which
 // installed a template IN PLACE of today's plan without asking; picking here
 // leads to the run-mode choice, where "als extra" is the default. Newest first.
-export function TemplatePickList({ templates, busy = false, onPick }) {
+export function TemplatePickList({ templates, busy = false, onPick, onEdit, onDelete }) {
   useLang();
+  const [openId, setOpenId] = useState(null);         // template whose ⋯ row is open
+  const [confirmId, setConfirmId] = useState(null);   // template awaiting delete confirmation
+  const [working, setWorking] = useState(null);
+  const [error, setError] = useState(null);           // template id
   const list = [...(templates ?? [])].sort((a, b) => (b.updated_at_ms ?? b.created_at_ms ?? 0) - (a.updated_at_ms ?? a.created_at_ms ?? 0));
+  const del = async (tpl) => {
+    setWorking(tpl.id); setError(null);
+    const ok = await onDelete(tpl);
+    setWorking(null); setConfirmId(null);
+    if (!ok) setError(tpl.id);
+  };
   return list.map((tpl) => (
-    <button key={tpl.id} type="button" disabled={busy} onClick={() => onPick(tpl)} className="jf-tpl-pick">
-      <span className="jf-tpl-pick__name">{tpl.name}</span>
-      <span className="jf-tpl-pick__meta">{meta(tpl)}</span>
-    </button>
+    <div key={tpl.id} className="jf-tpl-item">
+      <div className="jf-tpl-item__top">
+        <button type="button" disabled={busy} onClick={() => onPick(tpl)} className="jf-tpl-pick">
+          <span className="jf-tpl-pick__name">{tpl.name}</span>
+          {namesLine(tpl) && <span className="jf-tpl-pick__names">{namesLine(tpl)}</span>}
+          <span className="jf-tpl-pick__meta">{meta(tpl)}</span>
+        </button>
+        {(onEdit || onDelete) && (
+          <button type="button" className="jf-icon-btn jf-tpl-item__more" aria-label={t("More")} aria-expanded={openId === tpl.id}
+            onClick={() => { setOpenId(openId === tpl.id ? null : tpl.id); setConfirmId(null); setError(null); }}>⋯</button>
+        )}
+      </div>
+      {openId === tpl.id && (confirmId === tpl.id ? (
+        <div className="jf-tpl-item__actions jf-tpl-item__actions--confirm">
+          <span className="jf-mt__ask">{t("Delete this training?")}</span>
+          <button type="button" disabled={working === tpl.id} onClick={() => del(tpl)} className="jf-mt-btn jf-mt-btn--danger">{t("Yes, delete")}</button>
+          <button type="button" onClick={() => setConfirmId(null)} className="jf-mt-btn">{t("Cancel")}</button>
+        </div>
+      ) : (
+        <div className="jf-tpl-item__actions">
+          <button type="button" onClick={() => onEdit?.(tpl)} className="jf-mt-btn">{t("Edit")}</button>
+          <button type="button" onClick={() => setConfirmId(tpl.id)} className="jf-mt-btn">{t("Delete")}</button>
+        </div>
+      ))}
+      {error === tpl.id && <div className="jf-mt__error">{t("Could not delete this training — check your connection and try again.")}</div>}
+    </div>
   ));
 }

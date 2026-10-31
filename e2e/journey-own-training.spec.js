@@ -6,6 +6,8 @@
  *      completed → the done card shows the extra and asks "Plan done?", and
  *      today's stored plan is exactly what it was (acceptance 2, end to end).
  *  (b) Registreren → log push-up 3×3 for today → Today shows it completed.
+ *  (c) v1.2 — save a template, then Hergebruiken → ⋯ → Bewerken (rename) → Verwijderen.
+ *  (d) v1.2 — Vastzetten from the chooser: a free user pins push-up, today's plan holds it.
  */
 
 import { test, expect } from '@playwright/test';
@@ -136,4 +138,76 @@ test('own training (b) — record push-up 3×3 for today; Today shows it complet
   const logged = (h.executions ?? []).find((e) => e.date === today && e.execution_type === 'logged');
   expect(logged, 'the logged session must be in history, dated today').toBeTruthy();
   expect(JSON.parse(logged.steps[0].actual_json).reps_per_set).toEqual([3, 3, 3]);
+});
+
+async function openPlanDay(page, suffix) {
+  await signupFresh(page, suffix);
+  await pickGeneralPath(page);
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  await expect.poll(async () => (await todaysPlan(page))?.id, { timeout: 15_000, message: 'today\'s plan should be stored' }).toBeTruthy();
+}
+
+test('own training (c) — reuse: edit, rename, delete', async ({ page }) => {
+  await openPlanDay(page, '-own-c');
+
+  // Save a template through the builder (no run needed).
+  await page.getByRole('button', { name: 'Own training' }).click();
+  await page.getByRole('button', { name: /^Build/ }).click();
+  await pickExercise(page, 'Push-up');
+  await pickExercise(page, 'Plank');
+  await page.getByRole('button', { name: 'Save as template' }).click();
+  await page.getByLabel('Name of your training').fill('Hotel');
+  await page.getByRole('button', { name: 'Save', exact: true }).click();
+  await expect(page.getByText('Saved in My trainings.')).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  // Hergebruiken: the row names its exercises; ⋯ → Bewerken opens the builder on THIS training.
+  await page.getByRole('button', { name: 'Own training' }).click();
+  await page.getByRole('button', { name: /^Reuse/ }).click();
+  await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel$/ })).toBeVisible();
+  await expect(page.locator('.jf-tpl-pick__names')).toHaveText('Push-up · Plank');
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Edit', exact: true }).click();
+  await expect(page.locator('.jf-sb-step')).toHaveCount(2);
+  await page.getByRole('button', { name: 'Update template' }).click();
+  const nameInput = page.getByLabel('Name of your training');
+  await expect(nameInput).toHaveValue('Hotel');
+  await nameInput.fill('Hotel 2');
+  await page.getByRole('button', { name: 'Update template' }).click();
+  await expect(page.getByText('Saved in My trainings.')).toBeVisible();
+  await page.getByRole('button', { name: 'Close' }).click();
+
+  await page.getByRole('button', { name: 'Own training' }).click();
+  await page.getByRole('button', { name: /^Reuse/ }).click();
+  await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel 2$/ })).toBeVisible();
+  await expect(page.locator('.jf-tpl-pick__name', { hasText: /^Hotel$/ })).toHaveCount(0);
+  await expect(page.locator('.jf-tpl-pick__names')).toHaveText('Push-up · Plank');
+  await page.getByRole('button', { name: 'More' }).click();
+  await page.getByRole('button', { name: 'Delete', exact: true }).click();
+  await expect(page.getByText('Delete this training?')).toBeVisible();
+  await page.getByRole('button', { name: 'Yes, delete' }).click();
+  await expect(page.getByText('No saved trainings yet — build one via Build.')).toBeVisible();
+  const list = await (await page.request.get('/api/my-sessions')).json();
+  expect(list.templates).toHaveLength(0);
+});
+
+test('own training (d) — pin from the chooser: free user, today\'s plan open', async ({ page }) => {
+  await openPlanDay(page, '-own-d');
+  await page.getByRole('button', { name: 'Own training' }).click();
+  await page.getByRole('button', { name: /^Pin/ }).click();
+  // The mode toggle is gone: this sheet only pins.
+  await expect(page.getByRole('button', { name: 'Build it myself' })).toHaveCount(0);
+  await expect(page.getByText('this replaces today\'s plan')).toBeVisible();
+  await pickExercise(page, 'Push-up');
+  await expect(page.locator('.jf-pick__item', { has: page.getByText('Pinned', { exact: true }) })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Let the coach fill in the rest' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0, { timeout: 20_000 });
+
+  // The Today card lists it, and the stored plan records the pin.
+  await expect(page.getByText('Push-up', { exact: true }).first()).toBeVisible();
+  const stored = await todaysPlan(page);
+  const plan = JSON.parse(stored.plan_json);
+  const pushUp = plan.steps.find((st) => st.name === 'Push-up');
+  expect(pushUp, 'the pinned push-up is a step of today\'s plan').toBeTruthy();
+  expect(plan.pinned).toContain(pushUp.exercise_id);
 });

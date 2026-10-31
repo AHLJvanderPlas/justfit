@@ -1720,8 +1720,8 @@ export default function App() {
       {showOwn && (
         <Suspense fallback={null}>
           <EigenTraining prefs={prefs} today={today} plan={plan} todayCompleted={todayCompleted} templates={myTemplates}
-            hasGym={!!trainerData?.gym_id} isGuest={!hasEmail} isOffline={isOffline} lastCheckin={lastCheckin}
-            onClose={() => setShowOwn(false)} onLogged={handleLogged} onTemplateSaved={handleTemplateSaved}
+            hasGym={!!trainerData?.gym_id} isGuest={!hasEmail} isOffline={isOffline} lastCheckin={lastCheckin} onPlanInstalled={(p) => { if (p) { setPlan(p); setPlanError(null); } }}
+            onClose={() => setShowOwn(false)} onLogged={handleLogged} onTemplateSaved={handleTemplateSaved} onDeleteTemplate={handleDeleteTemplate}
             onStartExtra={(p) => { setShowOwn(false); setBonusPlan(p); setInBonusWorkout(true); }}
             onStartReplace={(p) => { setShowOwn(false); setPlan(p); setPlanError(null); setView("today"); setInWorkout(true); }} />
         </Suspense>
