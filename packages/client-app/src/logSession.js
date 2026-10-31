@@ -113,6 +113,7 @@ export function loggedStep({ exerciseId, groups, setsText, unit = "reps", restSe
       substitute_exercise_id: null,
       skipped: !!skipped,
       completed_at_ms: null,
+      unit: unit === "sec" ? "sec" : "reps",   // v1.1 — the only key beyond stepsActualRef's own
     },
   };
 }
@@ -123,6 +124,10 @@ export function buildLogSteps(cards) {
   return (cards ?? []).map((c) => loggedStep({ exerciseId: c.exerciseId, groups: c.groups, unit: c.unit, skipped: c.skipped }));
 }
 
+// The rest chips of a log card: the pre-filled rest is always one of them.
+export const restChips = (defaultRest) =>
+  [...new Set([Math.max(0, Math.round(Number(defaultRest) || 0)), 60, 90, 120])].sort((a, b) => a - b);
+
 // A logged exercise as ONE record line: { sets: 5, values: "3/3/3/4/4", rest: "60" }.
 // Equal consecutive rests collapse to one value ([60,60,60,90] → "60/90"); no rest
 // recorded → rest null.
@@ -131,7 +136,7 @@ export function summarizeLogged(actual) {
   const runs = compressValues(actual?.rest_taken_seconds ?? []).map((g) => g.value);
   return {
     sets: actual?.sets_completed ?? reps.length,
-    values: reps.join("/"),
+    values: reps.join("/") + (reps.length && actual?.unit === "sec" ? " s" : ""),
     rest: runs.some((r) => r > 0) ? runs.join("/") : null,
   };
 }

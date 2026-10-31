@@ -16,11 +16,10 @@ import { useState, useEffect, useRef } from "react";
 import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { t, useLang } from "./i18n.js";
 import api from "./apiClient.js";
-import { rowGroups, expandGroups, buildLogSteps, summarizeLogged, logDayLabel, LOG_MAX_SETS } from "./logSession.js";
+import { rowGroups, expandGroups, buildLogSteps, summarizeLogged, logDayLabel, restChips, LOG_MAX_SETS } from "./logSession.js";
 import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
 
 const MAX_ITEMS = 20;
-const REST_CHIPS = [60, 90, 120];
 const parse = (s, d) => { try { return JSON.parse(s || d) ?? JSON.parse(d); } catch { return JSON.parse(d); } };
 
 function itemFor(ex, key, rowKey) {
@@ -32,9 +31,9 @@ function itemFor(ex, key, rowKey) {
     key, ex,
     canToggle: supportsReps && (supports.includes("time") || !!m.base_duration_sec),
     unit: supportsReps ? "reps" : "sec",
-    hint: { reps: "10", sec: String(m.base_duration_sec ?? 30) },
     // Sets and rest pre-filled; the value is left for the user — a record holds
     // what was done, so the one number that differs most is never invented.
+    defaultRest: getDefaultRest(ex, "main"),
     rows: [{ key: rowKey, sets: String(sets), value: "", rest: String(getDefaultRest(ex, "main")) }],
     skipped: false,
   };
@@ -139,6 +138,13 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
 
   const dayLabel = date ? logDayLabel(date, lang) : "";
   const countFor = (ex) => items.filter((x) => x.ex.id === ex.id).length;
+  // Quiet: skipping is the exception, not a second primary action on every card.
+  const skipBtn = (x) => (
+    <button type="button" aria-pressed={x.skipped} className={`jf-link jf-log-skip${x.skipped ? " jf-log-skip--on" : ""}`}
+      onClick={() => patchItem(x.key, (it) => ({ skipped: !it.skipped }))}>
+      {t("Skipped")}
+    </button>
+  );
   const phaseBtn = (p, n, label, disabled = false) => (
     <button type="button" aria-current={phase === p ? "step" : undefined} disabled={disabled}
       className={`jf-log-phase${phase === p ? " jf-log-phase--on" : ""}`} onClick={() => goTo(p)}>
@@ -198,13 +204,12 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
               <div className="jf-log-card__head">
                 <span className="jf-log-num">{i + 1}</span>
                 <span className="jf-log-name">{x.ex.name}</span>
-                <button type="button" aria-pressed={x.skipped} className={`jf-chip jf-log-skip${x.skipped ? " jf-chip--on" : ""}`}
-                  onClick={() => patchItem(x.key, (it) => ({ skipped: !it.skipped }))}>
-                  {t("Skipped")}
-                </button>
               </div>
               {x.skipped ? (
-                <div className="jf-log-card__hint">{t("Stays in your record as skipped. Why? Put it in the note below.")}</div>
+                <>
+                  <div className="jf-log-card__hint">{t("Stays in your record as skipped. Why? Put it in the note below.")}</div>
+                  <div className="jf-log-card__tools jf-log-card__tools--end">{skipBtn(x)}</div>
+                </>
               ) : (
                 <>
                   {x.canToggle && (
@@ -226,7 +231,7 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
                           <span className="jf-log-sym">×</span>
                           <input className={`jf-log-val jf-log-val--value${bad && st.error !== "sets" && st.error !== "rest" ? " jf-log-val--bad" : ""}`}
                             type="text" inputMode="decimal" aria-label={`${x.unit === "sec" ? t("Seconds") : t("Reps")} ${ri + 1}`}
-                            placeholder={x.hint[x.unit]} value={r.value}
+                            placeholder={x.unit === "sec" ? "sec" : "reps"} value={r.value}
                             onChange={(e) => patchRow(x.key, r.key, { value: e.target.value })}
                             onBlur={() => expandShorthand(x, r)} />
                           {x.unit === "sec" && <span className="jf-log-sym">s</span>}
@@ -242,7 +247,7 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
                   </div>
                   <div className="jf-log-card__tools">
                     <span className="jf-log-card__label">{t("Rest")}</span>
-                    {REST_CHIPS.map((sec) => {
+                    {restChips(x.defaultRest).map((sec) => {
                       const on = x.rows.every((r) => String(r.rest).trim() === String(sec));
                       return (
                         <button key={sec} type="button" aria-pressed={on} className={`jf-chip${on ? " jf-chip--on" : ""}`} onClick={() => setAllRest(x.key, sec)}>
@@ -253,6 +258,7 @@ export default function LogSessionSheet({ prefs, date, onClose, onLogged }) {
                     <button type="button" className="jf-log-add" aria-label={t("Add a row like the last one")} onClick={() => duplicateLast(x.key)}>
                       {t("+ Row")}
                     </button>
+                    {skipBtn(x)}
                   </div>
                   {x.rows.some((r) => { const s = rowState(r, x.unit); return s.error; })
                     ? <div className="jf-log-card__error">{t("Use whole numbers: sets 1–20, rest up to 600 s. Shorthand like 3x3, 2x4 works too.")}</div>

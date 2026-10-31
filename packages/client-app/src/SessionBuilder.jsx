@@ -22,6 +22,7 @@ import { RULE_LABELS } from "./messagePolicy.js";
 import { t } from "./i18n.js";
 import api from "./apiClient.js";
 import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
+import { ownSessionBody, checkinForAdvice, sessionName } from "./ownTraining.js";
 
 // Mirrors the server's CUSTOM_STEP_LIMITS; the server clamps again regardless.
 const LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
@@ -93,7 +94,10 @@ function NoteCard({ note }) {
 // primary action is "Starten" and installs nothing — it hands the session to
 // the run-mode choice, which asks the server (and any acknowledgement) itself.
 // Pinning is an engine re-plan of today, so it is not offered there.
-export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null }) {
+// v1.1: "Starten" first asks the extra path for advice (a dry run — it stores
+// nothing) with today's `lastCheckin`, shows the notes on the cards, and only
+// then hands over; `onStart` also gets `safetyAck` / `notesShown` for the real request.
+export default function SessionBuilder({ prefs, today, onClose, onInstalled, template = null, initialNotes = null, onTemplateSaved, onStart = null, lastCheckin = null }) {
   const startMode = typeof onStart === "function";
   const [library, setLibrary] = useState(null);
   const [loadError, setLoadError] = useState(false);
@@ -114,6 +118,9 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
   const [tplBusy, setTplBusy] = useState(false);
   const [tplMsg, setTplMsg] = useState(null);          // { err, text }
   const [dropped, setDropped] = useState(0);
+  const [previewed, setPreviewed] = useState(false);   // Starten has shown its advice
+  const [lastAdded, setLastAdded] = useState(null);
+  const searchRef = useRef(null);
 
   useEffect(() => {
     let alive = true;
@@ -144,16 +151,42 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     return () => { alive = false; };
   }, [template]);
 
+  // A new card appears just above the search it came from: keep it in view,
+  // outlined for a moment (the same mechanism as the log sheet's items).
+  useEffect(() => {
+    if (lastAdded == null) return undefined;
+    document.querySelector(`[data-sb-key="${lastAdded}"]`)?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    const id = setTimeout(() => setLastAdded(null), 1200);
+    return () => clearTimeout(id);
+  }, [lastAdded]);
+
+  // "Opgeslagen in Mijn trainingen." is a confirmation, not a fixture.
+  useEffect(() => {
+    if (!tplMsg || tplMsg.err) return undefined;
+    const id = setTimeout(() => setTplMsg(null), 3000);
+    return () => clearTimeout(id);
+  }, [tplMsg]);
+
+  // Starten found advice: bring the first note into view.
+  useEffect(() => {
+    if (previewed) document.querySelector(".jf-sheet .jf-note")?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [previewed]);
+
   // Any change to the session invalidates notes from the last save attempt —
   // they are indexed by step position.
-  const resetSafety = () => { setNotes([]); setNeedsAck(false); setAck(false); setError(null); };
+  const resetSafety = () => { setNotes([]); setNeedsAck(false); setAck(false); setError(null); setPreviewed(false); };
 
   const addStep = (ex) => {
     if (steps.length >= MAX_STEPS) return;
     keyRef.current += 1;
     const row = rowFor(ex, keyRef.current);
     setSteps((s) => [...s, row]);
+    setLastAdded(row.key);
     resetSafety();
+  };
+  const focusSearch = () => {
+    searchRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+    searchRef.current?.focus({ preventScroll: true });
   };
   const patch = (key, fn) => { setSteps((s) => s.map((st) => (st.key === key ? { ...st, ...fn(st) } : st))); resetSafety(); };
   const move = (i, d) => {
@@ -186,7 +219,7 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     setBusy(true); setError(null);
     let res;
     try {
-      res = await api.installCustomSession(today, { steps: customSteps, sessionName: tpl?.name ?? t("My training"), safetyAck: ack, includeAssessment });
+      res = await api.installCustomSession(today, { steps: customSteps, sessionName: sessionName(steps, tpl?.name, t("My training")), safetyAck: ack, includeAssessment });
     } catch {
       setBusy(false); setError(t("Could not save your session — check your connection and try again.")); return;
     }
@@ -231,6 +264,25 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     setTplMsg({ err: true, text });
   };
 
+  // Starten (v1.1): ask the extra path for advice BEFORE the run-mode choice. It
+  // stores nothing, so it doubles as a dry run. No notes → straight on; notes →
+  // shown on the cards (a blocking one waits for the checkbox), then a second tap.
+  const startNow = async () => {
+    const name = sessionName(steps, tpl?.name, t("My training"));
+    const go = (extra) => onStart({ steps: customSteps, name, template: tpl, ...extra });
+    if (previewed) { go({ safetyAck: ack, notesShown: true }); return; }
+    setBusy(true); setError(null);
+    let res = null;
+    try { res = await api.startOwnSession(ownSessionBody({ date: today, steps: customSteps, name, mode: "extra", checkin: checkinForAdvice(lastCheckin, today) })); }
+    catch { res = null; }   // the real request reports a connection problem itself
+    setBusy(false);
+    const data = res?.data ?? {};
+    const n = data.safety_notes ?? [];
+    if (res?.status === 409) { setNotes(n); setNeedsAck(true); setAck(false); setPreviewed(true); return; }
+    if (res?.status === 200 && n.length) { setNotes(n); setPreviewed(true); return; }
+    go();
+  };
+
   const fill = async () => {
     setBusy(true); setError(null);
     let res;
@@ -255,6 +307,40 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     const added = steps.some((s) => s.ex.id === ex.id);
     return { label: added ? "+1" : "+", on: added, active: false };
   };
+
+  const picker = (
+    <ExercisePicker library={library} loadError={loadError} prefs={prefs} inputRef={searchRef}
+      onPick={(ex) => (mode === "build" ? addStep(ex) : togglePin(ex.id))} mark={mark} />
+  );
+
+  // ── W4.3 / v1.1: save as / update a template — a one-line card in the scrolling
+  // body, above the footer; the quiet link stays in the footer.
+  const tplPanel = (
+    <div className="jf-sb-tpl jf-sb-tpl--line">
+      <input
+        type="text"
+        value={tplName}
+        maxLength={60}
+        autoFocus
+        onChange={(e) => { setTplName(e.target.value); setTplMsg(null); }}
+        placeholder={t("Name of your training")}
+        aria-label={t("Name of your training")}
+        className="jf-sb-tpl__input"
+      />
+      <div className="jf-sb-tpl__actions">
+        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} className={chip(true, "jf-chip--tall jf-chip--grow")}>
+          {tplBusy ? t("Saving…") : tpl ? t("Update template") : t("Save")}
+        </button>
+        {tpl && (
+          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} className={chip(false, "jf-chip--tall")}>
+            {t("Save as new")}
+          </button>
+        )}
+        <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} className={chip(false, "jf-chip--tall")}>{t("Cancel")}</button>
+      </div>
+      {tplMsg && <div className={`jf-sb-tpl__msg${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
+    </div>
+  );
 
   // ── Saved state: notes and the R598 offer, then done ────────────────────
   let body;
@@ -311,20 +397,19 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
             : t("Pin up to 3 exercises you want today. The coach completes the session around them.")}
         </p>
 
-        <ExercisePicker library={library} loadError={loadError} prefs={prefs}
-          onPick={(ex) => (mode === "build" ? addStep(ex) : togglePin(ex.id))} mark={mark} />
+        {mode === "pin" && picker}
 
-        {/* Build mode: the session */}
+        {/* Build mode: the session, then the search under it */}
         {mode === "build" && (
           <>
-            <div className="jf-sheet__eyebrow">{t("Your session")}</div>
+            <div className="jf-sheet__eyebrow">{t("Your session")} · {steps.length}</div>
             {dropped > 0 && (
               <div className="jf-sb-warn">{t("{n} exercise(s) from this training are no longer in the library and were left out.", { n: dropped })}</div>
             )}
             {sessionNotes.map((n, i) => <NoteCard key={`s${i}`} note={n} />)}
-            {steps.length === 0 && <div className="jf-sheet__empty">{t("Tap an exercise above to add it.")}</div>}
+            {steps.length === 0 && <div className="jf-sheet__empty">{t("Tap an exercise below to add it.")}</div>}
             {steps.map((s, i) => (
-              <div key={s.key} className="jf-sb-step">
+              <div key={s.key} data-sb-key={s.key} className={`jf-sb-step${s.key === lastAdded ? " jf-sb-step--new" : ""}`}>
                 <div className="jf-sb-step__head">
                   <span className="jf-sb-step__num">{i + 1}</span>
                   <span className="jf-sb-step__name">{s.ex.name}</span>
@@ -357,6 +442,19 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
                 {notes.filter((n) => n.step_index === i).map((n, k) => <NoteCard key={k} note={n} />)}
               </div>
             ))}
+            {previewed && (
+              <div className="jf-sb-hint">
+                {needsAck ? t("Read the advice on the cards and confirm to continue.") : t("Your session runs as you built it. Keep these in mind:")}
+              </div>
+            )}
+            {needsAck && (
+              <label className="jf-sb-ack">
+                <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="jf-sb-ack__box" />
+                <span className="jf-sb-ack__text">{t("I have read the advice above and choose this session myself.")}</span>
+              </label>
+            )}
+            {picker}
+            {tplOpen && tplPanel}
           </>
         )}
 
@@ -378,44 +476,12 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
           </div>
         )}
 
-        {needsAck && mode === "build" && (
-          <label className="jf-sb-ack">
-            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} className="jf-sb-ack__box" />
-            <span className="jf-sb-ack__text">{t("I have read the advice above and choose this session myself.")}</span>
-          </label>
-        )}
         {error && <div className="jf-sheet__error">{error}</div>}
       </>
     );
   }
 
-  // ── W4.3: the second, quieter action — save as / update a template ─────
-  const templatePanel = tplOpen ? (
-    <div className="jf-sb-tpl">
-      <input
-        type="text"
-        value={tplName}
-        maxLength={60}
-        autoFocus
-        onChange={(e) => { setTplName(e.target.value); setTplMsg(null); }}
-        placeholder={t("Name of your training")}
-        aria-label={t("Name of your training")}
-        className="jf-sb-tpl__input"
-      />
-      <div className="jf-sb-tpl__actions">
-        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} className={chip(true, "jf-chip--tall jf-chip--grow")}>
-          {tplBusy ? t("Saving…") : tpl ? t("Update template") : t("Save")}
-        </button>
-        {tpl && (
-          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} className={chip(false, "jf-chip--tall")}>
-            {t("Save as new")}
-          </button>
-        )}
-        <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} className={chip(false, "jf-chip--tall")}>{t("Cancel")}</button>
-      </div>
-      {tplMsg && <div className={`jf-sb-tpl__msg${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
-    </div>
-  ) : (
+  const tplQuiet = !tplOpen && (
     <>
       <button type="button" disabled={!steps.length} onClick={() => { setTplOpen(true); setTplMsg(null); }} className="jf-sb-quiet">
         {tpl ? t("Update template") : t("Save as template")}
@@ -424,9 +490,18 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
     </>
   );
 
-  // ── Footer (sticky): estimate + the one primary action ──────────────────
+  // ── Footer (sticky): estimate + "+ Oefening toevoegen" and the one primary action ──
   const canSave = mode === "build" && steps.length > 0 && !busy && (!needsAck || ack);
   const canFill = mode === "pin" && pins.length > 0 && !busy;
+  const primary = startMode ? (
+    <button type="button" disabled={!steps.length || busy || (previewed && needsAck && !ack)} onClick={startNow} className="jf-primary">
+      {busy ? t("Checking with the coach…") : previewed && needsAck ? t("Confirm and start") : t("Start now")}
+    </button>
+  ) : (
+    <button type="button" disabled={!canSave} onClick={() => save(false)} className="jf-primary">
+      {busy ? t("Saving…") : needsAck ? t("Confirm and use today") : t("Use today")}
+    </button>
+  );
   const footer = saved ? null : (
     <div className="jf-sheet__footer">
       {mode === "build" && (
@@ -437,20 +512,17 @@ export default function SessionBuilder({ prefs, today, onClose, onInstalled, tem
           <span className="jf-sb-estimate__budget">{t("your time")} {budget} min</span>
         </div>
       )}
-      {startMode ? (
-        <button type="button" disabled={!steps.length} onClick={() => onStart({ steps: customSteps, name: tpl?.name ?? t("My training"), template: tpl })} className="jf-primary">
-          {t("Start now")}
-        </button>
-      ) : mode === "build" ? (
-        <button type="button" disabled={!canSave} onClick={() => save(false)} className="jf-primary">
-          {busy ? t("Saving…") : needsAck ? t("Confirm and use today") : t("Use today")}
-        </button>
+      {mode === "build" ? (
+        <div className="jf-log-footer-row">
+          <button type="button" className="jf-secondary" onClick={focusSearch} disabled={steps.length >= MAX_STEPS}>{t("+ Add exercise")}</button>
+          {primary}
+        </div>
       ) : (
         <button type="button" disabled={!canFill} onClick={fill} className="jf-primary">
           {busy ? t("Building…") : t("Let the coach fill in the rest")}
         </button>
       )}
-      {mode === "build" && templatePanel}
+      {mode === "build" && tplQuiet}
     </div>
   );
 

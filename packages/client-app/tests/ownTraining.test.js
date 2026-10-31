@@ -6,7 +6,7 @@ import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import {
   ownLine, runModeChoice, ownSessionBody, checkinForAdvice, sourceRefFor, completedInfo,
-  isRetryable, execPayload, execArgs, saveOwnExtra,
+  isRetryable, execPayload, execArgs, saveOwnExtra, sessionName,
 } from '../src/ownTraining.js';
 import api from '../src/apiClient.js';
 import { LOG_WINDOW_DAYS } from '../../../functions/api/execution.js';
@@ -121,5 +121,17 @@ describe('item 7 — the offline queue and a rejected save (Oct 5 report)', () =
     expect(isRetryable({ status: 500 })).toBe(true);
     expect(isRetryable({ status: 400 })).toBe(false);
     expect(isRetryable(new TypeError('Failed to fetch'))).toBe(true);
+  });
+});
+
+describe('v1.1 — sessionName: a session you did not name', () => {
+  const rows = (...names) => names.map((name) => ({ ex: { name } }));
+  it('the template name wins', () => expect(sessionName(rows('Push-up', 'Plank'), 'Hotelbank')).toBe('Hotelbank'));
+  it('else the first two exercises, joined', () => expect(sessionName(rows('Push-up', 'Plank', 'Air Squat'))).toBe('Push-up + Plank'));
+  it('one exercise alone', () => expect(sessionName(rows('Push-up'))).toBe('Push-up'));
+  it('nothing → Mijn training', () => {
+    expect(sessionName([])).toBe('Mijn training');
+    expect(sessionName([], '  ')).toBe('Mijn training');
+    expect(sessionName([], null, 'My training')).toBe('My training');
   });
 });

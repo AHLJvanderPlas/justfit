@@ -2,10 +2,7 @@
 // and LogSessionSheet (record what was DONE on a date). Classes only — styles.css.
 import { useState } from "react";
 import { t } from "./i18n.js";
-
-const ALWAYS_OWNED = ["none", "chair"];
-const parse = (s, d) => { try { return JSON.parse(s || d) ?? JSON.parse(d); } catch { return JSON.parse(d); } };
-const equipOf = (ex) => parse(ex?.equipment_required_json, '["none"]');
+import { ALWAYS_OWNED, equipOf, filterLibrary, emptyMessage } from "./exerciseSearch.js";
 
 export function Sheet({ title, sub = null, label, onClose, padded = false, sheetRef = null, children }) {
   return (
@@ -39,12 +36,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
   const [query, setQuery] = useState("");
   const [showAll, setShowAll] = useState(false);
   const owned = new Set([...(prefs?.preferences?.available_equipment ?? ["none"]), ...ALWAYS_OWNED]);
-  const q = query.trim().toLowerCase();
-  const results = (library ?? [])
-    .filter((ex) => showAll || equipOf(ex).every((e) => owned.has(e)))
-    .filter((ex) => !q || ex.name?.toLowerCase().includes(q) || ex.slug?.includes(q))
-    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
-    .slice(0, 40);
+  const { results, matchedAny, matchedOwned } = filterLibrary(library, { query, owned, showAll });
 
   return (
     <>
@@ -67,7 +59,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
         {loadError && <div className="jf-pick__msg jf-pick__msg--error">{t("Could not load the exercise library.")}</div>}
         {!library && !loadError && <div className="jf-pick__msg">{t("Loading…")}</div>}
         {library && results.length === 0 && (
-          <div className="jf-pick__msg">{showAll ? t("Nothing matches.") : t("Nothing matches your equipment — try Show all.")}</div>
+          <div className="jf-pick__msg">{emptyMessage({ query, showAll, matchedAny, matchedOwned })}</div>
         )}
         {results.map((ex) => {
           const kit = equipOf(ex).filter((e) => !ALWAYS_OWNED.includes(e));

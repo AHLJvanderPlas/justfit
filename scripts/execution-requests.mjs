@@ -223,7 +223,7 @@ try {
     `incline push-ups read back as ${JSON.stringify(inc?.actual)}`);
   check(sit?.exercise_id === idOf['sit-up'] && sit.actual.skipped === true && sit.actual.sets_completed === 0, `sit-ups must read back skipped, got ${JSON.stringify(sit?.actual)}`);
   check(st.every(s => JSON.stringify(s.prescribed) === '{}'), `a logged step's prescribed must be {}, got ${st.map(s => s.prescribed_json).join(' | ')}`);
-  const keys = 'sets_completed,reps_per_set,rest_taken_seconds,target_adjusted,target_original,target_final,adjustment_direction,exercise_substituted,original_exercise_id,substitute_exercise_id,skipped,completed_at_ms';
+  const keys = 'sets_completed,reps_per_set,rest_taken_seconds,target_adjusted,target_original,target_final,adjustment_direction,exercise_substituted,original_exercise_id,substitute_exercise_id,skipped,completed_at_ms,unit';   // stepsActualRef's shape + v1.1's `unit`
   check(st.every(s => Object.keys(s.actual).join(',') === keys), `a logged step's actual is not the stepsActualRef shape: ${Object.keys(pu?.actual ?? {}).join(',')}`);
   const row = execRow(id);
   check(row?.notes === note, `notes must round-trip (trimmed), got ${JSON.stringify(row?.notes)}`);

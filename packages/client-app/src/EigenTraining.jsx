@@ -130,7 +130,9 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
     if (mode === "replace") onStartReplace(run); else onStartExtra(run);
   };
 
-  const submit = async (mode, { safetyAck = false, includeAssessment = false, replaceConfirmed = false, p = pending } = {}) => {
+  const submit = async (mode, { safetyAck: ackIn = false, includeAssessment = false, replaceConfirmed = false, p = pending } = {}) => {
+    // v1.1: the builder already showed the advice (and took the acknowledgement).
+    const safetyAck = ackIn || !!p?.safetyAck;
     if (isOffline) { setError(t("You are offline — starting a session needs a connection.")); return; }
     setBusy(true); setError(null);
     let res;
@@ -151,8 +153,8 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
       return;
     }
     const notes = data.safety_notes ?? [];
-    if (!includeAssessment && (data.assessment_offer || (notes.length && !safetyAck))) {
-      setResult({ mode, notes, offer: !!data.assessment_offer, plan: data.plan, opts });
+    if (!includeAssessment && (data.assessment_offer || (notes.length && !safetyAck && !p?.notesShown))) {
+      setResult({ mode, notes: p?.notesShown ? [] : notes, offer: !!data.assessment_offer, plan: data.plan, opts });
       setStep("result");
       return;
     }
@@ -171,8 +173,8 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   if (step === "build") {
     return (
       <Suspense fallback={null}>
-        <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved}
-          onStart={({ steps, name, template }) => choose({ steps, name, sourceRef: sourceRefFor(template) })} />
+        <SessionBuilder prefs={prefs} today={today} onClose={onClose} onInstalled={() => {}} onTemplateSaved={onTemplateSaved} lastCheckin={lastCheckin}
+          onStart={({ steps, name, template, safetyAck, notesShown }) => choose({ steps, name, sourceRef: sourceRefFor(template), safetyAck, notesShown })} />
       </Suspense>
     );
   }

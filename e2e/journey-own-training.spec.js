@@ -23,6 +23,28 @@ async function pickExercise(page, name) {
   await page.locator('.jf-pick__item', { has: page.locator('.jf-pick__name', { hasText: new RegExp(`^${name}$`) }) }).click();
 }
 
+// v1.1 — an added exercise lands as the LAST card, fully above the sticky
+// footer, and the search stays under the list. Smooth scrolling is async, so poll.
+async function addAndCheckLanded(page, query, previous) {
+  const input = page.getByPlaceholder('Search exercises…');
+  await input.fill(query);
+  const before = await page.locator('.jf-sb-step').count();
+  await page.locator('.jf-pick__item').first().click();
+  const card = page.locator('.jf-sb-step').nth(before);
+  await expect(card).toHaveCount(1);
+  const viewport = page.viewportSize();
+  await expect.poll(async () => {
+    const box = await card.boundingBox();
+    const footer = await page.locator('.jf-sheet__footer').boundingBox();
+    return !!box && !!footer && box.y >= 0 && box.y + box.height <= Math.min(viewport.height, footer.y) + 1;
+  }, { timeout: 5_000, message: `the new "${query}" card should be fully visible above the footer` }).toBe(true);
+  const box = await card.boundingBox();
+  if (previous) expect(box.y, 'the new card sits below the previous one').toBeGreaterThan(previous.y);
+  const search = await input.boundingBox();
+  expect(search.y, 'the search sits under the last card').toBeGreaterThan(box.y);
+  return box;
+}
+
 test('own training (a) — build, start as an extra, complete a set; plan stays open', async ({ page }) => {
   await signupFresh(page, '-own-a');
   await pickGeneralPath(page);
@@ -38,8 +60,17 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await page.getByRole('button', { name: 'Own training' }).click();
   await page.getByRole('button', { name: /^Build/ }).click();
 
-  // Samenstellen: push-up, one set, "Starten".
-  await pickExercise(page, 'Push-up');
+  // Samenstellen on a phone: three adds, each landing in view below the last (v1.1).
+  await page.setViewportSize({ width: 390, height: 844 });
+  let box = await addAndCheckLanded(page, 'push-up', null);
+  box = await addAndCheckLanded(page, 'plank', box);
+  await addAndCheckLanded(page, 'squat', box);
+  // The footer is the two-button row; the secondary one jumps to the search.
+  await expect(page.getByRole('button', { name: '+ Add exercise' })).toBeVisible();
+  // Keep push-up alone for the run: drop the other two.
+  await page.getByRole('button', { name: 'Remove' }).last().click();
+  await page.getByRole('button', { name: 'Remove' }).last().click();
+  await expect(page.locator('.jf-sb-step')).toHaveCount(1);
   await page.getByRole('button', { name: 'Sets −' }).click();
   await page.getByRole('button', { name: 'Sets −' }).click();
   await page.getByRole('button', { name: 'Start now' }).click();

@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  expandGroups, rowGroups, compressValues, loggedStep, buildLogSteps, summarizeLogged, parseSetList,
+  expandGroups, rowGroups, compressValues, loggedStep, buildLogSteps, summarizeLogged, parseSetList, restChips,
 } from '../packages/client-app/src/logSession.js';
 
 test('set groups expand: 3×3 @60 + 2×4 @60 → [3,3,3,4,4] with four rests of 60', () => {
@@ -86,4 +86,23 @@ test('the record line: one exercise, sets, values, rests collapsed', () => {
   assert.equal(one([{ sets: 3, reps: 3, rest: 60 }, { sets: 2, reps: 4, rest: 90 }]).rest, '60/90');
   assert.equal(one([{ sets: 1, reps: 12, rest: 60 }]).rest, null, 'one set has no rest');
   assert.deepEqual(compressValues([60, 60, 90, 60]).map((g) => g.value), [60, 90, 60]);
+});
+
+test('v1.1 — a logged step carries its unit; the record line shows seconds as seconds', () => {
+  const plank = loggedStep({ exerciseId: 'plank', unit: 'sec', groups: [{ sets: 2, sec: 30, rest: 0 }] });
+  const pushup = loggedStep({ exerciseId: 'push-up', unit: 'reps', groups: [{ sets: 2, reps: 10, rest: 0 }] });
+  assert.equal(plank.actual.unit, 'sec');
+  assert.equal(pushup.actual.unit, 'reps');
+  assert.equal(loggedStep({ exerciseId: 'x', setsText: '5', restSec: 0 }).actual.unit, 'reps', 'default unit');
+  assert.equal(summarizeLogged(plank.actual).values, '30/30 s');
+  assert.equal(summarizeLogged(pushup.actual).values, '10/10');
+  assert.equal(summarizeLogged({ sets_completed: 2, reps_per_set: [10, 10] }).values, '10/10', 'a record from before v1.1 has no unit');
+  assert.equal(summarizeLogged(loggedStep({ exerciseId: 'plank', unit: 'sec', skipped: true }).actual).values, '', 'nothing to suffix');
+});
+
+test('v1.1 — the pre-filled rest is always one of the rest chips, sorted', () => {
+  assert.deepEqual(restChips(45), [45, 60, 90, 120]);
+  assert.deepEqual(restChips(60), [60, 90, 120]);
+  assert.deepEqual(restChips(180), [60, 90, 120, 180]);
+  assert.deepEqual(restChips(75), [60, 75, 90, 120]);
 });

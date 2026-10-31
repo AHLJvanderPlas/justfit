@@ -63,6 +63,16 @@ export function checkinForAdvice(row, today) {
   return { ...cj, energy: row.energy ?? undefined, stress: row.stress ?? undefined, sleep_hours: row.sleep_hours ?? undefined };
 }
 
+// The name of a session the user did not name: the template's if it has one,
+// else the first two exercises ("Push-up + Plank"), else the fallback. Steps are
+// builder rows ({ ex: { name } }) or plain { name }.
+export function sessionName(steps, tplName = null, fallback = "Mijn training") {
+  const own = String(tplName ?? "").trim();
+  if (own) return own;
+  const names = (steps ?? []).map((s) => s?.ex?.name ?? s?.name).filter(Boolean).slice(0, 2);
+  return names.length ? names.join(" + ") : fallback;
+}
+
 // §7 — what the execution records as its origin (migration 0122).
 export const sourceRefFor = (template) => (template?.id ? `template:${template.id}` : null);
 
