@@ -1358,6 +1358,23 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-10-31 — session builder v1.2 (plan §2)
+
+- **Hergebruiken** rows carry the exercise names ("Push-up · Plank"), "≈ 8 min · 2
+  oefeningen · laatst gedaan wo 28 okt", and a "⋯" menu with Bewerken (builder preloaded,
+  closes back to the list) and Verwijderen (inline confirm). Saved trainings no longer depend
+  on the Coach view, which is not in the nav without a trainer.
+- `GET/POST /api/my-sessions` return `step_names` (first three, step order, active rows only)
+  and `last_done_at` (latest `executions.date` with `source_ref = 'template:<id>'`, user-scoped).
+  Both lookups bind one JSON array via `json_each(?)` — D1 caps a statement at 100 parameters
+  and 30 × 20 steps can exceed it (review finding). Harness asserts the statement shape.
+- **Vastzetten** is a fourth chooser row (while today is open): builder in locked pin mode →
+  "Laat de coach de rest invullen" → today's plan is re-planned around the pins. The dead
+  "Pro feature" branch in `fill()` is gone (pins are cap-exempt; smoke guards its return).
+- `MyTrainings.jsx` migrated off inline styles; ratchet B2 2297 → **2278**. New
+  `templateMeta.js` + test. e2e 12 → **14** (reuse edit/rename/delete; pin from chooser);
+  smoke 90 → **91**. App.jsx still 1800. Commits 6ad0443 + e1224da.
+
 ### Shipped 2026-10-31 — session builder v1.1 (plan: `docs/BUILDER_UX_PLAN_2026-10.md`)
 
 - Samenstellen reads list → picker → footer: an added exercise lands as the last card,
