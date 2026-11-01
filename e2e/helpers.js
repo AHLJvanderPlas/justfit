@@ -25,3 +25,29 @@ export async function pickGeneralPath(page) {
   await expect(general).toBeVisible({ timeout: 10_000 });
   await general.click();
 }
+
+/**
+ * Wait until today's plan is STORED for this user (a day_plans row with an id).
+ * GET /api/plan answers with an in-memory plan while nothing is stored, so a GET
+ * fired the instant START SESSION renders can race the app's own storing POST.
+ * A 15 s poll alone timed out twice in seven release runs (2026-11-01), on a cold
+ * local worker. Now: give the app's POST up to 30 s, then store once explicitly
+ * as a last resort (the same POST the app sends) and poll again. The journeys
+ * that use this test the builder, not the bootstrap; journey-core covers that.
+ */
+export async function waitForStoredPlan(page) {
+  const today = await page.evaluate(() => new Date().toISOString().split('T')[0]);
+  const storedId = async () => {
+    const res = await page.request.get(`/api/plan?date=${today}`);
+    if (!res.ok()) return null;
+    return (await res.json()).plan?.id ?? null;
+  };
+  const deadline = Date.now() + 30_000;
+  while (Date.now() < deadline) {
+    if (await storedId()) return;
+    await page.waitForTimeout(500);
+  }
+  const posted = await page.request.post('/api/plan', { data: { date: today } });
+  expect(posted.ok(), 'storing today\'s plan explicitly should succeed').toBe(true);
+  await expect.poll(storedId, { timeout: 10_000, message: 'the general path should have stored today\'s plan' }).toBeTruthy();
+}

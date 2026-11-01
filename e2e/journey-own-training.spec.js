@@ -14,7 +14,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { signupFresh, pickGeneralPath } from './helpers.js';
+import { signupFresh, pickGeneralPath, waitForStoredPlan } from './helpers.js';
 
 async function todaysPlan(page) {
   const today = await page.evaluate(() => new Date().toISOString().split('T')[0]);
@@ -54,10 +54,8 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await signupFresh(page, '-own-a');
   await pickGeneralPath(page);
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
-  // GET /api/plan generates an in-memory plan when nothing is stored yet, so a
-  // GET fired the instant START SESSION renders can race the app's own storing
-  // POST and come back without an id. Poll until the stored row exists.
-  await expect.poll(async () => (await todaysPlan(page))?.id, { timeout: 15_000, message: 'the general path should have stored today\'s plan' }).toBeTruthy();
+  // The stored row may lag the in-memory plan START SESSION renders from (see helpers).
+  await waitForStoredPlan(page);
   const before = await todaysPlan(page);
 
   // The entry: one quiet line, two links (§2).
@@ -254,7 +252,7 @@ test('own training (e) — Dutch exercise names on Today, in the picker and in W
   await signupFresh(page, '-own-e');
   await pickGeneralPath(page);
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
-  await expect.poll(async () => (await todaysPlan(page))?.id, { timeout: 15_000, message: 'the general path should have stored today\'s plan' }).toBeTruthy();
+  await waitForStoredPlan(page);
   const steps = JSON.parse((await todaysPlan(page)).plan_json).steps ?? [];
   // Every stored step carries both names (makePlanStep, v1.5).
   expect(steps.length).toBeGreaterThan(0);
