@@ -68,3 +68,19 @@ test('workout state machine — rep taps, set completion, rest skip, RPE, histor
   await page.getByRole('button', { name: 'Progress' }).click();
   await expect(page.getByText('RECENT SESSIONS')).toBeVisible({ timeout: 15_000 });
 });
+
+// UAT D1 — the cancel overlay rendered <Glass> without importing it: "← Cancel" →
+// ReferenceError → the error boundary replaced the whole app and the session was gone.
+test('workout cancel — "← Cancel" → "Quit workout?" → Quit returns to Today, no crash (UAT D1)', async ({ page }) => {
+  await signupFresh(page, '-cancel');
+  await pickGeneralPath(page);
+  const startSession = page.getByRole('button', { name: /START SESSION/ });
+  await expect(startSession).toBeVisible({ timeout: 30_000 });
+  await startSession.click();
+  await page.getByRole('button', { name: 'Start Workout' }).click();
+  await page.getByRole('button', { name: '← Cancel' }).click();
+  await expect(page.getByText('Quit workout?')).toBeVisible();
+  await page.getByRole('button', { name: 'Quit', exact: true }).click();
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText('Something went wrong')).toHaveCount(0);
+});

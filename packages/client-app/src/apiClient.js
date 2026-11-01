@@ -125,7 +125,9 @@ const api = {
     return api._library;
   },
 
-  async generatePlan(userId, date, checkin, coachSim, isPro, { replaceUserPlan = false } = {}) {
+  // pathChange: only from the path modal's save (src/pathApply.js) — the server
+  // lets it past the free daily cap once, as reason path_change (UAT D3).
+  async generatePlan(userId, date, checkin, coachSim, isPro, { replaceUserPlan = false, pathChange = false } = {}) {
     let res, data;
     try {
       res = await fetch("/api/plan", {
@@ -133,7 +135,7 @@ const api = {
         headers: { "Content-Type": "application/json" },
         // replace_user_plan is only ever sent from an explicit, confirmed user
         // action (WhyNotModal); every automatic call leaves a user-authored plan alone.
-        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro, replace_user_plan: replaceUserPlan || undefined }),
+        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro, replace_user_plan: replaceUserPlan || undefined, path_change: pathChange || undefined }),
       });
       data = await res.json();
     } catch {

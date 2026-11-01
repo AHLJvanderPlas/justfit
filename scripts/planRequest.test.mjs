@@ -4,7 +4,7 @@
 // scripts/plan-override-requests.mjs proves the wiring over HTTP for a handful of
 // paths. This file walks the whole decision table: every combination of
 // {isPro} × {no row, engine row, user row, malformed row} × {no exemption,
-// custom_steps, custom_extra, pins, force_assessment, adapt_mode, bonus_session} × {replace_user_plan}.
+// custom_steps, custom_extra, pins, force_assessment, adapt_mode, bonus_session, path_change} × {replace_user_plan}.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
@@ -32,6 +32,8 @@ const EXEMPTIONS = {
   // scale the stored session, never whatever the client sent.
   adapt_mode:       { adapt_mode: true, base_plan: { session_name: 'Client', steps: [] } },
   bonus_session:    { bonus_session: true },
+  // UAT D3: the path modal's save regenerates today once for the new path.
+  path_change:      { path_change: true },
 };
 
 // The decision table, written as the rules the product decided — in priority
@@ -44,9 +46,10 @@ function expected({ row, exemption, replace, isPro }) {
   const malformed = row.endsWith('Bad');
   if (row.startsWith('user') && !replace && !malformed) return ['preserve', 'user_plan']; // W4.1 beats every exemption
   if (exemption === 'adapt_mode' && !malformed) return ['adapt', 'adapt_mode'];          // same session, scaled — not a re-roll
-  const capExempt = isPro || exemption === 'force_assessment' || exemption === 'pins';
+  const capExempt = isPro || exemption === 'force_assessment' || exemption === 'pins' || exemption === 'path_change';
   if (!capExempt) return malformed ? ['regenerate', 'malformed_existing_plan'] : ['capped', 'free_daily_cap'];
-  return ['regenerate', isPro ? 'pro' : exemption === 'force_assessment' ? 'force_assessment' : 'pinned_exercise_ids'];
+  return ['regenerate', isPro ? 'pro' : exemption === 'force_assessment' ? 'force_assessment'
+    : exemption === 'path_change' ? 'path_change' : 'pinned_exercise_ids'];
 }
 
 test('decision table: every {isPro × row × exemption × replace_user_plan} combination', () => {
@@ -70,7 +73,7 @@ test('decision table: every {isPro × row × exemption × replace_user_plan} com
       }
     }
   }
-  assert.equal(n, 2 * 6 * 7 * 2);
+  assert.equal(n, 2 * 6 * 8 * 2);
 });
 
 // Named cases — the ones a reader looks for first.
@@ -100,6 +103,15 @@ test('C-G4 exemptions: custom_steps, pins and force_assessment each lift the cap
     const d = decideExistingPlan({ existingRow: ROWS.engine, body: { date: DATE, ...EXEMPTIONS[ex] }, isPro: false });
     assert.equal(d.decision, 'regenerate', ex);
   }
+});
+
+test('UAT D3: a path change regenerates a free user\'s capped day once; a user-authored plan still wins', () => {
+  const d = decideExistingPlan({ existingRow: ROWS.engine, body: { date: DATE, path_change: true }, isPro: false });
+  assert.deepEqual([d.decision, d.reason], ['regenerate', 'path_change']);
+  for (const v of [1, 'true', false, null]) {
+    assert.equal(decideExistingPlan({ existingRow: ROWS.engine, body: { date: DATE, path_change: v }, isPro: false }).decision, 'capped', String(v));
+  }
+  assert.equal(decideExistingPlan({ existingRow: ROWS.user, body: { date: DATE, path_change: true }, isPro: false }).decision, 'preserve');
 });
 
 test('W4.1: a user-authored plan survives an auto-generate, a check-in, a forced assessment and a pin request', () => {

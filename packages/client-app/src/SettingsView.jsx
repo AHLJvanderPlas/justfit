@@ -2494,7 +2494,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 return (
                   <>
                     <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 4 }}>Gratis proefperiode</div>
-                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Nog {trialDays} {trialDays === 1 ? "dag" : "dagen"} gratis Pro toegang</div>
+                    <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>{trialDays == null ? t("Trial active") : t(trialDays === 1 ? "{n} day of free Pro access left" : "{n} days of free Pro access left", { n: trialDays })}</div>
                     <button onClick={onUpgrade} style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 14, cursor: "pointer", border: "none", background: "var(--accent)", color: C.onAccent }}>
                       Activeer Pro →
                     </button>

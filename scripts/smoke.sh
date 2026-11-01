@@ -729,6 +729,18 @@ else
   ok "no inline script in any served page and script-src has no unsafe-inline"
 fi
 
+# ── UAT D2 — the service worker may register: worker-src 'self' ─────────────
+# /register-sw.js registers /sw.js (written by vite.config.js). worker-src 'none'
+# made Chrome refuse it on every load: no offline shell, and the Pro push toggle
+# awaited navigator.serviceWorker.ready forever.
+if grep -q "worker-src 'none'" packages/client-app/public/_headers; then
+  fail "_headers sends worker-src 'none' — it blocks /sw.js (UAT D2); use worker-src 'self'"
+elif ! grep -q "worker-src 'self'" packages/client-app/public/_headers; then
+  fail "_headers has no worker-src 'self' — /sw.js needs it (UAT D2)"
+else
+  ok "_headers allows the same-origin service worker (worker-src 'self')"
+fi
+
 # ── B2 — inline-style ratchet: the count may only fall ──────────────────────
 # style-src 'unsafe-inline' exists because of 2392 style={{ }} props across
 # the client app. The sibling project reached ~3400 before a multi-day CSP

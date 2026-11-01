@@ -164,6 +164,12 @@ export function needsExistingPlan(body) {
  *                      keeps the exercise selection); without it a free user's
  *                      check-in did nothing once a plan existed (F8, 2026-10-04)
  *   bonus_session      ephemeral, never stored
+ *   path_change        the user just chose a path (running, cycling, military …) in
+ *                      the path modal. Today's plan was built for the OLD path, so it
+ *                      is regenerated once for the new one (UAT D3, 2026-11-01). A
+ *                      one-time event per path change, not a re-roll: the client
+ *                      sends it only from the path modal's save. `preserve` still wins
+ *                      — a user-authored session is never replaced by a path change.
  *   custom_steps + bonus_session  "als extra": your own session next to today's
  *                      plan — generates nothing, stores nothing (reason custom_extra)
  *
@@ -193,7 +199,7 @@ export function decideExistingPlan({ existingRow, body, isPro }) {
     return { decision: 'adapt', reason: 'adapt_mode', plan: stored };
   }
 
-  if (!isPro && !body?.force_assessment && !_present(body?.pinned_exercise_ids)) {
+  if (!isPro && !body?.force_assessment && !_present(body?.pinned_exercise_ids) && body?.path_change !== true) {
     // The row id, last: the client saves today's workout against plan.id, and a
     // capped day without it stored the execution with no day_plan_id (F8).
     if (parsed !== undefined) return { decision: 'capped', reason: 'free_daily_cap', plan: { ...parsed, id: existingRow.id, capped: true } };
@@ -202,6 +208,7 @@ export function decideExistingPlan({ existingRow, body, isPro }) {
 
   const reason = isPro ? 'pro'
     : body?.force_assessment ? 'force_assessment'
+    : body?.path_change === true ? 'path_change'
     : 'pinned_exercise_ids';
   return { decision: 'regenerate', reason };
 }

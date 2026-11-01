@@ -4,8 +4,9 @@ import { expect } from '@playwright/test';
  * Sign up a fresh user via UI and skip onboarding + check-in. Session lands in the HttpOnly cookie.
  * `beforeCheckIn(page)` (optional) runs after onboarding and before the check-in that stores the
  * first plan — e.g. to set coach preferences through POST /api/profile so that plan is the coach's.
+ * `chips` (optional) are check-in chips tapped before Apply.
  */
-export async function signupFresh(page, suffix = '', { beforeCheckIn } = {}) {
+export async function signupFresh(page, suffix = '', { beforeCheckIn, chips = [] } = {}) {
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   const email = `e2e-${Date.now()}${suffix}@justfit.cc`;
   const password = 'e2e-test-pw';
@@ -20,6 +21,8 @@ export async function signupFresh(page, suffix = '', { beforeCheckIn } = {}) {
   for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
   if (beforeCheckIn) await beforeCheckIn(page);
   await page.getByRole('button', { name: 'Good' }).click();
+  // `chips`: check-in chips to tap before Apply, by their English label ("Taking it easy").
+  for (const chip of chips) await page.getByRole('button', { name: chip }).click();
   await page.getByRole('button', { name: 'Apply →' }).click();
   return { email, password };
 }

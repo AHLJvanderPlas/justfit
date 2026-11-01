@@ -209,3 +209,22 @@ test('coach-dcp (h) — Waar sta ik: the keuring card, and the level only once m
   await page.getByRole('button', { name: 'Vandaag', exact: true }).click();
   await expect(pill).toHaveText('MILITAIR · K3', { timeout: 20_000 });
 });
+
+// UAT D3 — a path chosen in the modal was saved but not applied until a reload: Today kept
+// the generic session, no coach card, and Settings showed the old goal as the path.
+test('path choice applies without a reload — Running → coach card on Today, RUNNING in Goal & coach (UAT D3)', async ({ page }) => {
+  await signupFresh(page, '-runpath');
+  const running = page.getByRole('button', { name: /RUNNING/ });
+  await expect(running).toBeVisible({ timeout: 10_000 });
+  await running.click();
+  await page.getByRole('button', { name: '5km', exact: true }).click();
+  await page.getByRole('button', { name: 'Start Running Coach →' }).click();
+  // No reload from here on.
+  await expect(page.getByRole('button', { name: /View your coach/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('coach-pill')).toHaveText(/^Running · 5km$/i);
+  await waitForStoredPlan(page);
+  expect((await storedPlan(page)).run_program, 'today\'s stored plan should now be the running coach\'s').toBeTruthy();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Goal & coach/ }).click();
+  await expect(page.locator('.jf-dc__path-name')).toHaveText(/^Running · 5 km$/i, { timeout: 10_000 });
+});

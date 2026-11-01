@@ -1,7 +1,7 @@
 import { computeMilitaryPhase, SESSIONS_PER_BLOCK, MIL_MARCH_KG, MIL_MARCH_SEC, MIL_CLUSTER_RUN_PEAK, MIL_RUN_WEEK_OFFSET } from './_shared/military.js';
 import { buildCyclingWorkoutsFromProtocols, CYCLING_PROFILES, getCyclingBlockPhase, calcCyclingTSS, scaleCyclingIntervals, computeCyclingTsb, buildCyclingCoachNote } from './_shared/cycling.js';
 import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolumeExercise } from './_shared/running.js';
-
+import { requestOrStoredCheckin } from './_shared/storedCheckin.js';
 import { getAuthUserId } from './_shared/auth.js';
 import { isProUser } from './_shared/entitlements.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
@@ -134,7 +134,7 @@ export async function onRequestPost({ request, env }) {
     };
     const { resolvedCycleContext, pregnancyContext } =
       await _resolveBodyContext(env, user_id, date, req.cycle_context, bodyProfile);
-    const effectiveCheckin = _effectiveCheckin(req.checkin, prefs, date);
+    const effectiveCheckin = _effectiveCheckin(await requestOrStoredCheckin(env, user_id, req), prefs, date); // UAT D4
     const history = await _loadTrainingHistory(env, user_id, date, prefs, bonus_session);
     const militaryTemplateItems = await _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCheckin, bonus_session);
 

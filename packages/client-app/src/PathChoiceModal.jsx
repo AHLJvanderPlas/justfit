@@ -5,7 +5,7 @@ import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 
 // ─── PATH CHOICE ──────────────────────────────────────────────────────────────
-export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
+export default function PathChoiceModal({ token, onComplete, isPro, entitlementKnown, onUpgrade }) {
   useLang();
   const [step, setStep] = useState("pick"); // "pick" | "running" | "cycling" | "military"
   const [saving, setSaving] = useState(false);
@@ -49,7 +49,8 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
             {PATHS.map(p => {
-              const locked = !isPro && p.key === "cycling";
+              // Lock only on a KNOWN "not Pro": a day-1 trial user must never meet the paywall (UAT D5).
+              const locked = !!entitlementKnown && !isPro && p.key === "cycling";
               return (
                 <button key={p.key}
                   onClick={() => {

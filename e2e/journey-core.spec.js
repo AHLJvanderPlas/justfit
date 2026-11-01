@@ -1,10 +1,15 @@
 import { test, expect } from '@playwright/test';
+import { signupFresh, pickGeneralPath, waitForStoredPlan } from './helpers.js';
 
 // Journey 1 (docs/IMPROVEMENT_PLAN.md Phase 3.1):
 // signup/login -> onboarding -> check-in -> plan -> complete workout -> history
 test('signup, onboard, check in, complete a workout and see it in history', async ({ page }) => {
   // Force English strings so t() returns source keys verbatim (default lang is NL).
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
+  // UAT D2 — our own CSP blocked /sw.js (worker-src 'none') on every load. Any CSP
+  // violation the browser reports during the journey fails it.
+  const cspViolations = [];
+  page.on('console', (msg) => { if (msg.text().includes('Content Security Policy')) cspViolations.push(msg.text()); });
 
   const email = `e2e-${Date.now()}@justfit.cc`;
   const password = 'e2e-test-pw';
@@ -18,6 +23,9 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
   await page.locator('#submit-btn').click();
 
   await page.waitForURL('/');
+  // The service worker registers (wrangler pages dev on localhost allows it over http).
+  await expect.poll(() => page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => !!r)),
+    { timeout: 15_000, message: '/sw.js should be registered after load' }).toBe(true);
 
   // ── Onboarding (skip everything) ───────────────────────────────────────
   await page.getByRole('button', { name: /I Agree/ }).click();
@@ -55,4 +63,51 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
   // ── History shows the completed session ─────────────────────────────────
   await page.getByRole('button', { name: 'Progress' }).click();
   await expect(page.getByText('RECENT SESSIONS')).toBeVisible({ timeout: 15_000 });
+  expect(cspViolations, 'no Content Security Policy violation during the core journey').toEqual([]);
+});
+
+// UAT D4 — the check-in Apply branched on prefs.isPro (always false since F8), so every
+// check-in took the free adapt path, which scales the stored session but cannot change its
+// intensity or selection: "Taking it easy" never reached the session. A fresh signup is
+// trialing (Pro), so its check-in must replan today. And a later regeneration that carries
+// no check-in (here: changing the path) must keep it — the server reads today's stored row.
+test('check-in "Taking it easy" → Today is a recovery session, kept through a path change (UAT D4)', async ({ page }) => {
+  await signupFresh(page, '-easy');
+  await pickGeneralPath(page);
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  const today = await page.evaluate(() => new Date().toISOString().split('T')[0]);
+  const stored = async () => {
+    const row = (await (await page.request.get(`/api/plan?date=${today}`)).json()).plan;
+    return row?.plan_json ? { ...JSON.parse(row.plan_json), id: row.id } : row;   // id: stored, not in-memory
+  };
+  const r559 = (plan) => (plan?.rule_trace ?? []).some((t) => /R559/.test(t));
+  await waitForStoredPlan(page);
+  expect(r559(await stored()), 'no recovery mode before the check-in says so').toBe(false);
+
+  // (a) The check-in, on a day that already has a plan: the Pro branch replans it. The free
+  //     adapt path would keep the stored session (its trace gains adapt:free_tier, never R559).
+  await page.getByRole('button', { name: 'Check-in' }).click();
+  await page.getByRole('button', { name: 'Good' }).click();
+  await page.getByRole('button', { name: 'Taking it easy' }).click();
+  await page.getByRole('button', { name: 'Apply →' }).click();
+  await expect.poll(async () => { const p = await stored(); return r559(p) && p.intensity; },
+    { timeout: 30_000, message: 'the check-in should replan today as a recovery session (R559, low)' }).toBe('low');
+  await expect(page.getByText('LOW', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
+  const why = page.getByRole('button', { name: 'Why this plan?' });
+  if ((await why.getAttribute('aria-expanded')) !== 'true') await why.click();
+  await expect(page.getByText('Recovery mode — low intensity, mobility and recovery exercises only.')).toBeVisible();
+
+  // (b) Changing the path regenerates WITHOUT a check-in (path_change, UAT D3); the
+  //     recovery day must survive it.
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Goal & coach/ }).click();
+  await page.getByRole('button', { name: 'Change path →' }).click();
+  const regen = page.waitForResponse((r) => r.url().includes('/api/plan') && r.request().method() === 'POST'
+    && (r.request().postData() ?? '').includes('"path_change":true'), { timeout: 30_000 });
+  await page.getByRole('button', { name: /^●\s*GENERAL/ }).click();   // the modal's tile (Settings has other "General" buttons)
+  const res = await regen;
+  expect(JSON.parse(res.request().postData()).checkin ?? null, 'the path regeneration carries no check-in').toBe(null);
+  const body = await res.json();
+  expect(body.plan?.intensity, 'the path regeneration keeps today\'s stored check-in').toBe('low');
+  expect(r559(body.plan), 'R559 in the path regeneration\'s trace').toBe(true);
 });

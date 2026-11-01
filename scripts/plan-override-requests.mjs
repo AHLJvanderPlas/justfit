@@ -75,6 +75,12 @@ db.exec(`
   CREATE TABLE program_templates (id TEXT PRIMARY KEY, slug TEXT NOT NULL) STRICT;
   CREATE TABLE program_template_items (id TEXT PRIMARY KEY, program_template_id TEXT NOT NULL, block_week INTEGER,
     day_index INTEGER, session_order INTEGER, exercise_id TEXT) STRICT;
+  -- Shape of migrations/baseline/1000_schema_core.sql (FK and CHECKs omitted) — UAT D4 reads it.
+  CREATE TABLE daily_checkins (
+    id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL,
+    mood INTEGER, energy INTEGER, soreness INTEGER, sleep_hours REAL, stress INTEGER, weight_kg REAL,
+    notes TEXT, checkin_json TEXT, created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL);
+  CREATE UNIQUE INDEX idx_daily_checkins_user_date ON daily_checkins(user_id, date);
 `);
 const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
   primary_muscles_json, alternatives_json, is_active, name_nl) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
@@ -111,6 +117,9 @@ const users = {
   xfree: { goal: 'health' },
   xnone: { goal: 'health' },
   pain:  { goal: 'health' },
+  // UAT D3 / D4.
+  pchg:  { goal: 'health' },
+  chk:   { goal: 'health' },
 };
 for (const [id, u] of Object.entries(users)) {
   db.prepare('INSERT INTO users (id) VALUES (?)').run(id);
@@ -408,6 +417,44 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
     && m.length === 2 && m.some(st => st.measures === 'dcp_pushups') && m.some(st => st.measures === 'dcp_situps')
     && m.every(st => st.sets === 1 && st.target_duration_sec === 120),
     `force_assessment on a military template day must store both measurement sets, got ${forced.status} planned=${forced.body.plan?.assessment_planned} max_effort=${m.map(st => st.exercise_slug).join(',') || 'none'}`);
+}
+
+// 12. UAT D3 — a path change regenerates a free user's capped day once
+//     (reason path_change, decideExistingPlan); a user-authored day still wins.
+{
+  await post('pchg', {});
+  check((await post('pchg', {})).body.plan?.capped === true, 'pchg: the second plan of the day should be capped');
+  const before = row('pchg').updated_at_ms;
+  const moved = await post('pchg', { path_change: true });
+  check(moved.status === 200 && moved.body.plan?.capped !== true && moved.body.saved === true && row('pchg').updated_at_ms >= before
+    && row('pchg').generated_by === 'engine',
+    `path_change must lift the C-G4 cap and store a fresh engine plan, got ${moved.status} capped=${moved.body.plan?.capped} row=${row('pchg')?.generated_by}`);
+  await post('pchg', { custom_steps: [S('push-up')] });
+  const kept = await post('pchg', { path_change: true });
+  check(kept.body.preserved === true && row('pchg').generated_by === 'user',
+    `path_change must not replace a user-authored session, got preserved=${kept.body.preserved} row=${row('pchg')?.generated_by}`);
+}
+
+// 13. UAT D4 — a request without a check-in plans with today's STORED check-in.
+//     The client used to drop it on every regeneration that was not the check-in
+//     sheet itself (retry, path change, app open), so "Taking it easy" was lost.
+{
+  const plain = await post('chk', {});
+  check(!(plain.body.plan?.rule_trace ?? []).some(t => /R559/.test(t)), 'chk: R559 fired without any check-in');
+  db.prepare(`INSERT INTO daily_checkins (id, user_id, date, mood, energy, sleep_hours, stress, checkin_json, created_at_ms, updated_at_ms)
+    VALUES ('dc-chk', 'chk', ?, 6, 5, NULL, 5, ?, 1, 1)`).run(DATE, JSON.stringify({ recovery_mode: true, pain_level: 0, no_time: false }));
+  // Pinned: the pins exemption lifts the free cap, and the body carries no checkin.
+  const r = await post('chk', { pinned_exercise_ids: [idOf('dead-bug')] });
+  const trace = r.body.plan?.rule_trace ?? [];
+  check(r.status === 200 && trace.some(t => /R559/.test(t)) && r.body.plan?.intensity === 'low',
+    `a plan request without checkin must use today's stored check-in (recovery_mode → R559, low), got ${r.status} intensity=${r.body.plan?.intensity} R559=${trace.some(t => /R559/.test(t))}`);
+  // The request's own check-in still wins over the stored one.
+  const own = await post('chk', { pinned_exercise_ids: [idOf('dead-bug')], checkin: { mood: 6, energy: 6, stress: 4, checkin_json: { recovery_mode: false } } });
+  check(!(own.body.plan?.rule_trace ?? []).some(t => /R559/.test(t)), 'a check-in in the body must override the stored one (R559 still fired)');
+  // Another day's row is not today's check-in.
+  db.prepare(`UPDATE daily_checkins SET date = '2026-10-04' WHERE id = 'dc-chk'`).run();
+  const old = await post('chk', { pinned_exercise_ids: [idOf('dead-bug')] });
+  check(!(old.body.plan?.rule_trace ?? []).some(t => /R559/.test(t)), "yesterday's stored check-in leaked into today's plan");
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');

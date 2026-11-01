@@ -10,6 +10,7 @@ import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 import { t, useLang, getLang, exerciseName } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
+import { Glass } from "./uiComponents.jsx";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {

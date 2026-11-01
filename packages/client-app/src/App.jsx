@@ -15,6 +15,8 @@ import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
 import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
 import { completedInfo, readExtra, writeExtra, isRetryable, execPayload, execArgs, saveOwnExtra } from "./ownTraining.js";
+import { applyPathChoice } from "./pathApply.js";
+import { loadEntitlement, entitlementSettled } from "./entitlement.js";
 
 // ─── VIEW COMPONENTS ──────────────────────────────────────────────────────────
 // WorkoutView: active workout path — split into its own chunk, but the import()
@@ -405,14 +407,14 @@ export default function App() {
     }
   });
 
-  // Captures checkin_mode and isPro from server before setting onboardingReady —
-  // avoids stale prefs closure in the check-in effect without making it re-trigger on prefs changes.
+  // checkin_mode is pinned before onboardingReady — avoids a stale prefs closure in the check-in effect.
   const checkinModeRef = useRef(null);
-  const isProRef = useRef(prefs.isPro ?? false);
-  useEffect(() => { isProRef.current = prefs.isPro ?? false; }, [prefs.isPro]);
-
-  // Entitlement-based isPro (from /api/subscribe) — authoritative for UI gating
-  const [isPro, setIsPro] = useState(() => !!(prefs.isPro ?? false));
+  // Entitlement (GET /api/subscribe, src/entitlement.js) — the ONLY Pro truth on the client;
+  // preferences.isPro is gone since F8 (UAT D4). isProRef mirrors it for callbacks.
+  const [isPro, setIsPro] = useState(false);
+  const [entitlement, setEntitlement] = useState("loading"); // loading | known | failed (UAT D5)
+  const isProRef = useRef(false);
+  useEffect(() => { isProRef.current = isPro; }, [isPro]);
   const [earlyBirdRemaining, setEarlyBirdRemaining] = useState(null);
   const [lastCheckin, setLastCheckin] = useState(null);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
@@ -438,12 +440,10 @@ export default function App() {
     }
     setPrefs((p) => ({
       ...p, ...data, exists: undefined,
-      isPro: data.preferences?.isPro ?? p.isPro ?? false,
       daily_replan: data.preferences?.daily_replan ?? p.daily_replan ?? false,
     }));
-    // Pin mode and isPro before setting onboardingReady so the check-in effect reads fresh data
+    // Pin the mode before setting onboardingReady so the check-in effect reads fresh data
     checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
-    isProRef.current = data.preferences?.isPro ?? false;
     // Fetch last check-in to pre-fill next check-in modal
     api.getLastCheckin(userId).then(setLastCheckin).catch(() => {});
     // Show terms gate if this user hasn't accepted the current policy version yet
@@ -529,6 +529,12 @@ export default function App() {
     }
   }, []);
 
+  // On mount: the entitlement as soon as a session exists, not after the profile — a fresh
+  // signup has none, and its path modal must know the trial is Pro (UAT D5).
+  useEffect(() => {
+    (userId ? loadEntitlement(api, { setIsPro, isProRef, setEarlyBirdRemaining }) : Promise.resolve("failed")).then(setEntitlement);
+  }, [userId]);
+
   // On mount: load profile → decide full onboarding vs daily flow
   useEffect(() => {
     if (!userId) return;
@@ -548,11 +554,6 @@ export default function App() {
         return;
       }
       handleProfileLoaded(data);
-      // Fetch entitlement state (isPro from DB, not from preferences flag)
-      api.getSubscription().then(sub => {
-        if (sub.isPro != null) { setIsPro(sub.isPro); isProRef.current = sub.isPro; }   // entitlements only — preferences.isPro is no longer a thing
-        if (sub.early_bird_remaining != null) setEarlyBirdRemaining(sub.early_bird_remaining);
-      }).catch(() => {});
     }).catch(() => setOnboardingReady(true));
     // handleProfileLoaded, token, and userId are session-stable: not React state,
     // designed to run once on mount (page reloads on auth changes).
@@ -567,7 +568,6 @@ export default function App() {
       if (data?.exists) {
         setPrefs({ ...data, exists: undefined });
         checkinModeRef.current = data.preferences?.checkin_mode ?? "once_a_day";
-        isProRef.current = data.preferences?.isPro ?? false;
       } else {
         checkinModeRef.current = "once_a_day";
       }
@@ -585,10 +585,8 @@ export default function App() {
     });
   };
 
-  const handlePathChoiceComplete = (intent) => {
-    setShowPathChoice(false);
-    setPrefs(p => ({ ...p, preferences: { ...(p.preferences ?? {}), primary_intent: intent } }));
-  };
+  // UAT D3: refetch the profile and replan today for the new path, no reload (src/pathApply.js).
+  const handlePathChoiceComplete = (intent) => applyPathChoice(intent, { api, userId, today, isPro: isProRef.current, setShowPathChoice, setPrefs, setPlan, setPlanError, setIsGenerating });
 
   // Load score, history, and progression from API on mount (only after onboarding done)
   useEffect(() => {
@@ -837,23 +835,24 @@ export default function App() {
         if (data.checkin_json?.period_today && userId) {
           api.logPeriod(userId, today).catch(() => {});
         }
-        if (prefs.isPro) {
+        // Stored for every user: a later regeneration without a check-in reads it (UAT D4).
+        api.saveCheckin(userId, today, data).catch(() => {});
+        if (isProRef.current) {   // the entitlement — prefs.isPro was always false (UAT D4)
           // Pro: full daily replanning with check-in data
           const newPlan = await api.generatePlan(userId, today, data, undefined, true);
           setPlan(newPlan); setPlanError(null);
         } else {
           // Free: adapt the existing weekly plan for today's check-in
           // (same exercises, adjusted reps/rest/volume — no full regen)
-          api.saveCheckin(userId, today, data).catch(() => {});
           const existing = await api.getTodayPlan(userId, today);
           if (existing) {
             const adapted = await api.adaptPlan(userId, today, data, existing);
             setPlan(adapted); setPlanError(null);
           } else {
-            // No plan yet — generate a baseline, then adapt it
-            const base = await api.generatePlan(userId, today, null, undefined, false);
-            const adapted = await api.adaptPlan(userId, today, data, base);
-            setPlan(adapted); setPlanError(null);
+            // No plan yet — the first plan of the day is built WITH the check-in (not a re-roll);
+            // adapting it afterwards would scale the same signals twice (UAT D4 review).
+            const base = await api.generatePlan(userId, today, data, undefined, false);
+            setPlan(base); setPlanError(null);
           }
         }
       } catch (e) {
@@ -864,7 +863,7 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [userId, today, prefs.isPro, token],
+    [userId, today, token],
   );
 
   const handleSkipCheckIn = useCallback(async () => {
@@ -873,7 +872,7 @@ export default function App() {
     localStorage.setItem("jf_checkin_date", today);
     setIsGenerating(true);
     try {
-      const newPlan = await api.generatePlan(userId, today, null, undefined, prefs.isPro);
+      const newPlan = await api.generatePlan(userId, today, null, undefined, isProRef.current);
       setPlan(newPlan); setPlanError(null);
     } catch (e) {
       console.error("Plan generation failed:", e);
@@ -882,13 +881,13 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
-  }, [userId, today, prefs.isPro, token]);
+  }, [userId, today, token]);
 
   const handleRetryPlan = useCallback(async () => {
     setPlanError(null);
     setIsGenerating(true);
     try {
-      const newPlan = await api.generatePlan(userId, today, null, undefined, prefs.isPro);
+      const newPlan = await api.generatePlan(userId, today, null, undefined, isProRef.current);
       setPlan(newPlan);
     } catch (e) {
       console.error("Plan retry failed:", e);
@@ -896,7 +895,7 @@ export default function App() {
     } finally {
       setIsGenerating(false);
     }
-  }, [userId, today, prefs.isPro]);
+  }, [userId, today]);
 
   // Save areas from check-in "Ongoing issue" button → profile chronic_injury_areas
   const handleMarkChronic = useCallback((areas) => {
@@ -1097,7 +1096,7 @@ export default function App() {
       setShowWhyNot(false);
       setIsGenerating(true);
       try {
-        const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, prefs.isPro, { replaceUserPlan });
+        const newPlan = await api.generatePlan(userId, today, checkinOverride, undefined, isProRef.current, { replaceUserPlan });
         setPlan(newPlan); setPlanError(null);
       } catch (e) {
         console.error("Plan regen failed:", e);
@@ -1106,7 +1105,7 @@ export default function App() {
         setIsGenerating(false);
       }
     },
-    [userId, today, prefs.isPro],
+    [userId, today],
   );
 
   const handleRestDay = useCallback(async () => {
@@ -1470,7 +1469,7 @@ export default function App() {
             )}
             {view === "awards" && (
               <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
-                <AwardsView history={history} score={score} isPro={isPro || !!prefs.isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView(awardsOrigin)} origin={awardsOrigin} />
+                <AwardsView history={history} score={score} isPro={isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView(awardsOrigin)} origin={awardsOrigin} />
               </Suspense>
             )}
             {view === "upgrade" && (
@@ -1514,7 +1513,7 @@ export default function App() {
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onNavigateAwards={() => openAwards("settings")}
                   onOpenCoachView={() => setView("coach")} onForceAssessment={handleForceAssessment} assessmentPlanned={!!plan?.assessment_planned} todaySession={plan?.military_program?.session_type}
-                  isPro={isPro || !!prefs.isPro}
+                  isPro={isPro}
                   onUpgrade={() => setView("upgrade")}
                   onSubscriptionChange={() => api.getSubscription().then(sub => { if (sub.isPro != null) setIsPro(sub.isPro); }).catch(() => {})}
                   onProgressionRefresh={() =>
@@ -1575,7 +1574,7 @@ export default function App() {
           <CheckInModal
             onSave={handleCheckIn}
             onClose={handleSkipCheckIn}
-            isPro={!!prefs.isPro}
+            isPro={isPro}
             sex={prefs.sex}
             cycle={prefs.cycle}
             defaultTimeBudget={(() => {
@@ -1599,9 +1598,9 @@ export default function App() {
         </Suspense>
       )}
 
-      {showPathChoice && (
+      {showPathChoice && entitlementSettled(entitlement) && (
         <Suspense fallback={null}>
-          <PathChoiceModal token={token} onComplete={handlePathChoiceComplete} isPro={isPro} onUpgrade={() => { setShowPathChoice(false); setView("upgrade"); }} />
+          <PathChoiceModal token={token} onComplete={handlePathChoiceComplete} isPro={isPro} entitlementKnown={entitlement === "known"} onUpgrade={() => { setShowPathChoice(false); setView("upgrade"); }} />
         </Suspense>
       )}
 

@@ -1526,4 +1526,8 @@ const NL = {
   "Aerobic engine first, supported by leg and core endurance.": "Eerst de aerobe motor, gesteund door uithouding in benen en romp.",
   "Mobility and flexibility as the primary training focus.": "Mobiliteit en lenigheid als belangrijkste trainingsfocus.",
   "Military prep: conditioning and legs-heavy, with strong push and core.": "Militaire voorbereiding: veel conditie en benen, met sterk duwen en een sterke romp.",
+  // ── UAT D5 — Account sub-view, trial without a known end date ────────────────
+  "Trial active": "Proefperiode actief",
+  "{n} day of free Pro access left": "Nog {n} dag gratis Pro toegang",
+  "{n} days of free Pro access left": "Nog {n} dagen gratis Pro toegang",
 };
