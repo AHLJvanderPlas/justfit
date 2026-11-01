@@ -8,6 +8,7 @@ import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
 import { t, useLang, setLang, getLang } from "./i18n.js";
 import { useAppShell } from "./AppShellContext.js";
 import TrainersPanel from "./settings/TrainersPanel.jsx";
+import NormenBlock from "./settings/NormenBlock.jsx";
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -115,7 +116,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onNavigateCoach, isPro, onUpgrade, onSubscriptionChange }) {
+function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onOpenCoachView, onForceAssessment, assessmentPlanned, isPro, onUpgrade, onSubscriptionChange }) {
   useLang();
   const { token, userId } = useAppShell();
   const [passkeySupported, setPasskeySupported] = useState(false);
@@ -288,9 +289,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [milTrack,        setMilTrack]        = useState(() => prefs.preferences?.military_coach?.track ?? 'keuring');
   const [milCluster,      setMilCluster]      = useState(() => prefs.preferences?.military_coach?.cluster_target ?? 3);
   const [milMode,         setMilMode]         = useState(() => prefs.preferences?.military_coach?.mode ?? 'target');
-  // C-F13 — the DCP bias is a separate switch from the sport bias: someone may
-  // want one without the other, and the DCP applies with no sport selected.
-  const [dcpBiasOn,       setDcpBiasOn]       = useState(() => !!prefs.preferences?.military_coach?.dcp?.bias_enabled);
   const [milTargetDate,   setMilTargetDate]   = useState(() => prefs.preferences?.military_coach?.target_date ?? '');
   const [milPackWeight,   setMilPackWeight]   = useState(() => prefs.preferences?.military_coach?.pack_weights_available_kg ?? []);
   // has_trail_shoes is now derived from planEquipment.includes("trail_shoes") — no separate state needed
@@ -449,21 +447,21 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [JSON.stringify(sportPrefs)]);
 
-  // ── Auto-save: DCP bias (C-F13) ──
-  // Mirrors the sport-bias auto-save rather than riding the main Save button:
-  // both are standing biases and both should take effect the moment they are
-  // switched, since neither changes anything the user is mid-way through.
-  const dcpBiasSaveRef = useRef(false);
-  useEffect(() => {
-    if (!dcpBiasSaveRef.current) { dcpBiasSaveRef.current = true; return; }
-    const mil = prefs.preferences?.military_coach;
-    if (!mil?.dcp?.enabled) return;
-    const nextMil = { ...mil, dcp: { ...mil.dcp, bias_enabled: dcpBiasOn } };
-    api.saveProgressionPrefs(token, { military_coach: nextMil })
-      .then(() => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), military_coach: nextMil } })))
-      .catch(() => {});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dcpBiasOn]);
+  // ── coach-dcp R1 — the writer military_coach.dcp never had (NORMEN block) ──
+  // Switches take effect at once, like the sport bias: a standing standard
+  // changes nothing the user is mid-way through. The WHOLE military_coach goes
+  // up (profile.js merges preferences one level deep), read fresh from the
+  // server first so a copy loaded before today's session cannot roll back the
+  // block counters that session advanced; the server keeps dcp.last as stored.
+  const saveDcp = async ({ enabled, birth_year, bias_enabled }) => {
+    const fresh = await api.getProfile(token).catch(() => null);
+    const mil = fresh?.preferences?.military_coach ?? prefs.preferences?.military_coach ?? {};
+    const dcp = { ...(mil.dcp ?? {}), enabled: !!enabled, birth_year, bias_enabled: !!bias_enabled };
+    const result = await api.saveProfile(token, { preferences: { military_coach: { ...mil, dcp } } });
+    if (result?.ok === false || result?.error) throw new Error(result.error ?? "save failed");
+    const after = await api.getProfile(token).catch(() => null);
+    onUpdate((p) => ({ ...p, preferences: after?.preferences ?? { ...(p.preferences ?? {}), military_coach: { ...mil, dcp } } }));
+  };
 
   const handleDeactivateBodyMode = async () => {
     setBodyModeDeactivating(true);
@@ -829,7 +827,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 key={row.key}
                 onClick={() => {
                   if (row.key === "awards") onNavigateAwards?.();
-                  else if (row.key === "coaches") onNavigateCoach?.();
                   else setSubView(row.key);
                 }}
                 style={{
@@ -857,7 +854,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             ‹
           </button>
           <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
-            {subView === "goal" ? t("YOUR GOAL") : subView === "you" ? t("YOU") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
+            {subView === "goal" ? t("YOUR GOAL") : subView === "you" ? t("YOU") : subView === "coach" ? t("COACHES") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
           </h1>
         </div>
       )}
@@ -1013,7 +1010,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               Change path →
             </button>
           )}
+          {/* coach-dcp R1 — the Coach view (ladder, readiness, PMC) has a route from here. */}
+          {onOpenCoachView && (milCoachActive || runCoachActive || cycleCoachActive) && (
+            <div><button className="jf-norm__link" onClick={onOpenCoachView}>{t("View your coach")} →</button></div>
+          )}
         </div>
+      <NormenBlock prefs={prefs} assessmentPlanned={!!assessmentPlanned} onSaveDcp={saveDcp} onMeasure={onForceAssessment} />
       {/* ── Training Focus ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16 }}>
@@ -2147,37 +2149,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             )}
           </div>
 
-          {/* ── DCP bias toggle (C-F13) ──
-              Sits beside the sport bias because it is the same kind of thing: a
-              standing requirement with no end date that shapes what the planner
-              aims for, as opposed to a coach, which is a programme with a
-              destination. Only shown once a DCP baseline exists. ── */}
-          {prefs.preferences?.military_coach?.dcp?.enabled && (
-            <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>{t("Stay DCP-ready")}</div>
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                    {dcpBiasOn
-                      ? t("Planner keeps you 20% above the DCP minimum, and stops pushing once you are.")
-                      : t("Planner ignores the DCP standard.")}
-                  </div>
-                </div>
-                <button
-                  onClick={() => setDcpBiasOn(v => !v)}
-                  style={{
-                    flexShrink: 0, padding: "8px 18px", borderRadius: 999, fontSize: 12, fontWeight: 900,
-                    cursor: "pointer", minHeight: 40, touchAction: "manipulation",
-                    border: `1px solid ${dcpBiasOn ? C.emeraldBorder : C.border}`,
-                    background: dcpBiasOn ? C.emeraldDim : "rgba(var(--overlay-rgb),0.05)",
-                    color: dcpBiasOn ? C.emerald : C.muted,
-                  }}
-                >
-                  {dcpBiasOn ? t("On") : t("Off")}
-                </button>
-              </div>
-            </div>
-          )}
+          {/* The DCP bias toggle moved to Settings → Coaches → NORMEN (coach-dcp R1). */}
 
           {/* ── Sport bias toggle ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>

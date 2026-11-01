@@ -738,7 +738,9 @@ fi
 # picker and WhyNot's build-own button replaced by classed components.
 # 2297 → 2278 (2026-10-31): builder v1.2 — MyTrainings.jsx (all 19 style={{ }} props, plus 4
 # style={fn()} ones) moved to .jf-mt* / .jf-tpl-item* classes.
-STYLE_CEILING=2278
+# 2278 → 2274 (2026-11-01): coach-dcp R1 — the DCP measurement button (DcpCard,
+# "Where you are") and the old DCP bias toggle moved to .jf-dcp-measure / .jf-norm*.
+STYLE_CEILING=2274
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -875,7 +877,7 @@ fi
 # with the failure message and the summary never printed.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1) || true
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 41 personas x 9 properties x 60 dates hold end-to-end, nothing waived"
+  ok "planner behaviour: 43 personas x 10 properties x 60 dates hold end-to-end, nothing waived (10 = R598 delivers what it announces)"
 else
   fail "planner behaviour: ${BEHAV}"
 fi
@@ -1458,7 +1460,9 @@ fi
 # element moved to styles.css), plan.js 3829 → 3827, onRequestPost 100 → 99.
 # 2026-11-01 (builder v1.5): plan.js 3827 → 3726 — the step builder moved to
 # _shared/planStep.js (makePlanStep).
-PLAN_CEILING=3726
+# 2026-11-01 (coach-dcp R1): plan.js 3726 → 3688 — R598's due check and the
+# measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
+PLAN_CEILING=3688
 APP_CEILING=1800
 POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
@@ -1509,6 +1513,29 @@ if DS_OUT=$(node scripts/dutchShell.scan.mjs 2>&1); then
 else
   echo "$DS_OUT" | sed 's/^/      /'
   fail "Dutch shell: an English literal sits outside t() (node scripts/dutchShell.scan.mjs)"
+fi
+
+# ── coach-dcp R1 — the DCP works and is reachable (offline source scan) ─────
+# One measurement action: neither DcpCard mount may open the old assessment
+# screen. One writer: Settings → Coaches → NORMEN writes military_coach.dcp WITH
+# `enabled` through saveProfile (nothing else ever set it). The coach sub-view
+# has its own title (it fell through to ACCOUNT). The header button is
+# "Check-in": no Recalibrate key in App.jsx or i18n.js.
+CD_OUT=$(node -e '
+const fs = require("fs");
+const rd = (f) => fs.readFileSync("packages/client-app/src/" + f, "utf8");
+const errs = [];
+for (const f of ["DcpCard.jsx", "CoachView.jsx"]) if (/setView\(\s*["\x27\x60]assessment/.test(rd(f))) errs.push(f + " opens the assessment screen — call onForceAssessment");
+const sv = rd("SettingsView.jsx");
+if (!/const dcp = \{[^\n]*\benabled:/.test(sv) || !/saveProfile\(token, \{ preferences: \{ military_coach: \{ \.\.\.mil, dcp \} \} \}\)/.test(sv)) errs.push("SettingsView.jsx no longer writes military_coach.dcp with enabled through saveProfile");
+if (!/subView === "coach" \? t\("COACHES"\)/.test(sv)) errs.push("the Settings sub-view title map has no coach entry (it reads ACCOUNT)");
+if (/t\(\s*["\x27]Recalibrate/.test(rd("App.jsx"))) errs.push("App.jsx still uses the Recalibrate key");
+if (/["\x27]Recalibrate["\x27]\s*:/.test(rd("i18n.js"))) errs.push("i18n.js still carries a Recalibrate key");
+process.stdout.write(errs.join("; "));' 2>&1)
+if [ -z "$CD_OUT" ]; then
+  ok "coach-dcp: one DCP measurement action, a dcp.enabled writer, a COACHES title, no Recalibrate key"
+else
+  fail "coach-dcp: $CD_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

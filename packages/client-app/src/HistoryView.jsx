@@ -9,6 +9,7 @@ import { summarizeLogged } from "./logSession.js";
 // someone asks "where am I", not only inside the military programme.
 import { DcpCard } from "./DcpCard.jsx";
 import { dcpCardVisible } from "../../../functions/api/_shared/military.js";
+import { dcpMeasureLabel, dcpMeasurePlanned } from "./dcpUi.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -646,7 +647,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   );
   const [measureBusy, setMeasureBusy] = useState(false);
   const handleMeasure = async () => {
-    if (measureBusy || assessmentPlanned || !onForceAssessment) return;
+    if (measureBusy || dcpPlanned || !onForceAssessment) return;
     setMeasureBusy(true);
     try { await onForceAssessment(); }
     finally { setMeasureBusy(false); }
@@ -691,6 +692,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
   // Stable reference for component mount time — avoids Date.now() inside render
   const [nowMs] = useState(() => Date.now());
+  const dcpLastAt = prefs?.preferences?.military_coach?.dcp?.last?.at_ms ?? null;
+  const dcpPlanned = dcpMeasurePlanned({ assessmentPlanned, lastAtMs: dcpLastAt, nowMs });
 
   if (isLoading) {
     return (
@@ -1018,6 +1021,18 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         The measurement can wait — your plan keeps adapting either way.
                       </div>
                     </>
+                  ) : dcpIsTarget ? (
+                    /* coach-dcp R1 — with the DCP as a target, its measurement IS the
+                       push/core baseline: hand over to the one DCP button instead of
+                       offering a second, differently-worded test of the same thing. */
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
+                      <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.5, flex: 1, minWidth: 0 }}>
+                        {t("Your DCP measurement is your baseline for push and core.")}
+                      </div>
+                      <button className="jf-dcp-measure jf-dcp-measure--inline" onClick={handleMeasure} disabled={dcpPlanned || measureBusy}>
+                        {t(dcpMeasureLabel({ never: !dcpLastAt, planned: dcpPlanned }))}
+                      </button>
+                    </div>
                   ) : (
                     <>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
@@ -1036,16 +1051,11 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           </div>
                         </div>
                         <button
-                          onClick={() => (dcpIsTarget ? handleMeasure() : onStartAssessment?.(assessment))}
-                          disabled={dcpIsTarget && (assessmentPlanned || measureBusy)}
-                          style={{ flexShrink: 0, padding: "9px 15px", borderRadius: 12, fontSize: 13, fontWeight: 800,
-                                   cursor: dcpIsTarget && assessmentPlanned ? "default" : "pointer",
-                                   border: `1px solid ${accentHex}55`, opacity: dcpIsTarget && assessmentPlanned ? 0.65 : 1,
-                                   background: `${accentHex}14`, color: accentHex, whiteSpace: "nowrap" }}
+                          onClick={() => onStartAssessment?.(assessment)}
+                          style={{ flexShrink: 0, padding: "9px 15px", borderRadius: 12, fontSize: 13, fontWeight: 800, cursor: "pointer",
+                                   border: `1px solid ${accentHex}55`, background: `${accentHex}14`, color: accentHex, whiteSpace: "nowrap" }}
                         >
-                          {dcpIsTarget && assessmentPlanned
-                            ? t("Self-assessment planned")
-                            : assessment.last ? t("Re-test") : t("Measure me")}
+                          {assessment.last ? t("Re-test") : t("Measure me")}
                         </button>
                       </div>
 

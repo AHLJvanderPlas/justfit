@@ -121,7 +121,10 @@ const build = (p, date = TODAY) => {
     p.isPro ?? false,
     p.cyclingCoach ? CYCLING_WORKOUTS : [],
     p.cyclingTsb ?? null, p.cyclingSessionsLast7 ?? 0, p.runSessionsLast7 ?? 0,
-    p.crossRunsLast7 ?? 0, null, null,
+    p.crossRunsLast7 ?? 0,
+    // A military persona may name its programme-template rows (the DB path, R573a),
+    // which the live handler loads from program_template_items for strength days.
+    p.militaryTemplate ? p.militaryTemplate.map(slug => exercises[Number(idOf(slug).slice(2))]) : null, null,
     { ...(p.opts ?? {}), ...(p.pins ? { pinnedIds: p.pins.map(slug => idOf(slug)) } : {}) },
   ];
 };
@@ -143,6 +146,10 @@ const MIL = (over = {}) => ({
   ...over,
 });
 const DCP = { enabled: true, bias_enabled: true, birth_year: 1989 };
+// keuring-cluster-1, block week 1, day 1 (migrations/baseline/1040_seed_military.sql):
+// the strength session that announced a measurement and contained neither movement.
+// Live it is six rows; shoulder-tap and clean-pull are not in the fixture.
+const K1_STRENGTH = ['flutter-kicks', 'dead-bug', 'deadlift', 'goblet-squat'];
 
 // ⚠ OPEN PLANNER BUG — do not "tidy" this away.
 //
@@ -293,6 +300,15 @@ const PERSONAS = [
   // The matrix's own first run found it; this persona keeps it found.
   { id: 'dcp-no-sport', militaryCoach: { active: false, dcp: DCP },
     expectAssessment: true },                                                                   // R594 without R560
+  // coach-dcp R1 — property 10's two personas. The military one is the stored
+  // plan the assessment read: a keuring K1 strength day from the programme
+  // template, DCP on, never measured — R598 traced, zero max-effort steps.
+  { id: 'military-keuring-dcp', budget: 60, goal: 'military', primary_intent: 'military', equipment: GYM_KIT,
+    militaryCoach: MIL({ cluster_current: 1, cluster_target: 3, target_date: daysAgo(-60), block_number: 1,
+      block_session_index: 1, pack_weights_available_kg: [10, 15], dcp: { enabled: true, birth_year: 1990, bias_enabled: true } }),
+    militaryTemplate: K1_STRENGTH, conditioning: 55, expectAssessment: true },                // R573a + R598
+  { id: 'general-dcp-bias', goal: 'fat_loss', budget: 30, militaryCoach: { active: false, dcp: DCP },
+    expectAssessment: true },                                                                   // cardio target + R598
   // ── Remaining rule paths the personas above never reach ──
   // Every weekday blocked, so the sweep always lands on a rest day: the rest
   // path has to hold on every date, not on the one in seven a single blocked
@@ -338,7 +354,7 @@ const PERSONAS = [
 const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
-  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins'];
+  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -595,6 +611,23 @@ for (const p of PERSONAS) {
         }
         say('pins', bad.length ? 'FAIL' : 'PASS', bad.length ? bad.join(', ') : `${p.pins.length - removed.size} kept, ${removed.size} removed by safety`);
       }
+    }
+
+    // ── 10. What R598 announces is in the session (coach-dcp R1) ──
+    // assessment_planned ⇔ exactly two max-effort steps, one per DCP movement;
+    // no announcement ⇔ none. The R598 trace line is the announcement the user
+    // reads in "Waarom dit plan?", so it must agree with both. For a persona with
+    // the DCP off, never a max-effort step.
+    {
+      const me = steps.filter(s => s.max_effort);
+      const kinds = new Set(me.map(s => s.measures));
+      const both = me.length === 2 && kinds.has('dcp_pushups') && kinds.has('dcp_situps');
+      const traced = trace.some(t => t.startsWith('R598'));
+      const dcpDue = !!p.militaryCoach?.dcp?.enabled && !p.militaryCoach?.dcp?.last;
+      const ok = (out.assessment_planned === true ? both : me.length === 0) && traced === (out.assessment_planned === true);
+      if (!dcpDue && !me.length && !out.assessment_planned && !traced) say('dcp-delivery', 'PASS', 'no DCP measurement due');
+      else say('dcp-delivery', ok ? 'PASS' : 'FAIL',
+        `R598 ${traced ? 'traced' : 'silent'}, assessment_planned=${out.assessment_planned === true}, ${me.length} max-effort step(s) [${[...kinds].join(', ')}] — announced must mean dcp_pushups + dcp_situps in the session`);
     }
   }  // ── end of the date sweep ──
 

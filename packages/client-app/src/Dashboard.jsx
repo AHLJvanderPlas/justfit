@@ -802,6 +802,16 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         const rcActive = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed) && _intentAllows('running');
         const ccActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed) && _intentAllows('cycling');
         const milActive = !!(prefs.preferences?.military_coach?.active) && _intentAllows('military');
+        // coach-dcp R1 — the programme card is the route to the Coach view (its
+        // ladder, readiness, PMC): the nav has no Coach tab without a trainer, and
+        // the discovery card hides once a coach is active. Inner buttons (TCX …)
+        // stop propagation; a key press only counts on the card itself.
+        const openCoach = () => onNavigateCoach?.();
+        const coachCard = onNavigateCoach ? {
+          className: "jf-coach-card", role: "button", tabIndex: 0, "aria-label": t("View your coach"), onClick: openCoach,
+          onKeyDown: (e) => { if (e.target === e.currentTarget && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); openCoach(); } },
+        } : {};
+        const chev = onNavigateCoach ? <span className="jf-coach-card__chev" aria-hidden="true">›</span> : null;
         if (milActive) {
           const mil = prefs.preferences.military_coach;
           const track    = mil.track ?? 'keuring';
@@ -830,7 +840,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             lastCooper < 2800 ? `${lastCooper}m · K5` : `${lastCooper}m · K6`
           ) : null;
           return (
-            <Glass style={{ padding: "14px 20px", marginBottom: 16 }}>
+            <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(var(--accent-rgb),0.15)", border: "1px solid rgba(var(--accent-rgb),0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
                   <MilitaryIcon size={24} />
@@ -871,6 +881,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     {milMode === 'fit' ? t("Fit target") : isBaseBuild ? t("Base build") : isPostAssess ? t("Open") : isCalibration ? t("On-ramp") : isDeload ? t("Deload") : t("Taper")}
                   </span>
                 )}
+                {chev}
               </div>
             </Glass>
           );
@@ -882,7 +893,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           const runSteps = plan?.steps?.filter(s => s.target_duration_sec) ?? [];
           const canExportRunTcx = runSteps.length > 0;
           return (
-            <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+            <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
                 <Icons.run size={20} c={C.emerald} />
               </div>
@@ -899,7 +910,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               </div>
               {canExportRunTcx && (
                 <button
-                  onClick={() => {
+                  onClick={(e) => {
+                    e.stopPropagation();
                     const sessionName = plan?.session_name ?? 'Run Session';
                     const tcx = generateRunningTcx(sessionName, runSteps, rc.max_hr ?? 180);
                     const slug = sessionName.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
@@ -910,6 +922,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   ↓ TCX
                 </button>
               )}
+              {chev}
             </Glass>
           );
         }
@@ -924,7 +937,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             const dateStr = new Date().toISOString().slice(0, 10);
             const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
             return (
-              <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+              <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Icons.run size={20} c={C.emerald} />
                 </div>
@@ -935,7 +948,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 </div>
                 {canExportCrossRunTcx && (
                   <button
-                    onClick={() => {
+                    onClick={(e) => {
+                      e.stopPropagation();
                       const tcx = generateRunningTcx(plan?.session_name ?? 'Cross-Training Run', crossRunSteps, cc.max_hr ?? 180);
                       triggerFileDownload(tcx, `cross_run_level_${level}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml');
                     }}
@@ -944,6 +958,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     ↓ TCX
                   </button>
                 )}
+                {chev}
               </Glass>
             );
           }
@@ -960,7 +975,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           const ccPhaseLabel = ccBlockPhase === 'recovery' ? 'Herstelweek — rust op schema' : ccBlockPhase === 'build' ? 'Opbouwfase' : 'Basisweek';
           const ccPhaseShort = ccBlockPhase === 'recovery' ? 'Herstelweek' : ccBlockPhase === 'build' ? 'Opbouwfase' : 'Basisweek';
           return (
-            <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
+            <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
               <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <Icons.cycle size={20} c={C.emerald} />
               </div>
@@ -986,13 +1001,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 const dateStr = new Date().toISOString().slice(0, 10);
                 const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
                 return (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
+                  <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
                     <button onClick={() => triggerFileDownload(generateCyclingTcx(cycStep.name, intervals, ftpW, hrMax), `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml')} style={btnStyle}>↓ TCX</button>
                     <button onClick={() => triggerFileDownload(generateZwoFile(cycStep.name, intervals, ftpW), `${slug}_${dateStr}.zwo`, 'application/xml')} style={btnStyle}>↓ ZWO</button>
                     <button onClick={() => triggerFileDownload(generateErgFile(cycStep.name, intervals, ftpW), `${slug}_${dateStr}.erg`, 'text/plain')} style={btnStyle}>↓ ERG</button>
                   </div>
                 );
               })()}
+              {chev}
             </Glass>
           );
         }

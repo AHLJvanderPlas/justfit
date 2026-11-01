@@ -24,8 +24,11 @@ export const AdaptationChip = ({ label }) => (
 );
 
 // ─── GLASS CARD ───────────────────────────────────────────────────────────────
-export const Glass = ({ children, style = {}, onClick }) => (
+// Extra props (className, role, tabIndex, aria-*, onKeyDown) reach the div, so a
+// card can be a control without a second wrapper (coach-dcp R1, Today's coach card).
+export const Glass = ({ children, style = {}, onClick, ...rest }) => (
   <div
+    {...rest}
     onClick={onClick}
     style={{
       background: C.bgCard,

@@ -207,6 +207,10 @@ const api = {
             rest_sec: s.rest_sec,
           },
           actual: s.actual ?? { completed: true },
+          // R598 — the measurement tag must reach execution.js (recordDcpMeasurement);
+          // without it a completed DCP set was saved as an ordinary set and dcp.last
+          // was never written (found by e2e (f), coach-dcp R1).
+          ...((s.measures ?? s.prescribed?.measures) ? { measures: s.measures ?? s.prescribed.measures } : {}),
         })),
       }),
     });

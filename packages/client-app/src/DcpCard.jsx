@@ -11,6 +11,7 @@
 import { C } from "./tokens.js";
 import { t } from "./i18n.js";
 import { Glass } from "./uiComponents.jsx";
+import { dcpMeasureLabel, dcpMeasurePlanned } from "./dcpUi.js";
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpIsStale, dcpCardVisible, DCP_RETEST_DAYS }
   from "../../../functions/api/_shared/military.js";
 
@@ -26,7 +27,9 @@ import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpIsStale, dcpCardVisible, DCP_R
  * @param {boolean} militaryActive preferences.military_coach.active
  * @param {string}  sex            from the body profile
  * @param {number}  nowMs          captured once by the caller — never read the clock in render
- * @param {func}    onMeasure      opens the DCP baseline assessment
+ * @param {func}    onMeasure      schedules the measurement into today's session (App's
+ *                                 handleForceAssessment, R598) — the same action on both mounts
+ * @param {boolean} measurePlanned today's plan carries assessment_planned
  * @param {boolean} compact        drops the header when the host screen already titles it
  */
 export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, compact = false, measurePlanned = false }) {
@@ -42,6 +45,7 @@ export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, co
   const runTarget = dcpProgress(0, norms.run_m, true).capacity;
   const stale = dcpIsStale(last.at_ms, nowMs);
   const never = !last.at_ms;
+  const planned = dcpMeasurePlanned({ assessmentPlanned: measurePlanned, lastAtMs: last.at_ms, nowMs });
 
   const rows = [
     { key: "pushups", label: t("Push-ups · 2 min"), p: push },
@@ -128,16 +132,8 @@ export function DcpCard({ dcp, militaryActive = false, sex, nowMs, onMeasure, co
       )}
 
       {onMeasure && (
-        <button
-          onClick={measurePlanned ? undefined : onMeasure}
-          disabled={measurePlanned}
-          style={{ marginTop: 12, width: "100%", minHeight: 44, borderRadius: 12,
-            cursor: measurePlanned ? "default" : "pointer", opacity: measurePlanned ? 0.65 : 1,
-            border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald,
-            fontSize: 13, fontWeight: 800, touchAction: "manipulation" }}>
-          {measurePlanned
-            ? t("Self-assessment planned")
-            : never ? t("Do baseline") : t("Measure again")}
+        <button className="jf-dcp-measure jf-dcp-measure--wide" onClick={planned ? undefined : onMeasure} disabled={planned}>
+          {t(dcpMeasureLabel({ never, planned }))}
         </button>
       )}
     </Glass>

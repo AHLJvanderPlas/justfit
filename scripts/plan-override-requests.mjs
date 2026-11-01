@@ -71,6 +71,10 @@ db.exec(`
     created_at_ms INTEGER NOT NULL, updated_at_ms INTEGER NOT NULL,
     CHECK (json_valid(plan_json))) STRICT;
   CREATE UNIQUE INDEX idx_day_plans_user_date ON day_plans(user_id, date);
+  -- The two tables _loadMilitaryTemplateItems joins (R573a, the programme-template path).
+  CREATE TABLE program_templates (id TEXT PRIMARY KEY, slug TEXT NOT NULL) STRICT;
+  CREATE TABLE program_template_items (id TEXT PRIMARY KEY, program_template_id TEXT NOT NULL, block_week INTEGER,
+    day_index INTEGER, session_order INTEGER, exercise_id TEXT) STRICT;
 `);
 const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
   primary_muscles_json, alternatives_json, is_active, name_nl) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
@@ -85,6 +89,11 @@ db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipmen
   .run('ex-gym-private', 'gym-private-press', 'Gym private press', 'strength', '["strength"]', '["none"]',
        '{"supports":["reps"]}', '["chest"]', null, 1, 'gym-someone-else');
 
+// keuring-cluster-1, block week 1, day 1 — the live template's rows that the fixture carries.
+db.prepare(`INSERT INTO program_templates VALUES ('pt-k1', 'keuring-cluster-1')`).run();
+['flutter-kicks', 'dead-bug', 'deadlift', 'goblet-squat'].forEach((slug, i) =>
+  db.prepare('INSERT INTO program_template_items VALUES (?,?,?,?,?,?)').run(`pti-${i}`, 'pt-k1', 1, 1, i + 1, idOf(slug)));
+
 const DATE = '2026-10-05';
 const users = {
   pro:  { goal: 'strength' },
@@ -92,6 +101,12 @@ const users = {
   preg: { goal: 'health', sex: 'female' },
   // DCP switched on, never measured → R598 is due (F8 item 6).
   dcp:  { goal: 'health', prefs: { military_coach: { active: false, dcp: { enabled: true, bias_enabled: true, birth_year: 1989 } } } },
+  // coach-dcp R1 — a keuring K1 strength day built from the programme template,
+  // the DCP measured today: only force_assessment can put the measurement in.
+  mil:  { goal: 'military', prefs: { primary_intent: 'military', available_equipment: ['none', 'dumbbell', 'kettlebell', 'barbell'],
+    military_coach: { active: true, track: 'keuring', mode: 'target', cluster_current: 1, cluster_target: 3, target_date: '2026-12-04',
+      block_number: 1, block_session_index: 1, last_cooper_distance_m: 2300, pack_weights_available_kg: [10, 15],
+      dcp: { enabled: true, birth_year: 1990, bias_enabled: true, last: { pushups: 20, situps: 25, at_ms: Date.parse(DATE + 'T08:00:00Z') } } } } },
   // MANUAL_TRAINING_DESIGN phase 1 — "als extra" (block 10).
   xfree: { goal: 'health' },
   xnone: { goal: 'health' },
@@ -378,6 +393,21 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   check(dcp.status === 200 && dcp.body.assessment_offer === true && !(dcp.body.plan?.steps ?? []).some(st => st.max_effort),
     `a due measurement must be offered (not inserted) on an extra, got offer=${dcp.body.assessment_offer}`);
   check(JSON.stringify(row('dcp')) === JSON.stringify(dcpBefore), 'an extra changed the dcp user\'s stored plan');
+}
+
+// 11. coach-dcp R1 — force_assessment on a military template day delivers the
+//     measurement: both max-effort sets are in the stored session, not only announced.
+{
+  const plain = await post('mil', {});
+  const p0 = plain.body.plan ?? {};
+  check(plain.status === 200 && (p0.rule_trace ?? []).some(t => String(t).startsWith('R573a')) && !p0.assessment_planned,
+    `the military user's first plan should come from the programme template with nothing due, got ${plain.status} planned=${p0.assessment_planned}`);
+  const forced = await post('mil', { force_assessment: true });
+  const m = (stored('mil')?.steps ?? []).filter(st => st.max_effort);
+  check(forced.status === 200 && forced.body.plan?.assessment_planned === true && stored('mil')?.assessment_planned === true
+    && m.length === 2 && m.some(st => st.measures === 'dcp_pushups') && m.some(st => st.measures === 'dcp_situps')
+    && m.every(st => st.sets === 1 && st.target_duration_sec === 120),
+    `force_assessment on a military template day must store both measurement sets, got ${forced.status} planned=${forced.body.plan?.assessment_planned} max_effort=${m.map(st => st.exercise_slug).join(',') || 'none'}`);
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');

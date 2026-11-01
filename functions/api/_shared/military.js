@@ -240,6 +240,43 @@ export function dcpAgeFrom(birthYear, nowMs = Date.now()) {
   return new Date(nowMs).getUTCFullYear() - y;
 }
 
+/**
+ * The one shape `military_coach.dcp` may be stored in (coach-dcp release 1).
+ *
+ * The Normen block in Settings is the first writer of `enabled`, `birth_year`
+ * and `bias_enabled`; before it, the block existed only where someone had edited
+ * the preferences by hand. profile.js runs every write through this:
+ *   enabled / bias_enabled   booleans (true, "true", 1 — anything else is false)
+ *   birth_year               an integer in DCP_BIRTH_YEARS, or dropped — and
+ *                            without one the DCP cannot be on: the age band IS the norm
+ *   test_date                YYYY-MM-DD, or dropped (no writer yet; kept when valid)
+ *   last                     the STORED measurement wins over whatever the client
+ *                            sent: execution.js writes it after a session, so a
+ *                            Settings screen opened before that session holds an
+ *                            older copy and must not roll it back
+ * Unknown keys are dropped. Returns null when `dcp` is not an object.
+ */
+export const DCP_BIRTH_YEARS = [1930, 2015];
+
+export function normalizeDcp(dcp, stored = null) {
+  if (!dcp || typeof dcp !== 'object' || Array.isArray(dcp)) return null;
+  const bool = (v) => v === true || v === 'true' || v === 1 || v === '1';
+  const out = { enabled: bool(dcp.enabled), bias_enabled: bool(dcp.bias_enabled) };
+  const y = typeof dcp.birth_year === 'string' && dcp.birth_year.trim() !== '' ? Number(dcp.birth_year) : dcp.birth_year;
+  if (Number.isInteger(y) && y >= DCP_BIRTH_YEARS[0] && y <= DCP_BIRTH_YEARS[1]) out.birth_year = y;
+  else out.enabled = false;
+  if (typeof dcp.test_date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dcp.test_date)) out.test_date = dcp.test_date;
+  const last = _dcpLast(stored?.last) ?? _dcpLast(dcp.last);
+  if (last) out.last = last;
+  return out;
+}
+
+function _dcpLast(l) {
+  if (!l || typeof l !== 'object' || !Number.isFinite(l.at_ms)) return null;
+  const n = (v) => (Number.isFinite(v) && v >= 0 ? Math.round(v) : 0);
+  return { pushups: n(l.pushups), situps: n(l.situps), at_ms: l.at_ms };
+}
+
 /** Age + sex → the three minimums, or null when no table exists for that sex. */
 export function getDcpNorms(sex, ageYears) {
   const table = DCP_NORMS[sex === 'female' ? 'female' : 'male'];

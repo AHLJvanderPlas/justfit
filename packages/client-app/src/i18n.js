@@ -97,15 +97,31 @@ const NL = {
     'Doe de nulmeting zodat de planner weet waar je staat.',
   'Last measured over': 'Laatst gemeten meer dan',
   'days ago — time to retest.': 'dagen geleden — tijd om opnieuw te meten.',
-  'Do baseline': 'Nulmeting doen',
-  // R598 — the nulmeting happens inside a session now, so these describe a
-  // scheduled measurement rather than a separate screen.
-  'Self-assessment planned': 'Zelfmeting gepland',
+  // coach-dcp R1 — ONE measurement button everywhere (dcpUi.dcpMeasureLabel); the
+  // nulmeting happens inside a session, so these schedule it into today's.
+  'Schedule baseline': 'Nulmeting inplannen',
+  'Schedule retest': 'Hermeting inplannen',
+  "Measurement is in today's session": 'Meting staat in je sessie van vandaag',
+  'Your DCP measurement is your baseline for push and core.': 'Je DCP-meting is je nulmeting voor push en core.',
+  // coach-dcp R1 — the Normen block (Settings → Coaches) and the routes to the Coach view.
+  'Standards': 'NORMEN',
+  'DCP standard · standing': 'DCP-norm · doorlopend',
+  'Keuring {level}': 'Keuring {level}',
+  'Keuring {level} · in {n} days': 'Keuring {level} · over {n} dagen',
+  'Birth year': 'Geboortejaar',
+  'Enter a birth year between 1930 and 2015 to switch the DCP on.': 'Vul een geboortejaar tussen 1930 en 2015 in om de DCP aan te zetten.',
+  'Set your sex under You': 'Stel je geslacht in bij Jij',
+  '{sex} (from You)': '{sex} (uit Jij)',
+  'The DCP standard for women is not in the app yet.': 'De DCP-norm voor vrouwen staat nog niet in de app.',
+  '2 min push-ups, 2 min sit-ups, 12 min run. Your norm: {push} · {situp} · {run} m. You train to 20% above it, then the bias stops. Retest every 6 weeks.':
+    '2 min push-ups, 2 min sit-ups, 12 min loop. Norm voor jou: {push} · {situp} · {run} m. Je traint tot 20 % boven de norm, daarna stopt de bias. Hermeting elke 6 weken.',
+  'View your coach': 'Bekijk je coach',
+  'COACHES': 'COACHES',
+  'Check-in': 'Check-in',
   'Max reps — time remaining': 'Max herhalingen — resterende tijd',
   'Stop — form is going ({n})': 'Stoppen — vorm gaat achteruit ({n})',
   'Re-test': 'Opnieuw testen',
   'Measure me': 'Meet mij',
-  'Measure again': 'Opnieuw meten',
   'Stay DCP-ready': 'Altijd DCP-klaar',
   'Planner keeps you 20% above the DCP minimum, and stops pushing once you are.':
     'De planner houdt je 20% boven de DCP-norm en stopt met duwen zodra je daar bent.',
@@ -1182,7 +1198,6 @@ const NL = {
   "Zone 2 Run": "Zone 2-duurloop",
   "Strength & March": "Kracht & mars",
   "Assessment": "Beoordeling",
-  "Recalibrate": "Herijken",
   "General health": "Algemene gezondheid",
   "Consistent daily training": "Elke dag consequent trainen",
   "Block {b} of 6 · Session {s} of 4": "Blok {b} van 6 · Sessie {s} van 4",

@@ -251,12 +251,12 @@ export default function App() {
   // so the runner never renders before it knows the battery.
   const [assessmentConfig, setAssessmentConfig] = useState(null);
 
-  // R598 — "recalibrate" schedules the measurement into today's training. On a day the user
+  // R598 — the one measurement button schedules it into today's training. On a day the user
   // wrote, W4.1 keeps their session: mark the offer on it and say why (F8).
   const handleForceAssessment = async () => {
     const { plan: fresh, preserved } = await api.forceAssessment(userId, today);
     setPlan(preserved ? { ...fresh, assessment_offer: true } : fresh); setView("today");
-    if (preserved) { setActivityToast(t("You built today's session yourself, so it stays as it is; add the self-measurement with the button under your session.")); setTimeout(() => setActivityToast(""), 7000); }
+    if (preserved) { setActivityToast(t("You built today's session yourself, so it stays as it is; add the self-measurement with the button under your session.")); setTimeout(() => setActivityToast(""), 7000); } else if (fresh?.assessment_planned) { setActivityToast(t("Measurement is in today's session")); setTimeout(() => setActivityToast(""), 5000); }
     return fresh;
   };
 
@@ -937,7 +937,7 @@ export default function App() {
         ]);
         setPrevScore(score);
         setScore(newScore);
-        setHistory(newHistory.results); if (Array.isArray(mine)) setMyTemplates(mine);
+        setHistory(newHistory.results); if (Array.isArray(mine)) setMyTemplates(mine); if (plan?.assessment_planned) api.getProfile().then((d) => { if (d?.preferences) setPrefs((p) => ({ ...p, preferences: d.preferences })); }).catch(() => {});
         setHistoryTruncated(!!newHistory.truncated);
         // Mark today as completed
         setTodayCompleted(true);
@@ -1239,7 +1239,7 @@ export default function App() {
                   <path d="M19 3v4" />
                   <path d="M21 5h-4" />
                 </svg>
-                {t("Recalibrate")}
+                {t("Check-in")}
               </button>
             )}
           </header>
@@ -1430,7 +1430,7 @@ export default function App() {
                   ftpSnoozedUntil={ftpSnoozedUntil}
                   setFtpSnoozedUntil={setFtpSnoozedUntil}
                   accentHex={prefs.preferences?.accent ?? "#10b981"}
-                  setView={setView}
+                  setView={setView} onForceAssessment={handleForceAssessment}
                   trainerData={trainerData}
                   onTrainerDataChange={setTrainerData}
                   assignments={assignments}
@@ -1513,7 +1513,7 @@ export default function App() {
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onNavigateAwards={() => openAwards("settings")}
-                  onNavigateCoach={() => setView("coach")}
+                  onOpenCoachView={() => setView("coach")} onForceAssessment={handleForceAssessment} assessmentPlanned={!!plan?.assessment_planned}
                   isPro={isPro || !!prefs.isPro}
                   onUpgrade={() => setView("upgrade")}
                   onSubscriptionChange={() => api.getSubscription().then(sub => { if (sub.isPro != null) setIsPro(sub.isPro); }).catch(() => {})}

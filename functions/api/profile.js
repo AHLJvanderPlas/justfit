@@ -4,6 +4,7 @@
 import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalVersions.js';
 
 import { getUser } from './_shared/auth.js';
+import { normalizeDcp } from './_shared/military.js';
 
 function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
   if (!lastPeriodStart) return null;
@@ -269,6 +270,12 @@ export async function onRequestPost({ request, env }) {
           mil.pack_weights_available_kg = [];
         }
         delete mil.pack_weight_max_kg; // migrate legacy field
+        // coach-dcp R1 — one stored shape for the DCP block (normalizeDcp). A write
+        // that omits `dcp` (the path modal, the Cooper entry) keeps the stored one:
+        // the shallow merge above would otherwise drop it with the rest of the object.
+        const storedDcp = existingParsed?.military_coach?.dcp ?? null;
+        const dcp = normalizeDcp(mil.dcp === undefined ? storedDcp : mil.dcp, storedDcp);
+        if (dcp) mil.dcp = dcp; else delete mil.dcp;
         if (mil.target_date && !/^\d{4}-\d{2}-\d{2}$/.test(mil.target_date)) mil.target_date = null;
         if (mil.mode !== 'target') mil.target_date = null;
         // Enforce one active coach: military active → deactivate run/cycle

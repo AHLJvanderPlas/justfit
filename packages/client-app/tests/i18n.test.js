@@ -326,7 +326,7 @@ const V16_KEYS = [
   "Zone 2 Run",
   "Strength & March",
   "Assessment",
-  "Recalibrate",
+  "Check-in",
   "General health",
   "Consistent daily training",
   "Block {b} of 6 · Session {s} of 4",
@@ -352,7 +352,7 @@ const V16_KEYS = [
   "Race fitness"
 ];
 // Loanwords that are the same word in Dutch.
-const SAME_IN_DUTCH = new Set(['Open', 'Sprint', "Beginner", "Kettlebell", "Power tower", "Lat pulldown"]);
+const SAME_IN_DUTCH = new Set(['Open', 'Sprint', 'Check-in', "Beginner", "Kettlebell", "Power tower", "Lat pulldown"]);
 
 describe('v1.6 shell — every key has its own Dutch value', () => {
   it('lists 269 keys', () => { expect(V16_KEYS.length).toBe(269); });
@@ -375,7 +375,9 @@ describe('v1.6 shell — every key has its own Dutch value', () => {
     expect(i18n.t('+ {n} more', { n: 3 })).toBe('+ 3 meer');
     expect(i18n.t('START SESSION')).toBe('START SESSIE');
     expect(i18n.t('Start Workout')).toBe('Start training');
-    expect(i18n.t('Recalibrate').toUpperCase()).toBe('HERIJKEN');
+    // coach-dcp R1 — the header button opens the check-in, so it says so; "Herijken" is gone.
+    expect(i18n.t('Check-in')).toBe('Check-in');
+    expect(i18n.t('Recalibrate')).toBe('Recalibrate');   // no Dutch entry left for the old key
     expect(i18n.t('Why this plan?')).toBe('Waarom dit plan?');
     expect(i18n.t('THIS WEEK')).toBe('DEZE WEEK');
     expect(i18n.t('Improve overall fitness').toUpperCase()).not.toBe('IMPROVE OVERALL FITNESS');

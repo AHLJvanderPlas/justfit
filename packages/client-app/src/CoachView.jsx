@@ -27,7 +27,7 @@ const KEURING_NORMS = {
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
-export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages, myTemplates, onUseTemplate, onEditTemplate, onBuildOwn, onDeleteTemplate }) {
+export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, onWeeklyPlan, progression, cyclingPmc, ftpSnoozedUntil, setFtpSnoozedUntil, accentHex, setView, onForceAssessment, trainerData, onTrainerDataChange, assignments, clientSessions, availableSessions, onAvailableSessionsChange, onClientSessionsChange, clientPackages, myTemplates, onUseTemplate, onEditTemplate, onBuildOwn, onDeleteTemplate }) {
   useLang();
   const { token } = useAppShell();
   const [intentSaved, setIntentSaved] = useState(false);
@@ -819,8 +819,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* DCP as a sub-target of the military programme (C-F13).
                 The same card also appears in Voortgang, where it reads as a
                 standing requirement rather than a goal — one component, so the
-                numbers on a published standard cannot differ between screens. */}
-            <DcpCard dcp={dcp} militaryActive sex={dcpSex} nowMs={nowMs} onMeasure={() => setView && setView("assessment")} />
+                numbers on a published standard cannot differ between screens.
+                coach-dcp R1: and one action — R598 into today's session, never
+                the old separate assessment screen. */}
+            <DcpCard dcp={dcp} militaryActive sex={dcpSex} nowMs={nowMs} onMeasure={onForceAssessment} measurePlanned={!!plan?.assessment_planned} />
 
             {/* Level ladder */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>

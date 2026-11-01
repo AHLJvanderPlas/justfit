@@ -5,7 +5,8 @@ import { RUN_PROGRAMS, RUN_WARMUP_TAG, buildRunProgramsFromTemplates, isRunVolum
 import { getAuthUserId } from './_shared/auth.js';
 import { isProUser } from './_shared/entitlements.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
-import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, dcpIsStale } from './_shared/military.js';
+import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible } from './_shared/military.js';
+import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, hasBothMeasurements, measurementStep } from './_shared/dcpMeasure.js';
 import { musclesFromJson } from './_shared/muscles.js';
 import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
@@ -2454,38 +2455,7 @@ function _selectCoachBlueprint(ctx) {
 const R574_MARCH_SLUG = 'weighted-march';
 
 // ── Stage 5: Select exercises ─────────────────────────────────────────────────
-const DCP_WINDOW_SEC = 120;
-
-/**
- * R598 — is a DCP self-measurement due today, and can it be taken safely?
- *
- * Returns { pushEx, situpEx, lastAt } or null. Shared by the engine (which
- * inserts the two sets) and the user-authored path (W4.1), which only OFFERS
- * them: a session the user wrote is not silently extended. Both read the same
- * predicate and the same _safePool, so "due" can never mean two things.
- */
-function _dcpMeasurementDue(ctx) {
-  const prefs = ctx.prefs;
-  const dcp = prefs?.preferences?.military_coach?.dcp;
-  if (!dcpCardVisible(dcp, !!prefs?.preferences?.military_coach?.active)) return null;
-  if (ctx.slot_type === 'rest' || !ctx.isStandardMode || ctx.bonusSession) return null;
-  const lastAt = dcp.last?.at_ms ?? null;
-  const due = ctx.forceAssessment || !lastAt || dcpIsStale(lastAt, ctx.planDateMs);
-  if (!due) return null;
-  // W3.0 — a measurement is still a set of push-ups: an injured shoulder or a
-  // guard from R563 rules it out, and the measurement waits for a safe day.
-  const measurable = _safePool(ctx, ctx.exercises);
-  const find = (...slugs) => {
-    for (const sl of slugs) {
-      const hit = measurable.find(ex => ex.slug === sl);
-      if (hit) return hit;
-    }
-    return null;
-  };
-  const pushEx  = find('push-up', 'knee-push-up', 'wall-push-up');
-  const situpEx = find('sit-up', 'bent-knee-sit-up', 'anchored-sit-up');
-  return pushEx && situpEx ? { pushEx, situpEx, lastAt } : null;
-}
+// R598 — dcpMeasurementDue / ensureMeasurementSteps live in _shared/dcpMeasure.js.
 
 function _selectExercises(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
@@ -2777,13 +2747,13 @@ function _selectExercises(ctx) {
   // So it is measured the way it is tested: two max-effort sets inside a normal
   // session. Fires when the DCP is a target in any way AND the last measurement
   // is missing or older than DCP_RETEST_DAYS, or when the user forces it from
-  // the Recalibrate button. The 2-minute window is the DCP protocol itself, not
+  // the measurement button. The 2-minute window is the DCP protocol itself, not
   // an open-ended set to failure — a capped window is what the standard scores.
   {
-    const due = _dcpMeasurementDue(ctx);
+    const due = dcpMeasurementDue(ctx, _safePool);
     if (due) {
       const { pushEx, situpEx, lastAt } = due;
-      ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: DCP_WINDOW_SEC };
+      ctx.dcpMeasure = { pushId: pushEx.id, situpId: situpEx.id, windowSec: DCP_WINDOW_SEC, pushEx, situpEx };
       const others = shuffled.filter(ex => ex.id !== pushEx.id && ex.id !== situpEx.id);
       shuffled = [pushEx, situpEx, ...others];
       ctx.trace.push(ctx.forceAssessment
@@ -3137,6 +3107,8 @@ function _assembleSession(ctx) {
       coaching_note:        coachingNote,
     });
   });
+  // R598 — a template or coach session that lacks a movement still gets measured.
+  ensureMeasurementSteps(ctx, steps);
 
   // R502 — one line for both legs. Reported after the map so timed work cannot
   // be rescaled silently again.
@@ -3375,9 +3347,8 @@ function _assembleSession(ctx) {
     steps:            orderedSteps,
     experience_level: ctx.expLevel ?? 'intermediate',
     coach_priority:   COACH_PRIORITY,
-    // R598 — lets the client label the Recalibrate control "zelfmeting gepland"
-    // instead of offering to schedule something already in today's session.
-    assessment_planned: !!ctx.dcpMeasure,
+    // R598 — true only when both measurement sets are IN the session (dcpMeasure.js).
+    assessment_planned: hasBothMeasurements(orderedSteps),
     // W4.4 — present only when the user pinned exercises. `pinned` lists the pins
     // that are in the session; `pins_removed` the ones a guard (or a rest day /
     // coach programme) kept out, with the rule that did it.
@@ -3667,21 +3638,12 @@ export function assembleCustomSession(ctx, rawSteps, { safetyAck = false, includ
   // R598 — never inserted silently into a session the user wrote. When due it
   // is OFFERED; `includeAssessment` (the user tapped "Zelfmeting toevoegen")
   // appends the two measurement sets, chosen through the same _safePool.
-  let assessmentOffer = false;
-  let assessmentPlanned = false;
-  const dcp = _dcpMeasurementDue(ctx);
+  const dcp = dcpMeasurementDue(ctx, _safePool);
   if (dcp && includeAssessment) {
-    for (const [ex, measures] of [[dcp.pushEx, 'dcp_pushups'], [dcp.situpEx, 'dcp_situps']]) {
-      steps.push(prescribedStep(ex, {
-        sets: 1, target_reps: undefined, target_duration_sec: DCP_WINDOW_SEC,
-        rest_sec: _clampInt(getDefaultRest(ex, 'main'), L.rest_sec),
-        max_effort: true, measures, measure_window_sec: DCP_WINDOW_SEC,
-      }));
-    }
-    assessmentPlanned = true;
-  } else if (dcp) {
-    assessmentOffer = true;
+    for (const [ex, kind] of [[dcp.pushEx, 'dcp_pushups'], [dcp.situpEx, 'dcp_situps']]) steps.push(measurementStep(ex, kind, _clampInt(getDefaultRest(ex, 'main'), L.rest_sec)));
   }
+  const assessmentPlanned = hasBothMeasurements(steps);
+  const assessmentOffer = !!dcp && !assessmentPlanned;
 
   // Advisory pass: evaluate, collect, do not mutate.
   const safetyNotes = _adviseSteps(ctx, steps);
