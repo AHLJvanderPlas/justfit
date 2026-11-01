@@ -1358,6 +1358,34 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-11-01 — session builder v1.6 (plan §6): a Dutch shell around the sheets
+
+- The Today card, WorkoutView chrome and the Coach header strip are Dutch for a Dutch user:
+  "ZO · 1 NOV", "VANDAAG · DAG 4", "GEBALANCEERDE SESSIE", "15 min | 6 oefeningen |
+  GEMIDDELD", "+ 3 meer", "START SESSIE", "Waarom dit plan?", "DEZE WEEK" (M D W D V Z Z),
+  "Start training", "HERIJKEN", "Algemene gezondheid · Elke dag consequent trainen",
+  Militair / Hardlopen / Fietsen. ~160 `t()` call sites, 219 new dictionary entries; the
+  goal/experience/intent tables resolve at render; English keys unchanged (the English e2e
+  journeys still match them). Training-science terms stay English (FTP, TSS, RPE, VO2max,
+  CTL/ATL/TSB, Zone n, Cooper).
+- `messagePolicy.js`: `intensityLabel` (LAAG / GEMIDDELD / HOOG), `slotLabel`,
+  `sessionTitle` (fixed engine names + "Blok n / Week n / Niveau n" + Cooper "nulmeting /
+  voortgangstest / proefkeuring"), `coachSentenceT` (pregnancy/postnatal prefix translated
+  separately), `cycleSubGoalLabel`. `planUtils.js`: date strip + weekday letters per
+  language.
+- Guards: `scripts/dutchShell.scan.mjs` (smoke) fails on any of the 12 photographed literals
+  outside `t()` in Dashboard/WorkoutView/CoachView/App; `i18n.test.js` asserts every key of
+  this version has a Dutch value different from the key and that three Dutch values keep
+  "Zone 2" / "FTP" / "VO2max"; journey (e) asserts "START SESSIE", "VANDAAG · DAG n", "DEZE
+  WEEK", "Start training".
+- Still English by design or out of scope: exercise instruction steps/cues (library
+  content), the "Cooper:" benchmark line, raw `session_name` in the Deze week list and the
+  Coach session list.
+- e2e bootstrap hardened: `waitForStoredPlan` in `e2e/helpers.js` (the 15 s poll had timed
+  out twice in seven release runs). vitest 336 → **354**; smoke 95 → **96**; e2e 15.
+  Ratchets unchanged (App.jsx 1800, plan.js 3726, onRequestPost 99, inline styles 2278).
+  Commits 5206eda + 849cd9e + 2b1b019. **Builder v1.1–v1.6 complete.**
+
 ### Shipped 2026-11-01 — session builder v1.5 (plan §5): Dutch exercise names
 
 - **Migration 0124** filled `name_nl` on all 480 active global rows (it had been empty on

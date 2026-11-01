@@ -5,7 +5,7 @@
 log-sheet items L1a–d, the data items D1 and the shell language X1). Nothing from the
 assessment's "Not recommended" section is in here.
 **Baseline:** "Eigen training" phase 1 as deployed in commit `7c2dbe3` = **builder v1.0**.
-**Status:** v1.1–v1.5 live; v1.6 planned. The v1.5 names table (`docs/exercise-names-nl.md`)
+**Status:** **all six versions live (v1.1–v1.6, 2026-10-31 → 2026-11-01).** The v1.5 names table (`docs/exercise-names-nl.md`)
 shipped before the owner's review (the owner was not available during the run); corrections
 go in a new migration generated from the JSON by `scripts/generate-name-nl-migration.mjs`. Each version below flips to *live* with its commit
 and deploy evidence when it ships; this file is the tracker.
@@ -17,7 +17,7 @@ and deploy evidence when it ships; this file is the tracker.
 | v1.3 ✅ live 2026-11-01 (8f431dd + 95867b9 + 2e05e58; vitest 319, smoke 92, e2e 14; 0123 applied, ledger 124; served = built) | A browsable library, in Dutch too | P1 P3 D1, R4 synonyms | 2 days | Opus (whole version) | Fable | execution GET (+1 column) | 0123 (data) |
 | v1.4 ✅ live 2026-11-01 (c07cd60; vitest 319, smoke 94, e2e 14; served = built) | One row for numbers; reachable controls | B2 B4 B7 A1 | 2 days | Opus | Fable | — | — |
 | v1.5 ✅ live 2026-11-01 (bca5c43 + 83d9989; vitest 336, smoke 95, e2e 15; 0124 applied, ledger 125; plan.js 3827 → 3726; served = built; owner review of the names pending) | Dutch exercise names | R4 data, rest of P2 | 2–3 days + owner review | Opus (names, whole version) | Fable (+ owner, pending) | plan step builder extracted; exercises/records/execution/my-sessions GET | 0124 (name_nl) |
-| v1.6 | A Dutch shell around the sheets | X1 | 1–2 days | Sonnet | Opus | — | — |
+| v1.6 ✅ live 2026-11-01 (5206eda + 849cd9e + 2b1b019; vitest 354, smoke 96, e2e 15; served = built) | A Dutch shell around the sheets | X1 | 1–2 days | Sonnet | Opus | — | — |
 
 Ten to eleven working days of agent time in six deploys. v1.1 and v1.2 remove the three
 🔴 findings; v1.3 removes the fourth. Everything after that is quality.
