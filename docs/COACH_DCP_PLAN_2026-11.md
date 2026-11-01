@@ -7,7 +7,8 @@ the four critical fixes and ships first; release 2 reshapes the surfaces.
 broken once; line budgets (`plan.js` ≤ 3726, `App.jsx` ≤ 1800, `onRequestPost` ≤ 99, inline
 styles ≤ 2278) may not rise; new styling is a class; Dutch first through `t()`; pure logic in a
 `.js` module with tests; agents are read-only on D1; the manager reruns every gate.
-**Status:** release 1 in progress; release 2 planned.
+**Status:** release 1 ✅ live 2026-11-01 (108a596 + ffda513; vitest 373, smoke 97, e2e 17; plan.js
+3726 → 3688; served = built). Release 2 in progress.
 
 | Release | Fixes (assessment §4) | Effort | Build | Review |
 |---|---|---|---|---|

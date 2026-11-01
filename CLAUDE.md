@@ -1358,6 +1358,39 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-11-01 — coach-dcp release 1: the DCP works and is reachable (`docs/COACH_DCP_PLAN_2026-11.md`)
+
+- **The DCP has a writer.** Nothing had ever written `military_coach.dcp.enabled` / `birth_year`,
+  so the DCP card, R593/R594/R598 and the "Stay DCP-ready" toggle (all gated on `enabled`) were
+  unreachable for every account not edited by hand. Settings → Coaches now has a **NORMEN**
+  block (`settings/NormenBlock.jsx`): DCP toggle + birth year (1930–2015, required), the norm
+  sentence from `getDcpNorms`, the bias toggle moved in, "Meting inplannen". Server-side
+  `normalizeDcp` (`_shared/military.js`) is the one stored shape; `last` is only ever written
+  by `execution.js`.
+- **R598 delivers what it announces.** `_shared/dcpMeasure.js` (moved out of plan.js):
+  `ensureMeasurementSteps` puts both max-effort sets IN the session when due — at the front,
+  after warm-ups — and `assessment_planned` is read off the steps (`hasBothMeasurements`),
+  never off the intention. Before: a military template day carried the R598 trace and
+  `assessment_planned: true` with zero measurement sets. Matrix property `dcp-delivery` (+3
+  personas); harness case 11. `plan.js` 3726 → **3688**.
+- **Route to the Coach view**: the coach programme card on Today is a button ("Bekijk je
+  coach"); Settings → Coaches has "Bekijk je coach →" (`onOpenCoachView`); the sub-view title
+  map got `coach` → COACHES (it read ACCOUNT).
+- **One measurement button**: `dcpMeasureLabel` ("Nulmeting inplannen" / "Hermeting inplannen"
+  / "Meting staat in je sessie van vandaag"); both DcpCard mounts call `onForceAssessment`
+  (the Coach view used to open the old assessment screen); the "Where you are" card hands
+  over when the DCP is a target; the header button reads **Check-in** (it opens the check-in;
+  "Recalibrate/Herijken" is retired and scanned for). WorkoutView shows "Max · 2 min" on
+  measurement steps instead of the default 10 reps.
+- **Two bugs found by the new e2e journey (f):** `apiClient.saveExecution` dropped the
+  `measures` tag (so `dcp.last` was never written) and stored an empty `prescribed_json` for
+  every in-app workout (it read fields WorkoutView's steps do not carry). Both fixed; mapper
+  `executionStepPayload` in `logSession.js` + `tests/executionStep.test.js`.
+- vitest 354 → **373**; smoke 96 → **97**; e2e 15 → **17** ((f) DCP end to end, (g) coach card
+  → Coach view). Inline styles 2278 → **2274**. Commits fd0a543 + 108a596 + ffda513.
+  Release 2 (Doel & coach screen, Waar sta ik, Dutch sweep of coach surfaces, level "niet
+  gemeten") is next.
+
 ### Shipped 2026-11-01 — session builder v1.6 (plan §6): a Dutch shell around the sheets
 
 - The Today card, WorkoutView chrome and the Coach header strip are Dutch for a Dutch user:
