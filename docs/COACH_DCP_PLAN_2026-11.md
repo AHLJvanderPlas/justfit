@@ -8,7 +8,8 @@ broken once; line budgets (`plan.js` ≤ 3726, `App.jsx` ≤ 1800, `onRequestPos
 styles ≤ 2278) may not rise; new styling is a class; Dutch first through `t()`; pure logic in a
 `.js` module with tests; agents are read-only on D1; the manager reruns every gate.
 **Status:** release 1 ✅ live 2026-11-01 (108a596 + ffda513; vitest 373, smoke 97, e2e 17; plan.js
-3726 → 3688; served = built). Release 2 in progress.
+3726 → 3688; served = built). Release 2 ✅ live 2026-11-01 (62f1229 + 97b2f96; vitest 417, smoke 98,
+e2e 18; inline styles 2274 → 2061; served = built). **Plan complete.**
 
 | Release | Fixes (assessment §4) | Effort | Build | Review |
 |---|---|---|---|---|

@@ -1358,6 +1358,37 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-11-01 — coach-dcp release 2: one place, one picture, one language (plan complete)
+
+- **Doel & coach** (Settings): one sub-view replaces "Jouw doel" + "Coaches" — JE PAD card
+  (path, one status line, "Wijzig pad →" to the modal, "Bekijk je coach →"; goal chips +
+  experience level inside it for the general path), the active coach's settings expanded,
+  NORMEN, ANDERE COACHES (collapsed rows that expand to the coach's own block and activate
+  button), the one-at-a-time sentence once, TRAININGSDAGEN, SESSIEDUUR. Landing rows: Doel &
+  coach · Jij · Trainers · Trofeeënkamer · Privacy · Account. Activating a coach now also
+  writes `primary_intent` (it did not; the new coach stayed silent). The "ADD-ON" pill is gone.
+  `coachPath.js` (`pathTitle`, `pathGoal`) builds both the JE PAD title and the Voortgang
+  "Doel:" line.
+- **Waar sta ik** (Voortgang + Coach view): one card per norm — `KeuringCard` (12 min loop vs
+  the cluster threshold with the Cooper date, push-ups, pull-ups, march vs `KEURING_NORMS`,
+  "nog niet gemeten", countdown) and the rewritten `DcpCard` ("0 / 16 (veilig 19)", header
+  "DCP · doorlopende norm · keuring over {n} dagen" when only a keuring date exists). One
+  keuring table: `keuringNorms.js` (Cooper thresholds and march weights are columns in it).
+  The radar stays as TRAININGSBALANS with an in-card "Militair doel" toggle; the "Militaire
+  fit" ring and "Fitness Profile" strip folded into it; the assessment card only without a norm.
+- **Level** (`milLevelLabel`): "MILITAIR · KEURING" + "Niveau nog niet gemeten · doel K3" until
+  a Cooper distance exists; measured level = the level the distance reaches, the self-declared
+  cluster is "doel" only. Planner input unchanged.
+- **Dutch sweep**: path-choice modal, Doel & coach, Voortgang cards (insight and planner
+  sentences now built on the client in `progressCopy.js`; axis labels from
+  `messagePolicy.axisLabel`; goal descriptions by key with a test that pins them to the
+  server's table), Coach view body. ~300 new entries; scan extended with 15 literals.
+- vitest 373 → **417**; smoke 97 → **98**; e2e 17 → **18** ((h) Waar sta ik). Inline styles
+  2274 → **2061** (the moved coach blocks migrated to `.jf-dc*` classes). App.jsx 1800.
+  Commits 62f1229 + 97b2f96. **Coaches & DCP releases 1–2 complete.** Still English by
+  design: training-science terms, award names; still inline-styled: PathChoiceModal, the
+  Strava block, HistoryView/CoachView areas outside the reshaped cards.
+
 ### Shipped 2026-11-01 — coach-dcp release 1: the DCP works and is reachable (`docs/COACH_DCP_PLAN_2026-11.md`)
 
 - **The DCP has a writer.** Nothing had ever written `military_coach.dcp.enabled` / `birth_year`,
