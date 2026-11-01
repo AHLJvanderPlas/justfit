@@ -76,7 +76,7 @@ Status: built on branch `uat-r3` (not deployed). `npm test` vitest 476 + shared 
 smoke 100/100, e2e 24/24. App.jsx 1799 → 1780, inline styles 2025 → 2008 (both ceilings lowered).
 The week pill counts the same rolling 7 days the card shows; "first activity" is the oldest history row.
 
-## Release 4 — Dutch sweep 3 and the two orphan screens (M)
+## Release 4 — Dutch sweep 3 and the two orphan screens (M) — ✅ LIVE 2026-11-01 (cc9fd78)
 
 Status: built on branch `uat-r4` (not deployed). `npm test` vitest 496 + shared 20; `npm run release` smoke 101, e2e 25.
 Inline styles 2008 → 1955. Also fixed: `GET /api/connect` selected columns that `users` does not have (it 500'd; the old screen hid that).

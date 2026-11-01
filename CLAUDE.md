@@ -1361,6 +1361,26 @@ None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) s
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-01 — UAT release 4: Dutch sweep 3, login in Dutch, orphan screens
+
+- Dutch for Settings → Jij / Account / Privacy, Deze week, Voortgang (`fmtDateShort` "zo 1 nov"),
+  Trofeeënkamer chrome, Today banners (perimenopause in plain Dutch), guest banner, check-in,
+  the instruction why-line. 429 dictionary entries; `dutchShell.scan.mjs` +66 literals and 13
+  forbidden patterns. Award names, "View on Strava", training terms and legal summaries stay
+  English by design.
+- **Login page** Dutch by default (`public/login-i18n.js` + `[data-i18n]`), English via `jf_lang`
+  or browser language; element ids unchanged; dictionary parity test.
+- **Connect / trainer-invite / error boundary** on the design system (`.jf-orphan*`), Dutch-first;
+  connect never invents a trainer name and offers "Probeer opnieuw" on a load error.
+- **Server fix:** `GET /api/connect` selected `users.display_name` / `users.photo_r2_key`, which do
+  not exist — every FIT-code lookup returned 500. Now joins `trainer_profiles` like
+  `trainer-invite.js`.
+- No default FTP anywhere (input empty, placeholder "bijv. 200"); TCX/ERG exports only with an
+  FTP or HR-based coach.
+- vitest 479 → **496**; smoke 100 → **101**; e2e 24 → **25**. Inline styles 2008 → **1955**
+  (ceiling lowered). App.jsx 1780. Commit cc9fd78.
+- Noticed: Jij has duplicate blocks ("Weergave" twice, "Cyclus bijhouden" twice) — release 5.
+
 ### Shipped 2026-11-01 — UAT release 3: Progress and the week, gated on data
 
 - **Voortgang** under 3 sessions (`progressGate.js`) shows trajectory, streak, the week card,
