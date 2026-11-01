@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import api from "./apiClient.js";
 import { logout, clearPlanCache } from "./authHelpers.js";
-import { C, display, eyebrow, mono, ACCENT_COLORS, applyAccent, applyTheme, THEME_STORAGE_KEY } from "./tokens.js";
+import { C, display, ACCENT_COLORS, applyAccent, applyTheme, THEME_STORAGE_KEY } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS, RUN_TARGETS } from "./appConstants.js";
 import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
@@ -9,6 +9,8 @@ import { t, useLang, setLang, getLang } from "./i18n.js";
 import { useAppShell } from "./AppShellContext.js";
 import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
+import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
+import { cycleSubGoalLabel } from "./messagePolicy.js";
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -116,7 +118,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onOpenCoachView, onForceAssessment, assessmentPlanned, isPro, onUpgrade, onSubscriptionChange }) {
+function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onOpenCoachView, onForceAssessment, assessmentPlanned, todaySession, isPro, onUpgrade, onSubscriptionChange }) {
   useLang();
   const { token, userId } = useAppShell();
   const [passkeySupported, setPasskeySupported] = useState(false);
@@ -274,9 +276,20 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const runCoachActive   = !!(prefs.preferences?.run_coach?.enrolled && !prefs.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs.preferences?.cycling_coach?.active && !prefs.preferences?.cycling_coach?.completed);
   const milCoachActive   = !!(prefs.preferences?.military_coach?.active);
-  const [focusSel, setFocusSel] = useState(() =>
-    runCoachActive ? "running" : cycleCoachActive ? "cycling" : milCoachActive ? "military" : (prefs.training_goal ?? "health")
+  // coach-dcp R2 — Doel & coach. The PATH is the primary intent when its coach is
+  // active, else the first active coach, else the general goal. `goalSel` is the
+  // general path's goal chip; `openOther` the one collapsed coach row under
+  // ANDERE COACHES that is open (each coach block has its own activate button).
+  const activeCoach = (() => {
+    const intent = prefs.preferences?.primary_intent ?? null;
+    const on = { running: runCoachActive, cycling: cycleCoachActive, military: milCoachActive };
+    if (on[intent]) return intent;
+    return runCoachActive ? "running" : cycleCoachActive ? "cycling" : milCoachActive ? "military" : "general";
+  })();
+  const [goalSel, setGoalSel] = useState(() =>
+    ["running", "cycling", "military"].includes(prefs.training_goal ?? "health") ? "health" : (prefs.training_goal ?? "health")
   );
+  const [openOther, setOpenOther] = useState(null);
 
   // Show conflict modal when 2+ coaches are active and no primary_intent is set
   useEffect(() => {
@@ -293,17 +306,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [milPackWeight,   setMilPackWeight]   = useState(() => prefs.preferences?.military_coach?.pack_weights_available_kg ?? []);
   // has_trail_shoes is now derived from planEquipment.includes("trail_shoes") — no separate state needed
   const [localExpLevel, setLocalExpLevel] = useState(prefs.experience_level ?? "beginner");
-  const [focusSaveStatus, setFocusSaveStatus] = useState("");
-  const handleFocusTap = (val) => { setFocusSel(val); };
-  const handleFocusSave = async () => {
-    setFocusSaveStatus("saving");
+  const [focusSaveStatus, setFocusSaveStatus] = useState({ id: null, state: "" });
+  const handleFocusSave = async (focusSel) => {
+    setFocusSaveStatus({ id: focusSel, state: "saving" });
     try {
       if (focusSel === "running") {
         const rcState = prefs.preferences?.run_coach ?? null;
         const unlockedTargets = rcState?.unlocked_targets ?? [];
         const newRc = { enrolled: true, target_km: runTargetSelect, week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_run_at_ms: null, unlocked_targets: unlockedTargets, completed: false };
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...ccPatch, run_coach: newRc };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...ccPatch, run_coach: newRc, primary_intent: "running" };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "cycling") {
@@ -313,7 +325,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         const existingCc = prefs.preferences?.cycling_coach ?? {};
         const newCc = { active: true, unit: cycleUnitSelect, ftp_watts: cycleUnitSelect === 'watts' ? ftp : null, max_hr: maxHr, target_ftp: cycleUnitSelect === 'watts' ? targetFtp : null, sub_goal: cycleSubGoalSelect, cycling_days_per_week: cycleDaysPerWeek, ftp_tested_at_ms: existingCc.ftp_tested_at_ms ?? null, ftp_test_interval_weeks: existingCc.ftp_test_interval_weeks ?? 6, ftp_history: existingCc.ftp_history ?? [], week: 1, session_in_week: 0, enrolled_at_ms: Date.now(), last_ride_at_ms: null, completed: false, run_cross_training: existingCc.run_cross_training ?? false, run_days_per_week: existingCc.run_days_per_week ?? 1, run_level: existingCc.run_level ?? 1, run_sessions_total: existingCc.run_sessions_total ?? 0, last_cross_run_at_ms: existingCc.last_cross_run_at_ms ?? null };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, cycling_coach: newCc, primary_intent: "cycling" };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else if (focusSel === "military") {
@@ -332,22 +344,26 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         };
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil };
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, military_coach: newMil, primary_intent: "military" };
         onUpdate((p) => ({ ...p, preferences: newPrefs }));
         await api.saveProfile(token, { preferences: newPrefs });
       } else {
         const rcPatch = prefs.preferences?.run_coach ? { run_coach: { ...(prefs.preferences.run_coach), enrolled: false } } : {};
         const ccPatch = prefs.preferences?.cycling_coach ? { cycling_coach: { ...(prefs.preferences.cycling_coach), active: false } } : {};
         const milPatch = prefs.preferences?.military_coach ? { military_coach: { ...(prefs.preferences.military_coach), active: false } } : {};
-        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, ...milPatch };
-        onUpdate((p) => ({ ...p, training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs }));
-        await api.saveProfile(token, { training_goal: focusSel, experience_level: localExpLevel, preferences: newPrefs });
+        const newPrefs = { ...(prefs.preferences ?? {}), ...rcPatch, ...ccPatch, ...milPatch, primary_intent: "general" };
+        onUpdate((p) => ({ ...p, training_goal: goalSel, experience_level: localExpLevel, preferences: newPrefs }));
+        await api.saveProfile(token, { training_goal: goalSel, experience_level: localExpLevel, preferences: newPrefs });
         onProgressionRefresh?.();
       }
+      // One coach at a time: the coach activated here is the primary intent (the planner and
+      // the Today card both gate on it — activating without it left the new coach silent).
+      setPrimaryIntent(focusSel);
       clearPlanCache();
-      setFocusSaveStatus("saved");
-      setTimeout(() => setFocusSaveStatus(""), 2000);
-    } catch { setFocusSaveStatus(""); }
+      setOpenOther(null);
+      setFocusSaveStatus({ id: focusSel, state: "saved" });
+      setTimeout(() => setFocusSaveStatus({ id: null, state: "" }), 2000);
+    } catch { setFocusSaveStatus({ id: null, state: "" }); }
   };
 
   const moveSport = (id, toActive) => {
@@ -812,12 +828,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>{t("SETTINGS")}</h1>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
-              { key: "goal",    label: t("Your goal"),   sub: t("Primary focus \u00b7 training days \u00b7 session length") },
+              // coach-dcp R2 — "Your goal" and "Coaches" are one row now: path, coach, standards
+              // and training days live on one screen (the sub-view keeps the key "coach", which
+              // the Strava block below also keys off).
+              { key: "coach",   label: t("Goal & coach"), sub: t("Path \u00b7 coach \u00b7 standards \u00b7 training days") },
               { key: "you",     label: t("You"),          sub: t("Body \u00b7 equipment \u00b7 schedule \u00b7 appearance") },
-              // The four render blocks below key off subView === "coach" (singular). This row
-              // said "coaches", so tapping Coaches rendered an empty page — which is why the
-              // Strava card, coach enrolment and Integrations were all unreachable.
-              { key: "coach",   label: t("Coaches"),      sub: t("Active programmes \u00b7 add-on coaches \u00b7 Strava") },
               { key: "trainers", label: t("Trainers"),    sub: t("Connected trainers \u00b7 data sharing \u00b7 intake") },
               { key: "awards",   label: t("Trophy room"), sub: t("Awards & milestones") },
               { key: "privacy",  label: t("Privacy"),     sub: t("Data export \u00b7 legal docs \u00b7 feedback") },
@@ -854,769 +869,421 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             ‹
           </button>
           <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
-            {subView === "goal" ? t("YOUR GOAL") : subView === "you" ? t("YOU") : subView === "coach" ? t("COACHES") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
+            {subView === "you" ? t("YOU") : subView === "coach" ? t("GOAL & COACH") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
           </h1>
         </div>
       )}
 
-      {subView === "goal" && (() => {
-        const GOAL_OPTIONS = [
-          { value: "fat_loss",  label: "Lose weight & feel better",   sub: "Burn fat, build energy",           icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>
-          ) },
-          { value: "strength",  label: "Build strength & muscle",      sub: "Get stronger week by week",        icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M6 5v7"/><path d="M18 5v7"/><path d="M8 5H4a1 1 0 0 0-1 1v4a1 1 0 0 0 1 1h4"/><path d="M16 5h4a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1h-4"/><path d="M8 9h8"/><path d="M10 15h4"/><path d="M12 12v6"/></svg>
-          ) },
-          { value: "health",    label: "Improve overall fitness",      sub: "More stamina, more capacity",      icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-          ) },
-          { value: "mobility",  label: "Boost energy & manage stress", sub: "Consistent movement, calmer mind", icon: (
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M12 2a7 7 0 0 1 7 7c0 4.5-7 13-7 13S5 13.5 5 9a7 7 0 0 1 7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
-          ) },
-        ];
-        const currentGoal = prefs.training_goal ?? "health";
+      {/* ── Doel & coach (coach-dcp R2, fix 5) ─────────────────────────────────
+           One screen replaces "Jouw doel" and the coach sub-view:
+             JE PAD          path + one status line, Wijzig pad, Bekijk je coach
+                             (the general path's goal + experience sit inside it)
+             <active coach>  its settings, expanded
+             NORMEN          release 1's block, unchanged
+             ANDERE COACHES  one collapsed row per inactive coach + its activate button;
+                             the one-at-a-time rule, stated once
+             TRAININGSDAGEN · SESSIEDUUR   (moved from "Jouw doel")
+           Styling is .jf-dc* in styles.css — the moved blocks carry no inline style. */}
+      {subView === "coach" && (() => {
+        const pref = prefs.preferences ?? {};
+        const mil = pref.military_coach ?? {};
+        const rc = pref.run_coach ?? {};
+        const cc = pref.cycling_coach ?? {};
+        const nowMs = Date.now();
+        const lvl = milLevelLabel(mil);
+        const milDays = keuringDaysOut(mil, nowMs);
+        const RUN_WEEKS = { 5: 8, 10: 12, 15: 14, 20: 16, 30: 20 };
+        const SESSION_LABEL = { cooper_test: "Cooper test", kracht: "strength", duurloop: "endurance run", interval: "interval run", kracht_marsen: "strength + march", circuit: "circuit", rust: "rest" };
+        const COACH_NAME = { running: t("Running"), cycling: t("Cycling (Pro)"), military: t("Military"), general: t("General health") };
+        const trackName = mil.track === "opleiding" ? t("Educational Fitness") : t("Physical Assessment");
+        const pathName = activeCoach === "military" ? `${t("Military")} · ${trackName}`
+          : activeCoach === "running" ? `${t("Running")} · ${rc.target_km ?? 5} km`
+          : activeCoach === "cycling" ? `${t("Cycling")} · ${cycleSubGoalLabel(cc.sub_goal ?? "build_fitness")}`
+          : t(GOALS.find(g => g.value === (prefs.training_goal ?? "health"))?.label ?? "General Health");
+        const pathStatus = activeCoach === "military"
+          ? [t("Block {b} of 6", { b: (((mil.block_number ?? 1) - 1) % 6) + 1 }),
+             todaySession && SESSION_LABEL[todaySession] ? t("{x} today", { x: t(SESSION_LABEL[todaySession]) }) : null,
+             milDays != null ? t("keuring in {n} days", { n: milDays }) : null].filter(Boolean).join(" · ")
+          : activeCoach === "running" ? t("Week {w} of {total} · {km} km", { w: rc.week ?? 1, total: RUN_WEEKS[rc.target_km] ?? 8, km: rc.target_km ?? 5 })
+          : activeCoach === "cycling" ? (cc.unit === "hr" ? t("Week {w} · max HR {hr} bpm", { w: cc.week ?? 1, hr: cc.max_hr ?? 180 }) : t("Week {w} · FTP {ftp} W", { w: cc.week ?? 1, ftp: cc.ftp_watts ?? 200 }))
+          : t("Adaptive daily training");
+        const clusterLabel = (c) => milTrack === "keuring" ? (c === 0 ? "KB" : `K${c}`) : `O${c}`;
+        const milChoice = milMode === "open" ? t("Open") : `${clusterLabel(milCluster)}${milMode === "fit" ? ` · ${t("Fit target")}` : ""}`;
+        const saveLabel = (id) => {
+          const st = focusSaveStatus.id === id ? focusSaveStatus.state : "";
+          if (st === "saved") return t("Saved ✓");
+          if (st === "saving") return t("Saving…");
+          if (id === "running") {
+            if (runCoachActive && runTargetSelect === (rc.target_km ?? 5)) return t("Re-enrol · {km}km (resets progress)", { km: runTargetSelect });
+            if (runCoachActive) return t("Switch to {km}km →", { km: runTargetSelect });
+            return t("Activate · {km}km Run Coach", { km: runTargetSelect });
+          }
+          if (id === "cycling") return t("Activate · Cycling Coach");
+          if (id === "military") return milCoachActive ? t("Save changes · {x}", { x: milChoice }) : t("Activate · Military Coach · {x}", { x: milChoice });
+          const goalLabel = t(GOALS.find(g => g.value === goalSel)?.label ?? "General Health");
+          return activeCoach === "general" ? t("Save · {goal}", { goal: goalLabel }) : t("Activate · {goal}", { goal: goalLabel });
+        };
+        const saveBtn = (id) => {
+          const st = focusSaveStatus.id === id ? focusSaveStatus.state : "";
+          return (
+            <button className={`jf-dc__save${st === "saved" ? " jf-dc__save--done" : ""}`} onClick={() => handleFocusSave(id)} disabled={st === "saving"}>
+              {saveLabel(id)}
+            </button>
+          );
+        };
+        const chip = (on, onClick, label, key) => (
+          <button key={key ?? label} className={`jf-dc__chip${on ? " jf-dc__chip--on" : ""}`} onClick={onClick}>{label}</button>
+        );
+        const note = (title, body, tone = "") => (
+          <div className={`jf-dc__note${tone ? ` jf-dc__note--${tone}` : ""}`}>
+            <div className="jf-dc__note-title">{title}</div>
+            <div className="jf-dc__note-body">{body}</div>
+          </div>
+        );
+        const upgrade = <button className="jf-dc__upgrade" onClick={onUpgrade}>{t("Upgrade to Pro →")}</button>;
 
-        const handleGoalSave = async (val) => {
-          onUpdate(p => ({ ...p, training_goal: val }));
-          await api.saveProfile(token, { training_goal: val });
+        // ── General path: goal + experience (inside JE PAD when it is the path) ──
+        const GOAL_INFO = {
+          health:      ["General Health · Balanced movement", "Strength, cardio, mobility and recovery in rotation — the foundation of long-term fitness."],
+          strength:    ["Build Strength · Progressive overload", "Compound movements with increasing resistance. Push/pull/legs cycling ensures full recovery between sessions."],
+          fat_loss:    ["Lose Weight · Mixed intensity", "Cardio and strength combined to maximise calorie burn and build metabolic resilience over time."],
+          muscle_gain: ["Build Muscle · Volume focus", "Higher set counts and controlled tempo. Progressive overload accumulates the stimulus needed for hypertrophy."],
+          endurance:   ["Endurance · Aerobic development", "Longer sessions with steady-state cardio and zone 2 work to expand your aerobic base sustainably."],
+          mobility:    ["Mobility & Flex · Joint health", "Stretching, flows and recovery work to improve range of motion, posture and injury resilience."],
+        };
+        const generalBlock = () => (
+          <div className="jf-dc__stack">
+            <div>
+              <div className="jf-dc__label">{t("Your goal")}</div>
+              <div className="jf-dc__goals">
+                {GOALS.map(g => (
+                  <button key={g.value} className={`jf-dc__goal${goalSel === g.value ? " jf-dc__goal--on" : ""}`} onClick={() => setGoalSel(g.value)}>
+                    <GoalIcon value={g.value} size={20} />
+                    <span>{t(g.label)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <div className="jf-dc__label">{t("Experience level")}</div>
+              <div className="jf-dc__seg">
+                {EXPERIENCE.map(ex => (
+                  <button key={ex.value} className={`jf-dc__seg-btn${localExpLevel === ex.value ? " jf-dc__seg-btn--on" : ""}`} onClick={() => setLocalExpLevel(ex.value)}>
+                    <span className="jf-dc__seg-title">{t(ex.label)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            {GOAL_INFO[goalSel] && note(t(GOAL_INFO[goalSel][0]), t(GOAL_INFO[goalSel][1]))}
+            {saveBtn("general")}
+          </div>
+        );
+
+        // ── Running coach ──
+        const runBlock = () => {
+          if (!planEquipment.includes("running_shoes")) return (
+            <button className="jf-dc__addkit" onClick={() => setPlanEquipment(eq => eq.includes("running_shoes") ? eq : [...eq.filter(v => v !== "none"), "running_shoes"])}>
+              <Icons.run size={18} c={C.emerald} />
+              <span><b>{t("Add running shoes")}</b>{t("Required for the running programme — tap to add to your equipment list.")}</span>
+            </button>
+          );
+          const isActive = rc.enrolled === true && !rc.completed;
+          const unlocked = rc.unlocked_targets ?? [];
+          const prevRequired = Object.fromEntries(RUN_TARGETS.map(({ km, prevKm }) => [km, prevKm]));
+          const weeksMap = Object.fromEntries(RUN_TARGETS.map(({ km, weeks }) => [km, parseInt(weeks, 10)]));
+          const prev = prevRequired[runTargetSelect];
+          const showRampWarn = prev && !unlocked.includes(String(prev));
+          return (
+            <div className={`jf-dc__stack${effectiveIsPro ? "" : " jf-dc__locked"}`}>
+              <div className="jf-dc__sub">
+                {isActive
+                  ? t("{km}km · Week {w} · Session {s} of 3", { km: rc.target_km, w: rc.week ?? 1, s: rc.session_in_week ?? 0 })
+                  : t("Progressive run programme — 3 sessions per week, any days you choose.")}
+              </div>
+              {effectiveIsPro ? (
+                <>
+                  <div>
+                    <div className="jf-dc__label">{t("Target distance")}</div>
+                    <div className="jf-dc__chips">
+                      {RUN_TARGETS.map(({ km, label }) => chip(km === runTargetSelect, () => setRunTargetSelect(km), `${unlocked.includes(String(km)) ? "✓ " : ""}${label}`, km))}
+                    </div>
+                  </div>
+                  {showRampWarn && note(t("Progression caution"), t("Starting at {km}km without completing the {prev}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.", { km: runTargetSelect, prev }), "warn")}
+                  <div className="jf-dc__hint">{t("{n} weeks · up to 3 sessions/week · any days", { n: weeksMap[runTargetSelect] })}</div>
+                  {isActive && runTargetSelect !== (rc.target_km ?? 5) && <div className="jf-dc__hint">{t("Switching target will restart your programme at week 1.")}</div>}
+                  {saveBtn("running")}
+                </>
+              ) : upgrade}
+              {note(t("Running Coach · Structured progression"), t("3 sessions per week, any days you choose. Each target unlocks the next — safely building from 5 km to 30 km over time."))}
+            </div>
+          );
         };
 
-        const daysPerWeek = prefs.preferences?.training_days_per_week ?? 3;
-        const sessionMins = prefs.session_duration_min ?? 45;
+        // ── Cycling coach ──
+        const cycleBlock = () => {
+          const ccActive = cc.active === true && !cc.completed;
+          const ftp = parseInt(cycleFtpInput) || 200;
+          const maxHr = parseInt(cycleMaxHrInput) || 180;
+          const maxCrossTrainDays = Math.min(3, 5 - (cc.cycling_days_per_week ?? 3));
+          const saveCc = async (patch) => {
+            const newPrefs = { ...pref, cycling_coach: { ...cc, ...patch } };
+            onUpdate(p => ({ ...p, preferences: newPrefs }));
+            await api.saveProfile(token, { preferences: newPrefs });
+          };
+          const subGoals = (
+            <div>
+              <div className="jf-dc__label">{t("Training goal")}</div>
+              <div className="jf-dc__chips">{CYCLE_SUB_GOALS.map(g => chip(cycleSubGoalSelect === g.v, () => setCycleSubGoalSelect(g.v), t(g.label), g.v))}</div>
+            </div>
+          );
+          return (
+            <div className={`jf-dc__stack${effectiveIsPro ? "" : " jf-dc__locked"}`}>
+              <div className="jf-dc__sub">
+                {ccActive
+                  ? `${t("Week {w} · Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week ?? 0, total: cc.cycling_days_per_week ?? 3 })} · ${cc.unit === "hr" ? t("HR-based") : `FTP ${cc.ftp_watts ?? 200} W`}`
+                  : t("Structured training — 5 goals, 7-week block cycle, 3–5 sessions per week, any days.")}
+              </div>
+              {!effectiveIsPro ? upgrade : !ccActive ? (
+                <>
+                  {subGoals}
+                  <div>
+                    <div className="jf-dc__label">{t("Training unit")}</div>
+                    <div className="jf-dc__chips">
+                      {chip(cycleUnitSelect === "watts", () => setCycleUnitSelect("watts"), t("Watts (power meter)"), "watts")}
+                      {chip(cycleUnitSelect === "hr", () => setCycleUnitSelect("hr"), t("Heart rate (bpm)"), "hr")}
+                    </div>
+                  </div>
+                  <div className="jf-dc__row jf-dc__row--end">
+                    {cycleUnitSelect === "watts" ? (
+                      <>
+                        <label className="jf-dc__field"><span className="jf-dc__label">{t("Current FTP (W)")}</span>
+                          <input className="jf-dc__input" type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} /></label>
+                        <label className="jf-dc__field"><span className="jf-dc__label">{t("Target FTP (W)")}</span>
+                          <input className="jf-dc__input" type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} /></label>
+                        <button className="jf-dc__btn" onClick={() => setShowFtpTestModal(true)}>{t("Test FTP")}</button>
+                      </>
+                    ) : (
+                      <label className="jf-dc__field"><span className="jf-dc__label">{t("Max heart rate (bpm)")}</span>
+                        <input className="jf-dc__input" type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} /></label>
+                    )}
+                  </div>
+                  <div>
+                    <div className="jf-dc__label">{t("Cycling sessions / week")}</div>
+                    <div className="jf-dc__chips">{[3, 4, 5].map(n => chip(cycleDaysPerWeek === n, () => setCycleDaysPerWeek(n), String(n), n))}</div>
+                    <div className="jf-dc__hint">{t("Min 2 rest days are always preserved.")}</div>
+                  </div>
+                  <div className="jf-dc__hint">
+                    {t("7-week block cycle (base → build → recovery) · {n} sessions/week · any days", { n: cycleDaysPerWeek })}
+                    {cycleUnitSelect === "watts" && ftp > 0 && ` · ${t("Z2 target: {lo}–{hi}W", { lo: Math.round(ftp * 0.55), hi: Math.round(ftp * 0.75) })}`}
+                    {cycleUnitSelect === "hr" && maxHr > 0 && ` · ${t("Z2 target: {lo}–{hi} bpm", { lo: Math.round(maxHr * 0.68), hi: Math.round(maxHr * 0.83) })}`}
+                  </div>
+                  {saveBtn("cycling")}
+                </>
+              ) : (
+                <>
+                  {subGoals}
+                  {cycleSubGoalSelect !== (cc.sub_goal ?? "build_fitness") && (
+                    <button className="jf-dc__btn jf-dc__btn--accent" onClick={() => saveCc({ sub_goal: cycleSubGoalSelect })}>{t("Save goal →")}</button>
+                  )}
+                  <div><button className="jf-dc__btn" onClick={() => setShowFtpTestModal(true)}>{t("Test FTP")}</button></div>
+                  <div className="jf-dc__box">
+                    <div className="jf-dc__row">
+                      <div className="jf-dc__field">
+                        <div className="jf-dc__box-title">{t("Cross-training runs")}</div>
+                        <div className="jf-dc__hint">{t("Add running sessions on short or rest days")}</div>
+                      </div>
+                      {chip(cycleCrossTrainEnabled, () => setCycleCrossTrainEnabled(v => !v), cycleCrossTrainEnabled ? t("On") : t("Off"), "xt")}
+                    </div>
+                    {cycleCrossTrainEnabled && (
+                      <div>
+                        <div className="jf-dc__label">{t("Run days / week")}</div>
+                        <div className="jf-dc__chips">{[1, 2, 3].filter(n => n <= maxCrossTrainDays).map(n => chip(cycleCrossTrainDays === n, () => setCycleCrossTrainDays(n), String(n), n))}</div>
+                      </div>
+                    )}
+                  </div>
+                  <button className="jf-dc__save" onClick={() => saveCc({ run_cross_training: cycleCrossTrainEnabled, run_days_per_week: cycleCrossTrainEnabled ? Math.min(cycleCrossTrainDays, maxCrossTrainDays) : (cc.run_days_per_week ?? 1) })}>
+                    {t("Save settings")}
+                  </button>
+                </>
+              )}
+              {note(t("Cycling Coach · FTP-based training"), t("Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3–5 sessions per week in 7-week cycles (base → build → recovery). Optional cross-training runs on rest or short days."))}
+            </div>
+          );
+        };
 
+        // ── Military coach ──
+        const milBlock = () => {
+          const isActive = !!mil.active;
+          const KEURING_CLUSTERS = [
+            { v: 0, desc: "Basis — starting level" }, { v: 1, desc: "Entry level service" }, { v: 2, desc: "Standard service" },
+            { v: 3, desc: "Infantry / most roles" }, { v: 4, desc: "Above average" }, { v: 5, desc: "High performance" }, { v: 6, desc: "Special forces baseline" },
+          ];
+          const OPLEIDING_CLUSTERS = [
+            { v: 1, desc: "Opleiding entry" }, { v: 2, desc: "Standard training" }, { v: 3, desc: "Infantry training" },
+            { v: 4, desc: "Above average" }, { v: 5, desc: "High performance" }, { v: 6, desc: "Advanced training" },
+          ];
+          const clusters = milTrack === "keuring" ? KEURING_CLUSTERS : OPLEIDING_CLUSTERS;
+          const days = milTargetDate ? Math.ceil((new Date(milTargetDate + "T00:00:00Z") - nowMs) / 86400000) : null;
+          const weeks = days != null ? Math.floor(days / 7) : null;
+          const phase = days == null ? null : days >= 36 ? "On-ramp" : days >= 22 ? "Build" : days >= 15 ? "Peak" : days >= 8 ? "Deload" : "Taper";
+          const lastCooper = mil.last_cooper_distance_m ?? null;
+          return (
+            <div className="jf-dc__stack">
+              <div className="jf-dc__sub">
+                {isActive
+                  ? `${trackName} · ${t(lvl.line[0], lvl.line[1])}`
+                  : t("Dutch Defensie prep — train toward your target level at your own pace or with a fixed assessment date.")}
+              </div>
+              <div>
+                <div className="jf-dc__label">{t("Mode")}</div>
+                <div className="jf-dc__seg">
+                  {[["target", "Target date", "Assessment on a set date"], ["fit", "Fit target", "Goal level, no fixed date"], ["open", "Open", "No goal or end date"]].map(([v, label, sub]) => (
+                    <button key={v} className={`jf-dc__seg-btn${milMode === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => setMilMode(v)}>
+                      <span className="jf-dc__seg-title">{t(label)}</span>
+                      <span className="jf-dc__seg-sub">{t(sub)}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {milMode !== "open" && (
+                <>
+                  <div>
+                    <div className="jf-dc__label">{t("Track")}</div>
+                    <div className="jf-dc__seg">
+                      {[["keuring", "Keuring", "Fitness assessment · Basis → K6"], ["opleiding", "Opleiding", "Training programme · O1 → O6"]].map(([v, title, sub]) => (
+                        <button key={v} className={`jf-dc__seg-btn${milTrack === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => { setMilTrack(v); setMilCluster(3); }}>
+                          <span className="jf-dc__seg-title">{title}</span>
+                          <span className="jf-dc__seg-sub">{t(sub)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <div className="jf-dc__label">{t("Target level")}</div>
+                    <div className="jf-dc__chips">{clusters.map(c => chip(milCluster === c.v, () => setMilCluster(c.v), clusterLabel(c.v), c.v))}</div>
+                    <div className="jf-dc__hint">{t(clusters.find(c => c.v === milCluster)?.desc ?? "")}</div>
+                  </div>
+                </>
+              )}
+              {milMode === "target" && (
+                <label>
+                  <span className="jf-dc__label">{t("Assessment date")}</span>
+                  <input className="jf-dc__input" type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)} min={new Date(nowMs + 21 * 86400000).toISOString().slice(0, 10)} />
+                </label>
+              )}
+              <div>
+                <div className="jf-dc__label">{t("Pack weight available (kg)")}</div>
+                <div className="jf-dc__chips">
+                  {[5, 10, 15, 20, 25, 30, 35].map(kg => {
+                    const sel = milPackWeight.includes(kg);
+                    return chip(sel, () => setMilPackWeight(w => sel ? w.filter(v => v !== kg) : [...w, kg].sort((a, b) => a - b)), `${kg} kg`, kg);
+                  })}
+                </div>
+                <div className="jf-dc__hint">{t("Select all weights you own. The planner picks the heaviest available weight for each session.")}</div>
+              </div>
+              {!planEquipment.includes("trail_shoes") && (
+                <button className="jf-dc__addkit" onClick={() => setPlanEquipment(eq => eq.includes("trail_shoes") ? eq : [...eq.filter(v => v !== "none"), "trail_shoes"])}>
+                  <Icons.run size={18} c={C.emerald} />
+                  <span><b>{t("Add trail shoes / hiking boots")}</b>{t("Recommended for march sessions — tap to add to your equipment list.")}</span>
+                </button>
+              )}
+              {milMode === "open" && note(t("Open progression · Rolling 6-week cycle"), t("No assessment date needed. Continuously cycles through training phases — great for long-term fitness maintenance."))}
+              {milMode === "fit" && note(t("Fit target · Progressive base building"), t("Train toward your goal level at your own pace. RPE signals advance your training automatically — no assessment date required."))}
+              {milMode === "target" && !milTargetDate && note(t("Assessment target · Two-phase training"), t("Training anchors to your assessment date. Base building starts immediately; a structured 6-week specific prep begins automatically at 6 weeks out."))}
+              {milMode === "target" && milTargetDate && (days < 28
+                ? note(t("Too short"), t("Minimum 4 weeks needed for safe preparation. Choose a later date."), "danger")
+                : days > 42
+                  ? note(t("{n} weeks until assessment · Base building now", { n: weeks }), t("Progressive training starts today. Specific 6-week prep begins automatically at 6 weeks out."))
+                  : note(t("{n} weeks until assessment · Starting in {phase} phase", { n: weeks, phase: t(phase) }), t("Training anchors to your assessment date — phases shift automatically as the date approaches.")))}
+              <div className="jf-dc__box jf-dc__row">
+                <div className="jf-dc__field">
+                  <div className="jf-dc__label">{t("Cooper test")}</div>
+                  <div className="jf-dc__mono">{lastCooper ? t("Last result: {m} m", { m: lastCooper.toLocaleString("nl-NL") }) : t("No test recorded yet")}</div>
+                </div>
+                <button className="jf-dc__btn jf-dc__btn--accent" onClick={() => onOpenCooperModal?.()}>{t("Log test →")}</button>
+              </div>
+              {saveBtn("military")}
+            </div>
+          );
+        };
+
+        const blockFor = (id) => id === "running" ? runBlock() : id === "cycling" ? cycleBlock() : id === "military" ? milBlock() : generalBlock();
+        const others = ["running", "cycling", "military", "general"].filter(id => id !== activeCoach);
+        const daysPerWeek = pref.training_days_per_week ?? 3;
+        const sessionMins = prefs.session_duration_min ?? 45;
         const handleDays = async (n) => {
-          const updated = { ...(prefs.preferences ?? {}), training_days_per_week: n };
+          const updated = { ...pref, training_days_per_week: n };
           onUpdate(p => ({ ...p, preferences: updated }));
           await api.saveProfile(token, { preferences: updated });
         };
-
         const handleMins = async (m) => {
           onUpdate(p => ({ ...p, session_duration_min: m }));
           await api.saveProfile(token, { session_duration_min: m });
         };
 
         return (
-          <div>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>PRIMARY FOCUS</div>
-            <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              JustFit adapts your daily sessions to this. Coaches are add-ons you can activate separately.
-            </div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
-              {GOAL_OPTIONS.map(opt => {
-                const sel = currentGoal === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    onClick={() => handleGoalSave(opt.value)}
-                    style={{
-                      display: "flex", alignItems: "center", gap: 14,
-                      padding: "16px 18px", borderRadius: 16, textAlign: "left", cursor: "pointer",
-                      background: sel ? "rgba(var(--accent-rgb),0.1)" : C.bgCard,
-                      border: sel ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
-                    }}
-                  >
-                    <span style={{ color: sel ? "var(--accent)" : C.muted, flexShrink: 0 }}>{opt.icon}</span>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 14, fontWeight: 700, color: sel ? "var(--accent)" : C.text, marginBottom: 2 }}>{opt.label}</div>
-                      <div style={{ fontSize: 12, color: C.muted }}>{opt.sub}</div>
-                    </div>
-                    {sel && <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2.5"><path d="m20 6-11 11-5-5"/></svg>}
-                  </button>
-                );
-              })}
+          <div className="jf-dc">
+            {/* ── JE PAD ── */}
+            <div className="jf-dc__section">
+              <div className="jf-dc__eyebrow">{t("Your path")}</div>
+              <div className="jf-dc__card">
+                <div className="jf-dc__path-head">
+                  {activeCoach === "military" && <MilitaryIcon size={20} />}
+                  <div className="jf-dc__path-name">{pathName}</div>
+                </div>
+                <div className="jf-dc__status">{pathStatus}</div>
+                {activeCoach === "military" && <div className="jf-dc__status">{t(lvl.line[0], lvl.line[1])}</div>}
+                <div className="jf-dc__actions">
+                  {onChangePath && <button className="jf-dc__btn" onClick={onChangePath}>{t("Change path →")}</button>}
+                  {onOpenCoachView && activeCoach !== "general" && <button className="jf-norm__link" onClick={onOpenCoachView}>{t("View your coach")} →</button>}
+                </div>
+                {activeCoach === "general" && <div className="jf-dc__inset">{generalBlock()}</div>}
+              </div>
             </div>
 
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>TRAINING DAYS</div>
-            <div style={{ display: "flex", gap: 8, marginBottom: 32 }}>
-              {[2, 3, 4, 5].map(n => (
-                <button key={n} onClick={() => handleDays(n)} style={{
-                  flex: 1, padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: "pointer",
-                  background: daysPerWeek === n ? "rgba(var(--accent-rgb),0.12)" : C.bgCard,
-                  border: daysPerWeek === n ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
-                  color: daysPerWeek === n ? "var(--accent)" : C.text,
-                }}>
-                  {n}x
-                </button>
-              ))}
+            {/* ── the active coach, expanded ── */}
+            {activeCoach !== "general" && (
+              <div className="jf-dc__section">
+                <div className="jf-dc__eyebrow">{t(activeCoach === "military" ? "MILITARY COACH" : activeCoach === "running" ? "RUNNING COACH" : "CYCLING COACH")}</div>
+                <div className="jf-dc__card">{blockFor(activeCoach)}</div>
+              </div>
+            )}
+
+            <NormenBlock prefs={prefs} assessmentPlanned={!!assessmentPlanned} onSaveDcp={saveDcp} onMeasure={onForceAssessment} />
+
+            {/* ── ANDERE COACHES ── */}
+            <div className="jf-dc__section">
+              <div className="jf-dc__eyebrow">{t("Other coaches")}</div>
+              <div className="jf-dc__others">
+                {others.map(id => (
+                  <div key={id} className="jf-dc__other">
+                    <button className="jf-dc__other-row" aria-expanded={openOther === id} onClick={() => setOpenOther(o => o === id ? null : id)}>
+                      <span>{COACH_NAME[id]}</span>
+                      <span className="jf-dc__chev" aria-hidden="true">{openOther === id ? "▾" : "▸"}</span>
+                    </button>
+                    {openOther === id && <div className="jf-dc__other-body">{blockFor(id)}</div>}
+                  </div>
+                ))}
+              </div>
+              <div className="jf-dc__rule">{t("You train with one coach at a time. Standards apply separately.")}</div>
             </div>
 
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>SESSION LENGTH</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[15, 30, 45, 60].map(m => (
-                <button key={m} onClick={() => handleMins(m)} style={{
-                  flex: 1, padding: "12px 0", borderRadius: 12, fontWeight: 900, fontSize: 13, cursor: "pointer",
-                  background: sessionMins === m ? "rgba(var(--accent-rgb),0.12)" : C.bgCard,
-                  border: sessionMins === m ? "1.5px solid var(--accent-border)" : `1px solid ${C.border}`,
-                  color: sessionMins === m ? "var(--accent)" : C.text,
-                }}>
-                  {m}m
-                </button>
-              ))}
+            {/* ── TRAININGSDAGEN · SESSIEDUUR ── */}
+            <div className="jf-dc__section">
+              <div className="jf-dc__eyebrow">{t("Training days")}</div>
+              <div className="jf-dc__days">
+                {[2, 3, 4, 5].map(n => <button key={n} className={`jf-dc__day${daysPerWeek === n ? " jf-dc__day--on" : ""}`} onClick={() => handleDays(n)}>{n}x</button>)}
+              </div>
+            </div>
+            <div className="jf-dc__section">
+              <div className="jf-dc__eyebrow">{t("Session length")}</div>
+              <div className="jf-dc__days">
+                {[15, 30, 45, 60].map(m => <button key={m} className={`jf-dc__day${sessionMins === m ? " jf-dc__day--on" : ""}`} onClick={() => handleMins(m)}>{m}m</button>)}
+              </div>
             </div>
           </div>
         );
       })()}
-
-      {subView === "coach" && (<>
-        {/* ── Active intent header ─────────────────────────── */}
-        <div style={{ marginBottom: 28, paddingBottom: 24, borderBottom: `1px solid ${C.border}` }}>
-          <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>ACTIVE COACH</div>
-          {milCoachActive ? (
-            <>
-              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
-                {"MILITARY · " + (prefs.preferences?.military_coach?.track === "keuring"
-                  ? (prefs.preferences.military_coach.cluster_current === 0 ? "KB" : `K${prefs.preferences.military_coach.cluster_current}`)
-                  : `O${prefs.preferences?.military_coach?.cluster_current ?? 1}`)}
-              </div>
-              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
-                {prefs.preferences?.military_coach?.track === "keuring" ? "Keuring" : "Opleiding"} track
-                {" · "}{prefs.preferences?.military_coach?.mode ?? "target"} mode
-                {prefs.preferences?.military_coach?.target_date && (
-                  " · " + Math.max(0, Math.ceil((new Date(prefs.preferences.military_coach.target_date) - new Date()) / 86400000)) + " days to assessment"
-                )}
-              </div>
-            </>
-          ) : runCoachActive ? (
-            <>
-              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
-                {"RUNNING · " + (prefs.preferences?.run_coach?.target_km ?? 5) + "KM"}
-              </div>
-              <div style={{ fontSize: 14, color: C.muted }}>
-                {"Week " + (prefs.preferences?.run_coach?.week ?? 1) + " · " + (prefs.preferences?.run_coach?.target_km ?? 5) + "km programme"}
-              </div>
-            </>
-          ) : cycleCoachActive ? (
-            <>
-              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
-                {"CYCLING · " + (prefs.preferences?.cycling_coach?.sub_goal ?? "build_fitness").replace(/_/g, " ").toUpperCase()}
-              </div>
-              <div style={{ fontSize: 14, color: C.muted }}>
-                {"Week " + (prefs.preferences?.cycling_coach?.week ?? 1) + " · " + (prefs.preferences?.cycling_coach?.unit === "watts" ? `FTP ${prefs.preferences.cycling_coach.ftp_watts}W` : `Max HR ${prefs.preferences?.cycling_coach?.max_hr}bpm`)}
-              </div>
-            </>
-          ) : (
-            <>
-              <div style={{ ...display(32), color: C.text, marginBottom: 6 }}>
-                {(GOALS.find(g => g.value === (prefs.training_goal ?? "health"))?.label ?? "General Health").toUpperCase()}
-              </div>
-              <div style={{ fontSize: 14, color: C.muted }}>Adaptive daily training · no structured programme</div>
-            </>
-          )}
-          {onChangePath && (
-            <button
-              onClick={onChangePath}
-              style={{ marginTop: 14, padding: "8px 16px", borderRadius: 10, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 700, fontSize: 12, cursor: "pointer", letterSpacing: "0.04em" }}
-            >
-              Change path →
-            </button>
-          )}
-          {/* coach-dcp R1 — the Coach view (ladder, readiness, PMC) has a route from here. */}
-          {onOpenCoachView && (milCoachActive || runCoachActive || cycleCoachActive) && (
-            <div><button className="jf-norm__link" onClick={onOpenCoachView}>{t("View your coach")} →</button></div>
-          )}
-        </div>
-      <NormenBlock prefs={prefs} assessmentPlanned={!!assessmentPlanned} onSaveDcp={saveDcp} onMeasure={onForceAssessment} />
-      {/* ── Training Focus ──────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16 }}>
-          TRAINING FOCUS
-        </div>
-        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.5 }}>
-          Your primary intent. JustFit can hold one at a time.
-        </div>
-        <Glass style={{ padding: 20 }}>
-          {/* ── Training mode cards ── */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
-            {[
-              { id: "general",  icon: "bolt",    title: "GENERAL HEALTH",  sub: "Strength · fat loss · mobility · endurance" },
-              { id: "running",  icon: "run",     title: "RUNNING COACH",   sub: "5K → marathon plans · R556 ladder" },
-              { id: "cycling",  icon: "cycle",   title: "CYCLING COACH",   sub: "Indoor + outdoor intervals" },
-              { id: "military", icon: "shield",  title: "MILITARY COACH",  sub: "Keuring KCT · MARSOF · CSE" },
-            ].map(card => {
-              const isGeneral = card.id === "general";
-              // selected = currently open/editing (drives highlight + expands settings)
-              const selected = isGeneral
-                ? !["running","cycling","military"].includes(focusSel)
-                : focusSel === card.id;
-              // saved = actually committed to DB (drives ACTIVE pill only)
-              const saved = isGeneral
-                ? !runCoachActive && !cycleCoachActive && !milCoachActive
-                : card.id === "running" ? runCoachActive
-                : card.id === "cycling" ? cycleCoachActive
-                : milCoachActive;
-              return (
-                <button
-                  key={card.id}
-                  onClick={() => {
-                    if (isGeneral) {
-                      if (!selected) {
-                        const lastGoal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
-                          ? "health" : (prefs.training_goal ?? "health");
-                        handleFocusTap(lastGoal);
-                      }
-                    } else {
-                      if (selected) {
-                        const goal = ["running","cycling","military"].includes(prefs.training_goal ?? "health")
-                          ? "health" : (prefs.training_goal ?? "health");
-                        handleFocusTap(goal);
-                      } else {
-                        handleFocusTap(card.id);
-                      }
-                    }
-                  }}
-                  style={{
-                    width: "100%", textAlign: "left", cursor: "pointer",
-                    padding: "14px 16px", borderRadius: 14,
-                    border: `1px solid ${selected ? C.emeraldBorder : C.border}`,
-                    background: selected ? C.emeraldDim : C.bgCard,
-                    display: "flex", alignItems: "center", gap: 12,
-                  }}
-                >
-                  {card.id === "military" ? <MilitaryIcon size={20} /> : (() => { const Ic = Icons[card.icon] || Icons.bolt; return <Ic size={20} c={selected ? C.emerald : C.muted} />; })()}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ ...eyebrow, fontSize: 11, color: selected ? C.emerald : C.text }}>{card.title}</div>
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{card.sub}</div>
-                  </div>
-                  {saved
-                    ? <span style={{ ...eyebrow, fontSize: 9, color: C.emerald, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, padding: "3px 8px", borderRadius: 999, flexShrink: 0 }}>ACTIVE</span>
-                    : <span style={{ color: C.faint, fontSize: 16, flexShrink: 0 }}>›</span>
-                  }
-                </button>
-              );
-            })}
-          </div>
-
-          {/* ── General Training sub-section ── */}
-          {!["running","cycling","military"].includes(focusSel) && (
-            <div>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>YOUR GOAL</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 6, marginBottom: 16 }}>
-                {GOALS.map(g => {
-                  const sel = focusSel === g.value;
-                  return (
-                    <button
-                      key={g.value}
-                      onClick={() => handleFocusTap(g.value)}
-                      style={{
-                        padding: "10px 6px 8px", borderRadius: 14, cursor: "pointer",
-                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                        background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                        display: "flex", flexDirection: "column", alignItems: "center", gap: 5,
-                      }}
-                    >
-                      <span style={{ color: sel ? C.emerald : C.muted, display: "flex", alignItems: "center" }}>
-                        <GoalIcon value={g.value} size={20} />
-                      </span>
-                      <span style={{ fontSize: 10, fontWeight: 900, color: sel ? C.emerald : C.text, textAlign: "center", lineHeight: 1.3 }}>
-                        {g.label}
-                      </span>
-                    </button>
-                  );
-                })}
-              </div>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8, borderTop: `1px solid ${C.border}`, paddingTop: 16 }}>
-                Experience level
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {EXPERIENCE.map(ex => {
-                  const sel = localExpLevel === ex.value;
-                  return (
-                    <button
-                      key={ex.value}
-                      onClick={() => setLocalExpLevel(ex.value)}
-                      style={{
-                        flex: 1, padding: "8px 4px", borderRadius: 14, cursor: "pointer",
-                        border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                        background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                        display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
-                      }}
-                    >
-                      <span style={{ fontSize: 11, fontWeight: 900, color: sel ? C.emerald : C.text }}>{t(ex.label)}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {(() => {
-                const info = {
-                  health:      { title: "General Health · Balanced movement",      body: "Strength, cardio, mobility and recovery in rotation — the foundation of long-term fitness." },
-                  strength:    { title: "Build Strength · Progressive overload",   body: "Compound movements with increasing resistance. Push/pull/legs cycling ensures full recovery between sessions." },
-                  fat_loss:    { title: "Lose Weight · Mixed intensity",           body: "Cardio and strength combined to maximise calorie burn and build metabolic resilience over time." },
-                  muscle_gain: { title: "Build Muscle · Volume focus",             body: "Higher set counts and controlled tempo. Progressive overload accumulates the stimulus needed for hypertrophy." },
-                  endurance:   { title: "Endurance · Aerobic development",         body: "Longer sessions with steady-state cardio and zone 2 work to expand your aerobic base sustainably." },
-                  mobility:    { title: "Mobility & Flex · Joint health",          body: "Stretching, flows and recovery work to improve range of motion, posture and injury resilience." },
-                }[focusSel];
-                if (!info) return null;
-                return (
-                  <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{info.title}</div>
-                    <div style={{ fontSize: 10, color: C.muted }}>{info.body}</div>
-                  </div>
-                );
-              })()}
-            </div>
-          )}
-
-          {/* ── Run Coach sub-section ── */}
-          {focusSel === "running" && !planEquipment.includes("running_shoes") && (
-            <button
-              onClick={() => setPlanEquipment(eq => eq.includes("running_shoes") ? eq : [...eq.filter(v => v !== "none"), "running_shoes"])}
-              style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
-            >
-              <Icons.run size={18} c={C.emerald} />
-              <div>
-                <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add running shoes</div>
-                <div style={{ fontSize: 11, color: C.muted }}>Required for the running programme — tap to add to your equipment list.</div>
-              </div>
-            </button>
-          )}
-          {focusSel === "running" && planEquipment.includes("running_shoes") && (() => {
-            const rcState = prefs.preferences?.run_coach ?? null;
-            const isActive = rcState?.enrolled === true && !rcState?.completed;
-            const unlockedTargets = rcState?.unlocked_targets ?? [];
-            const prevRequired = Object.fromEntries(RUN_TARGETS.map(({ km, prevKm }) => [km, prevKm]));
-            const weeksMap = Object.fromEntries(RUN_TARGETS.map(({ km, weeks }) => [km, weeks]));
-            const showRampWarn = (() => {
-              const prev = prevRequired[runTargetSelect];
-              return prev && !unlockedTargets.includes(String(prev));
-            })();
-            return (
-              <div style={{ opacity: effectiveIsPro ? 1 : 0.45 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Running Coach Program</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-                  {isActive
-                    ? `${rcState.target_km}km · Week ${rcState.week ?? 1} · Session ${rcState.session_in_week ?? 0} of 3`
-                    : "Progressive run programme — 3 sessions per week, any days you choose."}
-                </div>
-                {effectiveIsPro ? (
-                  <>
-                    {/* Target distance — shown for both enrollment and active state */}
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Target distance</div>
-                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: showRampWarn ? 10 : 12 }}>
-                      {RUN_TARGETS.map(({ km, label }) => {
-                        const done = unlockedTargets.includes(String(km));
-                        const isSel = km === runTargetSelect;
-                        return (
-                          <button key={km} onClick={() => setRunTargetSelect(km)} style={{ padding: "7px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${isSel ? C.emeraldBorder : C.border}`, background: isSel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: isSel ? C.emerald : C.muted }}>
-                            {done ? "✓ " : ""}{label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {showRampWarn && (
-                      <div role="status" style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)", borderLeft: "2px solid #f59e0b" }}>
-                        <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>Progression caution</div>
-                        <span style={{ fontSize: 11, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5 }}>
-                          Starting at {runTargetSelect}km without completing the {prevRequired[runTargetSelect]}km plan first significantly increases injury risk. We strongly recommend following the ramp-up progression.
-                        </span>
-                      </div>
-                    )}
-                    <div style={{ fontSize: 11, color: C.subtle, marginBottom: 12 }}>
-                      {weeksMap[runTargetSelect]} · up to 3 sessions/week · any days
-                    </div>
-                    {/* When active and target changed: show change button (restarts programme) */}
-                    {isActive && runTargetSelect !== (rcState?.target_km ?? 5) && (
-                      <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 11, color: C.muted, marginBottom: 8 }}>Switching target will restart your programme at week 1.</div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <button onClick={onUpgrade} style={{ padding: "10px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
-                    Upgrade naar Pro →
-                  </button>
-                )}
-              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Running Coach · Structured progression</div>
-                <div style={{ fontSize: 10, color: C.muted }}>3 sessions per week, any days you choose. Each target unlocks the next — safely building from 5 km to 30 km over time.</div>
-              </div>
-              </div>
-            );
-          })()}
-
-          {/* ── Cycle Coach sub-section ── */}
-          {focusSel === "cycling" && (() => {
-            const ccState = prefs.preferences?.cycling_coach ?? null;
-            const ccActive = ccState?.active === true && !ccState?.completed;
-            const ftp = parseInt(cycleFtpInput) || 200;
-            const maxHr = parseInt(cycleMaxHrInput) || 180;
-            return (
-              <div style={{ opacity: effectiveIsPro ? 1 : 0.45 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Cycling Coach Program</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-                  {ccActive
-                    ? `Week ${ccState.week ?? 1} · Session ${ccState.session_in_week ?? 0} of ${ccState.cycling_days_per_week ?? 3} · ${ccState.unit === 'hr' ? 'HR-based' : `FTP ${ccState.ftp_watts ?? 200}W`}`
-                    : "Structured training — 5 goals, 7-week block cycle, 3–5 sessions per week, any days."}
-                </div>
-                {effectiveIsPro ? (
-                  <>
-                    {!ccActive && (
-                      <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
-                        {/* Training goal (sub-goal) */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
-                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                            {CYCLE_SUB_GOALS.map(g => (
-                              <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
-                                {g.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        {/* Training unit */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training unit</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {[{v:'watts',label:'Watts (power meter)'},{v:'hr',label:'Heart rate (bpm)'}].map(u => (
-                              <button key={u.v} onClick={() => setCycleUnitSelect(u.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleUnitSelect === u.v ? C.emeraldBorder : C.border}`, background: cycleUnitSelect === u.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleUnitSelect === u.v ? C.emerald : C.muted }}>
-                                {u.label}
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div style={{ display: "flex", gap: 8, alignItems: "flex-end" }}>
-                          {cycleUnitSelect === 'watts' ? (
-                            <>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Current FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                              </div>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Target FTP (W)</div>
-                                <input type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                              </div>
-                              <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "8px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", whiteSpace: "nowrap" }}>
-                                Test FTP
-                              </button>
-                            </>
-                          ) : (
-                            <div style={{ flex: 1 }}>
-                              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Max heart rate (bpm)</div>
-                              <input type="number" min={100} max={220} value={cycleMaxHrInput} onChange={e => setCycleMaxHrInput(e.target.value)} style={{ width: "100%", padding: "8px 10px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                            </div>
-                          )}
-                        </div>
-                        {/* Cycling sessions per week */}
-                        <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cycling sessions / week</div>
-                          <div style={{ display: "flex", gap: 6 }}>
-                            {[3,4,5].map(n => (
-                              <button key={n} onClick={() => setCycleDaysPerWeek(n)} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleDaysPerWeek === n ? C.emeraldBorder : C.border}`, background: cycleDaysPerWeek === n ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleDaysPerWeek === n ? C.emerald : C.muted }}>
-                                {n}
-                              </button>
-                            ))}
-                          </div>
-                          <div style={{ fontSize: 10, color: C.subtle, marginTop: 4 }}>Min 2 rest days are always preserved.</div>
-                        </div>
-                        <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
-                          7-week block cycle (base → build → recovery) · {cycleDaysPerWeek} sessions/week · any days
-                          {cycleUnitSelect === 'watts' && ftp > 0 && <> · Z2 target: {Math.round(ftp * 0.55)}–{Math.round(ftp * 0.75)}W</>}
-                          {cycleUnitSelect === 'hr' && maxHr > 0 && <> · Z2 target: {Math.round(maxHr * 0.68)}–{Math.round(maxHr * 0.83)} bpm</>}
-                        </div>
-                      </div>
-                    )}
-                    {/* When active: sub-goal switcher + FTP test + cross-training settings */}
-                    {ccActive && (() => {
-                      const maxCrossTrainDays = Math.min(3, 5 - (ccState?.cycling_days_per_week ?? 3));
-                      const saveCrossTrainPrefs = async () => {
-                        const updatedCc = { ...ccState, run_cross_training: cycleCrossTrainEnabled, run_days_per_week: cycleCrossTrainEnabled ? Math.min(cycleCrossTrainDays, maxCrossTrainDays) : (ccState.run_days_per_week ?? 1) };
-                        const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: updatedCc };
-                        onUpdate(p => ({ ...p, preferences: newPrefs }));
-                        await api.saveProfile(token, { preferences: newPrefs });
-                      };
-                      const saveSubGoal = async () => {
-                        const updatedCc = { ...ccState, sub_goal: cycleSubGoalSelect };
-                        const newPrefs = { ...(prefs.preferences ?? {}), cycling_coach: updatedCc };
-                        onUpdate(p => ({ ...p, preferences: newPrefs }));
-                        await api.saveProfile(token, { preferences: newPrefs });
-                      };
-                      return (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 12, marginBottom: 12 }}>
-                          {/* Sub-goal switcher (always editable even when active) */}
-                          <div>
-                            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Training goal</div>
-                            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                              {CYCLE_SUB_GOALS.map(g => (
-                                <button key={g.v} onClick={() => setCycleSubGoalSelect(g.v)} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleSubGoalSelect === g.v ? C.emeraldBorder : C.border}`, background: cycleSubGoalSelect === g.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleSubGoalSelect === g.v ? C.emerald : C.muted }}>
-                                  {g.label}
-                                </button>
-                              ))}
-                            </div>
-                            {cycleSubGoalSelect !== (ccState?.sub_goal ?? 'build_fitness') && (
-                              <button onClick={saveSubGoal} style={{ padding: "5px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
-                                Save goal →
-                              </button>
-                            )}
-                          </div>
-                          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <button onClick={() => setShowFtpTestModal(true)} style={{ padding: "5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                              Test FTP
-                            </button>
-                          </div>
-                          {/* Cross-training runs toggle */}
-                          <div style={{ padding: "10px 12px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: cycleCrossTrainEnabled ? 10 : 0 }}>
-                              <div style={{ flex: 1 }}>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: C.text }}>Cross-training runs</div>
-                                <div style={{ fontSize: 11, color: C.muted }}>Add running sessions on short or rest days</div>
-                              </div>
-                              <button onClick={() => setCycleCrossTrainEnabled(v => !v)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainEnabled ? C.emeraldBorder : C.border}`, background: cycleCrossTrainEnabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleCrossTrainEnabled ? C.emerald : C.muted }}>
-                                {cycleCrossTrainEnabled ? "On" : "Off"}
-                              </button>
-                            </div>
-                            {cycleCrossTrainEnabled && (
-                              <div>
-                                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Run days / week</div>
-                                <div style={{ display: "flex", gap: 6 }}>
-                                  {[1,2,3].filter(n => n <= maxCrossTrainDays).map(n => (
-                                    <button key={n} onClick={() => setCycleCrossTrainDays(n)} style={{ padding: "4px 12px", borderRadius: 999, fontSize: 13, fontWeight: 800, cursor: "pointer", border: `1px solid ${cycleCrossTrainDays === n ? C.emeraldBorder : C.border}`, background: cycleCrossTrainDays === n ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleCrossTrainDays === n ? C.emerald : C.muted }}>
-                                      {n}
-                                    </button>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                          <button onClick={saveCrossTrainPrefs} style={{ padding: "7px 0", borderRadius: 10, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 800, cursor: "pointer" }}>
-                            Save settings
-                          </button>
-                        </div>
-                      );
-                    })()}
-                  </>
-                ) : (
-                  <button onClick={onUpgrade} style={{ padding: "10px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
-                    Upgrade naar Pro →
-                  </button>
-                )}
-              <div style={{ marginTop: 16, padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Cycling Coach · FTP-based training</div>
-                <div style={{ fontSize: 10, color: C.muted }}>Polarised 80/20 method — 80% zone 2 endurance, 20% high-intensity intervals. 3–5 sessions per week in 7-week cycles (base → build → recovery). Optional cross-training runs on rest or short days.</div>
-              </div>
-              </div>
-            );
-          })()}
-
-          {/* ── Military Coach sub-section ── */}
-          {focusSel === "military" && (() => {
-            const mc = prefs.preferences?.military_coach ?? null;
-            const isActive = !!(mc?.active);
-            const KEURING_CLUSTERS  = [
-              { v: 0, label: "KB", desc: "Basis — starting level" },
-              { v: 1, label: "K1", desc: "Entry level service" },
-              { v: 2, label: "K2", desc: "Standard service" },
-              { v: 3, label: "K3", desc: "Infantry / most roles" },
-              { v: 4, label: "K4", desc: "Above average" },
-              { v: 5, label: "K5", desc: "High performance" },
-              { v: 6, label: "K6", desc: "Special forces baseline" },
-            ];
-            const OPLEIDING_CLUSTERS = [
-              { v: 1, label: "O1", desc: "Opleiding entry" },
-              { v: 2, label: "O2", desc: "Standard training" },
-              { v: 3, label: "O3", desc: "Infantry training" },
-              { v: 4, label: "O4", desc: "Above average" },
-              { v: 5, label: "O5", desc: "High performance" },
-              { v: 6, label: "O6", desc: "Advanced training" },
-            ];
-            const clusters = milTrack === 'keuring' ? KEURING_CLUSTERS : OPLEIDING_CLUSTERS;
-            return (
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Military Coach Program</div>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-                  {isActive
-                    ? `${mc.track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness'} · ${mc.mode === 'open' ? 'Open progression' : `Target ${mc.track === 'keuring' ? (mc.cluster_target === 0 ? 'KB' : `K${mc.cluster_target}`) : `O${mc.cluster_target}`}`}`
-                    : "Dutch Defensie prep — train toward your target level at your own pace or with a fixed assessment date."}
-                </div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-                    {/* ── Mode — first ── */}
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Mode</div>
-                      <div style={{ display: "flex", gap: 6 }}>
-                        {[
-                          {v:'target', label:'Target date', sub:'Assessment on a set date'},
-                          {v:'fit',    label:'Fit target',  sub:'Goal level, no fixed date'},
-                          {v:'open',   label:'Open',        sub:'No goal or end date'},
-                        ].map(m => (
-                          <button key={m.v} onClick={() => setMilMode(m.v)}
-                            style={{ flex: 1, padding: "9px 8px", borderRadius: 12, cursor: "pointer", border: `1px solid ${milMode === m.v ? C.emeraldBorder : C.border}`, background: milMode === m.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 }}>
-                            <span style={{ fontSize: 12, fontWeight: 900, color: milMode === m.v ? C.emerald : C.text }}>{m.label}</span>
-                            <span style={{ fontSize: 10, color: C.muted }}>{m.sub}</span>
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-                    {/* ── Track + Cluster — only for target / fit (open needs no cluster) ── */}
-                    {milMode !== 'open' && (<>
-                      <div>
-                        <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 8 }}>TRACK</div>
-                        {[
-                          { v: 'keuring',   title: 'KEURING',   body: 'Fitness assessment', sub: 'Basis → K6 · 7 levels' },
-                          { v: 'opleiding', title: 'OPLEIDING', body: 'Training programme', sub: 'O1 → O6 · 6 levels' },
-                        ].map(t => (
-                          <button key={t.v} onClick={() => { setMilTrack(t.v); setMilCluster(3); }}
-                            style={{
-                              width: "100%", textAlign: "left",
-                              background: milTrack === t.v ? C.emeraldDim : C.bgCard,
-                              borderLeft: `4px solid ${milTrack === t.v ? C.emerald : "transparent"}`,
-                              border: `1px solid ${milTrack === t.v ? C.emeraldBorder : C.border}`,
-                              borderRadius: 14, padding: "14px 16px", marginBottom: 8,
-                              cursor: "pointer",
-                            }}>
-                            <div style={{ ...eyebrow, color: milTrack === t.v ? C.emerald : C.faint }}>{t.title}</div>
-                            <div style={{ ...display(18), color: C.text, marginTop: 4 }}>{t.body}</div>
-                            <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.sub}</div>
-                          </button>
-                        ))}
-                      </div>
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Target cluster</div>
-                        <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
-                          {clusters.map(c => (
-                            <button key={c.v} onClick={() => setMilCluster(c.v)}
-                              title={c.desc}
-                              style={{ padding: "7px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${milCluster === c.v ? C.emeraldBorder : C.border}`, background: milCluster === c.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: milCluster === c.v ? C.emerald : C.muted }}>
-                              {c.label}
-                            </button>
-                          ))}
-                        </div>
-                        <div style={{ fontSize: 11, color: C.subtle, marginTop: 5 }}>{clusters.find(c => c.v === milCluster)?.desc ?? ""}</div>
-                      </div>
-                    </>)}
-                    {/* ── Assessment date — only for target mode ── */}
-                    {milMode === 'target' && (
-                      <div>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Assessment date</div>
-                        <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
-                          min={new Date(Date.now() + 21 * 86400000).toISOString().slice(0,10)}
-                          style={{ width: "100%", padding: "9px 12px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box" }} />
-                        {milTargetDate && (() => {
-                          const days  = Math.ceil((new Date(milTargetDate + 'T00:00:00Z') - Date.now()) / 86400000);
-                          const weeks = Math.floor(days / 7);
-                          if (days < 28) return <div style={{ fontSize: 11, color: C.rose, marginTop: 5, fontWeight: 600 }}>Too short — minimum 4 weeks needed</div>;
-                          if (days > 42) return <div style={{ fontSize: 11, color: C.emerald, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · Base building now → 6-week specific prep in week {weeks - 5}</div>;
-                          return <div style={{ fontSize: 11, color: C.emerald, marginTop: 5, fontWeight: 600 }}>{weeks} weeks · Entering specific prep phase directly</div>;
-                        })()}
-                      </div>
-                    )}
-                    {/* ── Pack weight ── */}
-                    <div>
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Pack weight available (kg)</div>
-                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                        {[5, 10, 15, 20, 25, 30, 35].map(kg => {
-                          const sel = milPackWeight.includes(kg);
-                          return (
-                            <button key={kg} onClick={() => setMilPackWeight(w => sel ? w.filter(v => v !== kg) : [...w, kg].sort((a, b) => a - b))}
-                              style={{ padding: "8px 14px", borderRadius: 20, fontSize: 13, fontWeight: 800, cursor: "pointer", border: sel ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`, background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sel ? C.emerald : C.text, fontFamily: "inherit" }}>
-                              {kg} kg
-                            </button>
-                          );
-                        })}
-                      </div>
-                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 6 }}>Select all weights you own. The planner picks the heaviest available weight for each session.</div>
-                    </div>
-                    {!planEquipment.includes("trail_shoes") && (
-                      <button
-                        onClick={() => setPlanEquipment(eq => eq.includes("trail_shoes") ? eq : [...eq.filter(v => v !== "none"), "trail_shoes"])}
-                        style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}`, cursor: "pointer", textAlign: "left" }}
-                      >
-                        <Icons.run size={18} c={C.emerald} />
-                        <div>
-                          <div style={{ fontSize: 12, fontWeight: 900, color: C.emerald }}>Add trail shoes / hiking boots</div>
-                          <div style={{ fontSize: 11, color: C.muted }}>Recommended for march sessions — tap to add to your equipment list.</div>
-                        </div>
-                      </button>
-                    )}
-                    {/* ── Mode info panels ── */}
-                    {milMode === 'open' && (
-                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Open progression · Rolling 6-week cycle</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>No assessment date needed. Continuously cycles through training phases — great for long-term fitness maintenance.</div>
-                      </div>
-                    )}
-                    {milMode === 'fit' && (
-                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Fit target · Progressive base building</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>Train toward your goal level at your own pace. RPE signals advance your training automatically — no assessment date required.</div>
-                      </div>
-                    )}
-                    {milMode === 'target' && !milTargetDate && (
-                      <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>Assessment target · Two-phase training</div>
-                        <div style={{ fontSize: 10, color: C.muted }}>Training anchors to your assessment date. Base building starts immediately; a structured 6-week specific prep begins automatically at 6 weeks out.</div>
-                      </div>
-                    )}
-                    {milMode === 'target' && milTargetDate && (() => {
-                      const msLeft  = new Date(milTargetDate + 'T00:00:00Z').getTime() - Date.now();
-                      const daysLeft = Math.ceil(msLeft / 86400000);
-                      const weeks   = Math.floor(daysLeft / 7);
-                      if (daysLeft < 28) return (
-                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(244,63,94,0.06)", border: "1px solid rgba(244,63,94,0.25)", borderLeft: "2px solid #f43f5e" }}>
-                          <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: "#f43f5e", marginBottom: 3 }}>Too short</div>
-                          <span style={{ fontSize: 11, color: "#fda4af", fontWeight: 600 }}>Minimum 4 weeks needed for safe preparation. Choose a later date.</span>
-                        </div>
-                      );
-                      if (daysLeft > 42) return (
-                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{weeks} weeks until assessment · Base building now</div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Progressive training starts today. Specific 6-week prep begins automatically at 6 weeks out.</div>
-                        </div>
-                      );
-                      const phase = daysLeft >= 36 ? "On-ramp" : daysLeft >= 29 ? "Build" : daysLeft >= 22 ? "Build" : daysLeft >= 15 ? "Peak" : daysLeft >= 8 ? "Deload" : "Taper";
-                      return (
-                        <div style={{ padding: "10px 14px", borderRadius: 12, background: "rgba(16,185,129,0.06)", border: `1px solid ${C.emeraldBorder}` }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>{weeks} weeks until assessment · Starting in {phase} phase</div>
-                          <div style={{ fontSize: 10, color: C.muted }}>Training anchors to your assessment date — phases shift automatically as the date approaches.</div>
-                        </div>
-                      );
-                    })()}
-                    {/* ── Cooper test stub ── */}
-                    <div style={{ padding: "14px 16px", borderRadius: 14, background: C.bgCard2, border: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 12 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 4 }}>COOPER TEST</div>
-                        <div style={{ ...mono(12), color: C.mutedStrong }}>
-                          {prefs.preferences?.military_coach?.last_cooper_distance_m
-                            ? `Last result: ${prefs.preferences.military_coach.last_cooper_distance_m} m`
-                            : "No test recorded yet"}
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => onOpenCooperModal?.()}
-                        style={{ padding: "8px 14px", borderRadius: 12, fontSize: 12, fontWeight: 700, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap", flexShrink: 0 }}
-                      >
-                        Log test →
-                      </button>
-                    </div>
-                  </div>
-              </div>
-            );
-          })()}
-
-          {/* ── Single save / activate button ── */}
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}` }}>
-            <button
-              onClick={handleFocusSave}
-              disabled={focusSaveStatus === "saving"}
-              style={{
-                width: "100%", padding: "13px 20px", borderRadius: 14, fontSize: 13, fontWeight: 900,
-                cursor: focusSaveStatus === "saving" ? "default" : "pointer",
-                border: `1px solid ${focusSaveStatus === "saved" ? "transparent" : C.emeraldBorder}`,
-                background: focusSaveStatus === "saved" ? C.emerald : C.emeraldDim,
-                color: focusSaveStatus === "saved" ? C.onAccent : C.emerald,
-              }}
-            >
-              {focusSaveStatus === "saved" ? "Saved ✓" :
-               focusSaveStatus === "saving" ? "Saving…" :
-               focusSel === "running" && runCoachActive && runTargetSelect === (prefs.preferences?.run_coach?.target_km ?? 5) ? `Re-enrol · ${runTargetSelect}km (resets progress)` :
-               focusSel === "running" && runCoachActive ? `Switch to ${runTargetSelect}km →` :
-               focusSel === "running" ? `Activate · ${runTargetSelect}km Run Coach` :
-               focusSel === "cycling" ? "Activate · Cycling Coach" :
-               focusSel === "military" && milCoachActive ? `Save changes · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
-               focusSel === "military" ? `Activate · Military Coach · ${milMode === 'open' ? 'Open' : `${milTrack === 'keuring' ? (milCluster === 0 ? 'KB' : `K${milCluster}`) : `O${milCluster}`}${milMode === 'fit' ? ' · Fit target' : ''}`}` :
-               `Activate · ${GOALS.find(g => g.value === focusSel)?.label ?? "General Health"}`}
-            </button>
-          </div>
-        </Glass>
-      </div>
-      </>)}
 
       {subView === "trainers" && (
         <TrainersPanel />

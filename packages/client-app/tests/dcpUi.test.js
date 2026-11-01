@@ -98,3 +98,53 @@ describe('maxEffortMeta — a measurement set never shows a rep count', () => {
     expect(maxEffortMeta(null)).toBe(null);
   });
 });
+
+// ─── coach-dcp release 2 — rows with both tiers, one date rule ────────────────
+import { dcpRows, dcpHeaderDate } from '../src/dcpUi.js';
+
+describe('dcpRows — every row names the minimum AND the safe tier', () => {
+  const norms = { pushups: 16, situps: 24, run_m: 2200 };
+  it('never measured: "0 / 16 (safe 19)" and "0 / 24 (safe 29)"', () => {
+    const rows = dcpRows({ enabled: true }, norms);
+    expect(rows.map((r) => r.key)).toEqual(['pushups', 'situps']);
+    expect(rows[0].score).toEqual(['{v} / {min} (safe {safe})', { v: 0, min: 16, safe: 19 }]);
+    expect(rows[1].score).toEqual(['{v} / {min} (safe {safe})', { v: 0, min: 24, safe: 29 }]);
+    expect(rows[0].p.tier).toBe('below');
+  });
+  it('measured: the value fills in; the minimum stays the minimum after it is cleared', () => {
+    const rows = dcpRows({ last: { pushups: 17, situps: 15, at_ms: 1 } }, norms);
+    expect(rows[0].score[1]).toEqual({ v: 17, min: 16, safe: 19 });
+    expect(rows[0].p.tier).toBe('minimum');
+    expect(rows[1].score[1]).toEqual({ v: 15, min: 24, safe: 29 });
+  });
+  it('the safe figure is the bias floor (+20 %) — the trace\'s 19 is the card\'s 19', () => {
+    expect(dcpRows({}, norms)[0].safe).toBe(Math.round(16 * 1.2));
+  });
+  it('no norms (no sex / no table) → no rows', () => {
+    expect(dcpRows({}, null)).toEqual([]);
+  });
+  it('reads in Dutch as the design says: "0 / 16 (veilig 19)"', async () => {
+    vi.resetModules();
+    vi.stubGlobal('localStorage', { getItem: () => 'nl', setItem() {}, removeItem() {} });
+    vi.stubGlobal('window', { dispatchEvent() {}, addEventListener() {}, removeEventListener() {} });
+    const { t } = await import('../src/i18n.js');
+    const [key, vars] = dcpRows({}, norms)[0].score;
+    expect(t(key, vars)).toBe('0 / 16 (veilig 19)');
+  });
+});
+
+describe('dcpHeaderDate — the shared date rule', () => {
+  const now = Date.parse('2026-11-01T09:00:00');
+  const keuring = { active: true, mode: 'target', target_date: '2026-12-31' };
+  it('the DCP\'s own test date wins', () => {
+    expect(dcpHeaderDate({ test_date: '2026-11-11' }, keuring, now)).toEqual({ kind: 'test', days: 10, date: '2026-11-11' });
+  });
+  it('no test date but a keuring date → the keuring date, never "no date"', () => {
+    expect(dcpHeaderDate({}, keuring, now)).toEqual({ kind: 'keuring', days: 60 });
+  });
+  it('no keuring date while the coach is off, or in open mode → none', () => {
+    expect(dcpHeaderDate({}, { ...keuring, active: false }, now)).toEqual({ kind: 'none' });
+    expect(dcpHeaderDate({}, { ...keuring, mode: 'open' }, now)).toEqual({ kind: 'none' });
+    expect(dcpHeaderDate({}, null, now)).toEqual({ kind: 'none' });
+  });
+});

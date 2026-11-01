@@ -502,3 +502,14 @@ export function cycleSubGoalLabel(value) {
   const key = CYCLE_SUBGOAL_LABELS[value];
   return key ? t(key) : String(value ?? '').replace(/_/g, ' ');
 }
+
+// coach-dcp R2 — the six progression axes, ONE label source for the radar, the
+// ASSENANALYSE bars, the insights and the Coach view ("zwakste as"). Dutch:
+// Duwen / Trekken / Benen / Romp / Cardio / Mobiliteit.
+export const AXIS_LABELS = {
+  push: 'Push', pull: 'Pull', legs: 'Legs', core: 'Core', conditioning: 'Cardio', mobility: 'Mobility',
+};
+export function axisLabel(axis) {
+  const key = AXIS_LABELS[axis];
+  return key ? t(key) : String(axis ?? '');
+}

@@ -7,23 +7,15 @@ import { milClL, fmtDateNL, getUserId } from "./planUtils.js";
 // C-F13 — DCP norms and tiering live server-side so the card and the planner
 // rule can never disagree about what the target is.
 import { DcpCard } from "./DcpCard.jsx";
+// coach-dcp R2 — the keuring standards live in ONE module (keuringNorms.js); the
+// readiness card is the same KeuringCard Voortgang shows under WAAR STA IK.
+import { KeuringCard } from "./normCards.jsx";
+import { COOPER_THRESHOLDS, KEURING_NORMS, cooperLevel as cooperLevelOf, milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
-import { cycleSubGoalLabel } from "./messagePolicy.js";
+import { cycleSubGoalLabel, axisLabel } from "./messagePolicy.js";
 import { useAppShell } from "./AppShellContext.js";
 import { MyTrainingsCard } from "./MyTrainings.jsx";
-
-// ─── KEURING NORMS (Defensie KB–K6, openbaar beschikbaar) ────────────────────
-// run_sec = max 1500m time; pushups/pullups = minimum reps; march = max 5km+10kg time
-const KEURING_NORMS = {
-  0: { run_sec: 420, pushups: 20, pullups: 2, march: '40:00' },
-  1: { run_sec: 390, pushups: 23, pullups: 3, march: '37:00' },
-  2: { run_sec: 375, pushups: 25, pullups: 4, march: '35:00' },
-  3: { run_sec: 365, pushups: 27, pullups: 5, march: '33:00' },
-  4: { run_sec: 365, pushups: 28, pullups: 4, march: '35:00' },
-  5: { run_sec: 350, pushups: 30, pullups: 6, march: '32:00' },
-  6: { run_sec: 330, pushups: 35, pullups: 8, march: '30:00' },
-};
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
@@ -212,7 +204,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const primary = pref.primary_intent ?? (milA ? "military" : rcA ? "running" : ccA ? "cycling" : "general");
 
   const coachLabel = primary === 'military' && milA
-    ? t("MILITARY · {x}", { x: milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) })
+    ? t("MILITARY · {x}", { x: t(...milLevelLabel(pref.military_coach).pill) })
     : primary === 'running' && rcA ? t("RUNNING · {km}km", { km: pref.run_coach.target_km })
     : primary === 'cycling' && ccA ? t("CYCLING · WEEK {w}", { w: pref.cycling_coach.week ?? 1 })
     : primary === 'general' ? t("GENERAL HEALTH")
@@ -234,7 +226,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   };
 
   const intents = [
-    { id: "military", label: t("Military"), headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : t("Not enrolled"), available: milA },
+    { id: "military", label: t("Military"), headline: milA ? t(...milLevelLabel(pref.military_coach).pill) : t("Not enrolled"), available: milA },
     { id: "running",  label: t("Running"),  headline: rcA ? t("{km}km goal", { km: pref.run_coach.target_km }) : t("Not enrolled"), available: rcA },
     { id: "cycling",  label: t("Cycling"),  headline: ccA ? (pref.cycling_coach.sub_goal ? cycleSubGoalLabel(pref.cycling_coach.sub_goal) : t("Active")) : t("Not enrolled"), available: ccA },
     { id: "general",  label: t("General health"), headline: t("Consistent daily training"), available: true },
@@ -244,7 +236,6 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const rc  = pref.run_coach ?? {};
   const cc  = pref.cycling_coach ?? {};
   const RADAR_AXES_CC = ["push", "pull", "legs", "core", "conditioning", "mobility"];
-  const RADAR_LABELS_CC = { push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cardio", mobility: "Mobility" };
 
   if (consentRequired) {
     return (
@@ -379,10 +370,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         <Glass style={{ padding: "16px 20px", marginBottom: 28 }}>
           <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("CONFLICT RESOLUTION")}</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
-            {primary === "military" ? "Military drives Today. Other coaches adapt."
-             : primary === "running" ? "Running drives Today. Other coaches fill rest days."
-             : primary === "cycling" ? "Cycling drives Today. Other coaches fill gaps."
-             : "General training runs when no coach claims today."}
+            {primary === "military" ? t("Military drives Today. Other coaches adapt.")
+             : primary === "running" ? t("Running drives Today. Other coaches fill rest days.")
+             : primary === "cycling" ? t("Cycling drives Today. Other coaches fill gaps.")
+             : t("General training runs when no coach claims today.")}
           </div>
           <button onClick={() => onNavigateSettings()} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit", padding: 0, marginTop: 8 }}>
             {t("Change primary →")}
@@ -400,7 +391,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <GoalIcon value={currentGoal.value} size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
+              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
               <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{t(currentGoal.label)}</div>
               <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
                 {t(exp.label)}
@@ -434,21 +425,21 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>Running Coach</div>
-                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Program</div>
+                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>{t("Running Coach")}</div>
+                    <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("{km}km programme", { km: rc.target_km })}</div>
                   </div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.02em" }}>Week {week}</div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>of {totalWeeks}</div>
+                  <div style={{ fontSize: 20, fontWeight: 900, color: C.text, lineHeight: 1, letterSpacing: "-0.02em" }}>{t("Week {w}", { w: week })}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("of {n}", { n: totalWeeks })}</div>
                 </div>
               </div>
               <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", borderRadius: 999, transition: "width 0.5s ease" }} />
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>Session {sessionInWeek} of 3 this week — any 3 days you train</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>{t("Session {s} of 3 this week — any 3 days you train", { s: sessionInWeek })}</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
-                {[{n:1,day:"Run 1",type:"Intervals"},{n:2,day:"Run 2",type:"Zone 2"},{n:3,day:"Run 3",type:"Intervals"}].map(s => {
+                {[{n:1,day:t("Run {n}", { n: 1 }),type:t("Intervals")},{n:2,day:t("Run {n}", { n: 2 }),type:"Zone 2"},{n:3,day:t("Run {n}", { n: 3 }),type:t("Intervals")}].map(s => {
                   const done = sessionInWeek >= s.n;
                   const next = sessionInWeek === s.n - 1;
                   return (
@@ -475,7 +466,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* Plan timeline */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 14 }}>
-                {rc.target_km}km Plan — {totalWeeks}-Week Progression
+                {t("{km}km plan — {n}-week progression", { km: rc.target_km, n: totalWeeks })}
               </div>
               <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 48, marginBottom: 8 }}>
                 {weeks.map(w => {
@@ -490,11 +481,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 })}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 10, color: C.subtle }}>Week 1</span>
-                <span style={{ fontSize: 10, color: C.subtle }}>Week {totalWeeks}</span>
+                <span style={{ fontSize: 10, color: C.subtle }}>{t("Week {w}", { w: 1 })}</span>
+                <span style={{ fontSize: 10, color: C.subtle }}>{t("Week {w}", { w: totalWeeks })}</span>
               </div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                {[["var(--accent)", "Completed"], ["rgba(var(--accent-rgb),0.6)", `Current (Week ${week})`], [C.border, "Upcoming"]].map(([bg, label]) => (
+                {[["var(--accent)", t("Completed")], ["rgba(var(--accent-rgb),0.6)", t("Current (week {w})", { w: week })], [C.border, t("Upcoming")]].map(([bg, label]) => (
                   <div key={label} style={{ display: "flex", alignItems: "center", gap: 5 }}>
                     <div style={{ width: 10, height: 10, borderRadius: 2, background: bg }} />
                     <span style={{ fontSize: 11, color: C.muted }}>{label}</span>
@@ -510,14 +501,16 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
-                    Running Coach — {rc.target_km}km, Week {week} of {totalWeeks}
+                    {t("Running Coach — {km}km, week {w} of {total}", { km: rc.target_km, w: week, total: totalWeeks })}
                   </div>
                   <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
                     {runReadyToday
-                      ? `Run ${sessionInWeek + 1} of 3 this week — warm-up and your ${sessionInWeek === 1 ? "Zone 2 easy run" : "interval run"} are included in today's plan.`
+                      ? (sessionInWeek === 1
+                          ? t("Run {n} of 3 this week — warm-up and your Zone 2 easy run are included in today's plan.", { n: sessionInWeek + 1 })
+                          : t("Run {n} of 3 this week — warm-up and your interval run are included in today's plan.", { n: sessionInWeek + 1 }))
                       : sessionsLeft > 0
-                        ? `${sessionsLeft} run${sessionsLeft > 1 ? "s" : ""} left this week — train any day that suits you.`
-                        : "Week complete — great work. Your next running week starts when you're ready."}
+                        ? t("{n} run(s) left this week — train any day that suits you.", { n: sessionsLeft })
+                        : t("Week complete — great work. Your next running week starts when you're ready.")}
                   </div>
                 </div>
               </div>
@@ -531,14 +524,14 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         const sessionInWeek = cc.session_in_week ?? 0;
         const daysPerWeek = cc.cycling_days_per_week ?? 3;
         const sessionsLeft = daysPerWeek - sessionInWeek;
-        const WEEK_PATTERN = ['Intervals', 'Zone 2', 'Intervals'];
-        const nextLabel = WEEK_PATTERN[sessionInWeek] ?? 'Intervals';
-        const unitLabel = cc.unit === 'hr' ? 'heart rate zones' : `FTP ${cc.ftp_watts ?? 200}W`;
+        const WEEK_PATTERN = [t('Intervals'), 'Zone 2', t('Intervals')];
+        const nextLabel = WEEK_PATTERN[sessionInWeek] ?? t('Intervals');
+        const unitLabel = cc.unit === 'hr' ? t('heart rate zones') : `FTP ${cc.ftp_watts ?? 200} W`;
         const insightText = sessionsLeft === daysPerWeek
-          ? `${daysPerWeek} sessions this week — ${WEEK_PATTERN.join(' · ')}.`
+          ? t("{n} sessions this week — {pattern}.", { n: daysPerWeek, pattern: WEEK_PATTERN.join(' · ') })
           : sessionsLeft > 0
-          ? `${sessionsLeft} session${sessionsLeft > 1 ? 's' : ''} remaining. Up next: ${nextLabel}.`
-          : 'Week complete — good work. Your next cycling week begins on your next session.';
+          ? t("{n} session(s) remaining. Up next: {x}.", { n: sessionsLeft, x: nextLabel })
+          : t("Week complete — good work. Your next cycling week begins on your next session.");
 
         const intervalWeeks = cc.ftp_test_interval_weeks ?? 6;
         const testedAtMs = cc.ftp_tested_at_ms ?? null;
@@ -559,10 +552,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
         const tsb = pmcLatest?.tsb ?? null;
         const tsbMsg = tsb === null ? null
-          : tsb < -25 ? 'Fatigue is high — keep it easy or take a recovery day'
-          : tsb < -10 ? 'Good training load — keep building'
-          : tsb <= 5  ? 'Fresh enough for quality work'
-          : 'Very fresh — good day for a hard session, test, or longer ride';
+          : tsb < -25 ? t('Fatigue is high — keep it easy or take a recovery day')
+          : tsb < -10 ? t('Good training load — keep building')
+          : tsb <= 5  ? t('Fresh enough for quality work')
+          : t('Very fresh — good day for a hard session, test, or longer ride');
         const tsbColor = tsb === null ? C.muted : tsb < -25 ? '#f43f5e' : tsb < -10 ? C.warning : "var(--accent)";
 
         const ftpHistory = cc.ftp_history ?? [];
@@ -587,7 +580,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
-                  Cycling Coach — Week {cc.week ?? 1} · {unitLabel}
+                  {t("Cycling Coach — week {w} · {unit}", { w: cc.week ?? 1, unit: unitLabel })}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{insightText}</div>
                 {cc.enrolled_at_ms && (() => {
@@ -596,24 +589,24 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const phase = blockWeek <= 2 ? "BASE" : blockWeek <= 5 ? "BUILD" : blockWeek === 6 ? "RECOVERY" : "PEAK";
                   return (
                     <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
-                      {phase}
+                      {t(phase)}
                     </div>
                   );
                 })()}
                 {ftpStale && cc.unit === 'watts' && ftpSnoozedUntil < nowMs && plan?.slot_type !== 'rest' && (
                   <div style={{ marginTop: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
                     <div style={{ fontSize: 11, color: C.warning, lineHeight: 1.5, marginBottom: 7 }}>
-                      FTP refresh recommended{weeksAgo !== null ? ` — tested ${weeksAgo} week${weeksAgo !== 1 ? 's' : ''} ago` : ' — no test on record'}.
+                      {weeksAgo !== null ? t("FTP refresh recommended — tested {n} week(s) ago.", { n: weeksAgo }) : t("FTP refresh recommended — no test on record.")}
                     </div>
                     <div style={{ display: "flex", gap: 6 }}>
                       <button onClick={() => setView("settings")} style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", background: "rgba(245,158,11,0.15)", border: "1px solid rgba(245,158,11,0.35)", color: C.warning }}>
-                        Go to FTP test
+                        {t("Go to FTP test")}
                       </button>
                       <button
                         onClick={() => { const until = nowMs + 7 * 86400000; const _u = getUserId(); localStorage.setItem(_u ? `jf_ftp_snooze_until_${_u}` : 'jf_ftp_snooze_until', String(until)); setFtpSnoozedUntil(until); }}
                         style={{ padding: "5px 10px", borderRadius: 8, fontSize: 11, fontWeight: 700, cursor: "pointer", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, color: C.muted }}
                       >
-                        Remind me next week
+                        {t("Remind me next week")}
                       </button>
                     </div>
                   </div>
@@ -664,17 +657,17 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 </svg>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                   <div style={{ fontSize: 10, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
-                  <div style={{ ...mono(11), color: "var(--accent)", fontWeight: 700 }}>{ftpHistory[ftpSparkN - 1].ftp_watts}W current</div>
+                  <div style={{ ...mono(11), color: "var(--accent)", fontWeight: 700 }}>{t("{w} W current", { w: ftpHistory[ftpSparkN - 1].ftp_watts })}</div>
                 </div>
               </div>
             )}
             {cc.unit !== 'hr' && cc.ftp_watts > 0 && (() => {
               const ftp = cc.ftp_watts;
               const ZONES = [
-                { n: 1, name: "Active recovery", lo: 0,                        hi: Math.round(ftp * 0.55) },
-                { n: 2, name: "Endurance",       lo: Math.round(ftp * 0.55),   hi: Math.round(ftp * 0.75) },
+                { n: 1, name: t("Active recovery"), lo: 0,                        hi: Math.round(ftp * 0.55) },
+                { n: 2, name: t("Endurance"),       lo: Math.round(ftp * 0.55),   hi: Math.round(ftp * 0.75) },
                 { n: 3, name: "Tempo",           lo: Math.round(ftp * 0.75),   hi: Math.round(ftp * 0.90) },
-                { n: 4, name: "Threshold",       lo: Math.round(ftp * 0.90),   hi: Math.round(ftp * 1.05) },
+                { n: 4, name: t("Threshold"),       lo: Math.round(ftp * 0.90),   hi: Math.round(ftp * 1.05) },
                 { n: 5, name: "VO2 Max",         lo: Math.round(ftp * 1.05),   hi: null },
               ];
               return (
@@ -699,47 +692,44 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {milA && (() => {
         const mil = pref.military_coach ?? {};
         const track = mil.track ?? 'keuring';
-        const clusterCurrent = mil.cluster_current ?? (track === 'keuring' ? 0 : 1);
+        // coach-dcp R2 (fix 8) — the level shown is the measured one: a Cooper result on the
+        // keuring track (2.350 m → K3), else the working level; unmeasured, the ladder has no "NU".
+        const clusterCurrent = (track === 'keuring' ? cooperLevelOf(mil.last_cooper_distance_m) : null) ?? mil.cluster_current ?? (track === 'keuring' ? 0 : 1);
         const clusterTarget = mil.cluster_target ?? clusterCurrent;
-        const trackLabel = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
+        const trackLabel = track === 'keuring' ? t('Physical Assessment') : t('Educational Fitness');
+        const lvlLabel = milLevelLabel(mil);
         const mode = mil.mode ?? 'target';
         const maxLevel = 6;
         const CLUSTER_DESC = track === 'keuring'
-          ? { 0: "Basis", 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Special forces" }
-          : { 1: "Entry", 2: "Standard", 3: "Infantry", 4: "Above average", 5: "High performance", 6: "Advanced" };
-        const daysToAssessment = mode === 'target' && mil.target_date
-          ? Math.ceil((new Date(mil.target_date + 'T12:00:00').getTime() - nowMs) / 86_400_000)
-          : null;
+          ? { 0: t("Basis"), 1: t("Entry"), 2: t("Standard"), 3: t("Infantry"), 4: t("Above average"), 5: t("High performance"), 6: t("Special forces") }
+          : { 1: t("Entry"), 2: t("Standard"), 3: t("Infantry"), 4: t("Above average"), 5: t("High performance"), 6: t("Advanced") };
+        const daysToAssessment = keuringDaysOut(mil, nowMs);
         const nextLevel = Math.min(clusterCurrent + 1, maxLevel);
         const lastCooper = mil.last_cooper_distance_m ?? null;
-        const COOPER_THRESHOLDS = [0, 1800, 2000, 2200, 2400, 2600, 2800];
-        const cooperLevel = lastCooper
-          ? COOPER_THRESHOLDS.reduce((lvl, t, i) => lastCooper >= t ? i : lvl, 0)
-          : null;
-        const cooperBenchmark = lastCooper
-          ? `${lastCooper}m — ${cooperLevel === 0 ? 'Below KB' : milClL(track, cooperLevel)}`
-          : null;
+        const cooperLevel = cooperLevelOf(lastCooper);
+        const cooperBenchmark = lastCooper ? true : null;
         const nextCooperTarget = track === 'keuring' ? (COOPER_THRESHOLDS[nextLevel] ?? null) : null;
         const cooperGap = lastCooper && nextCooperTarget && nextLevel <= maxLevel && clusterCurrent < maxLevel
           ? Math.max(0, nextCooperTarget - lastCooper) : null;
         const ownedWeights = Array.isArray(mil.pack_weights_available_kg) ? mil.pack_weights_available_kg : [];
         const maxOwnedKg = ownedWeights.length > 0 ? Math.max(...ownedWeights) : null;
-        const MIL_MARCH_TARGET = { 1: 5, 2: 10, 3: 15, 4: 20, 5: 25, 6: 30 };
-        const nextMarchTarget = track === 'keuring' ? (MIL_MARCH_TARGET[nextLevel] ?? null) : null;
+        const nextMarchTarget = track === 'keuring' ? (KEURING_NORMS[nextLevel]?.march_kg || null) : null;
         const tips = track === 'keuring' ? [
           mode === 'open'
-            ? `Next milestone: ${milClL(track, nextLevel)} — ${CLUSTER_DESC[nextLevel] ?? ''}. Cooper target: ≥${nextCooperTarget ?? '?'}m${cooperGap ? `, ${cooperGap}m to go` : ''}.`
-            : clusterCurrent < clusterTarget
-              ? `Your Cooper test result determines your ${milClL(track, clusterCurrent)} level. Run 3×12-min efforts per week to build baseline endurance.`
-              : `You're at your target level — keep training consistently to maintain it.`,
-          "Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march.",
-          clusterCurrent <= 2 ? "At KB–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days." :
-          clusterCurrent <= 4 ? "At K3–K4: mix interval runs with longer easy runs to build capacity." :
-          "At K5–K6: peak performance — taper carefully before your assessment.",
+            ? t("Next milestone: {level} — {desc}. Cooper target: ≥{m} m.", { level: milClL(track, nextLevel), desc: CLUSTER_DESC[nextLevel] ?? '', m: nextCooperTarget ?? '?' }) + (cooperGap ? ` ${t("{m} m to go.", { m: cooperGap })}` : '')
+            : !lvlLabel.measured
+              ? t("Your Cooper test measures your level. Until then the goal is {goal}; run 3×12-min efforts per week to build baseline endurance.", { goal: lvlLabel.goal })
+              : clusterCurrent < clusterTarget
+                ? t("Measured at {level}, working toward {goal}. Run 3×12-min efforts per week to build endurance.", { level: lvlLabel.level, goal: lvlLabel.goal })
+                : t("You're at your target level — keep training consistently to maintain it."),
+          t("Strength sessions focus on military compound lifts: push-up, pull-up, dips, and loaded march."),
+          clusterCurrent <= 2 ? t("At KB–K2: priority is aerobic base — keep heart rate in Zone 2 on duurloop days.") :
+          clusterCurrent <= 4 ? t("At K3–K4: mix interval runs with longer easy runs to build capacity.") :
+          t("At K5–K6: peak performance — taper carefully before your assessment."),
         ] : [
-          `Opleiding programme trains all-round fitness. Build strength and running endurance in parallel.`,
-          "March sessions develop load-bearing endurance — the pack weight increases progressively.",
-          clusterCurrent <= 3 ? "Foundation phase: focus on completing all sessions rather than intensity." : "Progression phase: small weekly volume increases, watch for signs of overload.",
+          t("Opleiding programme trains all-round fitness. Build strength and running endurance in parallel."),
+          t("March sessions develop load-bearing endurance — the pack weight increases progressively."),
+          clusterCurrent <= 3 ? t("Foundation phase: focus on completing all sessions rather than intensity.") : t("Progression phase: small weekly volume increases, watch for signs of overload."),
         ];
         const axisScores = progression?.scores_by_mode?.balanced ?? progression?.scores ?? {};
         // ── C-F13: DCP state. The card derives its own norms and tiers. ──
@@ -748,69 +738,40 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
         const sortedAxes = RADAR_AXES_CC.map(a => ({ axis: a, score: Math.round(axisScores[a] ?? 0) })).sort((a, b) => a.score - b.score);
         const weakest = sortedAxes[0];
-        const fmtSec = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
-        const COOPER_THRESHOLDS_CF5 = [0, 1800, 2000, 2200, 2400, 2600, 2800];
 
         return (
           <>
-            {/* KeuringReadinessCard — target mode keuring */}
-            {mode === 'target' && track === 'keuring' && mil.target_date && (() => {
-              const norms = KEURING_NORMS[clusterTarget] ?? KEURING_NORMS[0];
-              const runOk = lastCooper != null && lastCooper >= (COOPER_THRESHOLDS_CF5[clusterTarget] ?? Infinity);
-              const strengthOk = clusterCurrent >= clusterTarget;
-              const kLabel = milClL(track, clusterTarget);
-              const checkItems = [
-                { label: '1500m loop',        norm: `≤ ${fmtSec(norms.run_sec)}`,  ok: runOk },
-                { label: 'Push-ups',          norm: `≥ ${norms.pushups}`,           ok: strengthOk },
-                { label: 'Pull-ups',          norm: `≥ ${norms.pullups}`,           ok: strengthOk },
-                { label: 'Mars 5km + 10kg',   norm: `≤ ${norms.march}`,             ok: strengthOk },
-              ];
-              return (
-                <Glass style={{ padding: 20, marginBottom: 12 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
-                    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase' }}>
-                      KEURING · {kLabel}
-                    </div>
-                    {daysToAssessment != null && (
-                      <div style={{ fontSize: 10, fontWeight: 800, padding: '3px 9px', borderRadius: 99, background: daysToAssessment <= 14 ? 'rgba(245,158,11,0.12)' : 'var(--accent-dim)', border: `1px solid ${daysToAssessment <= 14 ? 'rgba(245,158,11,0.3)' : 'var(--accent-border)'}`, color: daysToAssessment <= 14 ? C.warning : 'var(--accent)' }}>
-                        over {daysToAssessment} dag{daysToAssessment !== 1 ? 'en' : ''}
-                      </div>
-                    )}
+            {/* KeuringReadinessCard — the WAAR STA IK keuring card (coach-dcp R2): measured
+                rows against the target cluster, "nog niet gemeten" where nothing is measured
+                (it used to tick push-ups / pull-ups / march off the self-declared level). */}
+            {track === 'keuring' && (
+              <KeuringCard mil={mil} nowMs={nowMs}>
+                {weakest && (
+                  <div className="jf-norm-card__foot">
+                    {t("Weakest axis: {axis} — focus on it this week.", { axis: axisLabel(weakest.axis) })}
                   </div>
-                  {checkItems.map((item, i) => (
-                    <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '8px 0', borderBottom: i < checkItems.length - 1 ? `1px solid ${C.border}` : 'none' }}>
-                      <span style={{ fontSize: 14, flexShrink: 0, color: item.ok ? C.emerald : C.muted, fontWeight: 900 }}>{item.ok ? '✓' : '○'}</span>
-                      <span style={{ flex: 1, fontSize: 13, color: C.text }}>{item.label}</span>
-                      <span style={{ fontSize: 11, color: C.muted, fontWeight: 700, flexShrink: 0 }}>{kLabel}: {item.norm}</span>
-                    </div>
-                  ))}
-                  {weakest && (
-                    <div style={{ marginTop: 12, fontSize: 12, color: C.muted, padding: '9px 12px', borderRadius: 10, background: 'rgba(var(--overlay-rgb),0.03)', border: `1px solid ${C.border}` }}>
-                      Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
-                    </div>
-                  )}
-                </Glass>
-              );
-            })()}
+                )}
+              </KeuringCard>
+            )}
 
             {/* KeuringReadinessCard — open/fit mode */}
             {mode !== 'target' && track === 'keuring' && (lastCooper || weakest) && (
               <Glass style={{ padding: 16, marginBottom: 12 }}>
-                <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>Cooper Referentie</div>
+                <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>{t("Cooper reference")}</div>
                 {lastCooper ? (
                   <div style={{ fontSize: 13, color: C.text, marginBottom: weakest ? 10 : 0 }}>
-                    Laatste Cooper: <strong>{lastCooper}m</strong>
+                    {t("Last Cooper:")} <strong>{lastCooper.toLocaleString("nl-NL")} m</strong>
                     {cooperLevel != null && cooperLevel > 0 && <span style={{ color: C.muted, marginLeft: 6 }}>· {milClL(track, cooperLevel)}</span>}
                     {cooperGap != null && clusterCurrent < maxLevel && (
                       <span style={{ fontSize: 11, color: C.muted, display: 'block', marginTop: 3 }}>
-                        {cooperGap}m tot {milClL(track, nextLevel)} ({COOPER_THRESHOLDS_CF5[nextLevel]}m)
+                        {t("{gap} m to {level} ({m} m)", { gap: cooperGap, level: milClL(track, nextLevel), m: COOPER_THRESHOLDS[nextLevel] })}
                       </span>
                     )}
                   </div>
                 ) : null}
                 {weakest && (
                   <div style={{ fontSize: 12, color: C.muted }}>
-                    Zwakste as: <span style={{ color: C.text, fontWeight: 700 }}>{weakest.axis.charAt(0).toUpperCase() + weakest.axis.slice(1)}</span> — focus hierop deze week.
+                    {t("Weakest axis: {axis} — focus on it this week.", { axis: axisLabel(weakest.axis) })}
                   </div>
                 )}
               </Glass>
@@ -822,7 +783,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 numbers on a published standard cannot differ between screens.
                 coach-dcp R1: and one action — R598 into today's session, never
                 the old separate assessment screen. */}
-            <DcpCard dcp={dcp} militaryActive sex={dcpSex} nowMs={nowMs} onMeasure={onForceAssessment} measurePlanned={!!plan?.assessment_planned} />
+            <DcpCard dcp={dcp} mil={mil} militaryActive sex={dcpSex} nowMs={nowMs} onMeasure={onForceAssessment} measurePlanned={!!plan?.assessment_planned} />
 
             {/* Level ladder */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>
@@ -831,25 +792,25 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   <MilitaryIcon size={20} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach · {trackLabel}</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")} · {trackLabel}</div>
+                  {/* coach-dcp R2 (fix 8) — the self-declared level is a goal, not a result. */}
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
-                    Current: {milClL(track, clusterCurrent)}
-                    {mode !== 'open' && clusterTarget > clusterCurrent && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Target {milClL(track, clusterTarget)}</span>}
-                    {mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>→ Next: {milClL(track, clusterCurrent + 1)}</span>}
+                    {t(...lvlLabel.line)}
+                    {lvlLabel.measured && mode === 'open' && clusterCurrent < maxLevel && <span style={{ fontSize: 11, color: C.muted, marginLeft: 8 }}>{t("→ Next: {level}", { level: milClL(track, clusterCurrent + 1) })}</span>}
                   </div>
                   {daysToAssessment !== null && (
                     <div style={{ fontSize: 11, color: daysToAssessment <= 14 ? C.warning : C.muted, marginTop: 2, fontWeight: 700 }}>
-                      {daysToAssessment > 0 ? `${daysToAssessment} days to assessment` : daysToAssessment === 0 ? "Assessment today" : "Assessment date passed"}
+                      {daysToAssessment > 0 ? t("{n} days to the keuring", { n: daysToAssessment }) : daysToAssessment === 0 ? t("Keuring today") : t("Keuring date passed")}
                     </div>
                   )}
-                  {mode === 'fit' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Fit target — no fixed date</div>}
-                  {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Continuous progression</div>}
+                  {mode === 'fit' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Fit target — no fixed date")}</div>}
+                  {mode === 'open' && <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Continuous progression")}</div>}
                 </div>
               </div>
               <div style={{ display: "flex", gap: 4 }}>
                 {Array.from({ length: track === 'keuring' ? 7 : 6 }, (_, i) => track === 'keuring' ? i : i + 1).map(lvl => {
-                  const isPast = lvl < clusterCurrent;
-                  const isCurrent = lvl === clusterCurrent;
+                  const isPast = lvlLabel.measured && lvl < clusterCurrent;
+                  const isCurrent = lvlLabel.measured && lvl === clusterCurrent;
                   const isTarget = mode !== 'open' && lvl === clusterTarget;
                   const isGap = mode !== 'open' && lvl > clusterCurrent && lvl < clusterTarget;
                   return (
@@ -863,48 +824,48 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                       <span style={{ fontSize: 9, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
                         {milClL(track, lvl)}
                       </span>
-                      {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>NOW</span>}
-                      {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>GOAL</span>}
+                      {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>{t("NOW")}</span>}
+                      {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>{t("GOAL")}</span>}
                     </div>
                   );
                 })}
               </div>
-              {CLUSTER_DESC[clusterCurrent] !== undefined && (
+              {lvlLabel.measured && CLUSTER_DESC[clusterCurrent] !== undefined && (
                 <div style={{ marginTop: 10, fontSize: 11, color: C.muted }}>{milClL(track, clusterCurrent)} — {CLUSTER_DESC[clusterCurrent]}</div>
               )}
             </Glass>
             {/* Coach Insights */}
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 12 }}>
-                Coach Insights
+                {t("Coach Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
                 {(cooperBenchmark || maxOwnedKg !== null) && (
                   <>
                     <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                       <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>Cooper test</div>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("Cooper test")}</div>
                         {cooperBenchmark
-                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper}m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{milClL(track, cooperLevel)}</span></div>
-                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>No test recorded</div>}
+                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper.toLocaleString("nl-NL")} m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{cooperLevel ? t("({level} level)", { level: milClL(track, cooperLevel) }) : t("Below K1")}</span></div>
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("No test recorded")}</div>}
                         {nextCooperTarget && clusterCurrent < maxLevel && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                            {milClL(track, nextLevel)} requires ≥{nextCooperTarget}m
-                            {cooperGap != null && cooperGap > 0 && <span style={{ color: C.warning, fontWeight: 700 }}> · {cooperGap}m to go</span>}
-                            {cooperGap === 0 && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · achieved</span>}
+                            {t("{level} requires ≥{m} m", { level: milClL(track, nextLevel), m: nextCooperTarget })}
+                            {cooperGap != null && cooperGap > 0 && <span style={{ color: C.warning, fontWeight: 700 }}> · {t("{m} m to go", { m: cooperGap })}</span>}
+                            {cooperGap === 0 && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · {t("achieved")}</span>}
                           </div>
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>March weight</div>
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("March weight")}</div>
                         {maxOwnedKg !== null
-                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>max</span></div>
-                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>Not set</div>}
+                          ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{t("max")}</span></div>
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("Not set")}</div>}
                         {nextMarchTarget && clusterCurrent < maxLevel && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
-                            {milClL(track, nextLevel)} target: {nextMarchTarget} kg
-                            {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · ready</span>}
-                            {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: C.warning, fontWeight: 700 }}> · {nextMarchTarget - maxOwnedKg} kg short</span>}
+                            {t("{level} target: {kg} kg", { level: milClL(track, nextLevel), kg: nextMarchTarget })}
+                            {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · {t("ready")}</span>}
+                            {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: C.warning, fontWeight: 700 }}> · {t("{kg} kg short", { kg: nextMarchTarget - maxOwnedKg })}</span>}
                           </div>
                         )}
                         {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>{t("Set weights in Settings →")}</div>}
@@ -918,8 +879,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
                       <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}><Icons.compass size={15} c="var(--accent)" /></div>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>Priority axis: {RADAR_LABELS_CC[weakest.axis]}</div>
-                        <div style={{ fontSize: 11, color: C.muted }}>Score {weakest.score} — the planner is already biasing sessions here.</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 1 }}>{t("Priority axis: {axis}", { axis: axisLabel(weakest.axis) })}</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{t("Score {n} — the planner is already biasing sessions here.", { n: weakest.score })}</div>
                       </div>
                     </div>
                     <div style={{ height: 1, background: C.border, marginBottom: 16 }} />

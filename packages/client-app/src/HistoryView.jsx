@@ -7,9 +7,12 @@ import { t, useLang, exerciseName } from "./i18n.js";
 import { summarizeLogged } from "./logSession.js";
 // C-F13 — the DCP is a standing requirement, so it belongs on the screen where
 // someone asks "where am I", not only inside the military programme.
-import { DcpCard } from "./DcpCard.jsx";
-import { dcpCardVisible } from "../../../functions/api/_shared/military.js";
-import { dcpMeasureLabel, dcpMeasurePlanned } from "./dcpUi.js";
+// coach-dcp R2 — and it sits under WAAR STA IK, one card per norm (keuring, DCP).
+import { WaarStaIk } from "./normCards.jsx";
+import { anyNormOn } from "./keuringNorms.js";
+import { dcpMeasurePlanned } from "./dcpUi.js";
+import { axisLabel } from "./messagePolicy.js";
+import { insightLines, plannerLines } from "./progressCopy.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -252,7 +255,6 @@ function TrajectoryChart({ history, accentHex }) {
 
 // ─── RADAR CHART ──────────────────────────────────────────────────────────────
 const RADAR_AXES = ["push", "pull", "legs", "core", "conditioning", "mobility"];
-const RADAR_LABELS = { push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cardio", mobility: "Mobility" };
 
 function radarPoint(cx, cy, r, index, total) {
   const angle = (index / total) * 2 * Math.PI - Math.PI / 2;
@@ -500,7 +502,7 @@ function RadarChart({ scores, goalScores, accentHex, size = 220, onSelectAxis = 
             style={{ cursor: "pointer" }}
             role="button"
             tabIndex={0}
-            aria-label={`${RADAR_LABELS[axis]} — ${t("show history")}`}
+            aria-label={`${axisLabel(axis)} — ${t("show history")}`}
             onClick={() => onSelectAxis(axis)}
             onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onSelectAxis(axis); } }}
           />
@@ -523,7 +525,7 @@ function RadarChart({ scores, goalScores, accentHex, size = 220, onSelectAxis = 
             fontFamily={C.font.body}
             fill={C.faint}
           >
-            {RADAR_LABELS[axis]}
+            {axisLabel(axis)}
             {"\n"}
             <tspan x={pt.x} dy="13" fontSize="11" fontWeight="900" fill={C.text}>{score}</tspan>
           </text>
@@ -641,10 +643,9 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   // and the assessment screen rendered with an empty preset list.
   // Same predicate as the card and as R593, so the three can never disagree
   // about whether the DCP is a target.
-  const dcpIsTarget = dcpCardVisible(
-    prefs?.preferences?.military_coach?.dcp,
-    !!prefs?.preferences?.military_coach?.active,
-  );
+  // coach-dcp R2 — with any norm on (keuring or DCP) the measurement lives in its
+  // WAAR STA IK card; the general "Where you are" battery stays only without one.
+  const normOn = anyNormOn(prefs);
   const [measureBusy, setMeasureBusy] = useState(false);
   const handleMeasure = async () => {
     if (measureBusy || dcpPlanned || !onForceAssessment) return;
@@ -658,6 +659,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   // Get display scores for the selected chart mode
   const displayScores = progression?.scores_by_mode?.[effectiveChartMode] ?? progression?.scores ?? {};
   const goalScores    = progression?.goal_profile?.targets ?? null;
+  // coach-dcp R2 — HOW THE PLANNER ADAPTS, built here from the same fields so it can be Dutch.
+  const plannerCopy = progression ? plannerLines({ scores: displayScores, targets: goalScores ?? {}, chartMode: effectiveChartMode, goal: t(GOAL_LABELS_MAP[goal] ?? goal) }, axisLabel) : [];
 
   const runCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
   const cycleCoachActive = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
@@ -880,7 +883,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         </div>
         {/* Goal insight */}
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
-          <span style={{ fontWeight: 700, color: C.text }}>Goal: {goal.replace(/_/g, " ")} — </span>
+          <span style={{ fontWeight: 700, color: C.text }}>{t("Goal: {goal}", { goal: t(GOAL_LABELS_MAP[goal] ?? goal.replace(/_/g, " ")) })} — </span>
           {t(weeklyOutcome.insight)}
         </div>
         {/* Goal-fit progress row — shown when progression data available */}
@@ -897,13 +900,13 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             </svg>
             <div>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
-                {progression.goal_fit >= 80 ? "Profile aligned with your goal" :
-                 progression.goal_fit >= 50 ? "Building toward your goal" :
-                 "Room to grow toward your goal"}
+                {progression.goal_fit >= 80 ? t("Profile aligned with your goal") :
+                 progression.goal_fit >= 50 ? t("Building toward your goal") :
+                 t("Room to grow toward your goal")}
               </div>
               {progression.insights?.biggest_gap && (
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>
-                  Focus: {progression.insights.biggest_gap.label} — already on the planner's radar
+                  {t("Focus: {axis} — already on the planner's radar", { axis: axisLabel(progression.insights.biggest_gap.axis) })}
                 </div>
               )}
             </div>
@@ -911,14 +914,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         )}
       </Glass>
 
-      <DcpCard
-        dcp={prefs?.preferences?.military_coach?.dcp}
-        militaryActive={!!prefs?.preferences?.military_coach?.active}
-        sex={prefs?.sex ?? 'male'}
-        nowMs={nowMs}
-        onMeasure={handleMeasure}
-        measurePlanned={assessmentPlanned}
-      />
+      <WaarStaIk prefs={prefs} nowMs={nowMs} onMeasure={handleMeasure} measurePlanned={assessmentPlanned} />
 
       <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
 
@@ -960,7 +956,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           color: active ? C.emerald : C.muted,
                         }}
                       >
-                        {m.label}
+                        {t(m.label)}
                       </button>
                     );
                   })}
@@ -973,7 +969,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                       color: showCompare ? C.emerald : C.muted,
                     }}
                   >
-                    {showCompare ? "Goal on" : "Goal off"}
+                    {showCompare ? t("Goal on") : t("Goal off")}
                   </button>
                 </div>
               )}
@@ -981,73 +977,40 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               {/* ── Mode description — general only ── */}
               {sportMode === "general" && (
                 <div style={{ marginBottom: 14, paddingLeft: 2 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{CHART_MODES.find(m => m.id === effectiveChartMode)?.label}</span>
-                  <span style={{ fontSize: 11, color: C.muted }}> — {CHART_MODES.find(m => m.id === effectiveChartMode)?.desc}</span>
-                </div>
-              )}
-
-              {/* ── Military fitness profile label ── */}
-              {sportMode === "military" && (
-                <div style={{ marginBottom: 14, paddingLeft: 2, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <div>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>Fitness Profile</span>
-                    <span style={{ fontSize: 11, color: C.muted }}> — your current scores vs. military target vector</span>
-                  </div>
-                  <button
-                    onClick={() => setShowCompare((v) => !v)}
-                    style={{
-                      padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
-                      border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
-                      background: showCompare ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                      color: showCompare ? C.emerald : C.muted,
-                    }}
-                  >
-                    {showCompare ? "Target on" : "Target off"}
-                  </button>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{t(CHART_MODES.find(m => m.id === effectiveChartMode)?.label ?? "")}</span>
+                  <span style={{ fontSize: 11, color: C.muted }}> — {t(CHART_MODES.find(m => m.id === effectiveChartMode)?.desc ?? "")}</span>
                 </div>
               )}
 
               {/* ── Where you are (fitness assessment) ──
                    Sits directly above the radar because it calibrates it: the
                    assessment writes the per-axis baseline the chart decays toward. */}
-              {assessment && (
+              {assessment && !normOn && (
                 <Glass style={{ padding: 20, marginBottom: 20 }}>
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>WHERE YOU ARE</div>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>{t("WHERE YOU ARE")}</div>
 
                   {assessment.blocked ? (
                     <>
                       <div style={{ fontSize: 13, color: C.text, lineHeight: 1.55 }}>{assessment.blocked.message}</div>
                       <div style={{ fontSize: 11, color: C.subtle, marginTop: 8 }}>
-                        The measurement can wait — your plan keeps adapting either way.
+                        {t("The measurement can wait — your plan keeps adapting either way.")}
                       </div>
                     </>
-                  ) : dcpIsTarget ? (
-                    /* coach-dcp R1 — with the DCP as a target, its measurement IS the
-                       push/core baseline: hand over to the one DCP button instead of
-                       offering a second, differently-worded test of the same thing. */
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 14 }}>
-                      <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.5, flex: 1, minWidth: 0 }}>
-                        {t("Your DCP measurement is your baseline for push and core.")}
-                      </div>
-                      <button className="jf-dcp-measure jf-dcp-measure--inline" onClick={handleMeasure} disabled={dcpPlanned || measureBusy}>
-                        {t(dcpMeasureLabel({ never: !dcpLastAt, planned: dcpPlanned }))}
-                      </button>
-                    </div>
                   ) : (
                     <>
                       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 14 }}>
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 13, color: C.text, fontWeight: 700, lineHeight: 1.5 }}>
                             {assessment.last
-                              ? `Last measured ${assessment.days_since === 0 ? "today" : `${assessment.days_since} day${assessment.days_since === 1 ? "" : "s"} ago`}`
-                              : "Not measured yet"}
+                              ? (assessment.days_since === 0 ? t("Last measured today") : t("Last measured {n} days ago", { n: assessment.days_since }))
+                              : t("Not measured yet")}
                           </div>
                           <div style={{ fontSize: 12, color: C.muted, marginTop: 3, lineHeight: 1.5 }}>
                             {assessment.last
                               ? (assessment.due
-                                  ? "Worth re-testing — your baseline is getting stale."
-                                  : "A few short tests set the baseline your chart measures against.")
-                              : "A few short tests replace the estimate below with a measurement."}
+                                  ? t("Worth re-testing — your baseline is getting stale.")
+                                  : t("A few short tests set the baseline your chart measures against."))
+                              : t("A few short tests replace the estimate below with a measurement.")}
                           </div>
                         </div>
                         <button
@@ -1064,7 +1027,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           {Object.entries(assessment.last.scores).map(([axis, score]) => (
                             <span key={axis} style={{ fontSize: 11, fontWeight: 700, padding: "3px 9px", borderRadius: 8,
                                      background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                              {({ push: "Push", pull: "Pull", legs: "Legs", core: "Core", conditioning: "Cond.", mobility: "Mob." })[axis] ?? axis} {score}
+                              {axisLabel(axis)} {score}
                             </span>
                           ))}
                         </div>
@@ -1072,8 +1035,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
                       {assessment.unmeasured_axes?.length > 0 && (
                         <div style={{ fontSize: 10.5, color: C.subtle, marginTop: 10, lineHeight: 1.55 }}>
-                          Pull and mobility are estimated, not measured — no equipment-free test
-                          gives an honest reading for either.
+                          {t("Pull and mobility are estimated, not measured — no equipment-free test gives an honest reading for either.")}
                         </div>
                       )}
                     </>
@@ -1083,8 +1045,15 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
               {/* ── Radar chart ── */}
               <Glass style={{ padding: 20, marginBottom: 20, display: "flex", flexDirection: "column", alignItems: "center" }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 16, alignSelf: "flex-start" }}>
-                  {t("TRAINING BALANCE")}
+                {/* coach-dcp R2 — the general profile; the military target is an in-card toggle
+                    (it was a separate "Fitness Profile … Target on" strip). */}
+                <div className="jf-radar__head">
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("TRAINING BALANCE")}</div>
+                  {sportMode === "military" && (
+                    <button className={`jf-radar__toggle${showCompare ? " jf-radar__toggle--on" : ""}`} onClick={() => setShowCompare((v) => !v)} aria-pressed={showCompare}>
+                      {t("Military goal")}
+                    </button>
+                  )}
                 </div>
                 <RadarChart
                   scores={displayScores}
@@ -1139,11 +1108,18 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     </div>
                   )}
                 </div>
+                {/* …and the "Militaire fit" ring folds in here as one line. */}
+                {sportMode === "military" && progression.goal_fit != null && (
+                  <div className="jf-radar__fit">
+                    <b>{t("Military fit {n}%", { n: progression.goal_fit })}</b> — {t("How close your current profile is to your military fitness target.")}
+                  </div>
+                )}
               </Glass>
             </>
           )}
 
-          {/* ── Goal Fit card ── */}
+          {/* ── Goal Fit card (military: folded into the radar card above) ── */}
+          {sportMode !== "military" && (
           <Glass style={{ padding: 20, marginBottom: 12, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
               <svg width="60" height="60" viewBox="0 0 60 60">
@@ -1166,15 +1142,14 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               </div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
                 {sportMode === "running"
-                  ? "How your conditioning aligns with your running target."
+                  ? t("How your conditioning aligns with your running target.")
                   : sportMode === "cycling"
-                  ? "How your conditioning aligns with your cycling programme."
-                  : sportMode === "military"
-                  ? "How close your current profile is to your military fitness target."
-                  : (progression.goal_profile?.description ?? "How close your current profile matches your goal.")}
+                  ? t("How your conditioning aligns with your cycling programme.")
+                  : t(progression.goal_profile?.description ?? "How close your current profile matches your goal.")}
               </div>
             </div>
           </Glass>
+          )}
 
 
 
@@ -1190,7 +1165,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   return (
                     <div key={axis} style={{ padding: "12px 0", margin: "0 16px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{RADAR_LABELS[axis]}</span>
+                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{axisLabel(axis)}</span>
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (
@@ -1211,7 +1186,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           )}
 
           {/* ── Key insights + planner explanation (general mode only) ── */}
-          {sportMode === "general" && (progression.insights || (progression.planner_explanation ?? []).length > 0) && (
+          {sportMode === "general" && (progression.insights || plannerCopy.length > 0) && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Key Insights")}
@@ -1222,13 +1197,13 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 {sportMode === "general" && progression.insights && (
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                     {[
-                      { key: "strongest", label: t("Strongest"), val: progression.insights.strongest?.label, sub: progression.insights.strongest?.score },
-                      { key: "weakest",   label: t("Weakest"),   val: progression.insights.weakest?.label,   sub: progression.insights.weakest?.score },
+                      { key: "strongest", label: t("Strongest"), val: progression.insights.strongest && axisLabel(progression.insights.strongest.axis), sub: progression.insights.strongest?.score },
+                      { key: "weakest",   label: t("Weakest"),   val: progression.insights.weakest && axisLabel(progression.insights.weakest.axis),   sub: progression.insights.weakest?.score },
                     ].map(({ key, label, val, sub }) => val ? (
                       <div key={key}>
                         <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
                         <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
-                        <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>Score: {sub}</div>
+                        <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(sub) })}</div>
                       </div>
                     ) : null)}
                   </div>
@@ -1241,32 +1216,32 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <div style={{ width: 34, height: 34, borderRadius: 10, background: C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, fontSize: 15 }}>🎯</div>
                       <div>
-                        <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>Focus this week: {progression.insights.biggest_gap.label}</div>
-                        <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{progression.insights.biggest_gap.gap} points behind your goal target — the planner is already on it.</div>
+                        <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>{t("Focus this week: {axis}", { axis: axisLabel(progression.insights.biggest_gap.axis) })}</div>
+                        <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{t("{n} points behind your goal target — the planner is already on it.", { n: progression.insights.biggest_gap.gap })}</div>
                       </div>
                     </div>
                   </>
                 )}
 
                 {/* Insight text rows — general mode only */}
-                {sportMode === "general" && (progression.insights?.insight_text ?? []).map((txt, i) => (
+                {sportMode === "general" && insightLines(progression.insights, axisLabel).map(([key, vars], i) => (
                   <div key={i}>
                     <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
-                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{txt}</div>
+                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{t(key, vars)}</div>
                   </div>
                 ))}
 
                 {/* How the Planner Adapts — general mode only */}
-                {sportMode === "general" && (progression.planner_explanation ?? []).length > 0 && (
+                {sportMode === "general" && plannerCopy.length > 0 && (
                   <>
                     <div style={{ height: 1, background: C.border, margin: "16px 0" }} />
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
-                      How the Planner Adapts
+                      {t("How the Planner Adapts")}
                     </div>
-                    {progression.planner_explanation.map((line, i) => (
-                      <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < progression.planner_explanation.length - 1 ? 12 : 0 }}>
+                    {plannerCopy.map(([key, vars], i) => (
+                      <div key={i} style={{ display: "flex", gap: 10, marginBottom: i < plannerCopy.length - 1 ? 12 : 0 }}>
                         <div style={{ width: 6, height: 6, borderRadius: 3, background: C.emerald, flexShrink: 0, marginTop: 6 }} />
-                        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{line}</div>
+                        <div style={{ fontSize: 13, color: C.text, lineHeight: 1.6, fontWeight: 500 }}>{t(key, vars)}</div>
                       </div>
                     ))}
                   </>
@@ -1287,7 +1262,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   return (
                     <div key={axis} style={{ padding: "12px 0", margin: "0 16px", borderBottom: i < RADAR_AXES.length - 1 ? `1px solid ${C.border}` : "none" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{RADAR_LABELS[axis]}</span>
+                        <span style={{ ...eyebrow, color: C.text, fontSize: 11 }}>{axisLabel(axis)}</span>
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (

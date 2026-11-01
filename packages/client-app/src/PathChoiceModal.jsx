@@ -2,9 +2,11 @@
 import { useState } from "react";
 import { C, display, eyebrow } from "./tokens.js";
 import api from "./apiClient.js";
+import { t, useLang } from "./i18n.js";
 
 // ─── PATH CHOICE ──────────────────────────────────────────────────────────────
 export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade }) {
+  useLang();
   const [step, setStep] = useState("pick"); // "pick" | "running" | "cycling" | "military"
   const [saving, setSaving] = useState(false);
   const [runKm, setRunKm] = useState(5);
@@ -32,18 +34,18 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
 
   if (step === "pick") {
     const PATHS = [
-      { key: "general",  icon: "●", name: "GENERAL\nFITNESS", line: "A coach picks one safe, useful session a day." },
-      { key: "running",  icon: "▲", name: "RUNNING",          line: "Build a runner, not a workout app." },
-      { key: "cycling",  icon: "◆", name: "CYCLING",          line: "Structured sessions, week by week." },
-      { key: "military", icon: "◼", name: "MILITARY",         line: "Keuring or Opleiding. We taper for you." },
+      { key: "general",  icon: "●", name: t("GENERAL\nFITNESS"), line: t("A coach picks one safe, useful session a day.") },
+      { key: "running",  icon: "▲", name: t("RUNNING"),          line: t("Build a runner, not a workout app.") },
+      { key: "cycling",  icon: "◆", name: t("CYCLING"),          line: t("Structured sessions, week by week.") },
+      { key: "military", icon: "◼", name: t("MILITARY"),         line: t("Keuring or Opleiding. We taper for you.") },
     ];
     return (
       <div style={overlay}>
         <div style={inner}>
-          <div style={{ ...eyebrow, color: C.emerald, marginBottom: 16 }}>Welcome to JustFit.</div>
-          <h1 style={{ ...display(52), color: C.text, margin: "0 0 16px 0", lineHeight: 1.05 }}>PICK YOUR<br />TRAINING PATH.</h1>
+          <div style={{ ...eyebrow, color: C.emerald, marginBottom: 16 }}>{t("Welcome to JustFit.")}</div>
+          <h1 style={{ ...display(52), color: C.text, margin: "0 0 16px 0", lineHeight: 1.05 }}>{t("PICK YOUR")}<br />{t("TRAINING PATH.")}</h1>
           <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.5, marginBottom: 32 }}>
-            We coach four kinds of athletes.<br />Choose one. You can change later.
+            {t("We coach four kinds of athletes.")}<br />{t("You train with one coach at a time. You can change later.")}
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
             {PATHS.map(p => {
@@ -65,7 +67,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
             })}
           </div>
           <div style={{ fontSize: 12, color: C.subtle, lineHeight: 1.6 }}>
-            Privacy-first. We store only what your coach needs. Export or delete any time in Settings → Privacy.
+            {t("Privacy-first. We store only what your coach needs. Export or delete any time in Settings → Privacy.")}
           </div>
         </div>
       </div>
@@ -76,9 +78,9 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
     return (
       <div style={overlay}>
         <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>← Back</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>RUNNING</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>What distance are you training for?</p>
+          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
+          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("RUNNING")}</h2>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("What distance are you training for?")}</p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
             {[5, 10, 15, 20, 30].map(km => (
               <button key={km} onClick={() => setRunKm(km)}
@@ -91,7 +93,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
           </div>
           <button disabled={saving} style={saveBtn(saving)}
             onClick={() => saveAndComplete("running", { run_coach: { enrolled: true, target_km: runKm, week: 1, session_in_week: 0 }, sport_prefs: { sports: ["running"], primary: "running" } })}
-          >{saving ? "Saving…" : "Start Running Coach →"}</button>
+          >{saving ? t("Saving…") : t("Start Running Coach →")}</button>
         </div>
       </div>
     );
@@ -99,18 +101,18 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
 
   if (step === "cycling") {
     const SUBGOALS = [
-      { id: "build_fitness", label: "Build fitness",  desc: "General aerobic base" },
-      { id: "climbing",      label: "Climbing",       desc: "Strength + sustained power" },
-      { id: "sprint",        label: "Sprint",         desc: "Short explosive efforts" },
-      { id: "aerobic_base",  label: "Aerobic base",   desc: "Zone 2 foundation" },
-      { id: "race_fitness",  label: "Race fitness",   desc: "Event-ready conditioning" },
+      { id: "build_fitness", label: t("Build fitness"),  desc: t("General aerobic base") },
+      { id: "climbing",      label: t("Climbing"),       desc: t("Strength + sustained power") },
+      { id: "sprint",        label: t("Sprint"),         desc: t("Short explosive efforts") },
+      { id: "aerobic_base",  label: t("Aerobic base"),   desc: t("Zone 2 foundation") },
+      { id: "race_fitness",  label: t("Race fitness"),   desc: t("Event-ready conditioning") },
     ];
     return (
       <div style={overlay}>
         <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>← Back</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>CYCLING</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>What's your primary cycling goal?</p>
+          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
+          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("CYCLING")}</h2>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("What's your primary cycling goal?")}</p>
           <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
             {SUBGOALS.map(sg => (
               <button key={sg.id} onClick={() => setCycleSubgoal(sg.id)}
@@ -129,7 +131,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
           </div>
           <button disabled={saving} style={saveBtn(saving)}
             onClick={() => saveAndComplete("cycling", { cycling_coach: { active: true, sub_goal: cycleSubgoal, week: 1 }, sport_prefs: { sports: ["cycling"], primary: "cycling" } })}
-          >{saving ? "Saving…" : "Start Cycling Coach →"}</button>
+          >{saving ? t("Saving…") : t("Start Cycling Coach →")}</button>
         </div>
       </div>
     );
@@ -139,13 +141,13 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
     return (
       <div style={overlay}>
         <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>← Back</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>MILITARY</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>Choose your track and mode.</p>
+          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
+          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("MILITARY")}</h2>
+          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("Choose your track and mode.")}</p>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Track</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Track")}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              {[["keuring","Keuring","Physical assessment KB–K6"],["opleiding","Opleiding","Training programme O1–O7"]].map(([val,label,sub]) => (
+              {[["keuring","Keuring",t("Physical assessment KB–K6")],["opleiding","Opleiding",t("Training programme O1–O7")]].map(([val,label,sub]) => (
                 <button key={val} onClick={() => setMilTrack(val)}
                   style={{ flex: 1, padding: "12px 14px", borderRadius: 14, cursor: "pointer", textAlign: "left",
                     border: `1px solid ${milTrack === val ? C.emeraldBorder : C.border}`,
@@ -158,9 +160,9 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
             </div>
           </div>
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Mode</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Mode")}</div>
             <div style={{ display: "flex", gap: 6 }}>
-              {[["target","Target date"],["fit","Get fit"],["open","Open"]].map(([val,label]) => (
+              {[["target",t("Target date")],["fit",t("Get fit")],["open",t("Open")]].map(([val,label]) => (
                 <button key={val} onClick={() => setMilMode(val)}
                   style={{ flex: 1, padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontWeight: 800,
                     border: `1px solid ${milMode === val ? C.emeraldBorder : C.border}`,
@@ -172,7 +174,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
           </div>
           {milMode === "target" && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Assessment date (optional)</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Assessment date (optional)")}</div>
               <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
                 min={new Date().toISOString().slice(0, 10)}
                 style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
@@ -183,7 +185,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, onUpgrade })
             onClick={() => saveAndComplete("military", { military_coach: { active: true, track: milTrack, mode: milMode,
               cluster_current: milTrack === "keuring" ? 0 : 1, cluster_target: 3,
               target_date: milTargetDate || null, block_session_index: 0, block_number: 1, enrolled_at_ms: Date.now() } })}
-          >{saving ? "Saving…" : "Start Military Coach →"}</button>
+          >{saving ? t("Saving…") : t("Start Military Coach →")}</button>
         </div>
       </div>
     );

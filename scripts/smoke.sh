@@ -224,7 +224,9 @@ else
 fi
 
 # Both mounts must route through that predicate, or one screen drifts from the other.
-if grep -q "militaryActive" packages/client-app/src/HistoryView.jsx \
+# (coach-dcp R2: Voortgang mounts it through WAAR STA IK in normCards.jsx.)
+if grep -q "militaryActive" packages/client-app/src/normCards.jsx \
+   && grep -q "<WaarStaIk" packages/client-app/src/HistoryView.jsx \
    && grep -q "militaryActive" packages/client-app/src/CoachView.jsx; then
   ok "both DCP card mounts pass the military flag"
 else
@@ -740,7 +742,10 @@ fi
 # style={fn()} ones) moved to .jf-mt* / .jf-tpl-item* classes.
 # 2278 → 2274 (2026-11-01): coach-dcp R1 — the DCP measurement button (DcpCard,
 # "Where you are") and the old DCP bias toggle moved to .jf-dcp-measure / .jf-norm*.
-STYLE_CEILING=2274
+# 2274 → 2061 (2026-11-01): coach-dcp R2 — Settings → Doel & coach (the moved running /
+# cycling / military / general blocks, training days, session length) → .jf-dc*; DcpCard and
+# the new keuring card → .jf-norm-card* (SVG bars); the Today coach pill → .jf-coach-pill.
+STYLE_CEILING=2061
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1528,14 +1533,43 @@ const errs = [];
 for (const f of ["DcpCard.jsx", "CoachView.jsx"]) if (/setView\(\s*["\x27\x60]assessment/.test(rd(f))) errs.push(f + " opens the assessment screen — call onForceAssessment");
 const sv = rd("SettingsView.jsx");
 if (!/const dcp = \{[^\n]*\benabled:/.test(sv) || !/saveProfile\(token, \{ preferences: \{ military_coach: \{ \.\.\.mil, dcp \} \} \}\)/.test(sv)) errs.push("SettingsView.jsx no longer writes military_coach.dcp with enabled through saveProfile");
-if (!/subView === "coach" \? t\("COACHES"\)/.test(sv)) errs.push("the Settings sub-view title map has no coach entry (it reads ACCOUNT)");
+if (!/subView === "coach" \? t\("GOAL & COACH"\)/.test(sv)) errs.push("the Settings sub-view title map has no coach entry (it reads ACCOUNT) — R2: GOAL & COACH");
 if (/t\(\s*["\x27]Recalibrate/.test(rd("App.jsx"))) errs.push("App.jsx still uses the Recalibrate key");
 if (/["\x27]Recalibrate["\x27]\s*:/.test(rd("i18n.js"))) errs.push("i18n.js still carries a Recalibrate key");
 process.stdout.write(errs.join("; "));' 2>&1)
 if [ -z "$CD_OUT" ]; then
-  ok "coach-dcp: one DCP measurement action, a dcp.enabled writer, a COACHES title, no Recalibrate key"
+  ok "coach-dcp: one DCP measurement action, a dcp.enabled writer, a GOAL & COACH title, no Recalibrate key"
 else
   fail "coach-dcp: $CD_OUT"
+fi
+
+# ── coach-dcp R2 — one place, one picture, one language (offline source scan) ─
+# One place: the Settings landing has ONE "Goal & coach" row — no "Coaches" row and no
+# "Your goal" row (they were two screens, plus a third in the path modal). One picture:
+# the keuring standards (KEURING_NORMS) are defined in exactly one module — CoachView had
+# its own table and the Cooper thresholds lived in three more places. One pill: the Today
+# card carries no "Add-on" pill. (The Dutch literals are the dutchShell scan above.)
+R2_OUT=$(node -e '
+const fs = require("fs"), path = require("path");
+const errs = [];
+const sv = fs.readFileSync("packages/client-app/src/SettingsView.jsx", "utf8");
+const landing = sv.slice(sv.indexOf("subView === null ?"), sv.indexOf(".map((row, i, arr)"));
+if (/label:\s*t\(\s*["\x27](Coaches|Your goal)["\x27]/.test(landing)) errs.push("the Settings landing still has a Coaches / Your goal row");
+if (!/key:\s*"coach",\s*label:\s*t\("Goal & coach"\)/.test(landing)) errs.push("the Settings landing has no Goal & coach row");
+const defs = [];
+const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+  const p = path.join(d, e.name);
+  if (e.isDirectory()) { if (e.name !== "node_modules" && e.name !== "dist") walk(p); }
+  else if (/\.(m?js|jsx)$/.test(e.name) && /\b(const|let|var)\s+KEURING_NORMS\s*=/.test(fs.readFileSync(p, "utf8"))) defs.push(p);
+} };
+walk("packages/client-app/src"); walk("functions");
+if (defs.length !== 1) errs.push("KEURING_NORMS is defined in " + defs.length + " modules (" + defs.join(", ") + ") — keep ONE (keuringNorms.js)");
+if (/>\s*Add-on\s*</i.test(fs.readFileSync("packages/client-app/src/Dashboard.jsx", "utf8"))) errs.push("Dashboard.jsx still renders the Add-on pill");
+process.stdout.write(errs.join("; "));' 2>&1)
+if [ -z "$R2_OUT" ]; then
+  ok "coach-dcp R2: one Goal & coach landing row, KEURING_NORMS in one module, no Add-on pill"
+else
+  fail "coach-dcp R2: $R2_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

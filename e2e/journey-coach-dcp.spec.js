@@ -1,13 +1,20 @@
 /**
  * coach-dcp release 1 (docs/COACH_DCP_PLAN_2026-11.md §Release 1, tests 5–6).
  *
- *  (f) DCP end to end — a fresh user switches the DCP on in Settings → Coaches → NORMEN
+ *  (f) DCP end to end — a fresh user switches the DCP on in Settings → Doel & coach → NORMEN
  *      (birth year, toggle), is told the measurement is in today's session, finds a max-effort
  *      push-up step in it, does both measurement sets in WorkoutView's max-effort screen, and
  *      Voortgang's DCP card then shows the numbers with the retest button — not "planned".
  *  (g) coach card → Coach view — a running user (coach prefs set through the API before the
  *      check-in, so the first stored plan is the coach's) taps the programme card on Today
- *      and lands on the Coach view, whose header says HARDLOPEN.
+ *      and lands on the Coach view, whose header says HARDLOPEN. R2: the Today pill is the
+ *      primary coach only — no "ADD-ON" pill.
+ *  (h) Waar sta ik (coach-dcp release 2, fixes 6 + 8) — a military keuring persona (K3 goal,
+ *      keuring in 60 days, no Cooper yet): the Today pill reads "MILITAIR · KEURING" and the
+ *      coach card "Niveau nog niet gemeten · doel K3" (the self-declared K1 is never shown).
+ *      With a Cooper distance of 2.350 m, Voortgang's WAAR STA IK shows the Keuring card —
+ *      "2.350 m / 2.200 m" (the K3 Cooper threshold), the countdown, the unmeasured rows — and
+ *      the pill shows the measured level.
  */
 import { test, expect } from '@playwright/test';
 import { signupFresh, pickGeneralPath, waitForStoredPlan } from './helpers.js';
@@ -32,11 +39,17 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
   expect((await page.request.post('/api/profile', { data: { sex: 'male' } })).ok()).toBe(true);
   await page.reload();
 
-  // Settings → Coaches → NORMEN: the header button is "Check-in" now, and the sub-view is titled.
+  // Settings → Goal & coach → NORMEN (R2: "Your goal" and "Coaches" are one screen now).
   await expect(page.getByRole('button', { name: 'Check-in' })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: /^Coaches/ }).click();
-  await expect(page.getByRole('heading', { name: 'COACHES' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Coaches/ })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^Your goal/ })).toHaveCount(0);
+  await page.getByRole('button', { name: /^Goal & coach/ }).click();
+  await expect(page.getByRole('heading', { name: 'GOAL & COACH' })).toBeVisible();
+  // One screen, top to bottom: the path, NORMEN, the other coaches (collapsed), training days.
+  await expect(page.getByText('Your path', { exact: true })).toBeVisible();
+  await expect(page.getByText('You train with one coach at a time. Standards apply separately.')).toBeVisible();
+  await expect(page.getByText('Training days', { exact: true })).toBeVisible();
   await expect(page.getByText('Standards', { exact: true })).toBeVisible();
   const toggle = page.getByRole('button', { name: 'DCP standard · standing' });
   await expect(toggle).toBeDisabled();                        // no birth year yet
@@ -97,10 +110,12 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
   // The execution wrote the baseline (R598 → execution.js recordDcpMeasurement)…
   await expect.poll(async () => (await (await page.request.get('/api/profile')).json()).preferences?.military_coach?.dcp,
     { timeout: 15_000, message: 'the measurement should be stored as dcp.last' }).toMatchObject({ enabled: true, birth_year: 1990, bias_enabled: true, last: { pushups: 12, situps: 15 } });
-  // …and Voortgang's card shows the numbers; the one button offers the retest.
+  // …and Voortgang's card (under WHERE DO I STAND) shows the numbers with both tiers —
+  // "12 / 16 (safe 19)" — and the one button offers the retest.
   await page.getByRole('button', { name: 'Progress' }).click();
-  await expect(page.getByText(/^12 \/ \d+$/)).toBeVisible({ timeout: 20_000 });
-  await expect(page.getByText(/^15 \/ \d+$/)).toBeVisible();
+  await expect(page.getByText('WHERE DO I STAND', { exact: true })).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/^12 \/ \d+ \(safe \d+\)$/)).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/^15 \/ \d+ \(safe \d+\)$/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Schedule retest' }).first()).toBeVisible();
   await expect(page.getByRole('button', { name: "Measurement is in today's session" })).toHaveCount(0);
 });
@@ -126,6 +141,60 @@ test('coach-dcp (g) — the coach programme card on Today opens the Coach view',
   expect((await storedPlan(page)).run_program, 'the first plan should come from the running coach').toBeTruthy();
   const card = page.getByRole('button', { name: 'Bekijk je coach' });
   await expect(card).toBeVisible({ timeout: 30_000 });
+  // R2 — one pill on the Today card: the primary coach, no "ADD-ON".
+  await expect(page.getByTestId('coach-pill')).toHaveText(/^Hardlopen · 5km$/i);
+  await expect(page.getByText(/^add-on$/i)).toHaveCount(0);
   await card.click();
   await expect(page.getByText(/^HARDLOPEN · 5km$/)).toBeVisible({ timeout: 15_000 });
+});
+
+test('coach-dcp (h) — Waar sta ik: the keuring card, and the level only once measured', async ({ page }) => {
+  test.setTimeout(120_000);
+  const today = new Date();
+  const inDays = (n) => {
+    const d = new Date(today); d.setDate(d.getDate() + n);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  };
+  const mil = { active: true, track: 'keuring', mode: 'target', cluster_current: 1, cluster_target: 3,
+    target_date: inDays(60), block_session_index: 0, block_number: 1, pack_weights_available_kg: [10, 15] };
+  await signupFresh(page, '-waarstaik', {
+    beforeCheckIn: async (p) => {
+      await expect(p.getByRole('button', { name: 'Good' })).toBeVisible();
+      const res = await p.request.post('/api/profile', { data: { sex: 'male', preferences: { primary_intent: 'military', military_coach: mil } } });
+      expect(res.ok()).toBe(true);
+    },
+  });
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'nl'));
+  await page.reload();
+  await waitForStoredPlan(page);
+
+  // Fix 8 — no Cooper yet: the pill names the track, the card says "not measured · goal K3".
+  const pill = page.getByTestId('coach-pill');
+  await expect(pill).toHaveText('MILITAIR · KEURING', { timeout: 30_000 });
+  await expect(page.getByText(/Niveau nog niet gemeten · doel K3/).first()).toBeVisible();
+  await expect(page.getByText(/· K1\b/)).toHaveCount(0);
+
+  // Fix 6 — a Cooper distance (the field the Cooper modal and execution.js write).
+  const prof = await (await page.request.get('/api/profile')).json();
+  const stored = prof.preferences.military_coach;
+  const cooperAt = Date.now() - 3 * 86_400_000;
+  expect((await page.request.post('/api/profile', { data: { preferences: { ...prof.preferences,
+    military_coach: { ...stored, last_cooper_distance_m: 2350, last_cooper_at_ms: cooperAt } } } })).ok()).toBe(true);
+  await page.reload();
+
+  await page.getByRole('button', { name: 'Voortgang', exact: true }).click();
+  await expect(page.getByText('WAAR STA IK', { exact: true })).toBeVisible({ timeout: 20_000 });
+  const keuring = page.getByTestId('keuring-card');
+  await expect(keuring).toBeVisible();
+  await expect(keuring.getByText('KEURING K3 · over 60 dagen')).toBeVisible();
+  await expect(keuring.getByText('2.350 m / 2.200 m', { exact: true })).toBeVisible();
+  await expect(keuring.getByText('— / 27', { exact: true })).toBeVisible();
+  await expect(keuring.getByText('nog niet gemeten')).toHaveCount(3);
+  await expect(keuring.getByText(/^Cooper \d+ \w+\.?$/)).toBeVisible();
+  // The general battery hands over: no "Waar je staat" card while a norm is on.
+  await expect(page.getByText('WAAR JE STAAT', { exact: true })).toHaveCount(0);
+
+  // …and the Today pill now shows the measured level (2.350 m reaches K3), still no K1.
+  await page.getByRole('button', { name: 'Vandaag', exact: true }).click();
+  await expect(pill).toHaveText('MILITAIR · K3', { timeout: 20_000 });
 });

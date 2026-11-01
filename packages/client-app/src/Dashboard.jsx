@@ -9,6 +9,7 @@ import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
 import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
+import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, coachSentenceT, cycleSubGoalLabel } from "./messagePolicy.js";
 import { t, useLang, exerciseName } from "./i18n.js";
@@ -504,9 +505,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         let goalText, coachText;
         if (milA) {
           const track = pref.military_coach?.track ?? "keuring";
-          const lvl   = milClL(track, pref.military_coach?.cluster_current ?? 0);
           goalText  = t("MILITARY COACH");
-          coachText = `${track === "keuring" ? "Keuring" : "Opleiding"} · ${lvl}`;
+          coachText = `${track === "keuring" ? "Keuring" : "Opleiding"} · ${t(...milLevelLabel(pref.military_coach).line)}`;
         } else if (rcA) {
           goalText  = t("RUNNING COACH");
           coachText = t("{km}km programme · Week {w}", { km: pref.run_coach.target_km, w: pref.run_coach.week ?? 1 });
@@ -567,18 +567,16 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
                     const ccA  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
                     if (!milA && !rcA && !ccA) return null;
+                    // coach-dcp R2 — one pill: the primary coach. The "ADD-ON" pill is gone (a
+                    // military user's primary intent IS military). The level shows only once
+                    // measured: "MILITAIR · KEURING" until a Cooper or keuring result exists (fix 8).
                     const tagLabel = milA
-                      ? `${t("Military")} · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
+                      ? t("MILITARY · {x}", { x: t(...milLevelLabel(prefs.preferences.military_coach).pill) })
                       : rcA ? `${t("Running")} · ${prefs.preferences.run_coach.target_km}km`
-                      : `${t("Cycling")} · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
+                      : `${t("Cycling")} · ${t("Week {w}", { w: prefs.preferences.cycling_coach.week ?? 1 })}`;
                     return (
-                      <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
-                          {milA && <MilitaryIcon size={9} />}{tagLabel}
-                        </div>
-                        <div style={{ ...mono(), fontSize: 9, fontWeight: 700, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, padding: "3px 7px", borderRadius: 99 }}>
-                          Add-on
-                        </div>
+                      <div className="jf-coach-pill" data-testid="coach-pill">
+                        {milA && <MilitaryIcon size={9} />}{tagLabel}
                       </div>
                     );
                   })()}
@@ -831,13 +829,11 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           const trackLabel      = track === 'keuring' ? t('Physical Assessment') : t('Educational Fitness');
           const overperforming  = clusterCurrent > clusterTarget;
           const lastCooper = mp?.last_cooper_distance_m ?? mil.last_cooper_distance_m ?? null;
+          const lvl = milLevelLabel({ ...mil, last_cooper_distance_m: lastCooper, cluster_current: clusterCurrent });
+          const cLevel = cooperLevel(lastCooper);
           const cooperBenchmark = lastCooper ? (
-            lastCooper < 1800 ? `${lastCooper}m · ${t("Below K1")}` :
-            lastCooper < 2000 ? `${lastCooper}m · K1` :
-            lastCooper < 2200 ? `${lastCooper}m · K2` :
-            lastCooper < 2400 ? `${lastCooper}m · K3` :
-            lastCooper < 2600 ? `${lastCooper}m · K4` :
-            lastCooper < 2800 ? `${lastCooper}m · K5` : `${lastCooper}m · K6`
+            cLevel ? t("Cooper {m} m ({level} level)", { m: lastCooper.toLocaleString("nl-NL"), level: milClL(track, cLevel) })
+              : `Cooper ${lastCooper.toLocaleString("nl-NL")} m · ${t("Below K1")}`
           ) : null;
           return (
             <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16 }}>
@@ -848,14 +844,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
-                    {trackLabel} · {milClL(track, clusterCurrent)}
-                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
+                    {trackLabel} · {t(...lvl.line)}
+                    {lvl.measured && overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
                   </div>
                   {sessionLabel && (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Today: {x}", { x: sessionLabel })}{mp?.march_kg ? ` · ${t("{kg} kg march", { kg: mp.march_kg })}` : ""}</div>
                   )}
                   {cooperBenchmark && (
-                    <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Cooper: {cooperBenchmark}</div>
+                    <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{cooperBenchmark}</div>
                   )}
                   {/* Block progress hairline */}
                   {(() => {

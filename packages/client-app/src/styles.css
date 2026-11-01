@@ -526,3 +526,148 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* coach-dcp R1 — WorkoutView: a measurement set's prescription line ("Max · 2 min"). */
 .jf-wv-meta { font-size: 13px; font-weight: 700; color: var(--accent); }
+
+/* coach-dcp R2 — Settings → Doel & coach: one screen for path, coach, standards and
+   training days. The moved coach blocks (running / cycling / military / general) carry
+   no inline style; everything below replaces ~170 style={{ }} props. */
+.jf-dc { display: flex; flex-direction: column; }
+.jf-dc__section { margin-bottom: 28px; }
+.jf-dc__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.jf-dc__card { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; padding: 18px; }
+.jf-dc__path-head { display: flex; align-items: center; gap: 10px; color: var(--accent); }
+.jf-dc__path-name { font-family: "Barlow Condensed", "Oswald", system-ui, sans-serif; font-size: 28px; font-weight: 900; line-height: 1.05; color: var(--text); text-transform: uppercase; }
+.jf-dc__status { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
+.jf-dc__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.jf-dc__inset { margin-top: 18px; padding-top: 18px; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-dc__stack { display: flex; flex-direction: column; gap: 14px; }
+.jf-dc__locked > :not(.jf-dc__upgrade) { opacity: 0.45; }
+.jf-dc__sub { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.jf-dc__label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label, var(--muted)); margin-bottom: 6px; }
+.jf-dc__hint { font-size: 11px; color: var(--muted); line-height: 1.5; margin-top: 5px; }
+.jf-dc__mono { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; color: var(--text-soft, var(--text)); }
+.jf-dc__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.jf-dc__chip, .jf-dc__btn, .jf-dc__day, .jf-dc__seg-btn, .jf-dc__goal, .jf-dc__other-row, .jf-dc__addkit, .jf-dc__save, .jf-dc__upgrade { font-family: inherit; cursor: pointer; touch-action: manipulation; }
+.jf-dc__chip {
+  min-height: 36px; padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 800;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-dc__chip--on, .jf-dc__day--on, .jf-dc__seg-btn--on, .jf-dc__goal--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-dc__btn {
+  min-height: 40px; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-dc__actions .jf-dc__btn, .jf-dc__actions .jf-norm__link { margin-top: 14px; }
+.jf-dc__btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); align-self: flex-start; }
+.jf-dc__save {
+  width: 100%; min-height: 46px; padding: 12px 20px; border-radius: 14px; font-size: 13px; font-weight: 900;
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+}
+.jf-dc__save--done { border-color: transparent; background: var(--accent); color: var(--on-accent); }
+.jf-dc__save:disabled { cursor: default; opacity: 0.7; }
+.jf-dc__upgrade {
+  align-self: flex-start; min-height: 44px; padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 900;
+  border: 1px solid rgba(var(--accent-rgb), 0.3); background: rgba(var(--accent-rgb), 0.08); color: var(--accent);
+}
+.jf-dc__seg { display: flex; gap: 6px; }
+.jf-dc__seg-btn {
+  flex: 1; min-height: 44px; padding: 9px 8px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 2px; text-align: center;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--text);
+}
+.jf-dc__seg-title { font-size: 12px; font-weight: 900; }
+.jf-dc__seg-sub { font-size: 11px; color: var(--muted); line-height: 1.3; }
+.jf-dc__goals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.jf-dc__goal {
+  min-height: 64px; padding: 10px 6px 8px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 5px;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-dc__goal span { font-size: 11px; font-weight: 900; line-height: 1.3; text-align: center; color: var(--text); }
+.jf-dc__goal--on span { color: var(--accent); }
+.jf-dc__note { padding: 10px 14px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.06); border: 1px solid var(--accent-border); }
+.jf-dc__note-title { font-size: 11px; font-weight: 900; color: var(--accent); margin-bottom: 2px; }
+.jf-dc__note-body { font-size: 11px; color: var(--muted); line-height: 1.5; }
+.jf-dc__note--warn { background: var(--amber-dim); border-color: var(--amber-border); }
+.jf-dc__note--warn .jf-dc__note-title { color: var(--amber); }
+.jf-dc__note--warn .jf-dc__note-body { color: var(--warning-soft); }
+.jf-dc__note--danger { background: var(--rose-dim); border-color: var(--rose-border); }
+.jf-dc__note--danger .jf-dc__note-title, .jf-dc__note--danger .jf-dc__note-body { color: var(--rose); }
+.jf-dc__row { display: flex; align-items: center; gap: 10px; }
+.jf-dc__row--end { align-items: flex-end; }
+.jf-dc__field { flex: 1; min-width: 0; }
+.jf-dc__input {
+  width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700;
+  color: var(--text); background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-dc__box { padding: 12px 14px; border-radius: 14px; background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); display: flex; flex-direction: column; gap: 10px; }
+.jf-dc__box.jf-dc__row { flex-direction: row; }
+.jf-dc__box-title { font-size: 12px; font-weight: 700; color: var(--text); }
+.jf-dc__addkit {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 12px; text-align: left;
+  background: rgba(var(--accent-rgb), 0.06); border: 1px solid var(--accent-border); color: var(--muted); font-size: 11px; line-height: 1.45;
+}
+.jf-dc__addkit b { display: block; font-size: 12px; font-weight: 900; color: var(--accent); }
+.jf-dc__others { display: flex; flex-direction: column; border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; overflow: hidden; }
+.jf-dc__other + .jf-dc__other { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-dc__other-row {
+  width: 100%; min-height: 52px; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; gap: 12px; text-align: left;
+  border: none; background: rgba(var(--overlay-rgb), 0.03); color: var(--text); font-size: 15px; font-weight: 800;
+}
+.jf-dc__chev { color: var(--muted); font-size: 14px; }
+.jf-dc__other-body { padding: 4px 18px 18px; background: rgba(var(--overlay-rgb), 0.03); }
+.jf-dc__rule { margin-top: 10px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+.jf-dc__days { display: flex; gap: 8px; }
+.jf-dc__day {
+  flex: 1; min-height: 46px; padding: 12px 0; border-radius: 12px; font-size: 14px; font-weight: 900;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--text);
+}
+
+/* coach-dcp R2 — Voortgang → WAAR STA IK: one card per norm (keuring, DCP), and the
+   same cards on the Coach view. Bars are SVG with presentation attributes (no style). */
+.jf-wsi { margin-bottom: 24px; }
+.jf-wsi__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32); margin-bottom: 12px; }
+.jf-norm-card { padding: 20px; margin-bottom: 12px; }
+.jf-norm-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
+.jf-norm-card__title { font-size: 15px; font-weight: 900; color: var(--text); }
+.jf-norm-card__meta { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.jf-norm-card__date { font-size: 11px; color: var(--muted); margin-bottom: 12px; }
+.jf-norm-card__row { padding: 11px 0; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-norm-card__line { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 7px; }
+.jf-norm-card__label { font-size: 13px; font-weight: 650; color: var(--text); }
+.jf-norm-card__score { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
+.jf-norm-card__score--below { color: var(--rose); }
+.jf-norm-card__score--minimum { color: var(--amber); }
+.jf-norm-card__score--safe, .jf-norm-card__score--capacity, .jf-norm-card__score--met { color: var(--accent); }
+.jf-norm-card__bar { display: block; width: 100%; height: 8px; overflow: visible; }
+.jf-norm-card__track { fill: rgba(var(--overlay-rgb), 0.08); }
+.jf-norm-card__fill { fill: var(--muted); }
+.jf-norm-card__fill--below { fill: var(--rose); }
+.jf-norm-card__fill--minimum { fill: var(--amber); }
+.jf-norm-card__fill--safe, .jf-norm-card__fill--capacity, .jf-norm-card__fill--met { fill: var(--accent); }
+.jf-norm-card__tick { fill: rgba(var(--overlay-rgb), 0.45); }
+.jf-norm-card__tick--soft { fill: rgba(var(--overlay-rgb), 0.25); }
+.jf-norm-card__hint { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.45; }
+.jf-norm-card__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 10px; color: var(--muted); margin-top: 12px; }
+.jf-norm-card__legend span { display: inline-flex; align-items: center; gap: 5px; }
+.jf-norm-card__legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
+.jf-norm-card__legend .is-below { background: var(--rose); }
+.jf-norm-card__legend .is-minimum { background: var(--amber); }
+.jf-norm-card__legend .is-safe { background: var(--accent); }
+.jf-norm-card__warn { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: var(--amber-dim); border: 1px solid var(--amber-border); font-size: 11.5px; color: var(--text); line-height: 1.45; }
+.jf-norm-card__foot { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+/* coach-dcp R2 — the radar card: TRAININGSBALANS with the military target as an in-card
+   toggle and the military-fit figure folded in (they were two separate cards). */
+.jf-radar__head { display: flex; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin-bottom: 16px; }
+.jf-radar__toggle {
+  min-height: 34px; padding: 5px 12px; border-radius: 999px; font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
+}
+.jf-radar__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-radar__fit { width: 100%; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); font-size: 12px; color: var(--muted); line-height: 1.5; text-align: left; }
+.jf-radar__fit b { color: var(--text); font-weight: 900; }
+
+/* coach-dcp R2 — the ONE coach pill on the Today card (the "ADD-ON" pill is gone). */
+.jf-coach-pill {
+  display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  font-variant-numeric: tabular-nums; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border);
+}

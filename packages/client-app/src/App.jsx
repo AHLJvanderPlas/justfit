@@ -1513,7 +1513,7 @@ export default function App() {
                   onChangePath={() => setShowPathChoice(true)}
                   onOpenCooperModal={() => setShowCooperModal(true)}
                   onNavigateAwards={() => openAwards("settings")}
-                  onOpenCoachView={() => setView("coach")} onForceAssessment={handleForceAssessment} assessmentPlanned={!!plan?.assessment_planned}
+                  onOpenCoachView={() => setView("coach")} onForceAssessment={handleForceAssessment} assessmentPlanned={!!plan?.assessment_planned} todaySession={plan?.military_program?.session_type}
                   isPro={isPro || !!prefs.isPro}
                   onUpgrade={() => setView("upgrade")}
                   onSubscriptionChange={() => api.getSubscription().then(sub => { if (sub.isPro != null) setIsPro(sub.isPro); }).catch(() => {})}
