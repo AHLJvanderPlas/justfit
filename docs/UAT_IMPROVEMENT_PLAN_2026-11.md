@@ -9,7 +9,7 @@ day of work, and each release leaves the app better on its own.
 The one rule behind all of it: **Today shows one decision; what the user did not ask for sits one
 tap away; what the app cannot yet say anything true about stays hidden until it can.**
 
-## Release 2 — Today diet (M)
+## Release 2 — Today diet (M) — ✅ LIVE 2026-11-01 (8d575c6)
 
 What the user sees after this release: the Today card, one sentence that says what changed today,
 two visible escape hatches, and a done card with three controls instead of seventeen.

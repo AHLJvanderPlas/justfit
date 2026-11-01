@@ -1361,6 +1361,29 @@ None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) s
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-01 — UAT release 2: Today diet (`docs/UAT_IMPROVEMENT_PLAN_2026-11.md` §2)
+
+- **Why-panel** closed by default; today's rules first ("Vandaag veranderd"), safety rules that
+  always apply next ("Altijd van kracht"), structural ones under "Meer". Trace lines whose label
+  was untrue for the session (R510 normal, R516 profile filter, R546/R555 without a run step) no
+  longer render. Classifier in `messagePolicy.js`.
+- **Coach sentence** names the rule that changed today (check-in, pain, R558, R559) before the
+  goal line; pregnancy/postnatal get a real rationale. **Session title** follows the session
+  ("Rustige sessie" on a recovery day).
+- **Escape hatches** "Eigen training" / "Lukt dit niet?" are two 44 px buttons under START SESSIE.
+- **Done card** (`DoneCard.jsx`): result + "Extra activiteit loggen →" (sheet) + "Bonussessie →";
+  ≤ 6 buttons asserted in e2e; no bonus after "Gewoon rusten"; rest day titled "Rustdag".
+- **Safe stop**: "Stoppen en bewaren" saves done sets as `status='abandoned'` with
+  `execution_json.stopped_after` (no migration — the CHECK already allowed it); progression only
+  for done sets; score and Voortgang count it as showing up when ≥ 1 set was done
+  (`_shared/sessionOutcome.js`); it never advances a coach programme. "Weggooien" discards.
+- DCP rows on Today read "DCP-meting · max in 2 min"; timed targets round to 5 s (`roundTo5Sec`,
+  matrix property `timed-5s`), protocol windows untouched.
+- vitest 428 → **453**; smoke 99; e2e 21 → **22**. Inline styles 2061 → **2025** (ceiling
+  lowered). App.jsx 1799, plan.js 3688. Commit 8d575c6.
+- Found, not fixed: a timed cardio step with no completed set earns the session's duration in
+  progression for *completed* sessions (pre-existing); `bicycle-crunch` lacks a `crunch` tag.
+
 ### Shipped 2026-11-01 — UAT release 1: the five day-one defects (`docs/UAT_FIX_PLAN_2026-11.md`)
 
 Found by the 30-persona UAT (`docs/UAT_PERSONAS_2026-11.md`; runner `scripts/uat/`). All five
