@@ -118,7 +118,7 @@ under SESSIEDUUR (opens Geavanceerd → equipment); "Available time per session"
 into Geavanceerd as a ninth row; the language toggle lives on the landing only; the coaching card is
 shown once per account (`seen`), then gone, "Niet voor mij" persists. Style ceiling 1955 → 1890.
 
-## Release 6 — Small phones and the first five minutes (L)
+## Release 6 — Small phones and the first five minutes (L) — ✅ LIVE 2026-11-01 (fce0b52 + 1789fbc)
 
 1. **320 px pass**: Today title clamps at ≤ 360 px (`clamp()` in the display size), nav labels 11 px
    with tighter tracking ("INSTELLINGEN" fits), bottom padding equal to the nav height on every

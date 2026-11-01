@@ -1356,12 +1356,12 @@ Calculated server-side from executions table:
 
 ## Known Bugs to Fix
 
-None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) shipped in UAT release 1
+None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) shipped in UAT release 1
 (`d2f8fc7`, 2026-11-01) — see the block below. Open follow-up (not a bug in this repo): Cloudflare's
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-01 — UAT release 6: small phones and the first five minutes (branch `uat-r6`, not deployed)
+### Shipped 2026-11-01 — UAT release 6: small phones and the first five minutes (plan complete)
 
 - **Onboarding fold**: the goal step asks the path too (five general goals = Algemeen; Hardlopen /
   Fietsen / Militair cards with their short follow-up, `PathDetails.jsx`); experience moved into
@@ -1385,6 +1385,9 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
   control left under the nav at the end of a page. Result: 8 taps each, all checks green.
 - vitest 520 → **544**; smoke 102 → **103** (`scripts/uatR6.scan.mjs`); e2e 29 → **30**. Inline
   styles 1890 → **1749**, App.jsx 1780 → **1769** (both ceilings lowered).
+- Nav items size to their label (`flex: 1 1 auto`) — with equal widths "INSTELLINGEN" (80 px)
+  overflowed its 74 px box on the SE (found in review). Commits fce0b52 + 1789fbc.
+  **UAT releases 1–6 complete** (`docs/UAT_IMPROVEMENT_PLAN_2026-11.md`).
 - Noticed, not fixed: a guest who reloads after onboarding meets the "Updated policies" terms gate
   (guests never accept terms at signup).
 
