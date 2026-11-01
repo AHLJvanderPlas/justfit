@@ -1,7 +1,7 @@
 -- =============================================================================
 -- JustFit — Military Programme Seed (Executable Snapshot)
 -- File: migrations/baseline/1040_seed_military.sql
--- Generated: 2026-10-31T21:52:54.745Z
+-- Generated: 2026-11-01T04:35:55.551Z
 --
 -- Bootstrap order: run AFTER 1020_seed_exercises.sql
 -- (exercise_aliases.exercise_id references exercises seeded in 1020)
