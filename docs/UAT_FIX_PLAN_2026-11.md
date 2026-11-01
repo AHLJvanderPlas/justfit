@@ -58,4 +58,4 @@ p28-mohammed` → 0 app failures, coach card on Daan/Fleur/Tim, recovery session
 
 ## Release 2+ — improvements (advice; see `docs/UAT_IMPROVEMENT_PLAN_2026-11.md`)
 
-Status: release 1 in build (branch `uat-fixes`). Build gates 2026-11-01: `npm test` vitest 428 + shared 20; `npm run release` smoke 99/99, e2e 21/21; App.jsx 1799, plan.js 3688, onRequestPost 99.
+Status: release 1 LIVE — commit d2f8fc7, deployed 2026-11-01 14:09 (vitest 428 + shared 20, smoke 99, e2e 21); replay of p02/p05/p08/p09/p16/p20/p28 → 0 app failures. Release 2+ is `docs/UAT_IMPROVEMENT_PLAN_2026-11.md`.

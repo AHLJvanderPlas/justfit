@@ -1356,16 +1356,50 @@ Calculated server-side from executions table:
 
 ## Known Bugs to Fix
 
-Found by the 30-persona UAT of 2026-11-01 (`docs/UAT_PERSONAS_2026-11.md`, defects D1–D5; rerun with
-`node scripts/uat/uat.mjs`):
+None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) shipped in UAT release 1
+(`d2f8fc7`, 2026-11-01) — see the block below. Open follow-up (not a bug in this repo): Cloudflare's
+auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
+`script-src 'self'` on every production load (ROADMAP C-B30).
 
-| # | Severity | Bug | Where |
-|---|---|---|---|
-| D1 | P0 | "← Annuleren" in a session crashes to the error boundary: `Glass` is used but not imported (since `c50810a`, 2026-05-20). Lint does not check JSX tag names; no e2e cancels a session. | `WorkoutView.jsx:517` |
-| D2 | P1 | CSP `worker-src 'none'` blocks `/sw.js`: the service worker never installs (since `fdd8884`), so Pro push cannot subscribe and there is no offline shell. | `public/_headers` |
-| D3 | P1 | A path choice (Hardlopen/Fietsen/Militair) is saved but not applied until reload: Today not replanned, no coach card, Doel & coach shows the old goal. | `App.jsx:588` |
-| D4 | P1 | The check-in Apply branches on `prefs.isPro`, which is always false since F8: every check-in takes the free adapt path; recovery mode, sleep, energy and stress never change intensity or selection; the Pro replan branch is dead code. | `App.jsx:840` |
-| D5 | P1 | A day-1 trial user is locked out of Fietsen and sent to a paywall that says "Je hebt al een actief abonnement": the entitlement is only fetched after an existing profile loads. | `App.jsx:552`, `PathChoiceModal.jsx:52` |
+### Shipped 2026-11-01 — UAT release 1: the five day-one defects (`docs/UAT_FIX_PLAN_2026-11.md`)
+
+Found by the 30-persona UAT (`docs/UAT_PERSONAS_2026-11.md`; runner `scripts/uat/`). All five
+replayed green with the runner against the fixed build before deploy.
+
+- **D1 — cancel crash.** `WorkoutView.jsx` rendered `<Glass>` without importing it since the May
+  restructure; "← Annuleren" threw and the error boundary replaced the app. Import added;
+  `eslint-plugin-react` with only `react/jsx-no-undef` (error) guards the class — `no-undef`
+  never checked JSX tag names; e2e: Cancel → "Quit workout?" → Quit → Today.
+- **D2 — service worker blocked by our own CSP.** `_headers` sent `worker-src 'none'`, so
+  `/sw.js` never registered since 2026-05-22 (no offline shell; the Pro push toggle awaited
+  `serviceWorker.ready` forever). Now `worker-src 'self'`; smoke check; the core e2e journey
+  asserts the registration and fails on any CSP violation in the console. Verified on
+  production: header served once, `getRegistrations()` → `https://app.justfit.cc/`.
+- **D3 — a path choice did not apply until reload.** `src/pathApply.js`: after the path modal
+  saves, the profile is refetched into state and today's plan regenerated with
+  `path_change: true` — a C-G4 cap exemption (reason `path_change`, one-time per path change,
+  `preserve` still wins); harness case 12; e2e: Running → coach card on Today without reload.
+- **D4 — check-in signals never reached the session.** The Apply handler branched on
+  `prefs.isPro`, always false since F8: every check-in took the free adapt path and the Pro
+  replan branch was dead. Every `prefs.isPro` read is now the entitlement state; the check-in
+  is stored for every user; `_shared/storedCheckin.js` makes a plan request without a check-in
+  read today's stored row (so a path change or retry cannot drop it); the free first plan of
+  the day is built with the check-in once (not adapted a second time — the agent's version
+  scaled the same signals twice); harness case 13; e2e: "Taking it easy" → recovery session,
+  kept through a path change. Replay: "Rustig aan vandaag — alleen mobiliteit en herstel"
+  (LAAG) where the UAT had tuck jumps at GEMIDDELD.
+- **D5 — day-1 trial users met the paywall.** `src/entitlement.js` fetches `/api/subscribe` at
+  mount, independent of the profile; the path modal waits for it and locks Fietsen only on a
+  known not-Pro; Account prints "Proefperiode actief" when no end date is known. e2e billing
+  (a) rewritten: a trialing signup opens Fietsen; after expiring the trial in the suite's own
+  D1 the tile shows "Pro vereist" and routes to the paywall.
+- vitest 417 → **428** (+ shared 20); smoke 98 → **99**; e2e 18 → **21**. App.jsx 1800 →
+  **1799**; plan.js 3688; `onRequestPost` 99; inline styles 2061. `package-lock.json` gained
+  `eslint-plugin-react` (`npm install` after pulling). Commit d2f8fc7.
+- Known, by decision: `path_change` is trusted from the client (same class as the pins
+  exemption); a check-in applied before `/api/subscribe` answers takes the free path (narrow
+  window); the first baseline plan of a free user's day now carries the check-in (it is not a
+  re-roll).
 
 ### Shipped 2026-11-01 — coach-dcp release 2: one place, one picture, one language (plan complete)
 

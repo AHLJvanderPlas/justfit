@@ -251,6 +251,8 @@ rows) are 44 px or larger; the misses are secondary controls.
 
 ## 5. Ranked recommendations
 
+*Items 1–3 shipped as UAT release 1 (commit d2f8fc7, 2026-11-01); the rest is planned in `docs/UAT_IMPROVEMENT_PLAN_2026-11.md`.*
+
 1. **Fix D1 today**: import `Glass`, the `jsx-no-undef` rule, an e2e cancel step. One line, a guard
    and a test, and every user who cancels a session stops losing the app.
 2. **D3 + D4 + D5 are one release**: they share a root (client state that does not follow the
