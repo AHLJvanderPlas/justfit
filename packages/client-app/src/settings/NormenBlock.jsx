@@ -75,13 +75,13 @@ export default function NormenBlock({ prefs, assessmentPlanned, onSaveDcp, onMea
         <label className="jf-norm__year">
           {t("Birth year")}
           <input
-            inputMode="numeric" maxLength={4} placeholder="1990" value={yearText}
+            inputMode="numeric" maxLength={4} placeholder={t("e.g. 1990")} value={yearText}
             onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))}
             onBlur={saveYear}
           />
           {sex && <span>{t("{sex} (from You)", { sex: sex === "female" ? t("woman") : t("man") })}</span>}
         </label>
-        {!year && !enabled && <div className="jf-norm__hint">{t("Enter a birth year between 1930 and 2015 to switch the DCP on.")}</div>}
+        {!year && <div className="jf-norm__hint">{t("Enter a birth year between 1930 and 2015 to switch the DCP on.")}</div>}
         {!sex
           ? <div className="jf-norm__hint">{t("Set your sex under You")}</div>
           : !norms && sex === "female"

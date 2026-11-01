@@ -193,3 +193,25 @@ export function inLogWindow(date, today) {
   const from = new Date(Date.parse(`${today}T12:00:00Z`) - LOG_WINDOW_DAYS * 86_400_000).toISOString().slice(0, 10);
   return date >= from && date <= today;
 }
+
+// The step body POST /api/execution receives, for every shape a caller hands in:
+// WorkoutView's stepsActualRef ({ exercise_id, prescribed, measures?, actual }),
+// a logged step (prescribed {}), or a bare plan step (sets / target_reps / …).
+// `prescribed` is the step's own when it carries one — saveExecution used to
+// rebuild it from plan-step fields WorkoutView's steps do not have, so every
+// saved workout stored an empty prescribed_json. `measures` (R598) is kept: it
+// is how execution.js knows a set was the DCP measurement.
+export function executionStepPayload(s) {
+  const measures = s.measures ?? s.prescribed?.measures;
+  return {
+    exercise_id: s.exercise_id,
+    prescribed: s.prescribed ?? {
+      sets: s.sets,
+      reps: s.target_reps,
+      duration_sec: s.target_duration_sec,
+      rest_sec: s.rest_sec,
+    },
+    actual: s.actual ?? { completed: true },
+    ...(measures ? { measures } : {}),
+  };
+}

@@ -877,7 +877,7 @@ fi
 # with the failure message and the summary never printed.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1) || true
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 43 personas x 10 properties x 60 dates hold end-to-end, nothing waived (10 = R598 delivers what it announces)"
+  ok "planner behaviour: 44 personas x 10 properties x 60 dates hold end-to-end, nothing waived (10 = R598 delivers what it announces, taken fresh)"
 else
   fail "planner behaviour: ${BEHAV}"
 fi

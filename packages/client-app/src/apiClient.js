@@ -1,3 +1,4 @@
+import { executionStepPayload } from "./logSession.js";
 // ─── API CLIENT ───────────────────────────────────────────────────────────────
 // Pure fetch wrappers. No React, no side effects.
 // Auth: HttpOnly __Host-jf_session cookie, sent automatically on same-origin fetch (C-B17).
@@ -198,20 +199,9 @@ const api = {
         perceived_exertion: perceivedExertion ?? null,
         notes: notes ?? undefined,
         source_ref: sourceRef ?? undefined,
-        steps: steps.map((s) => ({
-          exercise_id: s.exercise_id,
-          prescribed: {
-            sets: s.sets,
-            reps: s.target_reps,
-            duration_sec: s.target_duration_sec,
-            rest_sec: s.rest_sec,
-          },
-          actual: s.actual ?? { completed: true },
-          // R598 — the measurement tag must reach execution.js (recordDcpMeasurement);
-          // without it a completed DCP set was saved as an ordinary set and dcp.last
-          // was never written (found by e2e (f), coach-dcp R1).
-          ...((s.measures ?? s.prescribed?.measures) ? { measures: s.measures ?? s.prescribed.measures } : {}),
-        })),
+        // One mapper for every step shape (logSession.executionStepPayload): keeps
+        // the step's own `prescribed` and the R598 `measures` tag (coach-dcp R1).
+        steps: steps.map(executionStepPayload),
       }),
     });
     let data = null;

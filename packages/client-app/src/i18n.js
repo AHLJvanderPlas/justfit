@@ -100,6 +100,7 @@ const NL = {
   // coach-dcp R1 — ONE measurement button everywhere (dcpUi.dcpMeasureLabel); the
   // nulmeting happens inside a session, so these schedule it into today's.
   'Schedule baseline': 'Nulmeting inplannen',
+  'Max · {m} min': 'Max · {m} min',
   'Schedule retest': 'Hermeting inplannen',
   "Measurement is in today's session": 'Meting staat in je sessie van vandaag',
   'Your DCP measurement is your baseline for push and core.': 'Je DCP-meting is je nulmeting voor push en core.',
@@ -109,6 +110,7 @@ const NL = {
   'Keuring {level}': 'Keuring {level}',
   'Keuring {level} · in {n} days': 'Keuring {level} · over {n} dagen',
   'Birth year': 'Geboortejaar',
+  'e.g. 1990': 'bijv. 1990',
   'Enter a birth year between 1930 and 2015 to switch the DCP on.': 'Vul een geboortejaar tussen 1930 en 2015 in om de DCP aan te zetten.',
   'Set your sex under You': 'Stel je geslacht in bij Jij',
   '{sex} (from You)': '{sex} (uit Jij)',

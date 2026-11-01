@@ -37,3 +37,15 @@ export function dcpNormsFor(sex, birthYear, nowMs) {
   if (sex !== "male" && sex !== "female") return null;
   return getDcpNorms(sex, dcpAgeFrom(birthYear, nowMs));
 }
+
+/**
+ * A max-effort step's prescription line: "Max · 2 min". It carries no rep
+ * target (target_reps is unset on purpose — the window is the protocol), so a
+ * screen that fell back to its default of 10 reps told the user to stop at 10.
+ * Returns [key, vars] for t(), or null for an ordinary step.
+ */
+export function maxEffortMeta(step) {
+  if (!step?.max_effort) return null;
+  const sec = Number(step.measure_window_sec ?? step.target_duration_sec) || 120;
+  return ["Max · {m} min", { m: Math.round((sec / 60) * 10) / 10 }];
+}

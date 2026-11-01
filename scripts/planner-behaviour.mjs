@@ -309,6 +309,11 @@ const PERSONAS = [
     militaryTemplate: K1_STRENGTH, conditioning: 55, expectAssessment: true },                // R573a + R598
   { id: 'general-dcp-bias', goal: 'fat_loss', budget: 30, militaryCoach: { active: false, dcp: DCP },
     expectAssessment: true },                                                                   // cardio target + R598
+  // A run day: the two sets go after the run warm-ups and before the run itself.
+  { id: 'running-coach-dcp', budget: 45, goal: 'endurance', isPro: true,
+    equipment: ['none', 'running_shoes'], conditioning: 50, prescribed: true,
+    runCoach: { enrolled: true, completed: false, target_km: 5, week: 6, session_in_week: 1 },
+    militaryCoach: { active: false, dcp: DCP }, expectAssessment: true },                       // R556 + R598
   // ── Remaining rule paths the personas above never reach ──
   // Every weekday blocked, so the sweep always lands on a rest day: the rest
   // path has to hold on every date, not on the one in seven a single blocked
@@ -623,11 +628,17 @@ for (const p of PERSONAS) {
       const kinds = new Set(me.map(s => s.measures));
       const both = me.length === 2 && kinds.has('dcp_pushups') && kinds.has('dcp_situps');
       const traced = trace.some(t => t.startsWith('R598'));
+      // Taken fresh: no main-work step before a measurement — only warm-ups
+      // (session_phase / run_warmup) may come first.
+      const lastMeasure = steps.reduce((m, st, i) => (st.max_effort ? i : m), -1);
+      const before = steps.slice(0, Math.max(0, lastMeasure)).filter(st => !st.max_effort
+        && !tagsOf(st).some(t => t === 'session_phase' || t === 'run_warmup'));
       const dcpDue = !!p.militaryCoach?.dcp?.enabled && !p.militaryCoach?.dcp?.last;
-      const ok = (out.assessment_planned === true ? both : me.length === 0) && traced === (out.assessment_planned === true);
+      const ok = (out.assessment_planned === true ? both : me.length === 0) && traced === (out.assessment_planned === true) && !before.length;
       if (!dcpDue && !me.length && !out.assessment_planned && !traced) say('dcp-delivery', 'PASS', 'no DCP measurement due');
       else say('dcp-delivery', ok ? 'PASS' : 'FAIL',
-        `R598 ${traced ? 'traced' : 'silent'}, assessment_planned=${out.assessment_planned === true}, ${me.length} max-effort step(s) [${[...kinds].join(', ')}] — announced must mean dcp_pushups + dcp_situps in the session`);
+        before.length ? `measurement taken tired: ${before.map(st => st.exercise_slug).join(', ')} before a max-effort set — the two sets go first, after warm-ups only`
+          : `R598 ${traced ? 'traced' : 'silent'}, assessment_planned=${out.assessment_planned === true}, ${me.length} max-effort step(s) [${[...kinds].join(', ')}] — announced must mean dcp_pushups + dcp_situps in the session`);
     }
   }  // ── end of the date sweep ──
 

@@ -59,8 +59,9 @@ export function measurementStep(ex, measures, restSec) {
  * the same family (a template's push-up variant, a weighted sit-up) becomes the
  * measurement — the row itself when it is a measurable one, else the row R598
  * chose — so the session does not carry the movement twice; with no such step
- * the measurement is appended. Every row here passed _safePool (the chosen ones
- * in dcpMeasurementDue, the selected ones in selection). Mutates `steps`.
+ * the measurement is added. Every row here passed _safePool (the chosen ones in
+ * dcpMeasurementDue, the selected ones in selection). Mutates `steps`. Where the
+ * sets end up is frontMeasurements' job, after the session is ordered.
  */
 export function ensureMeasurementSteps(ctx, steps) {
   const m = ctx.dcpMeasure;
@@ -76,6 +77,30 @@ export function ensureMeasurementSteps(ctx, steps) {
     ctx.appendedIds?.add(ex.id);
   }
   return steps;
+}
+
+/** A warm-up or session-phase step (run warm-ups, easy jog, cool-down walk). */
+export function isWarmupStep(st) {
+  let tags = [];
+  try { tags = JSON.parse(st?.tags_json || '[]'); } catch { /* none */ }
+  return tags.includes('session_phase') || tags.includes('run_warmup');
+}
+
+/**
+ * The measurement is taken fresh: both max-effort sets go to the front of the
+ * session, after any leading warm-up steps and before the main work — a
+ * two-minute max test after a template's deadlifts or a run measures fatigue,
+ * not the standard (R593 puts them first on the general path for the same
+ * reason). Called on the ordered session, so the outdoor/cardio ordering cannot
+ * push them back behind the main work. Returns a new array.
+ */
+export function frontMeasurements(steps) {
+  const measured = steps.filter(st => st.max_effort && st.measures);
+  if (!measured.length) return steps;
+  const rest = steps.filter(st => !(st.max_effort && st.measures));
+  let at = 0;
+  while (at < rest.length && isWarmupStep(rest[at])) at++;
+  return [...rest.slice(0, at), ...measured, ...rest.slice(at)];
 }
 
 /** What `assessment_planned` means: both movements are measured in this session. */

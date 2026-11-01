@@ -9,6 +9,7 @@ import { ALL_EQUIPMENT } from "./appConstants.js";
 import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 import { t, useLang, getLang, exerciseName } from "./i18n.js";
+import { maxEffortMeta } from "./dcpUi.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -657,7 +658,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{exerciseName(s)}</span>
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, flexShrink: 0, whiteSpace: "nowrap" }}>
-                            {isRunInterval
+                            {maxEffortMeta(s)
+                              ? t(...maxEffortMeta(s))
+                              : isRunInterval
                               ? `${s.sets} × ${s.target_duration_sec}/${metricsRestSec}`
                               : s.target_reps
                                 ? `${s.sets} × ${t("{n} reps", { n: s.target_reps })}`
@@ -865,6 +868,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     <span style={{ fontSize: 13, fontWeight: 600, color: C.muted }}>{muscleTarget}</span>
                     <span style={{ fontSize: 13, color: C.subtle }}>·</span>
                   </>}
+                  {isMaxEffort ? (
+                    <span className="jf-wv-meta">{t(...maxEffortMeta(cur))}</span>
+                  ) : <>
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
                     {totalSets} {totalSets === 1 ? t("set") : t("sets")}
                   </span>
@@ -872,6 +878,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>
                     {isTimeBased ? formatExDuration(cur.target_duration_sec) : `${targetReps} ${t('reps')}`}
                   </span>
+                  </>}
                 </div>
               </div>
 
@@ -1030,8 +1037,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               )}
             </div>
 
-            {/* ── Difficulty override row ── */}
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
+            {/* ── Difficulty override row — not on a measurement set: it has no target to adjust ── */}
+            {!isMaxEffort && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
               <button
                 onClick={() => handleAdjust(isTimeBased ? -10 : -2)}
                 style={{ width: 48, height: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
@@ -1056,7 +1063,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               >
                 +
               </button>
-            </div>
+            </div>}
 
             {/* ── C-F6: load row — only for exercises that declare a weight ── */}
             {supportsWeight && (
@@ -1342,7 +1349,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>
                   {isLastSet
                     ? t('Next: {name}', { name: nextExName })
-                    : t('Next set: {spec} \xd7 {name}', { spec: isTimeBased ? `${adjustedDuration ?? cur?.target_duration_sec}s` : targetReps, name: nextExName })}
+                    : t('Next set: {spec} \xd7 {name}', { spec: isMaxEffort ? t(...maxEffortMeta(cur)) : isTimeBased ? `${adjustedDuration ?? cur?.target_duration_sec}s` : targetReps, name: nextExName })}
                 </div>
               )}
             </div>

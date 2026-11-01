@@ -6,7 +6,7 @@ import { getAuthUserId } from './_shared/auth.js';
 import { isProUser } from './_shared/entitlements.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible } from './_shared/military.js';
-import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, hasBothMeasurements, measurementStep } from './_shared/dcpMeasure.js';
+import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, frontMeasurements, hasBothMeasurements, measurementStep } from './_shared/dcpMeasure.js';
 import { musclesFromJson } from './_shared/muscles.js';
 import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
@@ -3286,7 +3286,7 @@ function _assembleSession(ctx) {
   const coreSteps         = steps.filter(s => !isOutdoorStep(s) && !isIndoorCardioStep(s));
   const indoorCardioSteps = steps.filter(s => isIndoorCardioStep(s));
   const outdoorSteps      = steps.filter(s => isOutdoorStep(s));
-  let orderedSteps = [...coreSteps, ...indoorCardioSteps, ...outdoorSteps];
+  let orderedSteps = frontMeasurements([...coreSteps, ...indoorCardioSteps, ...outdoorSteps]);   // R598: measured fresh
   if (indoorCardioSteps.length || outdoorSteps.length) {
     ctx.trace.push(`Ordering — core: ${coreSteps.length}, indoor cardio: ${indoorCardioSteps.length}, outdoor: ${outdoorSteps.length}`);
   }
@@ -3497,7 +3497,7 @@ function _applySupersets(ctx, steps) {
 
   const pairable = (s) => {
     const tags = (() => { try { return JSON.parse(s.tags_json ?? '[]'); } catch { return []; } })();
-    if (s.warmup_sets) return false;                         // heavy lifts keep their rest
+    if (s.warmup_sets || s.max_effort) return false;         // heavy lifts keep their rest; a measurement is never paired
     if (s.category === 'cardio' || s.category === 'mobility' || s.category === 'recovery') return false;
     return !tags.some(t => ['run_interval', 'cardio', 'pelvic_floor', 'breathing', 'mobility'].includes(t));
   };

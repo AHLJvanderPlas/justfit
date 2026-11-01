@@ -60,6 +60,7 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
   const tapZone = page.getByRole('button', { name: 'TAP TO COUNT REP' });
   const counted = [];
   let instruction = null;
+  let metaChecked = 0;
   for (let i = 0; i < 80 && !(await sessionDone.isVisible()); i++) {
     const ready = page.getByRole('button', { name: /Ready/ });
     const skipRest = page.getByRole('button', { name: 'Skip rest →' });
@@ -73,6 +74,12 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
     if (await ready.isVisible()) {
       // The instruction screen names the exercise; only the measurement sets are done for real.
       instruction = (await page.locator('h1').first().textContent())?.trim();
+      if (measured.some((s) => s.name === instruction)) {
+        // The instruction screen prescribes the protocol window, never the default 10 reps.
+        await expect(page.getByText('Max · 2 min', { exact: true })).toBeVisible();
+        await expect(page.getByText(/^\d+ reps$/)).toHaveCount(0);
+        metaChecked++;
+      }
       await ready.click();
       if (!measured.some((s) => s.name === instruction)) await page.getByRole('button', { name: 'Skip', exact: true }).click();
       continue;
@@ -83,6 +90,7 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
     await page.waitForTimeout(250);
   }
   expect(counted, 'both measurement sets should run on the max-effort screen').toEqual([12, 15]);
+  expect(metaChecked, 'both measurement instruction screens read "Max · 2 min"').toBe(2);
   await expect(sessionDone).toBeVisible();
   await page.getByRole('button', { name: 'Log session →' }).click();
 

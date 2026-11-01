@@ -1,7 +1,7 @@
 // coach-dcp release 1 — the DCP's shared decisions (src/dcpUi.js) and the one
 // stored shape of military_coach.dcp (normalizeDcp, functions/api/_shared/military.js).
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { dcpMeasureLabel, dcpMeasurePlanned, parseBirthYear, dcpNormsFor } from '../src/dcpUi.js';
+import { dcpMeasureLabel, dcpMeasurePlanned, parseBirthYear, dcpNormsFor, maxEffortMeta } from '../src/dcpUi.js';
 import { normalizeDcp } from '../../../functions/api/_shared/military.js';
 
 describe('dcpMeasureLabel — one button, three states', () => {
@@ -84,5 +84,17 @@ describe('normalizeDcp — the one stored shape', () => {
       .toEqual({ enabled: true, bias_enabled: false, birth_year: 1990, test_date: '2027-03-01' });
     expect(normalizeDcp({ birth_year: 1990, test_date: 'soon' })).not.toHaveProperty('test_date');
     for (const bad of [null, undefined, 'on', [], 3]) expect(normalizeDcp(bad)).toBe(null);
+  });
+});
+
+describe('maxEffortMeta — a measurement set never shows a rep count', () => {
+  it('"Max · 2 min" from the protocol window, whatever target_reps defaults to', () => {
+    expect(maxEffortMeta({ max_effort: true, measure_window_sec: 120, target_duration_sec: 120 })).toEqual(['Max · {m} min', { m: 2 }]);
+    expect(maxEffortMeta({ max_effort: true, target_duration_sec: 90 })).toEqual(['Max · {m} min', { m: 1.5 }]);
+    expect(maxEffortMeta({ max_effort: true })).toEqual(['Max · {m} min', { m: 2 }]);
+  });
+  it('null for an ordinary step', () => {
+    expect(maxEffortMeta({ sets: 3, target_reps: 10 })).toBe(null);
+    expect(maxEffortMeta(null)).toBe(null);
   });
 });
