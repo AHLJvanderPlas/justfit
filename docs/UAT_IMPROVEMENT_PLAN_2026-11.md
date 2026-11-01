@@ -48,7 +48,7 @@ release` smoke 99/99, e2e 22/22. App.jsx 1799, plan.js 3688, onRequestPost 99, i
 `execution_json.stopped_after`; the done-card control guard is the e2e button count, not a source
 scan.
 
-## Release 3 — Progress and the week, gated on data (M)
+## Release 3 — Progress and the week, gated on data (M) — ✅ LIVE 2026-11-01 (c776b96 + d4018ad)
 
 1. **Voortgang before three sessions** shows the trajectory sentence, the streak, "Waar sta ik" (when
    a norm is active) and "Next: <award>". Sleutelinzichten, assenanalyse, Doelfit and "Hoe de

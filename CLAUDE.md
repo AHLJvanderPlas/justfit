@@ -1361,6 +1361,31 @@ None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) s
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-01 — UAT release 3: Progress and the week, gated on data
+
+- **Voortgang** under 3 sessions (`progressGate.js`) shows trajectory, streak, the week card,
+  "Waar sta ik" and the next award; insights, axes, Doelfit, planner notes, Herstel and radar
+  wait, with one line "Na 3 sessies zie je hier je sterke en zwakke punten." Strongest/weakest
+  hidden while all axes are 0 or equal. Progression is refetched after every save.
+- **Week pill** (`weekStatus.js`): neutral "Nog n te gaan" in the first week and while on pace;
+  red only from week two, Thursday or later, when behind.
+- **Deze week** (`weekPlan.js`): one "Training loggen" row for the day selected in the strip,
+  two upcoming days + "Hele week →", completed sessions only when there are any; Dutch dates
+  and session titles.
+- **Body-mode numbers** from one source (`bodyBanner.js`: `pregnancyWeek`, `postnatalWeek`);
+  the clearance prompt only without a recorded clearance.
+- **Coach view** (`coachDisplay.js`): "Nog geen sessie deze week", no FTP shown before one was
+  entered, PRIMAIRE FOCUS only with two or more coaches.
+- **Cycling sessions could never be saved** (found by the replay, fixed in this release):
+  `execution_steps.exercise_id` references `exercises(id)` and cycling steps carry
+  `cycling_coach_…` ids, so every cycling save returned 500 since April — production held zero
+  cycling executions. `_shared/stepRefs.js` stores library ids as-is and moves any other id to
+  `prescribed_json.ref` with a NULL `exercise_id`. Replay: 500 FOREIGN KEY before, 200 after.
+- vitest 453 → **479**; smoke 99 → **100**; e2e 22 → **24**. App.jsx 1799 → **1780**
+  (ceiling lowered); inline styles 2025 → **2008** (ceiling lowered). Commits c776b96 + d4018ad.
+- Noticed, not fixed: `FTP ?? 200` remains in Dashboard.jsx and SettingsView (queued for
+  release 4); Deze week delete-confirmation and Strava labels are English.
+
 ### Shipped 2026-11-01 — UAT release 2: Today diet (`docs/UAT_IMPROVEMENT_PLAN_2026-11.md` §2)
 
 - **Why-panel** closed by default; today's rules first ("Vandaag veranderd"), safety rules that
