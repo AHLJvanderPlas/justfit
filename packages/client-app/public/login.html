@@ -438,7 +438,18 @@
         <!-- Guest access (both tabs, UAT R5) -->
         <div id="guest-section">
           <div class="divider" data-i18n="or">or</div>
-          <button id="guest-btn" class="btn-ghost-full" data-i18n="guest">Continue without account →</button>
+          <!-- Same consent as email signup (C-B33): the guest button stays disabled until accepted -->
+          <div class="accept-row" id="guest-accept-row">
+            <input type="checkbox" id="guest-accept-check" />
+            <label for="guest-accept-check">
+              <span data-i18n="terms_pre">I have read and agree to the</span>
+              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Terms &amp; Conditions</a>,
+              <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer &amp; Liability Waiver</a>,
+              <span data-i18n="terms_and">and</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacy Policy</a>
+              <span data-i18n="terms_post">of JustFit.cc.</span>
+            </label>
+          </div>
+          <button id="guest-btn" class="btn-ghost-full" disabled data-i18n="guest">Continue without account →</button>
           <p class="guest-note" data-i18n="guest_note">Your data is saved locally. Add email later to keep access.</p>
         </div>
       </div>

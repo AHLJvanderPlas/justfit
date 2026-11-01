@@ -118,7 +118,7 @@ export async function flowSignup(run, page) {
   run.end();
   // UAT R6 — counted from "Doorgaan zonder account" / the signup submit to the first Today card with a session.
   run.start('onboarding');
-  if (p.guest) { await run.shot(page, 'login-guest'); if (!(await click(run, page.locator('#guest-btn'), 'guest'))) return run.end(); }
+  if (p.guest) { await run.shot(page, 'login-guest'); if (!(await click(run, page.locator('#guest-accept-check'), 'guest-accept')) || !(await click(run, page.locator('#guest-btn'), 'guest'))) return run.end(); }
   else if (!(await click(run, page.locator('#submit-btn'), 'submit'))) return run.end();
   await page.waitForURL('/', { timeout: 20_000 }).catch(() => run.fail('no redirect to app'));
   await page.waitForTimeout(1200);

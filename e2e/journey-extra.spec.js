@@ -43,9 +43,19 @@ test('guest mode — banner shown after skipping sign-in', async ({ page }) => {
   await page.goto('/login.html');
   // UAT R5: the guest button is on the Sign in tab too (the default tab); no tab switch needed.
   await expect(page.locator('#guest-btn')).toBeVisible();
+  // C-B33: the guest button needs the same terms + privacy consent as email signup
+  await expect(page.locator('#guest-btn')).toBeDisabled();
+  await page.locator('#guest-accept-check').check();
+  await expect(page.locator('#guest-btn')).toBeEnabled();
   await page.locator('#guest-btn').click();
   await page.waitForURL('/');
   await expect(page.getByText('Add your email to keep your data')).toBeVisible({ timeout: 10_000 });
+  // The acceptance was recorded at signup: after onboarding a reload shows no "Updated Policies" gate
+  await finishOnboarding(page);
+  await checkInToday(page);
+  await page.reload();
+  await expect(page.getByText('Add your email to keep your data').first()).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Updated Policies')).toHaveCount(0);
 });
 
 test('guest mode — the guest button is visible on both tabs', async ({ page }) => {
@@ -61,6 +71,7 @@ test('guest mode — the guest button is visible on both tabs', async ({ page })
 test('guest mode — Settings → Account shows "Add email", no Resend', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   await page.goto('/login.html');
+  await page.locator('#guest-accept-check').check();
   await page.locator('#guest-btn').click();
   await page.waitForURL('/');
   await expect(page.getByText('Add your email to keep your data').first()).toBeVisible({ timeout: 10_000 });

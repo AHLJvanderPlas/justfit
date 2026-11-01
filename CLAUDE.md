@@ -1388,8 +1388,9 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
 - Nav items size to their label (`flex: 1 1 auto`) — with equal widths "INSTELLINGEN" (80 px)
   overflowed its 74 px box on the SE (found in review). Commits fce0b52 + 1789fbc.
   **UAT releases 1–6 complete** (`docs/UAT_IMPROVEMENT_PLAN_2026-11.md`).
-- Noticed, not fixed: a guest who reloads after onboarding meets the "Updated policies" terms gate
-  (guests never accept terms at signup).
+- C-B33 fixed: `guest_signup` requires the same terms + privacy versions as email signup (shared
+  `legalConsentError` in auth.js, 400 when missing/stale, stored on the users row); login.html has a
+  guest consent checkbox that enables "Doorgaan zonder account". Guests created before this keep the gate.
 
 ### Shipped 2026-11-01 — UAT release 5: Settings that grow with the user
 

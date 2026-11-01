@@ -71,6 +71,15 @@ else
   fail "accept-terms.js missing privacy version validation"
 fi
 
+# C-B33: signup AND guest_signup must run the same consent check (one consent model), and the guest
+# INSERT must store the acceptance columns.
+GUEST_BODY=$(awk '/^async function handleGuestSignup\(/{f=1} f{print} f&&/^}/{exit}' functions/api/auth.js)
+if echo "$GUEST_BODY" | grep -q "legalConsentError(" && echo "$GUEST_BODY" | grep -q "accepted_terms_version"; then
+  ok "guest_signup validates + stores terms/privacy acceptance (C-B33)"
+else
+  fail "guest_signup does not require/store terms+privacy acceptance (C-B33)"
+fi
+
 # Confirm LEGAL_VERSIONS in login.js matches the server-side source of truth
 TERMS_SERVER=$(grep "CURRENT_TERMS_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")
 PRIVACY_SERVER=$(grep "CURRENT_PRIVACY_VERSION" functions/api/_shared/legalVersions.js | grep -o "'[^']*'" | head -1 | tr -d "'")

@@ -180,15 +180,22 @@ async function getUserAccent(userId, env) {
 
 // ─── HANDLERS ─────────────────────────────────────────────────────────────────
 
-async function handleSignup({ email, password, accepted_terms_version, accepted_privacy_version }, env, secret) {
-  if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
-  if (password.length < 6) return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+// Shared by email signup and guest signup: the explicit, current terms + privacy versions or a 400.
+function legalConsentError({ accepted_terms_version, accepted_privacy_version }) {
   if (accepted_terms_version !== CURRENT_TERMS_VERSION) {
     return Response.json({ error: 'You must accept the Terms & Conditions to create an account.' }, { status: 400 });
   }
   if (accepted_privacy_version !== CURRENT_PRIVACY_VERSION) {
     return Response.json({ error: 'You must accept the Privacy Policy to create an account.' }, { status: 400 });
   }
+  return null;
+}
+
+async function handleSignup({ email, password, accepted_terms_version, accepted_privacy_version }, env, secret) {
+  if (!email || !password) return Response.json({ error: 'Email and password required' }, { status: 400 });
+  if (password.length < 6) return Response.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+  const consentError = legalConsentError({ accepted_terms_version, accepted_privacy_version });
+  if (consentError) return consentError;
   const emailLower = email.toLowerCase().trim();
 
   const existing = await env.DB.prepare(
@@ -993,7 +1000,12 @@ async function getSessionUser(request, secret) {
 }
 
 // ─── GUEST SIGNUP ─────────────────────────────────────────────────────────────
-async function handleGuestSignup(request, env, secret) {
+async function handleGuestSignup(body, request, env, secret) {
+  // One consent model (C-B33): a guest accepts the same terms + privacy versions as an email signup,
+  // fail-closed and checked before any quota is consumed or any row is written.
+  const consentError = legalConsentError(body);
+  if (consentError) return consentError;
+
   // Rate-limit guest creation to prevent DB abuse: 5 per IP per hour
   const ipBucket = `guest:ip:${clientIp(request)}`;
   if (await isRateLimited(ipBucket, 5, 60 * 60 * 1000, env)) {
@@ -1005,9 +1017,9 @@ async function handleGuestSignup(request, env, secret) {
 
   await env.DB.batch([
     env.DB.prepare(
-      `INSERT INTO users (id, status, primary_email, email_verified, created_at_ms, updated_at_ms)
-       VALUES (?, 'active', NULL, 0, ?, ?)`
-    ).bind(userId, now, now),
+      `INSERT INTO users (id, status, primary_email, email_verified, accepted_terms_version, accepted_terms_at_ms, accepted_privacy_version, accepted_privacy_at_ms, created_at_ms, updated_at_ms)
+       VALUES (?, 'active', NULL, 0, ?, ?, ?, ?, ?, ?)`
+    ).bind(userId, CURRENT_TERMS_VERSION, now, CURRENT_PRIVACY_VERSION, now, now, now),
     env.DB.prepare(
       `INSERT INTO entitlements (id, user_id, product_code, source, status, starts_at_ms, created_at_ms, updated_at_ms)
        VALUES (?, ?, 'justfit_trial', 'manual', 'trialing', ?, ?, ?)`
@@ -1079,7 +1091,7 @@ export async function onRequestPost({ request, env }) {
       case 'passkey_complete_register': return handlePasskeyCompleteRegister(request, body, env, secret);
       case 'passkey_begin_auth':        return handlePasskeyBeginAuth(body, env, secret);
       case 'passkey_complete_auth':     return handlePasskeyCompleteAuth(body, env, secret);
-      case 'guest_signup':              return handleGuestSignup(request, env, secret);
+      case 'guest_signup':              return handleGuestSignup(body, request, env, secret);
       case 'convert_guest':             return handleConvertGuest(body, request, env, secret);
       case 'delete_account':            return handleDeleteAccount(request, env, secret);
       case 'resend_verification':       return handleResendVerification(request, env, secret);

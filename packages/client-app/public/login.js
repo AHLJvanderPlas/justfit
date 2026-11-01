@@ -264,6 +264,7 @@ async function handlePasskeyLogin() {
 // ─── GUEST SIGNUP ────────────────────────────────────────────────────────
 async function handleGuestSignup() {
   const btn = document.getElementById('guest-btn');
+  if (!document.getElementById('guest-accept-check').checked) { showAlert('main-alert', T('a_accept')); return; }
   btn.disabled = true;
   btn.textContent = T('guest_setup');
   hideAlert('main-alert');
@@ -271,7 +272,11 @@ async function handleGuestSignup() {
     const res = await fetch('/api/auth', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'guest_signup' }),
+      body: JSON.stringify({
+        action: 'guest_signup',
+        accepted_terms_version:   CURRENT_TERMS_VERSION,
+        accepted_privacy_version: CURRENT_PRIVACY_VERSION,
+      }),
     });
     const data = await res.json();
     if (!data.ok) {
@@ -368,6 +373,10 @@ async function verifyMagicLink(token) {
   document.getElementById('forgot-btn').addEventListener('click', handleForgot);
   document.getElementById('passkey-btn').addEventListener('click', handlePasskeyLogin);
   document.getElementById('guest-btn').addEventListener('click', handleGuestSignup);
+  // The guest button is only usable once the same terms + privacy consent as signup is given
+  document.getElementById('guest-accept-check').addEventListener('change', (e) => {
+    document.getElementById('guest-btn').disabled = !e.target.checked;
+  });
 
   // Enter key support
   document.addEventListener('keydown', e => {
