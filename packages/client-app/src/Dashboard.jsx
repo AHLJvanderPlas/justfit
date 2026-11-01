@@ -11,7 +11,7 @@ import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins } from "./planUtils.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS } from "./messagePolicy.js";
-import { t } from "./i18n.js";
+import { t, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
 import { OwnTrainingLine, ExtraDoneCard, SaveAsTemplate } from "./EigenTraining.jsx";
@@ -660,7 +660,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                           <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
                         </div>
                         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
-                          {s.name}
+                          {exerciseName(s)}
                           {s.trainer_logo_url && (
                             <span style={{ width: 18, height: 18, borderRadius: 4, background: s.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, display: "inline-flex", border: "1px solid rgba(var(--overlay-rgb),0.1)" }}>
                               <img src={s.trainer_logo_url} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
@@ -680,7 +680,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     ))}
                     {plan.steps.length > 3 && (
                       <div style={{ padding: "8px 14px", fontSize: 11, color: C.muted }}>
-                        + {plan.steps.length - 3} more · {plan.steps.slice(3, 6).map(s => s.name.toLowerCase()).join(", ")}
+                        + {plan.steps.length - 3} more · {plan.steps.slice(3, 6).map(s => exerciseName(s).toLowerCase()).join(", ")}
                       </div>
                     )}
                   </div>
@@ -714,7 +714,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: `1px solid ${C.amberBorder}` }}>
                     <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>{t("Coach advice")}</div>
                     {plan.safety_notes.map((n, i) => {
-                      const name = n.step_index != null ? plan.steps?.[n.step_index]?.name : null;
+                      const name = n.step_index != null ? exerciseName(plan.steps?.[n.step_index]) || null : null;
                       const label = RULE_LABELS[n.code];
                       return (
                         <div key={i} style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.5 }}>

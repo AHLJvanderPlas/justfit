@@ -232,3 +232,58 @@ describe('TEST marker and context', () => {
     expect(pickerContextFrom({ plan: null, history: null, templates: null, today: '2026-10-31' })).toEqual({ planIds: [], recentIds: [], templateIds: [] });
   });
 });
+
+// ── v1.5 — Dutch names (name_nl, from migration 0124; the fixture mirrors live) ──
+describe('v1.5 — a Dutch reader', () => {
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../../scripts/fixtures/planner-exercises.json', import.meta.url), 'utf8'))
+    .map((e) => ({ ...e, id: e.slug }));
+  it('"opdrukken" still puts Push-up first, labelled by its Dutch name', () => {
+    const r = filterLibrary(fixture, { query: 'opdrukken', owned: ['none'] });
+    expect(r.results[0]).toMatchObject({ slug: 'push-up', name_nl: 'Opdrukken' });
+  });
+  it('"heupbrug" finds Glute Bridge by its Dutch name — no synonym needed', () => {
+    expect(SYNONYMS.heupbrug).toBeUndefined();
+    const r = filterLibrary(fixture, { query: 'heupbrug', owned: ['none'] });
+    expect(r.results[0].slug).toBe('glute-bridge');
+    const englishOnly = fixture.map((e) => ({ ...e, name_nl: null }));
+    expect(filterLibrary(englishOnly, { query: 'heupbrug', owned: ['none'] }).results.map((e) => e.slug)).not.toContain('glute-bridge');
+  });
+  it('the English name still finds the row', () => {
+    expect(filterLibrary(fixture, { query: 'glute bridge', owned: ['none'] }).results.map((e) => e.slug)).toContain('glute-bridge');
+  });
+  it('the library is alphabetical in Dutch', () => {
+    const { sections } = orderLibrary(fixture, {}, { cap: 1000 });
+    const strength = sections.find((s) => s.key === 'strength').rows.filter((e) => !/^\d/.test(e.name_nl));
+    const shown = strength.map((e) => e.name_nl);
+    expect(shown).toEqual([...shown].sort((a, b) => a.localeCompare(b)));
+    expect(shown.indexOf('Opdrukken')).toBeLessThan(shown.indexOf('Squat zonder gewicht'));
+  });
+});
+
+// Last in the file: it re-imports the module with jf_lang = en, and the Dutch
+// instance above caches its language on first read.
+describe('v1.5 — an English reader sees nothing change', () => {
+  let en;
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../../scripts/fixtures/planner-exercises.json', import.meta.url), 'utf8'))
+    .map((e) => ({ ...e, id: e.slug }));
+  beforeAll(async () => {
+    vi.resetModules();
+    vi.stubGlobal('localStorage', { getItem: (k) => (k === 'jf_lang' ? 'en' : null), setItem: () => {}, removeItem: () => {} });
+    en = await import('../src/exerciseSearch.js');
+  });
+  it('sorts by the English name', () => {
+    const { sections } = en.orderLibrary(fixture, {}, { cap: 1000 });
+    const strength = sections.find((s) => s.key === 'strength').rows.filter((e) => !/^\d/.test(e.name));
+    const shown = strength.map((e) => e.name);
+    expect(shown).toEqual([...shown].sort((a, b) => a.localeCompare(b)));
+    expect(shown.indexOf('Air Squat')).toBeLessThan(shown.indexOf('Push-up'));
+  });
+  it('"opdrukken" still puts Push-up first; "heupbrug" still finds Glute Bridge', () => {
+    expect(en.filterLibrary(fixture, { query: 'opdrukken', owned: ['none'] }).results[0].name).toBe('Push-up');
+    expect(en.filterLibrary(fixture, { query: 'heupbrug', owned: ['none'] }).results[0].name).toBe('Glute Bridge');
+  });
+  it('"push" finds the same row as "opdrukken"', () => {
+    const push = en.filterLibrary(fixture, { query: 'push', owned: ['none'] }).results.map((e) => e.slug);
+    expect(push).toContain('push-up');
+  });
+});

@@ -75,7 +75,7 @@ console.log(`  → ${templates.length} rows`);
 
 
 const exerciseCols = [
-  'id','slug','name','category',
+  'id','slug','name','name_nl','category',
   'primary_muscles_json','secondary_muscles_json','tags_json',
   'equipment_required_json','equipment_advised_json',
   'instructions_json','media_json','metrics_json','alternatives_json',

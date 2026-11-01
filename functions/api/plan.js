@@ -7,6 +7,7 @@ import { isProUser } from './_shared/entitlements.js';
 import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOLD } from './_shared/recovery.js';
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible, dcpIsStale } from './_shared/military.js';
 import { musclesFromJson } from './_shared/muscles.js';
+import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
@@ -203,7 +204,7 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
   const [exResult, userPrefs, templates, userProfileRow, cyclingWorkoutsResult, cyclingProtocolsResult, runProgramItemsResult, customExResult, recoveryResult, lastWeightsResult] = await Promise.all([
     env.DB.prepare(
       `SELECT id, slug, name, category, tags_json, equipment_required_json, metrics_json, media_json, instructions_json, alternatives_json,
-              primary_muscles_json, secondary_muscles_json
+              primary_muscles_json, secondary_muscles_json, name_nl
        FROM exercises WHERE is_active = 1
          -- Global library only. Gym-scoped rows (gym_id set) are fetched below,
          -- JOINed to the user's ACTIVE memberships and carrying the gym's branding.
@@ -253,7 +254,7 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
     // Custom gym exercises with branding — scoped to user's active memberships
     user_id
       ? env.DB.prepare(
-          `SELECT e.id, e.name, e.category AS exercise_type, e.equipment_required_json,
+          `SELECT e.id, e.name, e.name_nl, e.category AS exercise_type, e.equipment_required_json,
                   e.instructions_markdown, g.branding_json
            FROM exercises e
            JOIN gyms g ON g.id = e.gym_id
@@ -347,7 +348,7 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
       return {
         id: ce.id,
         slug: `custom-${ce.id}`,
-        name: ce.name,
+        name: ce.name, name_nl: ce.name_nl ?? null,
         category: ce.exercise_type ?? 'strength',
         tags_json: '[]',
         equipment_required_json: ce.equipment_required_json ?? '["none"]',
@@ -560,7 +561,7 @@ async function _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCh
           : (clusterLive === 0 ? 'keuring-basis' : `keuring-cluster-${clusterLive}`);
 
         const tmResult = await env.DB.prepare(`
-          SELECT e.id, e.slug, e.name, e.category, e.tags_json, e.equipment_required_json,
+          SELECT e.id, e.slug, e.name, e.name_nl, e.category, e.tags_json, e.equipment_required_json,
                  e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json
           FROM program_templates pt
           JOIN program_template_items pti ON pt.id = pti.program_template_id
@@ -2237,24 +2238,11 @@ function _selectCoachBlueprint(ctx) {
       const sessionTypeLabel = { endurance: 'Zone 2', sweet_spot: 'Sweet Spot', threshold: 'Threshold', vo2max: 'VO2max', anaerobic: 'Anaerobic' }[targetType] ?? 'Intervals';
       const cyclingEquipUsed = effectiveEquip.find(e => CYCLING_EQUIPMENT.includes(e)) ?? 'road_bike';
 
-      const cyclingStep = {
-        exercise_id: `cycling_coach_${targetType}_${selectedWorkout.slug}`,
-        exercise_slug: selectedWorkout.slug,
-        name: selectedWorkout.name,
-        category: 'cardio',
-        tags_json: JSON.stringify(['cardio', 'cycling', sessionTag, 'outdoor']),
-        equipment_required_json: JSON.stringify([cyclingEquipUsed]),
-        target_reps: undefined,
-        target_duration_sec: totalDurationSec,
-        sets: 1,
-        rest_sec: 0,
-        instructions_json: null,
-        alternatives_json: null,
-        gif_url: null,
-        coaching_note: coachNote,
-        tss_planned: tssPlanned,
-        intervals_json: JSON.stringify(scaledIntervals),
-      };
+      const cyclingStep = makePlanStep(selectedWorkout, {
+        exercise_id: `cycling_coach_${targetType}_${selectedWorkout.slug}`, category: 'cardio',
+        tags_json: JSON.stringify(['cardio', 'cycling', sessionTag, 'outdoor']), equipment_required_json: JSON.stringify([cyclingEquipUsed]),
+        target_duration_sec: totalDurationSec, coaching_note: coachNote, tss_planned: tssPlanned, intervals_json: JSON.stringify(scaledIntervals),
+      });
 
       ctx.cyclingProgramOverride = {
         step: cyclingStep,
@@ -3034,53 +3022,6 @@ function _bodyweightSlowStart(ctx) {
 }
 
 // ── Stage 6: Assemble session ─────────────────────────────────────────────────
-// ── Step shape ────────────────────────────────────────────────────────────────
-//
-// ONE builder for the step a client renders and an execution records, so an
-// engine step and a user-authored step (W4.1) cannot drift apart: WorkoutView,
-// the load contract (C-F6), the muscle map and progression all read these
-// fields, and progression routes on `exercise_id` alone.
-function _stepFor(ex, prescription) {
-  const media = ex.media_json ? JSON.parse(ex.media_json) : {};
-  return {
-    exercise_id:   ex.id,
-    exercise_slug: ex.slug,
-    name:          ex.name,
-    category:      ex.category,
-    tags_json:     ex.tags_json ?? '[]',
-    equipment_required_json: ex.equipment_required_json ?? '["none"]',
-    target_reps:          prescription.target_reps,
-    target_duration_sec:  prescription.target_duration_sec,
-    sets:                 prescription.sets,
-    rest_sec:             prescription.rest_sec,
-    ...(prescription.max_effort ? { max_effort: true, measures: prescription.measures, measure_window_sec: prescription.measure_window_sec } : {}),
-    instructions_json:    ex.instructions_json ?? null,
-    alternatives_json:    ex.alternatives_json ?? null,
-    // Carried so R592 can avoid pairing two exercises that share a primary muscle,
-    // and so the in-session muscle map uses real data instead of musclesFor()'s
-    // slug-pattern fallback, which is all it has had until now.
-    primary_muscles_json:   ex.primary_muscles_json ?? null,
-    secondary_muscles_json: ex.secondary_muscles_json ?? null,
-    gif_url:              media.gif_url ?? null,
-    coaching_note:        prescription.coaching_note ?? null,
-    // C-F6 — load contract. supports_weight drives whether the client shows a
-    // weight field at all; load_type drives how the number is displayed and
-    // rounded. Absent on bodyweight and timed work, which is the common case.
-    ...(() => {
-      let m = {};
-      try { m = ex.metrics_json ? JSON.parse(ex.metrics_json) : {}; } catch { /* ignore */ }
-      if (!(m.supports ?? []).includes('weight')) return {};
-      return {
-        supports_weight: true,
-        load_type: m.load_type ?? null,
-        target_weight_kg: ex.last_weight_kg ?? null,
-        last_performance: ex.last_performance ?? null,
-      };
-    })(),
-    ...(ex.trainer_logo_url ? { trainer_logo_url: ex.trainer_logo_url, trainer_logo_bg: ex.trainer_logo_bg ?? '#0a0a0a' } : {}),
-  };
-}
-
 function _assembleSession(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext } = ctx;
   const { goal, expLevel, budget, unlimited, rawBudget, selection, targetCategory } = ctx;
@@ -3187,7 +3128,7 @@ function _assembleSession(ctx) {
     const baseRest    = getDefaultRest(ex, ctx.slot_type);
     const adjustedRest = Math.round(baseRest * goalRestMult / 5) * 5;
 
-    return _stepFor(ex, {
+    return prescribedStep(ex, {
       target_reps:          reps,
       target_duration_sec:  duration,
       sets,
@@ -3212,24 +3153,10 @@ function _assembleSession(ctx) {
       // duration is the programme's minutes exactly — it is fixed by construction.
       for (let i = steps.length - 1; i >= 0; i--) if (steps[i].exercise_slug === R574_MARCH_SLUG) steps.splice(i, 1);
       const kgLabel = ctx.militaryMarchKg > 0 ? `${ctx.militaryMarchKg} kg` : 'bodyweight';
-      const media   = marchEx.media_json ? JSON.parse(marchEx.media_json) : {};
-      steps.push({
-        exercise_id:   marchEx.id,
-        exercise_slug: marchEx.slug,
-        name:          marchEx.name,
-        category:      marchEx.category,
-        tags_json:     marchEx.tags_json ?? '[]',
-        equipment_required_json: marchEx.equipment_required_json ?? '["none"]',
-        target_reps:          undefined,
-        target_duration_sec:  ctx.militaryMarchSec,
-        sets:                 1,
-        rest_sec:             120,
-        instructions_json:    marchEx.instructions_json ?? null,
-        alternatives_json:    marchEx.alternatives_json ?? null,
-        gif_url:              media.gif_url ?? null,
-        coaching_note:        `March at 5.5 km/h with ${kgLabel}. Maintain upright posture throughout.`,
-        military_march_kg:    ctx.militaryMarchKg,
-      });
+      steps.push(makePlanStep(marchEx, {
+        target_duration_sec: ctx.militaryMarchSec, rest_sec: 120, military_march_kg: ctx.militaryMarchKg,
+        coaching_note: `March at 5.5 km/h with ${kgLabel}. Maintain upright posture throughout.`,
+      }));
       ctx.trace.push(`R574 — March step added: ${kgLabel} × ${ctx.militaryMarchSec / 60} min`);
     }
   }
@@ -3282,25 +3209,10 @@ function _assembleSession(ctx) {
         return tags.includes('low_impact');
       });
       if (mobilityEx) {
-        const media = mobilityEx.media_json ? JSON.parse(mobilityEx.media_json) : {};
-        steps.push({
-          exercise_id:   mobilityEx.id,
-          exercise_slug: mobilityEx.slug,
-          name:          mobilityEx.name,
-          category:      mobilityEx.category,
-          tags_json:     mobilityEx.tags_json ?? '[]',
-          equipment_required_json: mobilityEx.equipment_required_json ?? '["none"]',
-          target_reps:         undefined,
-          target_duration_sec: 30,
-          sets:                1,
-          rest_sec:            getDefaultRest(mobilityEx, ctx.slot_type),
-          instructions_json:   mobilityEx.instructions_json ?? null,
-          alternatives_json:   mobilityEx.alternatives_json ?? null,
-          primary_muscles_json:   mobilityEx.primary_muscles_json ?? null,
-          secondary_muscles_json: mobilityEx.secondary_muscles_json ?? null,
-          gif_url:             media.gif_url ?? null,
-          coaching_note:       null,
-        });
+        steps.push(makePlanStep(mobilityEx, {
+          target_duration_sec: 30, rest_sec: getDefaultRest(mobilityEx, ctx.slot_type), coaching_note: null,
+          primary_muscles_json: mobilityEx.primary_muscles_json ?? null, secondary_muscles_json: mobilityEx.secondary_muscles_json ?? null,
+        }));
         ctx.appendedIds.add(mobilityEx.id);
         ctx.trace.push(`R525 — Mobility exercise appended: ${mobilityEx.name} (session is now ${steps.length} exercises)`);
       }
@@ -3328,21 +3240,8 @@ function _assembleSession(ctx) {
         return tags.includes('pelvic_floor') && tags.includes('pregnancy_safe');
       });
       if (pfEx) {
-        const media = pfEx.media_json ? JSON.parse(pfEx.media_json) : {};
-        steps.push({
-          exercise_id:   pfEx.id,
-          exercise_slug: pfEx.slug,
-          name:          pfEx.name,
-          category:      pfEx.category,
-          tags_json:     pfEx.tags_json ?? '[]',
-          target_reps:         10,
-          target_duration_sec: undefined,
-          sets:                2,
-          rest_sec:            getDefaultRest(pfEx, ctx.slot_type),
-          instructions_json:   pfEx.instructions_json ?? null,
-          alternatives_json:   pfEx.alternatives_json ?? null,
-          gif_url:             media.gif_url ?? null,
-        });
+        // equipment_required_json: undefined keeps this step's shape exactly as it was (it never carried one).
+        steps.push(makePlanStep(pfEx, { target_reps: 10, sets: 2, rest_sec: getDefaultRest(pfEx, ctx.slot_type), equipment_required_json: undefined }));
         ctx.appendedIds.add(pfEx.id);
         const ruleLabel = pregnancyContext.mode === 'pregnant' ? 'R534' : 'R541';
         ctx.trace.push(`${ruleLabel} — Pelvic floor exercise added`);
@@ -3706,7 +3605,7 @@ export function runPlanner(...args) {
 // value of the app." The planner is a default, not a gate: a user can replace
 // today's session with one they built from the library. Client step bodies are
 // never trusted — only `exercise_id` and four clamped numbers are read; every
-// other field is rebuilt from the library row by _stepFor, so a custom step is
+// other field is rebuilt from the library row by prescribedStep, so a custom step is
 // shaped exactly like an engine step and routes to progression the same way.
 
 export const USER_PLAN_TRACE = 'USER — Je hebt deze sessie zelf samengesteld';
@@ -3757,7 +3656,7 @@ export function assembleCustomSession(ctx, rawSteps, { safetyAck = false, includ
       if (supportsReps) reps = 10;
       else dur = _clampInt(m.base_duration_sec ?? 30, L.target_duration_sec);
     }
-    return _stepFor(ex, {
+    return prescribedStep(ex, {
       target_reps:         reps ?? undefined,
       target_duration_sec: dur ?? undefined,
       sets:                _clampInt(raw.sets, L.sets) ?? _clampInt(m.fixed_sets ?? 3, L.sets),
@@ -3773,7 +3672,7 @@ export function assembleCustomSession(ctx, rawSteps, { safetyAck = false, includ
   const dcp = _dcpMeasurementDue(ctx);
   if (dcp && includeAssessment) {
     for (const [ex, measures] of [[dcp.pushEx, 'dcp_pushups'], [dcp.situpEx, 'dcp_situps']]) {
-      steps.push(_stepFor(ex, {
+      steps.push(prescribedStep(ex, {
         sets: 1, target_reps: undefined, target_duration_sec: DCP_WINDOW_SEC,
         rest_sec: _clampInt(getDefaultRest(ex, 'main'), L.rest_sec),
         max_effort: true, measures, measure_window_sec: DCP_WINDOW_SEC,

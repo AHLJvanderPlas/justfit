@@ -31,7 +31,7 @@ export async function onRequestGet({ request, env }) {
 
     const since = Date.now() - LOOKBACK_DAYS * 86_400_000;
     const { results } = await env.DB.prepare(`
-      SELECT es.exercise_id, es.actual_json, ex.name AS exercise_name, ex.slug,
+      SELECT es.exercise_id, es.actual_json, ex.name AS exercise_name, ex.name_nl AS exercise_name_nl, ex.slug,
              e.date, COALESCE(e.ended_at_ms, e.created_at_ms) AS at_ms
         FROM execution_steps es
         JOIN executions e ON e.id = es.execution_id
@@ -75,7 +75,7 @@ export async function onRequestGet({ request, env }) {
       if (!prev || sessionBest.e1rm > prev.e1rm) {
         best.set(key, {
           exercise_id: key,
-          name: row.exercise_name ?? row.slug ?? 'Onbekende oefening',
+          name: row.exercise_name ?? row.slug ?? 'Onbekende oefening', name_nl: row.exercise_name_nl ?? null,
           slug: row.slug ?? null,
           e1rm: sessionBest.e1rm,
           weight_kg: sessionBest.weight_kg,

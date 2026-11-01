@@ -7,7 +7,7 @@ import { REGION_LABELS_NL, REGION_LABELS_EN } from "../../../functions/api/_shar
 import { ALL_EQUIPMENT } from "./appConstants.js";
 import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
-import { t, useLang, getLang } from "./i18n.js";
+import { t, useLang, getLang, exerciseName } from "./i18n.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -544,7 +544,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               </button>
               <div style={{ textAlign: "center" }}>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
-                  {phase === "resting" ? exercises[exIdx]?.name : cur?.name}
+                  {exerciseName(phase === "resting" ? exercises[exIdx] : cur)}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
                   {t('{n} of {total} exercises', { n: exIdx + 1, total: totalExercises })}
@@ -653,7 +653,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                             <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
                             </div>
-                            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{s.name}</span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{exerciseName(s)}</span>
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, flexShrink: 0, whiteSpace: "nowrap" }}>
                             {isRunInterval
@@ -852,9 +852,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               {/* Exercise name + target */}
               <div style={{ textAlign: "center", marginBottom: 4 }}>
-                {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={cur.name} />}
+                {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={exerciseName(cur)} />}
                 <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 4, lineHeight: 1.1 }}>
-                  {cur.name}
+                  {exerciseName(cur)}
                 </h1>
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 8, fontStyle: "italic" }}>
                   {deriveExerciseWhy(cur)}
@@ -1021,10 +1021,10 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   </div>
                 </div>
               )}
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{cur.name}</div>
+              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{exerciseName(cur)}</div>
               {isGrouped && !isLastInGroup && (
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-                  {t('then')} {stepAt(groupMembers[posInGroup + 1])?.name}
+                  {t('then')} {exerciseName(stepAt(groupMembers[posInGroup + 1]))}
                 </div>
               )}
             </div>
@@ -1258,7 +1258,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
         {phase === "resting" && (() => {
           const restColor = restRemaining <= 5 ? C.dangerStrong : restRemaining <= 10 ? C.amber : C.emerald;
           const progressPct = restTotal > 0 ? Math.min(100, ((restTotal - restRemaining) / restTotal) * 100) : 100;
-          const nextExName = currentSet <= totalSets ? cur?.name : exercises[exIdx + 1]?.name;
+          const nextExName = exerciseName(currentSet <= totalSets ? cur : exercises[exIdx + 1]);
           const isLastSet = currentSet > totalSets;
 
           function adjustRest(delta) {
@@ -1476,7 +1476,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ width: 40, height: 4, borderRadius: 2, background: "rgba(var(--overlay-rgb),0.15)", margin: "0 auto 20px" }} />
 
             <div style={{ padding: "0 20px 16px", borderBottom: `1px solid ${C.border}`, marginBottom: 8 }}>
-              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{t('Alternatives for {name}', { name: cur?.name })}</div>
+              <div style={{ fontSize: 16, fontWeight: 900, color: C.text }}>{t('Alternatives for {name}', { name: exerciseName(cur) })}</div>
               <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{t('Same sets and reps, different movement')}</div>
             </div>
 
@@ -1494,7 +1494,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   return (
                     <div key={alt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px", background: "rgba(var(--overlay-rgb),0.04)", borderRadius: 16, border: `1px solid ${C.border}` }}>
                       <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{alt.name}</div>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{exerciseName(alt)}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{hint}</div>
                       </div>
                       <button

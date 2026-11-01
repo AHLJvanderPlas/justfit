@@ -14,7 +14,7 @@
 // Principle 7: one thumb, glanceable — every value is one tap to a numeric keypad.
 import { useState, useEffect, useRef } from "react";
 import { getDefaultRest } from "../../../functions/api/_shared/session.js";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, exerciseName } from "./i18n.js";
 import api from "./apiClient.js";
 import { rowGroups, expandGroups, buildLogSteps, summarizeLogged, logDayLabel, restChips, LOG_MAX_SETS } from "./logSession.js";
 import { Sheet, ExercisePicker, SetRow, UnitChips, ItemActions, MoveActions } from "./sessionSheet.jsx";
@@ -172,10 +172,10 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
             <div key={x.key} data-log-key={x.key} className={`jf-log-item${x.key === lastAdded ? " jf-log-item--new" : ""}`}>
               <span className="jf-log-num">{i + 1}</span>
               <span className="jf-log-item__text">
-                <span className="jf-log-name">{x.ex.name}</span>
+                <span className="jf-log-name">{exerciseName(x.ex)}</span>
                 {summary(cards[i]) && <span className="jf-log-item__sum">{summary(cards[i])}</span>}
               </span>
-              <ItemActions name={x.ex.name} open={menuKey === x.key}
+              <ItemActions name={exerciseName(x.ex)} open={menuKey === x.key}
                 onMore={() => setMenuKey((k) => (k === x.key ? null : x.key))} onRemove={() => removeItem(x.key)} />
               {menuKey === x.key && (
                 <MoveActions first={i === 0} last={i === items.length - 1} onUp={() => move(i, -1)} onDown={() => move(i, 1)} />
@@ -206,7 +206,7 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
             <div key={x.key} className={`jf-log-card${x.skipped ? " jf-log-card--skipped" : ""}`}>
               <div className="jf-log-card__head">
                 <span className="jf-log-num">{i + 1}</span>
-                <span className="jf-log-name">{x.ex.name}</span>
+                <span className="jf-log-name">{exerciseName(x.ex)}</span>
               </div>
               {x.skipped ? (
                 <>

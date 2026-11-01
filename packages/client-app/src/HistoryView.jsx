@@ -3,7 +3,7 @@ import { C, display, eyebrow, mono , overlay, themeValue} from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, exerciseName } from "./i18n.js";
 import { summarizeLogged } from "./logSession.js";
 // C-F13 — the DCP is a standing requirement, so it belongs on the screen where
 // someone asks "where am I", not only inside the military programme.
@@ -312,7 +312,7 @@ function RecordsPanel() {
               cursor: canOpen ? "pointer" : "default", minHeight: 48, touchAction: "manipulation" }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <div style={{ fontSize: 13, fontWeight: 600, color: C.text, whiteSpace: "nowrap",
-                overflow: "hidden", textOverflow: "ellipsis" }}>{r.name}</div>
+                overflow: "hidden", textOverflow: "ellipsis" }}>{exerciseName(r)}</div>
               <div style={{ fontSize: 11, color: C.muted, fontVariantNumeric: "tabular-nums" }}>
                 {r.weight_kg} kg × {r.reps}{r.date ? ` · ${r.date}` : ""}
               </div>
@@ -334,7 +334,7 @@ function RecordsPanel() {
               <Suspense fallback={<div style={{ height: 180 }} />}>
                 <MetricCurve data={{
                   unit: "kg",
-                  label: r.name,
+                  label: exerciseName(r),
                   points: series[r.exercise_id].map(pt => ({
                     at_ms: new Date(pt.date + "T12:00:00Z").getTime(),
                     value: pt.e1rm,
@@ -1422,7 +1422,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         }
                         return (
                           <div key={i} className="jf-rec-row">
-                            <div className="jf-rec-row__name">{step.name}</div>
+                            <div className="jf-rec-row__name">{exerciseName(step)}</div>
                             {stat && <div className="jf-rec-row__stat">{stat}</div>}
                           </div>
                         );

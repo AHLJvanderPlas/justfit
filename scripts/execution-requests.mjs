@@ -62,15 +62,15 @@ const indexes = (table) => (baseline.match(new RegExp(`CREATE (?:UNIQUE )?INDEX 
 // production exercises row (gyms) are out of scope here.
 db.exec(`CREATE TABLE exercises (
   id TEXT PRIMARY KEY, slug TEXT, name TEXT, category TEXT, tags_json TEXT,
-  primary_muscles_json TEXT, is_active INTEGER NOT NULL DEFAULT 1) STRICT;`);
+  primary_muscles_json TEXT, is_active INTEGER NOT NULL DEFAULT 1, name_nl TEXT) STRICT;`);
 for (const t of ['users', 'executions', 'execution_steps', 'user_progression', 'user_progression_events']) {
   db.exec(ddl(t));
   db.exec(indexes(t));
 }
 
-const insEx = db.prepare('INSERT INTO exercises (id, slug, name, category, tags_json, primary_muscles_json) VALUES (?,?,?,?,?,?)');
+const insEx = db.prepare('INSERT INTO exercises (id, slug, name, category, tags_json, primary_muscles_json, name_nl) VALUES (?,?,?,?,?,?,?)');
 const idOf = {};
-rows.forEach((r, i) => { insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.primary_muscles_json ?? '[]'); idOf[r.slug] = 'ex' + i; });
+rows.forEach((r, i) => { insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.primary_muscles_json ?? '[]', r.name_nl ?? null); idOf[r.slug] = 'ex' + i; });
 for (const s of ['push-up', 'incline-push-up', 'sit-up']) if (!idOf[s]) throw new Error(`fixture has no exercise "${s}"`);
 
 const T0 = Date.now();
@@ -235,6 +235,10 @@ try {
   // Builder v1.3 — the picker's "Onlangs gedaan" reads the exercise ids from history.
   check(JSON.stringify(e?.steps?.map(s => s.exercise_id)) === JSON.stringify([idOf['push-up'], idOf['incline-push-up'], idOf['sit-up']]),
     `GET history step rows must carry exercise_id, got ${JSON.stringify(e?.steps?.map(s => s.exercise_id))}`);
+  // Builder v1.5 — and both names (ex.name_nl AS exercise_name_nl → name_nl), so HistoryView /
+  // PlanWeekView record lines resolve the Dutch label at display time.
+  check(JSON.stringify(e?.steps?.map(s => [s.name, s.name_nl])) === JSON.stringify([['Push-up', 'Opdrukken'], ['Incline Push-up', 'Opdrukken verhoogd'], ['Sit-Up', 'Sit-up']]),
+    `GET history step rows must carry name and name_nl, got ${JSON.stringify(e?.steps?.map(s => [s.name, s.name_nl]))}`);
   const ev = events('alice').at(-1);
   check(JSON.parse(ev?.stimulus_json ?? '{}').push?.power > 0, `the owner's push-ups earned no push stimulus: ${ev?.stimulus_json}`);
 }

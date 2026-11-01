@@ -62,7 +62,7 @@ db.exec(`
     id TEXT PRIMARY KEY, slug TEXT, name TEXT, category TEXT, tags_json TEXT,
     equipment_required_json TEXT, metrics_json TEXT, media_json TEXT, instructions_json TEXT,
     alternatives_json TEXT, primary_muscles_json TEXT, secondary_muscles_json TEXT,
-    is_active INTEGER NOT NULL DEFAULT 1, gym_id TEXT, instructions_markdown TEXT) STRICT;
+    is_active INTEGER NOT NULL DEFAULT 1, gym_id TEXT, instructions_markdown TEXT, name_nl TEXT) STRICT;
   -- Verbatim shape of migrations/baseline/1000_schema_core.sql (FK omitted).
   CREATE TABLE day_plans (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL,
@@ -73,10 +73,10 @@ db.exec(`
   CREATE UNIQUE INDEX idx_day_plans_user_date ON day_plans(user_id, date);
 `);
 const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
-  primary_muscles_json, alternatives_json, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  primary_muscles_json, alternatives_json, is_active, name_nl) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
 rows.forEach((r, i) => insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.equipment_required_json,
-  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1));
-insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0);
+  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1, r.name_nl ?? null));
+insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0, null);
 // A gym-private row (gym_id set). No gyms/gym_memberships tables exist in this
 // harness, so NOBODY is a member here: the row must be invisible to the planner,
 // to pins and to custom_steps. Only the base query's `gym_id IS NULL` keeps it out.
@@ -167,6 +167,10 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
     `out-of-range values were stored raw: ${JSON.stringify(p?.steps?.[0] && { sets: p.steps[0].sets, reps: p.steps[0].target_reps, rest: p.steps[0].rest_sec })}`);
   check(p?.steps?.[1]?.sets === L.sets[0] && p.steps[1].target_reps === L.target_reps[0], 'low out-of-range values were stored raw');
   check(p?.authored_by_user === true && p?.session_name === 'Hotelbank', 'stored plan lacks authored_by_user / the chosen name');
+  // v1.5 — a user-authored step carries both names, from the library row (makePlanStep).
+  const nl = (r.body.plan?.steps ?? []).map(s => s.name_nl);
+  check(nl[0] === 'Opdrukken' && nl[1] === 'Sit-up' && p?.steps?.[0]?.name === 'Push-up' && p.steps[0].name_nl === 'Opdrukken',
+    `custom_steps response/stored steps must carry name and name_nl from the library, got name_nl ${JSON.stringify(nl)}`);
 }
 
 // 3. The override survives every automatic regeneration.

@@ -2,6 +2,7 @@
  {
   "slug": "burpee",
   "name": "Burpee",
+  "name_nl": "Burpee",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"conditioning\",\"full_body\",\"high_impact\",\"floor\",\"loud\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -12,6 +13,7 @@
  {
   "slug": "jumping-jacks",
   "name": "Jumping Jacks",
+  "name_nl": "Jumping jacks",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"conditioning\",\"no_floor\",\"high_impact\",\"loud\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -22,6 +24,7 @@
  {
   "slug": "high-knees",
   "name": "High Knees",
+  "name_nl": "Knieheffen",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"conditioning\",\"no_floor\",\"high_impact\",\"loud\",\"loads_ankle\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -32,6 +35,7 @@
  {
   "slug": "mountain-climbers",
   "name": "Mountain Climbers",
+  "name_nl": "Mountain climbers",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"conditioning\",\"floor\",\"medium_impact\",\"moderate_noise\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"none\"]",
@@ -42,6 +46,7 @@
  {
   "slug": "march-in-place",
   "name": "March in Place",
+  "name_nl": "Marcheren op de plaats",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -52,6 +57,7 @@
  {
   "slug": "step-touch",
   "name": "Step Touch",
+  "name_nl": "Step touch",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -62,6 +68,7 @@
  {
   "slug": "skater-hop",
   "name": "Skater Hop",
+  "name_nl": "Schaatssprong",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -72,6 +79,7 @@
  {
   "slug": "shadow-boxing",
   "name": "Shadow Boxing",
+  "name_nl": "Schaduwboksen",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\"]",
   "equipment_required_json": "[\"none\"]",
@@ -82,6 +90,7 @@
  {
   "slug": "heel-dig-march",
   "name": "Heel Dig March",
+  "name_nl": "Mars met hieltik",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -92,6 +101,7 @@
  {
   "slug": "grapevine-step",
   "name": "Grapevine Step",
+  "name_nl": "Grapevine",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_ankle\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -102,6 +112,7 @@
  {
   "slug": "standing-bicycle",
   "name": "Standing Bicycle",
+  "name_nl": "Staande bicycle (knie naar elleboog)",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -112,6 +123,7 @@
  {
   "slug": "modified-burpee",
   "name": "Modified Burpee (No Jump)",
+  "name_nl": "Burpee zonder sprong",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -122,6 +134,7 @@
  {
   "slug": "squat-pulse",
   "name": "Squat Pulse",
+  "name_nl": "Squat pulseren",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -132,6 +145,7 @@
  {
   "slug": "shuffle-tap",
   "name": "Shuffle Tap",
+  "name_nl": "Zijpas met tik",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -142,6 +156,7 @@
  {
   "slug": "standing-twist-march",
   "name": "Standing Twist March",
+  "name_nl": "Staande mars met draai",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -152,6 +167,7 @@
  {
   "slug": "jump-squat",
   "name": "Jump Squat",
+  "name_nl": "Jump squat",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loud\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -162,6 +178,7 @@
  {
   "slug": "tuck-jump",
   "name": "Tuck Jump",
+  "name_nl": "Tuck jump",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loud\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -172,6 +189,7 @@
  {
   "slug": "jump-rope-simulation",
   "name": "Jump Rope (Simulated)",
+  "name_nl": "Touwspringen zonder touw",
   "category": "cardio",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loud\"]",
   "equipment_required_json": "[\"none\"]",
@@ -182,6 +200,7 @@
  {
   "slug": "steady-indoor-cycle",
   "name": "Steady Indoor Cycling",
+  "name_nl": "Fietsen constant (indoorfiets)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"low_impact\",\"quiet\",\"indoor\"]",
   "equipment_required_json": "[\"indoor_bike\"]",
@@ -192,6 +211,7 @@
  {
   "slug": "stationary-bike-steady",
   "name": "Stationary Bike \u2014 Steady Ride",
+  "name_nl": "Fietsen constant (hometrainer)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"low_impact\",\"quiet\",\"indoor\"]",
   "equipment_required_json": "[\"exercise_bike\",\"indoor_bike\"]",
@@ -202,6 +222,7 @@
  {
   "slug": "rowing-steady-state",
   "name": "Rowing \u2014 Steady State",
+  "name_nl": "Roeien constant tempo",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"strength\",\"low_impact\",\"indoor\",\"full_body\",\"zone2\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"rowing_machine\"]",
@@ -212,6 +233,7 @@
  {
   "slug": "rowing-intervals",
   "name": "Rowing Intervals",
+  "name_nl": "Roeien intervallen",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"strength\",\"low_impact\",\"indoor\",\"full_body\",\"high_intensity\",\"hiit\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"rowing_machine\"]",
@@ -222,6 +244,7 @@
  {
   "slug": "easy-run-outdoor",
   "name": "Easy Run (Outdoor)",
+  "name_nl": "Hardlopen rustig (buiten)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -232,6 +255,7 @@
  {
   "slug": "tempo-run-outdoor",
   "name": "Tempo Run (Outdoor)",
+  "name_nl": "Hardlopen tempoloop (buiten)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -242,6 +266,7 @@
  {
   "slug": "run-intervals-outdoor",
   "name": "Running Intervals (Outdoor)",
+  "name_nl": "Hardlopen intervallen (buiten)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"high_intensity\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -252,6 +277,7 @@
  {
   "slug": "treadmill-run-steady",
   "name": "Treadmill Run \u2014 Steady Pace",
+  "name_nl": "Hardlopen loopband constant tempo",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"indoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"treadmill\"]",
@@ -262,6 +288,7 @@
  {
   "slug": "run-interval-level-1",
   "name": "Run/Walk \u2014 Gentle Start",
+  "name_nl": "Interval hardlopen niveau 1",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -272,6 +299,7 @@
  {
   "slug": "run-interval-level-2",
   "name": "Run/Walk \u2014 1 Min Intervals",
+  "name_nl": "Interval hardlopen niveau 2",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -282,6 +310,7 @@
  {
   "slug": "run-interval-level-3",
   "name": "Run/Walk \u2014 Build 1",
+  "name_nl": "Interval hardlopen niveau 3",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -292,6 +321,7 @@
  {
   "slug": "run-interval-level-4",
   "name": "Run/Walk \u2014 Build 2",
+  "name_nl": "Interval hardlopen niveau 4",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -302,6 +332,7 @@
  {
   "slug": "run-interval-level-5",
   "name": "Run/Walk \u2014 Tempo Build",
+  "name_nl": "Interval hardlopen niveau 5",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -312,6 +343,7 @@
  {
   "slug": "run-interval-level-6",
   "name": "Run/Walk \u2014 Extended Intervals",
+  "name_nl": "Interval hardlopen niveau 6",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"run_interval\",\"running\",\"no_floor\",\"hiit\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -322,6 +354,7 @@
  {
   "slug": "run-continuous-level-7",
   "name": "Continuous Run \u2014 20 min",
+  "name_nl": "Hardlopen duurloop 20 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -332,6 +365,7 @@
  {
   "slug": "run-continuous-level-8",
   "name": "Continuous Run \u2014 25 min",
+  "name_nl": "Hardlopen duurloop 25 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -342,6 +376,7 @@
  {
   "slug": "run-continuous-level-9",
   "name": "Continuous Run \u2014 30 min",
+  "name_nl": "Hardlopen duurloop 30 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -352,6 +387,7 @@
  {
   "slug": "run-continuous-level-10",
   "name": "Continuous Run \u2014 35 min",
+  "name_nl": "Hardlopen duurloop 35 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -362,6 +398,7 @@
  {
   "slug": "run-continuous-level-11",
   "name": "Continuous Run \u2014 40 min",
+  "name_nl": "Hardlopen duurloop 40 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -372,6 +409,7 @@
  {
   "slug": "run-continuous-level-12",
   "name": "Continuous Run \u2014 45 min",
+  "name_nl": "Hardlopen duurloop 45 min",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"high_impact\",\"outdoor\",\"running\",\"no_floor\",\"run_continuous\",\"zone2\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\"]",
@@ -382,6 +420,7 @@
  {
   "slug": "brisk-walk",
   "name": "Brisk Walking",
+  "name_nl": "Stevig wandelen",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"low_impact\",\"zone2\",\"conditioning\",\"outdoor\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"running_shoes\",\"treadmill\"]",
@@ -392,6 +431,7 @@
  {
   "slug": "weighted-march",
   "name": "Weighted March",
+  "name_nl": "Rugzakmars",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"outdoor\",\"military\",\"weighted\",\"low_impact\",\"loads_lower_back\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -402,6 +442,7 @@
  {
   "slug": "12-minute-cooper-test",
   "name": "12-Minute Cooper Test",
+  "name_nl": "Cooper test (12 min)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"outdoor\",\"assessment\",\"military\",\"running\",\"protocol\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -412,6 +453,7 @@
  {
   "slug": "easy-jog-warmup",
   "name": "Easy Jog Warm-up",
+  "name_nl": "Rustig inlopen",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"low_impact\",\"outdoor\",\"no_floor\",\"zone1\",\"session_phase\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -422,6 +464,7 @@
  {
   "slug": "cooldown-walk",
   "name": "Cool-down Walk",
+  "name_nl": "Uitwandelen (cooling-down)",
   "category": "cardio",
   "tags_json": "[\"cardio\",\"low_impact\",\"outdoor\",\"no_floor\",\"recovery\",\"session_phase\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -432,6 +475,7 @@
  {
   "slug": "hardlopen-zone-2-30-minuten",
   "name": "Hardlopen zone 2 - 30 minuten",
+  "name_nl": "Hardlopen zone 2 - 30 minuten",
   "category": "cardio",
   "tags_json": "[\"running\",\"zone-2\",\"steady-state\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -442,6 +486,7 @@
  {
   "slug": "marsen-5-5-km-u-25-minuten",
   "name": "Marsen (5,5 km/u) - 25 minuten",
+  "name_nl": "Mars 5,5 km/u \u00b7 25 min",
   "category": "cardio",
   "tags_json": "[\"walking\",\"march\",\"steady-state\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -452,6 +497,7 @@
  {
   "slug": "marsen-5-5-km-u-20-minuten-rugzak-25kg",
   "name": "Marsen (5,5 km/u) - 20 minuten (rugzak 25 kg)",
+  "name_nl": "Rugzakmars 5,5 km/u \u00b7 20 min (25 kg)",
   "category": "cardio",
   "tags_json": "[\"walking\",\"march\",\"weighted\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"rucksack\"]",
@@ -462,6 +508,7 @@
  {
   "slug": "marsen-6-km-u-30-minuten",
   "name": "Marsen (6 km/u) - 30 minuten",
+  "name_nl": "Mars 6 km/u \u00b7 30 min",
   "category": "cardio",
   "tags_json": "[\"walking\",\"march\",\"steady-state\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -472,6 +519,7 @@
  {
   "slug": "marsen-6-km-u-20-minuten-rugzak-10kg",
   "name": "Marsen (6 km/u) - 20 minuten (rugzak 10 kg)",
+  "name_nl": "Rugzakmars 6 km/u \u00b7 20 min (10 kg)",
   "category": "cardio",
   "tags_json": "[\"walking\",\"march\",\"weighted\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"rucksack\"]",
@@ -482,6 +530,7 @@
  {
   "slug": "marsen-6-km-u-40-minuten",
   "name": "Marsen (6 km/u) - 40 minuten",
+  "name_nl": "Mars 6 km/u \u00b7 40 min",
   "category": "cardio",
   "tags_json": "[\"walking\",\"march\",\"steady-state\",\"long-duration\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -492,6 +541,7 @@
  {
   "slug": "cat-cow",
   "name": "Cat-Cow",
+  "name_nl": "Kat-koe",
   "category": "mobility",
   "tags_json": "[\"mobility\",\"recovery\",\"low_impact\",\"quiet\",\"floor\",\"sport_support:cycling\",\"sport_support:rowing\",\"sport_support:climbing\",\"sport_mobility:cycling\",\"sport_mobility:swimming\",\"sport_mobility:rowing\",\"sport_mobility:skiing\",\"sport_mobility:crossfit\"]",
   "equipment_required_json": "[\"none\"]",
@@ -502,6 +552,7 @@
  {
   "slug": "90-90-stretch",
   "name": "90-90 Stretch",
+  "name_nl": "Heup 90/90 stretch",
   "category": "mobility",
   "tags_json": "[\"mobility\",\"stretch\",\"low_impact\",\"quiet\",\"floor\",\"sport_mobility:running\",\"sport_mobility:football\",\"sport_mobility:skiing\",\"sport_mobility:crossfit\"]",
   "equipment_required_json": "[\"none\"]",
@@ -512,6 +563,7 @@
  {
   "slug": "hip-flexor-stretch",
   "name": "Hip Flexor Stretch",
+  "name_nl": "Heupbuigerstretch",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"sport_support:cycling\",\"sport_mobility:running\",\"sport_mobility:cycling\",\"sport_mobility:rowing\",\"sport_mobility:skiing\"]",
   "equipment_required_json": "[\"none\"]",
@@ -522,6 +574,7 @@
  {
   "slug": "standing-quad-stretch",
   "name": "Standing Quad Stretch",
+  "name_nl": "Quadriceps stretch staand",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -532,6 +585,7 @@
  {
   "slug": "shoulder-roll-stretch",
   "name": "Shoulder Rolls",
+  "name_nl": "Schouders rollen",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -542,6 +596,7 @@
  {
   "slug": "neck-stretch",
   "name": "Neck Stretch",
+  "name_nl": "Nekstretch",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -552,6 +607,7 @@
  {
   "slug": "standing-forward-fold",
   "name": "Standing Forward Fold",
+  "name_nl": "Vooroverbuiging staand",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -562,6 +618,7 @@
  {
   "slug": "pigeon-pose",
   "name": "Pigeon Pose",
+  "name_nl": "Duif",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"sport_mobility:running\",\"sport_mobility:football\",\"sport_mobility:skiing\",\"sport_mobility:crossfit\"]",
   "equipment_required_json": "[\"none\"]",
@@ -572,6 +629,7 @@
  {
   "slug": "seated-spinal-twist",
   "name": "Seated Spinal Twist",
+  "name_nl": "Rugdraai zittend",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -582,6 +640,7 @@
  {
   "slug": "downward-dog",
   "name": "Downward Dog",
+  "name_nl": "Neerwaartse hond",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -592,6 +651,7 @@
  {
   "slug": "warrior-i-pose",
   "name": "Warrior I",
+  "name_nl": "Krijger I",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -602,6 +662,7 @@
  {
   "slug": "thread-the-needle",
   "name": "Thread the Needle",
+  "name_nl": "Draad door de naald",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"sport_support:cycling\",\"sport_mobility:cycling\",\"sport_mobility:swimming\",\"sport_mobility:rowing\"]",
   "equipment_required_json": "[\"none\"]",
@@ -612,6 +673,7 @@
  {
   "slug": "kegel-hold",
   "name": "Kegel Hold",
+  "name_nl": "Kegel houden",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"kegel\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -622,6 +684,7 @@
  {
   "slug": "kegel-pulses",
   "name": "Kegel Pulses",
+  "name_nl": "Kegel pulseren",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"kegel\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -632,6 +695,7 @@
  {
   "slug": "kegel-elevator",
   "name": "Kegel Elevator",
+  "name_nl": "Kegel lift",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"kegel\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -642,6 +706,7 @@
  {
   "slug": "pelvic-floor-breathing",
   "name": "Pelvic Floor Breathing",
+  "name_nl": "Bekkenbodem ademhaling",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"breathing\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -652,6 +717,7 @@
  {
   "slug": "360-breathing",
   "name": "360 Breathing",
+  "name_nl": "360 ademhaling",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"breathing\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -662,6 +728,7 @@
  {
   "slug": "pelvic-tilt-lying",
   "name": "Pelvic Tilt (Lying)",
+  "name_nl": "Bekken kantelen liggend",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -672,6 +739,7 @@
  {
   "slug": "heel-slides",
   "name": "Heel Slides",
+  "name_nl": "Hielschuiven",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -682,6 +750,7 @@
  {
   "slug": "clamshell",
   "name": "Clamshell",
+  "name_nl": "Clamshell",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -692,6 +761,7 @@
  {
   "slug": "side-lying-hip-abduction",
   "name": "Side-Lying Hip Abduction",
+  "name_nl": "Heupabductie op de zij",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -702,6 +772,7 @@
  {
   "slug": "pelvic-tilt-standing",
   "name": "Standing Pelvic Tilt",
+  "name_nl": "Bekken kantelen staand",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -712,6 +783,7 @@
  {
   "slug": "inner-thigh-squeeze",
   "name": "Inner Thigh Squeeze",
+  "name_nl": "Binnenkant dij aanspannen",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -722,6 +794,7 @@
  {
   "slug": "deep-core-activation",
   "name": "Deep Core Activation",
+  "name_nl": "Diepe core-activatie",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -732,6 +805,7 @@
  {
   "slug": "supported-glute-bridge",
   "name": "Supported Glute Bridge",
+  "name_nl": "Heupbrug ondersteund",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -742,6 +816,7 @@
  {
   "slug": "single-leg-glute-bridge",
   "name": "Single Leg Glute Bridge",
+  "name_nl": "Heupbrug op \u00e9\u00e9n been",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"floor\",\"low_impact\",\"quiet\",\"supine\",\"postnatal_safe\",\"sport_support:running\",\"sport_support:football\"]",
   "equipment_required_json": "[\"none\"]",
@@ -752,6 +827,7 @@
  {
   "slug": "exhalation-core-engagement",
   "name": "Exhalation Core Engagement",
+  "name_nl": "Core aanspannen bij uitademing",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"breathing\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -762,6 +838,7 @@
  {
   "slug": "prone-hip-extension",
   "name": "Prone Hip Extension",
+  "name_nl": "Heupextensie op de buik",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"prone\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"none\"]",
@@ -772,6 +849,7 @@
  {
   "slug": "cat-cow-pregnancy",
   "name": "Cat-Cow (Pregnancy-Friendly)",
+  "name_nl": "Kat-koe (zwangerschap)",
   "category": "mobility",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"pelvic_floor\"]",
   "equipment_required_json": "[\"none\"]",
@@ -782,6 +860,7 @@
  {
   "slug": "standing-pelvic-rock",
   "name": "Standing Pelvic Rock",
+  "name_nl": "Bekken wiegen staand",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -792,6 +871,7 @@
  {
   "slug": "seated-pelvic-roll",
   "name": "Seated Pelvic Roll",
+  "name_nl": "Bekkencirkels zittend",
   "category": "mobility",
   "tags_json": "[\"pelvic_floor\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"chair\"]",
@@ -802,6 +882,7 @@
  {
   "slug": "run-warmup-leg-swings",
   "name": "Leg Swings",
+  "name_nl": "Beenzwaaien (hardloop-warming-up)",
   "category": "mobility",
   "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -812,6 +893,7 @@
  {
   "slug": "run-warmup-calf-raises",
   "name": "Calf Raises",
+  "name_nl": "Kuitheffen (hardloop-warming-up)",
   "category": "mobility",
   "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_ankle\",\"loads_knee\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -822,6 +904,7 @@
  {
   "slug": "run-warmup-high-knees-march",
   "name": "High Knees March",
+  "name_nl": "Mars met knieheffen",
   "category": "mobility",
   "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -832,6 +915,7 @@
  {
   "slug": "run-warmup-hip-circles",
   "name": "Hip Circles",
+  "name_nl": "Heupcirkels (hardloop-warming-up)",
   "category": "mobility",
   "tags_json": "[\"cardio\",\"low_impact\",\"no_floor\",\"outdoor\",\"bodyweight\",\"run_warmup\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -842,6 +926,7 @@
  {
   "slug": "childs-pose",
   "name": "Child's Pose",
+  "name_nl": "Kindhouding",
   "category": "recovery",
   "tags_json": "[\"mobility\",\"stretch\",\"recovery\",\"low_impact\",\"quiet\",\"floor\"]",
   "equipment_required_json": "[\"none\"]",
@@ -852,6 +937,7 @@
  {
   "slug": "box-breathing",
   "name": "Box Breathing",
+  "name_nl": "Box-ademhaling",
   "category": "recovery",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -862,6 +948,7 @@
  {
   "slug": "progressive-muscle-relaxation",
   "name": "Progressive Muscle Relaxation",
+  "name_nl": "Progressieve spierontspanning",
   "category": "recovery",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -872,6 +959,7 @@
  {
   "slug": "body-scan-meditation",
   "name": "Body Scan",
+  "name_nl": "Bodyscan",
   "category": "recovery",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"recovery\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -882,6 +970,7 @@
  {
   "slug": "gentle-hip-circles",
   "name": "Gentle Hip Circles",
+  "name_nl": "Heupcirkels rustig",
   "category": "recovery",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -892,6 +981,7 @@
  {
   "slug": "wrist-ankle-circles",
   "name": "Wrist & Ankle Circles",
+  "name_nl": "Pols- en enkelcirkels",
   "category": "recovery",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"none\"]",
@@ -902,6 +992,7 @@
  {
   "slug": "4-7-8-breathing",
   "name": "4-7-8 Breathing",
+  "name_nl": "4-7-8 ademhaling",
   "category": "recovery",
   "tags_json": "[\"breathing\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -912,6 +1003,7 @@
  {
   "slug": "alternate-nostril-breathing",
   "name": "Alternate Nostril Breathing",
+  "name_nl": "Wisselende neusgatademhaling",
   "category": "recovery",
   "tags_json": "[\"breathing\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -922,6 +1014,7 @@
  {
   "slug": "savasana",
   "name": "Savasana (Corpse Pose)",
+  "name_nl": "Savasana (lijkhouding)",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -932,6 +1025,7 @@
  {
   "slug": "supported-side-lying-rest",
   "name": "Supported Side-Lying Rest",
+  "name_nl": "Ondersteund rusten op de zij",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -942,6 +1036,7 @@
  {
   "slug": "legs-up-wall",
   "name": "Legs Up the Wall",
+  "name_nl": "Benen omhoog tegen de muur",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"supine\",\"inversion\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -952,6 +1047,7 @@
  {
   "slug": "labour-breathing-prep",
   "name": "Labour Breathing Preparation",
+  "name_nl": "Voorbereiding bevallingsademhaling",
   "category": "recovery",
   "tags_json": "[\"breathing\",\"pelvic_floor\",\"recovery\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -962,6 +1058,7 @@
  {
   "slug": "foam-roll-quads",
   "name": "Foam Roll: Quads",
+  "name_nl": "Foamrollen quadriceps",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
   "equipment_required_json": "[\"foam_roller\"]",
@@ -972,6 +1069,7 @@
  {
   "slug": "foam-roll-upper-back",
   "name": "Foam Roll: Upper Back",
+  "name_nl": "Foamrollen bovenrug",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
   "equipment_required_json": "[\"foam_roller\"]",
@@ -982,6 +1080,7 @@
  {
   "slug": "foam-roll-calves",
   "name": "Foam Roll: Calves",
+  "name_nl": "Foamrollen kuiten",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"low_impact\",\"floor\"]",
   "equipment_required_json": "[\"foam_roller\"]",
@@ -992,6 +1091,7 @@
  {
   "slug": "supine-knee-to-chest",
   "name": "Supine Knee-to-Chest",
+  "name_nl": "Knie naar borst liggend",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"mobility\",\"low_impact\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1002,6 +1102,7 @@
  {
   "slug": "happy-baby-pose",
   "name": "Happy Baby Pose",
+  "name_nl": "Happy baby",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"mobility\",\"low_impact\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1012,6 +1113,7 @@
  {
   "slug": "progressive-relaxation-body",
   "name": "Progressive Muscle Relaxation",
+  "name_nl": "Progressieve spierontspanning",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"breathing\",\"quiet\",\"floor\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1022,6 +1124,7 @@
  {
   "slug": "478-breathing",
   "name": "4-7-8 Breathing",
+  "name_nl": "4-7-8 ademhaling",
   "category": "recovery",
   "tags_json": "[\"recovery\",\"breathing\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1032,6 +1135,7 @@
  {
   "slug": "graaftest",
   "name": "Graaftest",
+  "name_nl": "Graaftest",
   "category": "skill",
   "tags_json": "[\"rotation\",\"core\",\"military\",\"functional\",\"protocol\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1042,6 +1146,7 @@
  {
   "slug": "push-up",
   "name": "Push-up",
+  "name_nl": "Opdrukken",
   "category": "strength",
   "tags_json": "[\"strength\",\"bodyweight\",\"upper_body\",\"push\",\"floor\",\"classic\",\"quiet\",\"low_impact\",\"loads_shoulder\",\"military\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1052,6 +1157,7 @@
  {
   "slug": "air-squat",
   "name": "Air Squat",
+  "name_nl": "Squat zonder gewicht",
   "category": "strength",
   "tags_json": "[\"strength\",\"bodyweight\",\"lower_body\",\"squat\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1062,6 +1168,7 @@
  {
   "slug": "forward-lunge",
   "name": "Forward Lunge",
+  "name_nl": "Voorwaartse uitvalspas",
   "category": "strength",
   "tags_json": "[\"strength\",\"bodyweight\",\"lower_body\",\"unilateral\",\"balance\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1072,6 +1179,7 @@
  {
   "slug": "plank",
   "name": "Plank",
+  "name_nl": "Plank",
   "category": "strength",
   "tags_json": "[\"core\",\"bodyweight\",\"isometric\",\"floor\",\"quiet\",\"low_impact\",\"loads_shoulder\",\"military\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1082,6 +1190,7 @@
  {
   "slug": "glute-bridge",
   "name": "Glute Bridge",
+  "name_nl": "Heupbrug",
   "category": "strength",
   "tags_json": "[\"strength\",\"bodyweight\",\"posterior_chain\",\"floor\",\"quiet\",\"low_impact\",\"supine\",\"postnatal_safe\",\"sport_support:running\",\"sport_support:swimming\",\"sport_support:rowing\",\"sport_support:football\",\"sport_support:climbing\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1092,6 +1201,7 @@
  {
   "slug": "goblet-squat",
   "name": "Goblet Squat",
+  "name_nl": "Goblet squat",
   "category": "strength",
   "tags_json": "[\"strength\",\"dumbbell\",\"lower_body\",\"squat\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1102,6 +1212,7 @@
  {
   "slug": "dumbbell-floor-press",
   "name": "Dumbbell Floor Press",
+  "name_nl": "Dumbbell floor press",
   "category": "strength",
   "tags_json": "[\"strength\",\"dumbbell\",\"upper_body\",\"push\",\"floor\",\"quiet\",\"low_impact\",\"supine\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1112,6 +1223,7 @@
  {
   "slug": "dumbbell-row",
   "name": "Dumbbell Row",
+  "name_nl": "Dumbbell row (twee armen)",
   "category": "strength",
   "tags_json": "[\"strength\",\"dumbbell\",\"upper_body\",\"pull\",\"no_floor\",\"quiet\",\"low_impact\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1122,6 +1234,7 @@
  {
   "slug": "wall-push-up",
   "name": "Wall Push-up",
+  "name_nl": "Opdrukken tegen de muur",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"loads_shoulder\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1132,6 +1245,7 @@
  {
   "slug": "calf-raise",
   "name": "Calf Raise",
+  "name_nl": "Kuitheffen",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"loads_ankle\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1142,6 +1256,7 @@
  {
   "slug": "wall-sit",
   "name": "Wall Sit",
+  "name_nl": "Muurzit",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1152,6 +1267,7 @@
  {
   "slug": "superman-hold",
   "name": "Superman Hold",
+  "name_nl": "Superman houden",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"prone\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1162,6 +1278,7 @@
  {
   "slug": "bird-dog",
   "name": "Bird Dog",
+  "name_nl": "Bird dog",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"sport_support:running\",\"sport_support:cycling\",\"sport_support:swimming\",\"sport_support:rowing\",\"sport_support:football\",\"sport_support:climbing\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1172,6 +1289,7 @@
  {
   "slug": "dead-bug",
   "name": "Dead Bug",
+  "name_nl": "Dead bug",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"supine\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1182,6 +1300,7 @@
  {
   "slug": "reverse-lunge",
   "name": "Reverse Lunge",
+  "name_nl": "Achterwaartse uitvalspas",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1192,6 +1311,7 @@
  {
   "slug": "incline-push-up",
   "name": "Incline Push-up",
+  "name_nl": "Opdrukken verhoogd",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"chair\"]",
@@ -1202,6 +1322,7 @@
  {
   "slug": "dumbbell-bicep-curl",
   "name": "Dumbbell Bicep Curl",
+  "name_nl": "Dumbbell biceps curl",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1212,6 +1333,7 @@
  {
   "slug": "dumbbell-shoulder-press",
   "name": "Dumbbell Shoulder Press",
+  "name_nl": "Dumbbell schouderpress",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1222,6 +1344,7 @@
  {
   "slug": "dumbbell-deadlift",
   "name": "Dumbbell Deadlift",
+  "name_nl": "Dumbbell deadlift",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1232,6 +1355,7 @@
  {
   "slug": "side-plank",
   "name": "Side Plank",
+  "name_nl": "Side plank",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1242,6 +1366,7 @@
  {
   "slug": "knee-push-up",
   "name": "Knee Push-up",
+  "name_nl": "Opdrukken op de knie\u00ebn",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1252,6 +1377,7 @@
  {
   "slug": "sumo-squat",
   "name": "Sumo Squat",
+  "name_nl": "Sumo squat",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1262,6 +1388,7 @@
  {
   "slug": "lateral-lunge",
   "name": "Lateral Lunge",
+  "name_nl": "Zijwaartse uitvalspas",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1272,6 +1399,7 @@
  {
   "slug": "curtsy-lunge",
   "name": "Curtsy Lunge",
+  "name_nl": "Kruislingse uitvalspas (curtsy)",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1282,6 +1410,7 @@
  {
   "slug": "standing-hip-abduction",
   "name": "Standing Hip Abduction",
+  "name_nl": "Heupabductie staand",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1292,6 +1421,7 @@
  {
   "slug": "donkey-kick",
   "name": "Donkey Kick",
+  "name_nl": "Donkey kick",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"sport_support:running\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1302,6 +1432,7 @@
  {
   "slug": "fire-hydrant",
   "name": "Fire Hydrant",
+  "name_nl": "Fire hydrant",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"sport_support:running\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1312,6 +1443,7 @@
  {
   "slug": "good-morning-bodyweight",
   "name": "Good Morning",
+  "name_nl": "Good morning",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:rowing\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1322,6 +1454,7 @@
  {
   "slug": "modified-plank",
   "name": "Modified Plank (Knees)",
+  "name_nl": "Plank op de knie\u00ebn",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1332,6 +1465,7 @@
  {
   "slug": "single-leg-calf-raise",
   "name": "Single Leg Calf Raise",
+  "name_nl": "Kuitheffen op \u00e9\u00e9n been",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_ankle\",\"loads_ankle\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1342,6 +1476,7 @@
  {
   "slug": "cobra-press-up",
   "name": "Cobra Press-up",
+  "name_nl": "Cobra",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"prone\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1352,6 +1487,7 @@
  {
   "slug": "sphinx-hold",
   "name": "Sphinx Hold",
+  "name_nl": "Sfinx houden",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"no_sweat\",\"quiet\",\"prone\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1362,6 +1498,7 @@
  {
   "slug": "dumbbell-romanian-deadlift",
   "name": "Dumbbell Romanian Deadlift",
+  "name_nl": "Dumbbell Romanian deadlift",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"pregnancy_safe\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:rowing\",\"sport_support:football\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1372,6 +1509,7 @@
  {
   "slug": "dumbbell-sumo-deadlift",
   "name": "Dumbbell Sumo Deadlift",
+  "name_nl": "Dumbbell sumo deadlift",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"pregnancy_safe\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1382,6 +1520,7 @@
  {
   "slug": "dumbbell-seated-overhead-press",
   "name": "Dumbbell Seated Overhead Press",
+  "name_nl": "Dumbbell schouderpress zittend",
   "category": "strength",
   "tags_json": "[\"dumbbell\",\"no_floor\",\"low_impact\",\"quiet\",\"pregnancy_safe\",\"postnatal_safe\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"dumbbell\",\"chair\"]",
@@ -1392,6 +1531,7 @@
  {
   "slug": "band-row-seated",
   "name": "Resistance Band Seated Row",
+  "name_nl": "Zittende row met band (voet of anker)",
   "category": "strength",
   "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\"]",
   "equipment_required_json": "[\"resistance_bands\"]",
@@ -1402,6 +1542,7 @@
  {
   "slug": "band-pull-apart",
   "name": "Resistance Band Pull-Apart",
+  "name_nl": "Pull-apart met weerstandsband",
   "category": "strength",
   "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"shoulder_health\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"resistance_bands\"]",
@@ -1412,6 +1553,7 @@
  {
   "slug": "band-overhead-press",
   "name": "Resistance Band Overhead Press",
+  "name_nl": "Overhead press met weerstandsband",
   "category": "strength",
   "tags_json": "[\"strength\",\"push\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"resistance_bands\"]",
@@ -1422,6 +1564,7 @@
  {
   "slug": "band-squat",
   "name": "Resistance Band Squat",
+  "name_nl": "Squat met weerstandsband",
   "category": "strength",
   "tags_json": "[\"strength\",\"low_impact\",\"no_floor\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"resistance_bands\"]",
@@ -1432,6 +1575,7 @@
  {
   "slug": "kettlebell-swing",
   "name": "Kettlebell Swing",
+  "name_nl": "Kettlebell swing",
   "category": "strength",
   "tags_json": "[\"strength\",\"cardio\",\"low_impact\",\"full_body\",\"posterior_chain\",\"loads_lower_back\",\"sport_support:running\",\"sport_support:football\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"kettlebell\"]",
@@ -1442,6 +1586,7 @@
  {
   "slug": "kettlebell-goblet-squat",
   "name": "Kettlebell Goblet Squat",
+  "name_nl": "Kettlebell goblet squat",
   "category": "strength",
   "tags_json": "[\"strength\",\"low_impact\",\"full_body\",\"loads_knee\",\"loads_knee\"]",
   "equipment_required_json": "[\"kettlebell\"]",
@@ -1452,6 +1597,7 @@
  {
   "slug": "kettlebell-deadlift",
   "name": "Kettlebell Deadlift",
+  "name_nl": "Kettlebell deadlift",
   "category": "strength",
   "tags_json": "[\"strength\",\"low_impact\",\"posterior_chain\",\"full_body\",\"loads_lower_back\",\"loads_lower_back\"]",
   "equipment_required_json": "[\"kettlebell\"]",
@@ -1462,6 +1608,7 @@
  {
   "slug": "pull-up",
   "name": "Pull-Up",
+  "name_nl": "Optrekken",
   "category": "strength",
   "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"pull_up_bar\"]",
@@ -1472,6 +1619,7 @@
  {
   "slug": "chin-up",
   "name": "Chin-Up",
+  "name_nl": "Optrekken onderhands (chin-up)",
   "category": "strength",
   "tags_json": "[\"strength\",\"pull\",\"low_impact\",\"no_floor\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"pull_up_bar\"]",
@@ -1482,6 +1630,7 @@
  {
   "slug": "dead-hang",
   "name": "Dead Hang",
+  "name_nl": "Dead hang",
   "category": "strength",
   "tags_json": "[\"strength\",\"mobility\",\"low_impact\",\"no_floor\",\"shoulder_health\",\"loads_shoulder\",\"loads_shoulder\"]",
   "equipment_required_json": "[\"pull_up_bar\"]",
@@ -1492,6 +1641,7 @@
  {
   "slug": "squat",
   "name": "Squat",
+  "name_nl": "Squat",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1502,6 +1652,7 @@
  {
   "slug": "lunge",
   "name": "Lunge",
+  "name_nl": "Uitvalspas",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"unilateral\",\"loads_knee\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1512,6 +1663,7 @@
  {
   "slug": "bicycle-crunch",
   "name": "Bicycle Crunch",
+  "name_nl": "Bicycle crunch",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1522,6 +1674,7 @@
  {
   "slug": "flutter-kicks",
   "name": "Flutter Kicks",
+  "name_nl": "Flutter kicks",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1532,6 +1685,7 @@
  {
   "slug": "hand-release-push-up",
   "name": "Hand Release Push-Up",
+  "name_nl": "Opdrukken met handen los",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"high_impact\",\"push\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1542,6 +1696,7 @@
  {
   "slug": "back-squat",
   "name": "Back Squat",
+  "name_nl": "Back squat",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"loads_knee\",\"loads_lower_back\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1552,6 +1707,7 @@
  {
   "slug": "front-squat",
   "name": "Front Squat",
+  "name_nl": "Front squat",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"no_floor\",\"high_impact\",\"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1562,6 +1718,7 @@
  {
   "slug": "high-pull",
   "name": "High Pull",
+  "name_nl": "High pull",
   "category": "strength",
   "tags_json": "[\"strength\",\"no_floor\",\"high_impact\",\"military\"]",
   "equipment_required_json": "[\"dumbbell\"]",
@@ -1572,6 +1729,7 @@
  {
   "slug": "optillen-vanaf-de-grond",
   "name": "Optillen vanaf de grond",
+  "name_nl": "Optillen vanaf de grond",
   "category": "strength",
   "tags_json": "[\"power\",\"lower-body\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1582,6 +1740,7 @@
  {
   "slug": "deadlift",
   "name": "Deadlift",
+  "name_nl": "Deadlift",
   "category": "strength",
   "tags_json": "[\"lower-body\", \"compound\", \"military\"]",
   "equipment_required_json": "[\"barbell\"]",
@@ -1592,6 +1751,7 @@
  {
   "slug": "heup-brug",
   "name": "Heup brug",
+  "name_nl": "Heupbrug (militair)",
   "category": "strength",
   "tags_json": "[\"lower-body\", \"glutes\", \"bodyweight\", \"supine\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1602,6 +1762,7 @@
  {
   "slug": "optillen-vanaf-de-grond-rugzak",
   "name": "Optillen vanaf de grond (rugzak)",
+  "name_nl": "Optillen vanaf de grond (rugzak)",
   "category": "strength",
   "tags_json": "[\"power\",\"lower-body\",\"weighted\",\"military\",\"protocol\"]",
   "equipment_required_json": "[\"rucksack\"]",
@@ -1612,6 +1773,7 @@
  {
   "slug": "walking-lunges",
   "name": "Walking Lunges",
+  "name_nl": "Wandelende uitvalspassen",
   "category": "strength",
   "tags_json": "[\"lower-body\", \"unilateral\", \"bodyweight\", \"military\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1622,6 +1784,7 @@
  {
   "slug": "lat-pulldown",
   "name": "Lat Pulldown",
+  "name_nl": "Lat pulldown",
   "category": "strength",
   "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"lat_pulldown\"]",
@@ -1632,6 +1795,7 @@
  {
   "slug": "seated-cable-row",
   "name": "Seated Cable Row",
+  "name_nl": "Kabel row zittend",
   "category": "strength",
   "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_lower_back\"]",
   "equipment_required_json": "[\"seated_row_machine\"]",
@@ -1642,6 +1806,7 @@
  {
   "slug": "barbell-bench-press",
   "name": "Barbell Bench Press",
+  "name_nl": "Barbell bankdrukken",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"barbell\", \"gym\", \"no_floor\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"barbell\", \"bench_press_rack\", \"bench\"]",
@@ -1652,6 +1817,7 @@
  {
   "slug": "leg-press",
   "name": "Leg Press",
+  "name_nl": "Leg press",
   "category": "strength",
   "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_knee\"]",
   "equipment_required_json": "[\"leg_press\"]",
@@ -1662,6 +1828,7 @@
  {
   "slug": "leg-curl-machine",
   "name": "Leg Curl (Machine)",
+  "name_nl": "Leg curl (machine)",
   "category": "strength",
   "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\"]",
   "equipment_required_json": "[\"leg_curl_machine\"]",
@@ -1672,6 +1839,7 @@
  {
   "slug": "leg-extension-machine",
   "name": "Leg Extension (Machine)",
+  "name_nl": "Leg extension (machine)",
   "category": "strength",
   "tags_json": "[\"strength\", \"legs\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_knee\"]",
   "equipment_required_json": "[\"leg_extension_machine\"]",
@@ -1682,6 +1850,7 @@
  {
   "slug": "chest-press-machine",
   "name": "Chest Press (Machine)",
+  "name_nl": "Chest press (machine)",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"chest_press_machine\"]",
@@ -1692,6 +1861,7 @@
  {
   "slug": "pec-deck-fly",
   "name": "Pec Deck Fly",
+  "name_nl": "Pec deck fly",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"pec_deck\"]",
@@ -1702,6 +1872,7 @@
  {
   "slug": "cable-biceps-curl",
   "name": "Cable Biceps Curl",
+  "name_nl": "Kabel biceps curl",
   "category": "strength",
   "tags_json": "[\"strength\", \"pull\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"quiet\"]",
   "equipment_required_json": "[\"cable\"]",
@@ -1712,6 +1883,7 @@
  {
   "slug": "cable-triceps-pushdown",
   "name": "Cable Triceps Pushdown",
+  "name_nl": "Kabel triceps pushdown",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"quiet\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"cable\"]",
@@ -1722,6 +1894,7 @@
  {
   "slug": "dip-station-dip",
   "name": "Dip (Parallel Bars)",
+  "name_nl": "Dip aan de brug",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"gym\", \"no_floor\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"dip_station\"]",
@@ -1732,6 +1905,7 @@
  {
   "slug": "machine-shoulder-press",
   "name": "Shoulder Press (Machine)",
+  "name_nl": "Schouderpress (machine)",
   "category": "strength",
   "tags_json": "[\"strength\", \"push\", \"upper_body\", \"machine\", \"gym\", \"no_floor\", \"low_impact\", \"beginner_friendly\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"multi_gym\"]",
@@ -1742,6 +1916,7 @@
  {
   "slug": "bench-step-up",
   "name": "Bench Step-Up",
+  "name_nl": "Opstap op bank",
   "category": "strength",
   "tags_json": "[\"strength\", \"legs\", \"bench\", \"no_floor\", \"unilateral\", \"loads_knee\"]",
   "equipment_required_json": "[\"bench\"]",
@@ -1752,6 +1927,7 @@
  {
   "slug": "cable-pallof-press",
   "name": "Cable Pallof Press",
+  "name_nl": "Kabel Pallof press",
   "category": "strength",
   "tags_json": "[\"strength\", \"core\", \"anti_rotation\", \"machine\", \"gym\", \"no_floor\", \"low_impact\"]",
   "equipment_required_json": "[\"cable\"]",
@@ -1762,6 +1938,7 @@
  {
   "slug": "reverse-crunch",
   "name": "Reverse Crunch",
+  "name_nl": "Reverse crunch",
   "category": "strength",
   "tags_json": "[\"strength\", \"core\", \"flexion\", \"bodyweight\", \"floor\", \"low_impact\", \"crunch\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1772,6 +1949,7 @@
  {
   "slug": "hanging-knee-raise",
   "name": "Hanging Knee Raise",
+  "name_nl": "Hangend knieheffen",
   "category": "strength",
   "tags_json": "[\"strength\", \"core\", \"flexion\", \"pull_up_bar\", \"no_floor\", \"low_impact\", \"loads_shoulder\"]",
   "equipment_required_json": "[\"pull_up_bar\"]",
@@ -1782,6 +1960,7 @@
  {
   "slug": "kettlebell-row",
   "name": "Kettlebell Row",
+  "name_nl": "Kettlebell row",
   "category": "strength",
   "tags_json": "[\"strength\", \"kettlebell\", \"pull\", \"upper_body\", \"no_floor\", \"low_impact\", \"loads_lower_back\"]",
   "equipment_required_json": "[\"kettlebell\"]",
@@ -1792,6 +1971,7 @@
  {
   "slug": "sit-up",
   "name": "Sit-Up",
+  "name_nl": "Sit-up",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1802,6 +1982,7 @@
  {
   "slug": "anchored-sit-up",
   "name": "Anchored Sit-Up",
+  "name_nl": "Sit-up met voeten vast",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1812,6 +1993,7 @@
  {
   "slug": "bent-knee-sit-up",
   "name": "Bent-Knee Sit-Up",
+  "name_nl": "Sit-up met gebogen knie\u00ebn",
   "category": "strength",
   "tags_json": "[\"bodyweight\",\"floor\",\"low_impact\",\"core\",\"military\",\"dcp\",\"measurable\"]",
   "equipment_required_json": "[\"none\"]",
@@ -1822,6 +2004,7 @@
  {
   "slug": "weighted-sit-up",
   "name": "Weighted Sit-Up",
+  "name_nl": "Sit-up met gewicht",
   "category": "strength",
   "tags_json": "[\"core\",\"military\",\"dcp\",\"weighted\"]",
   "equipment_required_json": "[\"dumbbell\"]",

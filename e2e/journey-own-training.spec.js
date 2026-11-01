@@ -9,6 +9,8 @@
  *  (b) Registreren → log push-up 3×3 for today → Today shows it completed.
  *  (c) v1.2 — save a template, then Hergebruiken → ⋯ → Bewerken (rename) → Verwijderen.
  *  (d) v1.2 — Vastzetten from the chooser: a free user pins push-up, today's plan holds it.
+ *  (e) v1.5 — Dutch names: switch to nl → the Today card shows a plan step's Dutch name;
+ *      Samenstellen → "opdrukken" → Opdrukken → Starten → Als extra → the WorkoutView header is "Opdrukken".
  */
 
 import { test, expect } from '@playwright/test';
@@ -246,4 +248,41 @@ test('own training (d) — pin from the chooser: free user, today\'s plan open',
   const pushUp = plan.steps.find((st) => st.name === 'Push-up');
   expect(pushUp, 'the pinned push-up is a step of today\'s plan').toBeTruthy();
   expect(plan.pinned).toContain(pushUp.exercise_id);
+});
+
+test('own training (e) — Dutch exercise names on Today, in the picker and in WorkoutView', async ({ page }) => {
+  await signupFresh(page, '-own-e');
+  await pickGeneralPath(page);
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  await expect.poll(async () => (await todaysPlan(page))?.id, { timeout: 15_000, message: 'the general path should have stored today\'s plan' }).toBeTruthy();
+  const steps = JSON.parse((await todaysPlan(page)).plan_json).steps ?? [];
+  // Every stored step carries both names (makePlanStep, v1.5).
+  expect(steps.length).toBeGreaterThan(0);
+  for (const s of steps) expect(s.name_nl, `step ${s.exercise_slug} has no name_nl`).toBeTruthy();
+
+  // signupFresh pins jf_lang = en for every load; a later init script runs after it.
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'nl'));
+  await page.reload();
+
+  // The Today card lists the first three steps by their Dutch names.
+  const shown = steps.slice(0, 3);
+  const dutchOnly = shown.find((s) => s.name_nl !== s.name) ?? shown[0];
+  await expect(page.getByText(dutchOnly.name_nl, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
+  if (dutchOnly.name_nl !== dutchOnly.name) await expect(page.getByText(dutchOnly.name, { exact: true })).toHaveCount(0);
+
+  await page.getByRole('button', { name: 'Eigen training' }).click();
+  await page.getByRole('button', { name: /^Samenstellen/ }).click();
+  await page.getByPlaceholder('Zoek oefeningen…').fill('opdrukken');
+  const first = page.locator('.jf-pick__item .jf-pick__name').first();
+  await expect(first).toHaveText('Opdrukken', { timeout: 10_000 });
+  await first.click();
+  await expect(page.locator('.jf-sb-step__name')).toHaveText(['Opdrukken']);
+  await page.getByRole('button', { name: 'Starten' }).click();
+  await expect(page.getByText('Hoe wil je dit doen?')).toBeVisible();
+  await page.getByRole('button', { name: /^Als extra/ }).click();
+
+  // WorkoutView: the overview lists it, the instruction header names it — in Dutch.
+  await expect(page.getByText('Opdrukken', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Start workout' }).click({ timeout: 15_000 });
+  await expect(page.locator('h1')).toHaveText('Opdrukken', { timeout: 10_000 });
 });

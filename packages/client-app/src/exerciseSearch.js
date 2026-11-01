@@ -5,7 +5,7 @@
 //   category + kit filter → query (with Dutch synonyms) → order → cap (reported).
 // v1.1's miss message (emptyMessage) is computed after the synonyms.
 
-import { t } from "./i18n.js";
+import { t, exerciseName } from "./i18n.js";
 
 export const ALWAYS_OWNED = ["none", "chair"];
 export const CAP = 40;
@@ -33,12 +33,14 @@ export const categoryGroup = (ex) => (["cardio", "mobility", "recovery"].include
 export const isProtocol = (ex) => tagsOf(ex).some((g) => g === "protocol" || g === "assessment");
 export const isTest = isProtocol;
 
-// Alphabetical, digit-led names after letters ("12-Minute Cooper Test" is not where a list starts).
-const digitLed = (ex) => (/^\d/.test(ex?.name ?? "") ? 1 : 0);
-export const byName = (a, b) => digitLed(a) - digitLed(b) || (a.name ?? "").localeCompare(b.name ?? "");
+// Alphabetical on the DISPLAYED name (v1.5: Dutch for a Dutch user), digit-led
+// names after letters ("12-Minute Cooper Test" is not where a list starts).
+const digitLed = (ex) => (/^\d/.test(exerciseName(ex)) ? 1 : 0);
+export const byName = (a, b) => digitLed(a) - digitLed(b) || exerciseName(a).localeCompare(exerciseName(b));
 
 // ── Dutch synonyms (R4, first half) — Dutch token → the English tokens the names use.
-// The table IS the test (tests/exerciseSearch.test.js). name_nl seeding is v1.5.
+// The table IS the test (tests/exerciseSearch.test.js). Since v1.5 a row's own
+// Dutch name (name_nl) matches too; the synonyms still reach English-only rows.
 export const SYNONYMS = {
   opdrukken: ["push-up"],
   optrekken: ["pull-up", "chin-up"],
@@ -100,16 +102,20 @@ function atWordStart(text, term) {
   return false;
 }
 
-// Rank of a row for the expanded terms: 0 name starts with a term · 1 name
-// contains it · 2 slug contains it · -1 no match. The typed query matches as a
-// substring (v1.1); a synonym only at a word start.
+// Rank of a row for the expanded terms: 0 a name IS the term · 1 a name starts
+// with it · 2 a name contains it · 3 slug contains it · -1 no match. "A name" is
+// the English name or the Dutch one (v1.5), whichever language the user reads —
+// so "opdrukken" puts Push-up ("Opdrukken") above "Opdrukken verhoogd" for an
+// English reader too. The typed query matches as a substring (v1.1); a synonym
+// only at a word start.
 export function matchRank(ex, terms) {
-  const name = (ex?.name ?? "").toLowerCase();
+  const names = [ex?.name, ex?.name_nl].filter(Boolean).map((n) => n.toLowerCase());
   const slug = ex?.slug ?? "";
   let best = -1;
   terms.forEach((term, i) => {
     const has = (s, x) => (i === 0 ? s.includes(x) : atWordStart(s, x));
-    const r = name.startsWith(term) ? 0 : has(name, term) ? 1 : has(slug, term.replace(/\s+/g, "-")) ? 2 : -1;
+    const r = names.includes(term) ? 0 : names.some((n) => n.startsWith(term)) ? 1 : names.some((n) => has(n, term)) ? 2
+      : has(slug, term.replace(/\s+/g, "-")) ? 3 : -1;
     if (r !== -1 && (best === -1 || r < best)) best = r;
   });
   return best;

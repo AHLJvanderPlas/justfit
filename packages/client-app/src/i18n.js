@@ -1,9 +1,16 @@
 import { useState, useEffect } from 'react';
 
 // ─── Language state ────────────────────────────────────────────────────────────
-let _lang = localStorage.getItem('jf_lang') ?? 'nl';
-
-export function getLang() { return _lang; }
+// Read on first use, not at import, so a pure module (ownTraining.js) can import
+// exerciseName and still load where there is no localStorage (node tests): there
+// the language is Dutch, the default, and nothing is cached.
+let _lang = null;
+export function getLang() {
+  if (_lang == null) {
+    try { _lang = localStorage.getItem('jf_lang') ?? 'nl'; } catch { return 'nl'; }
+  }
+  return _lang;
+}
 
 export function setLang(lang) {
   _lang = lang;
@@ -19,7 +26,16 @@ export function useLang() {
     window.addEventListener('jf-lang-change', h);
     return () => window.removeEventListener('jf-lang-change', h);
   }, []);
-  return _lang;
+  return getLang();
+}
+
+// ─── Exercise names (builder v1.5) ────────────────────────────────────────────
+// The one way an exercise name is shown. Library rows, plan steps, history step
+// rows and records all carry { name, name_nl }; name_nl is null where a row has
+// none (gym-private rows, the cycling coach step), and English users always see
+// `name`. Stored records keep exercise_id — the name resolves here, at display.
+export function exerciseName(ex) {
+  return getLang() === 'nl' && ex?.name_nl ? ex.name_nl : (ex?.name ?? '');
 }
 
 // ─── Translation function ──────────────────────────────────────────────────────
@@ -27,7 +43,7 @@ export function useLang() {
 // For lang='nl', looks up NL dict, falls back to key.
 export function t(key, vars) {
   let str;
-  if (_lang === 'en') {
+  if (getLang() === 'en') {
     str = key;
   } else {
     str = NL[key] ?? key;

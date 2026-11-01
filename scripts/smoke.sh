@@ -1456,7 +1456,9 @@ fi
 # reached; when a later extraction lowers a count, LOWER the ceiling with it.
 # 2026-10-06 ("Eigen training"): App.jsx 1833 → 1800 (the shell's inline <style>
 # element moved to styles.css), plan.js 3829 → 3827, onRequestPost 100 → 99.
-PLAN_CEILING=3827
+# 2026-11-01 (builder v1.5): plan.js 3827 → 3726 — the step builder moved to
+# _shared/planStep.js (makePlanStep).
+PLAN_CEILING=3726
 APP_CEILING=1800
 POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
@@ -1466,6 +1468,26 @@ if [ "$PLAN_NOW" -le "$PLAN_CEILING" ]; then
   ok "plan.js line ratchet holds ($PLAN_NOW ≤ $PLAN_CEILING)"
 else
   fail "plan.js grew to $PLAN_NOW lines (ceiling $PLAN_CEILING) — extract into functions/api/_shared/, do not grow the planner file"
+fi
+# v1.5 — ONE step builder. Every plan step comes from makePlanStep() in
+# functions/api/_shared/planStep.js, so a new field (name_nl) reaches every step
+# or none. An object literal in plan.js carrying both exercise_slug: and
+# target_duration_sec: is a step built by hand (there were five; the
+# pinsRemoved/safety-note records carry exercise_slug only and are not steps).
+STEP_LITERALS=$(node -e '
+const s = require("fs").readFileSync("functions/api/plan.js", "utf8");
+const hits = [];
+for (let i = s.indexOf("exercise_slug:"); i >= 0; i = s.indexOf("exercise_slug:", i + 1)) {
+  let d = 0, a = i, e;
+  for (; a >= 0; a--) { if (s[a] === "}") d++; else if (s[a] === "{") { if (d === 0) break; d--; } }
+  for (d = 0, e = a + 1; e < s.length; e++) { if (s[e] === "{") d++; else if (s[e] === "}") { if (d === 0) break; d--; } }
+  if (/\btarget_duration_sec\s*:/.test(s.slice(a, e))) hits.push(s.slice(0, i).split("\n").length);
+}
+process.stdout.write(hits.join(" "));' 2>&1)
+if [ -z "$STEP_LITERALS" ]; then
+  ok "plan.js builds no step object itself — every step goes through makePlanStep()"
+else
+  fail "plan.js spells a plan step object literal at line(s) $STEP_LITERALS — use makePlanStep() from _shared/planStep.js"
 fi
 if [ "$APP_NOW" -le "$APP_CEILING" ]; then
   ok "App.jsx line ratchet holds ($APP_NOW ≤ $APP_CEILING)"

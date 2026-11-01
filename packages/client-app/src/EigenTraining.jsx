@@ -13,7 +13,7 @@
 // plan. The rules (which links, when the sheet is skipped, which body a mode
 // sends) are in ownTraining.js. Classes only — styles.css.
 import { useState, lazy, Suspense } from "react";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, exerciseName } from "./i18n.js";
 import api from "./apiClient.js";
 import { RULE_LABELS } from "./messagePolicy.js";
 import { Sheet } from "./sessionSheet.jsx";
@@ -265,7 +265,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   }
 
   if (step === "result" && result) {
-    const nameOf = (n) => (n.step_index != null ? (result.plan?.steps?.[n.step_index]?.name ?? n.exercise_slug?.replace(/-/g, " ")) : null);
+    const nameOf = (n) => (n.step_index != null ? (exerciseName(result.plan?.steps?.[n.step_index]) || n.exercise_slug?.replace(/-/g, " ")) : null);
     const go = () => (result.needsAck
       ? submit(result.mode, { ...result.opts, safetyAck: true })
       : start(result.mode, result.plan, pending));

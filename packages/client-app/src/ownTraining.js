@@ -6,6 +6,8 @@
 // mode produces, what the done card may offer — lives here so it is one rule,
 // tested on its own (tests/ownTraining.test.js).
 
+import { exerciseName } from "./i18n.js";
+
 // §2 — "Lukt dit niet?" (regenerate / rest) only next to a coach plan that is
 // still open. On a rest day, a finished day and a session the user wrote there
 // is nothing to regenerate, so the line reads "Eigen training" alone. "Eigen
@@ -64,12 +66,12 @@ export function checkinForAdvice(row, today) {
 }
 
 // The name of a session the user did not name: the template's if it has one,
-// else the first two exercises ("Push-up + Plank"), else the fallback. Steps are
-// builder rows ({ ex: { name } }) or plain { name }.
+// else the first two exercises ("Push-up + Plank" — "Opdrukken + Plank" in
+// Dutch, v1.5), else the fallback. Steps are builder rows ({ ex }) or plain steps.
 export function sessionName(steps, tplName = null, fallback = "Mijn training") {
   const own = String(tplName ?? "").trim();
   if (own) return own;
-  const names = (steps ?? []).map((s) => s?.ex?.name ?? s?.name).filter(Boolean).slice(0, 2);
+  const names = (steps ?? []).map((s) => exerciseName(s?.ex ?? s)).filter(Boolean).slice(0, 2);
   return names.length ? names.join(" + ") : fallback;
 }
 

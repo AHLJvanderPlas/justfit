@@ -64,7 +64,7 @@ db.exec(`
     id TEXT PRIMARY KEY, slug TEXT, name TEXT, category TEXT, tags_json TEXT,
     equipment_required_json TEXT, metrics_json TEXT, media_json TEXT, instructions_json TEXT,
     alternatives_json TEXT, primary_muscles_json TEXT, secondary_muscles_json TEXT,
-    is_active INTEGER NOT NULL DEFAULT 1, gym_id TEXT, instructions_markdown TEXT) STRICT;
+    is_active INTEGER NOT NULL DEFAULT 1, gym_id TEXT, instructions_markdown TEXT, name_nl TEXT) STRICT;
   CREATE TABLE day_plans (
     id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT NOT NULL,
     plan_status TEXT NOT NULL DEFAULT 'draft' CHECK (plan_status IN ('draft','final','skipped','archived')),
@@ -77,10 +77,10 @@ db.exec(`
 db.exec(fs.readFileSync(path.join(root, 'migrations/0117_user_session_templates.sql'), 'utf8'));
 
 const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
-  primary_muscles_json, alternatives_json, is_active) VALUES (?,?,?,?,?,?,?,?,?,?)`);
+  primary_muscles_json, alternatives_json, is_active, name_nl) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
 rows.forEach((r, i) => insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.equipment_required_json,
-  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1));
-insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0);
+  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1, r.name_nl ?? null));
+insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0, null);
 
 const DATE = '2026-10-05';
 for (const id of ['alice', 'bob', 'carol', 'dave']) {
@@ -243,9 +243,12 @@ let aliceTpl;
   const t2 = (await POST('bob', { name: 'Never', steps: [S('sit-up')] })).body.template;
   const t3 = (await POST('bob', { name: 'Gone', steps: [S('push-up'), S('plank'), S('sit-up')] })).body.template;
   const nm = (slug) => rows.find(r => r.slug === slug).name;
+  const nl = (slug) => rows.find(r => r.slug === slug).name_nl;
   // Created only now: the planner treats a missing executions table as no history.
   db.exec('CREATE TABLE executions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, date TEXT, source_ref TEXT) STRICT');
   check(t1.step_names?.join(',') === [nm('plank'), nm('push-up'), nm('dead-bug')].join(','), `POST must return the same step_names, got ${t1.step_names?.join(',')}`);
+  // v1.5 — the Dutch names ride along, same rows, same order.
+  check(t1.step_names_nl?.join(',') === [nl('plank'), nl('push-up'), nl('dead-bug')].join(','), `POST must return step_names_nl in step order, got ${JSON.stringify(t1.step_names_nl)}`);
   const insX = db.prepare('INSERT INTO executions (id, user_id, date, source_ref) VALUES (?,?,?,?)');
   insX.run('x1', 'bob', '2026-10-20', `template:${t1.id}`);
   insX.run('x2', 'bob', '2026-10-28', `template:${t1.id}`);
@@ -263,6 +266,7 @@ let aliceTpl;
   list = await find();
   const m3 = list.find(x => x.id === t3.id);
   check(m3?.step_names?.join(',') === [nm('plank'), nm('sit-up')].join(','), `a retired exercise must be dropped, got ${m3?.step_names?.join(',')}`);
+  check(m3?.step_names_nl?.join(',') === [nl('plank'), nl('sit-up')].join(','), `GET step_names_nl must match step_names row for row, got ${JSON.stringify(m3?.step_names_nl)}`);
   db.prepare('UPDATE exercises SET is_active = 1 WHERE id = ?').run(idOf('push-up'));
 }
 

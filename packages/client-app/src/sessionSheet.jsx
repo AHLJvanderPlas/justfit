@@ -1,7 +1,7 @@
 // Shared parts of the two exercise sheets: SessionBuilder (plan TARGETS for today)
 // and LogSessionSheet (record what was DONE on a date). Classes only — styles.css.
 import { useState, useEffect, useRef } from "react";
-import { t } from "./i18n.js";
+import { t, exerciseName } from "./i18n.js";
 import { ALWAYS_OWNED, CATEGORY_CHIPS, equipOf, isTest, filterLibrary, emptyMessage, chipsOnFor, sheetKit } from "./exerciseSearch.js";
 import { EQUIPMENT_OPTIONS } from "./appConstants.js";
 
@@ -181,7 +181,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
               return (
                 <button key={ex.id} type="button" onClick={() => onPick(ex)} className={`jf-pick__item${m.active ? " jf-pick__item--on" : ""}`}>
                   <span className="jf-pick__text">
-                    <span className="jf-pick__name">{ex.name}</span>
+                    <span className="jf-pick__name">{exerciseName(ex)}</span>
                     <span className="jf-pick__meta">
                       {t(ex.category ?? "")}{kit.length ? ` · ${kit.join(", ").replace(/_/g, " ")}` : ""}
                       {isTest(ex) && <> · <span className="jf-pick__test">{t("TEST")}</span></>}

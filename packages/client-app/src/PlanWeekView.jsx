@@ -5,7 +5,7 @@ import { estimateMins } from "./planUtils.js";
 import api from "./apiClient.js";
 import { deriveChipLabel } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
-import { t, useLang } from "./i18n.js";
+import { t, useLang, exerciseName } from "./i18n.js";
 import { inLogWindow, logDayLabel, summarizeLogged } from "./logSession.js";
 import { pickerContextFrom } from "./exerciseSearch.js";
 
@@ -259,7 +259,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             </div>
             {plan.steps?.length > 0 && (
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-                {plan.steps.slice(0, 5).map((s) => s.name).join(" · ")}
+                {plan.steps.slice(0, 5).map((s) => exerciseName(s)).join(" · ")}
                 {plan.steps.length > 5 && ` · ${t('+{n} more', { n: plan.steps.length - 5 })}`}
               </div>
             )}
@@ -282,7 +282,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               const d = new Date(date + "T12:00:00");
               const mins = estimateMins(p);
               const isRest = !p || p.slot_type === "rest";
-              const exercises = p?.steps?.slice(0, 4).map((s) => s.name) ?? [];
+              const exercises = p?.steps?.slice(0, 4).map((s) => exerciseName(s)) ?? [];
               const extra = Math.max(0, (p?.steps?.length ?? 0) - 4);
               return (
                 <Glass key={date} style={{ padding: "14px 18px" }}>
@@ -452,7 +452,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
                           const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
                           // A self-logged session keeps what was skipped — the note usually says why.
-                          if (actual?.skipped && logged) return `${s.name} · ${t("skipped")}`;
+                          if (actual?.skipped && logged) return `${exerciseName(s)} · ${t("skipped")}`;
                           if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
                           const sets = actual.sets_completed;
                           const setsLabel = `${sets} ${sets !== 1 ? t('sets') : t('set')}`;
@@ -460,13 +460,13 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           // "Push-up · 5 sets · 3/3/3/4/4 @ 60 s".
                           if (logged) {
                             const sum = summarizeLogged(actual);
-                            return `${s.name} · ${setsLabel}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
+                            return `${exerciseName(s)} · ${setsLabel}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
                           }
                           const isTime = pres?.duration_sec && !pres?.reps;
                           const reps = actual.reps_per_set ?? [];
                           const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
                           const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
-                          return `${s.name} · ${setsLabel}${detail ? ` × ${detail}` : ""}`;
+                          return `${exerciseName(s)} · ${setsLabel}${detail ? ` × ${detail}` : ""}`;
                         }).filter(Boolean);
                         if (!lines.length) return null;
                         return (

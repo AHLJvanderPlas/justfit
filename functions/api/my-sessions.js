@@ -7,7 +7,8 @@
 // use time, against the athlete's state on that day.
 //
 //   GET                         → { ok, templates: [{ id, name, steps, est_minutes, created_at_ms, updated_at_ms,
-//                                 step_names (first 3, step order), last_done_at (date | null) }] }
+//                                 step_names (first 3, step order), step_names_nl (same rows, Dutch name or null),
+//                                 last_done_at (date | null) }] }
 //                                 last saved first, at most 50
 //   POST { id?, name, steps[] } → { ok, template }   create, or update when id is the user's own (404 otherwise)
 //   DELETE ?id=                 → 204, or 404 when it is not the user's
@@ -76,10 +77,11 @@ function shape(row) {
 }
 
 // v1.2 row meta, two queries for the whole list: `step_names` (the first three
-// exercise names, in step order; an id no longer in the library is dropped) and
+// exercise names, in step order; an id no longer in the library is dropped;
+// v1.5 `step_names_nl` is the same rows' Dutch names, null where a row has none) and
 // `last_done_at` (latest executions.date started from the template, else null).
 async function addRowMeta(env, userId, templates) {
-  for (const tp of templates) { tp.step_names = []; tp.last_done_at = null; }
+  for (const tp of templates) { tp.step_names = []; tp.step_names_nl = []; tp.last_done_at = null; }
   if (!templates.length) return;
   // One bound JSON array per query: D1 allows 100 bound parameters per statement
   // and 30 templates x 20 steps can hold more distinct ids than that.
@@ -88,12 +90,14 @@ async function addRowMeta(env, userId, templates) {
   const nameById = new Map();
   if (ids.length) {
     const ex = await env.DB.prepare(
-      'SELECT id, name FROM exercises WHERE is_active = 1 AND id IN (SELECT value FROM json_each(?))'
+      'SELECT id, name, name_nl FROM exercises WHERE is_active = 1 AND id IN (SELECT value FROM json_each(?))'
     ).bind(JSON.stringify(ids)).all();
-    for (const r of ex.results ?? []) nameById.set(String(r.id), r.name);
+    for (const r of ex.results ?? []) nameById.set(String(r.id), r);
   }
   for (const tp of templates) {
-    tp.step_names = tp.steps.map(st => nameById.get(idOf(st))).filter(Boolean).slice(0, 3);
+    const rows = tp.steps.map(st => nameById.get(idOf(st))).filter(Boolean).slice(0, 3);
+    tp.step_names = rows.map(r => r.name);
+    tp.step_names_nl = rows.map(r => r.name_nl ?? null);
   }
   const refs = templates.map(tp => `template:${tp.id}`);
   const done = await env.DB.prepare(

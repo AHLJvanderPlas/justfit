@@ -812,7 +812,7 @@ export async function onRequestGet({ request, env }) {
          LIMIT ?`
       ).bind(...isPro ? [user_id, effectiveLimit] : [user_id, cutoffMs, effectiveLimit]).all(),
       env.DB.prepare(
-        `SELECT es.execution_id, es.exercise_id, ex.name AS exercise_name, es.step_index,
+        `SELECT es.execution_id, es.exercise_id, ex.name AS exercise_name, ex.name_nl AS exercise_name_nl, es.step_index,
                 es.prescribed_json, es.actual_json
          FROM execution_steps es
          LEFT JOIN exercises ex ON es.exercise_id = ex.id
@@ -840,7 +840,7 @@ export async function onRequestGet({ request, env }) {
     for (const s of stepsResult.results) {
       if (!stepsByExec[s.execution_id]) stepsByExec[s.execution_id] = [];
       stepsByExec[s.execution_id].push({
-        name: s.exercise_name, exercise_id: s.exercise_id,
+        name: s.exercise_name, name_nl: s.exercise_name_nl ?? null, exercise_id: s.exercise_id,
         prescribed_json: s.prescribed_json,
         actual_json: s.actual_json,
       });

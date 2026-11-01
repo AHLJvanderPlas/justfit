@@ -33,7 +33,7 @@ const idOf = (slug) => {
   return 'ex' + i;
 };
 const exercises = rows.map((r, i) => ({
-  id: 'ex' + i, slug: r.slug, name: r.name, category: r.category,
+  id: 'ex' + i, slug: r.slug, name: r.name, name_nl: r.name_nl, category: r.category,
   tags_json: r.tags_json, equipment_required_json: r.equipment_required_json,
   metrics_json: r.metrics_json, instructions_json: null, alternatives_json: null,
   primary_muscles_json: '[]', secondary_muscles_json: '[]', media_json: null,
@@ -422,6 +422,12 @@ for (const p of PERSONAS) {
     if (p.expectSlot && out.slot_type !== p.expectSlot) notes.add(`expected slot ${p.expectSlot}, got ${out.slot_type}`);
     if (p.expectIntensity && out.intensity !== p.expectIntensity) notes.add(`expected intensity ${p.expectIntensity}, got ${out.intensity}`);
     if (p.expectAssessment && out.assessment_planned !== true) notes.add('R598 did not schedule the due measurement');
+    // v1.5 — every step built from a library row carries its Dutch name (the
+    // fixture mirrors live after 0124). The synthetic cycling-coach step is not
+    // a library row and has none; the client falls back to `name` there.
+    for (const s of steps) {
+      if (exById.has(s.exercise_id) && !(typeof s.name_nl === 'string' && s.name_nl.trim())) notes.add(`step ${s.exercise_slug} has no name_nl`);
+    }
 
     // ── 1. No contraindicated tag (or kit) for this persona's body mode ──
     {

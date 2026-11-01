@@ -21,7 +21,7 @@ import { useState, useEffect, useRef } from "react";
 import { estimateMins } from "./planUtils.js";
 import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { RULE_LABELS } from "./messagePolicy.js";
-import { t } from "./i18n.js";
+import { t, exerciseName } from "./i18n.js";
 import api from "./apiClient.js";
 import { Sheet, ExercisePicker, SetRow, UnitChips, ItemActions, MoveActions } from "./sessionSheet.jsx";
 import { ownSessionBody, checkinForAdvice, sessionName, previewOutcome } from "./ownTraining.js";
@@ -364,7 +364,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
             <p className="jf-sb-saved__text">{t("The coach filled in your session. Some pins were left out for your safety:")}</p>
             {saved.pinsRemoved.map((r) => (
               <div key={r.exercise_id} className="jf-sb-saved__item">
-                <div className="jf-sb-saved__name">{libById.get(r.exercise_id)?.name ?? r.exercise_slug}</div>
+                <div className="jf-sb-saved__name">{exerciseName(libById.get(r.exercise_id)) || r.exercise_slug}</div>
                 {r.code
                   ? <NoteCard note={{ code: r.code, blocking: false }} />
                   : <div className="jf-sb-saved__guard">{r.guard === "rest_day" ? t("Today is a rest day.") : t("Your coach programme sets today's session.")}</div>}
@@ -376,7 +376,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
             {notes.length > 0 && <p className="jf-sb-saved__text">{t("Your session is saved as you built it. Keep these in mind:")}</p>}
             {notes.map((n, i) => (
               <div key={i}>
-                {n.step_index != null && <div className="jf-sb-saved__name jf-sb-saved__name--spaced">{steps[n.step_index]?.ex.name ?? n.exercise_slug}</div>}
+                {n.step_index != null && <div className="jf-sb-saved__name jf-sb-saved__name--spaced">{exerciseName(steps[n.step_index]?.ex) || n.exercise_slug}</div>}
                 <NoteCard note={n} />
               </div>
             ))}
@@ -423,8 +423,8 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
               <div key={s.key} data-sb-key={s.key} className={`jf-sb-step${s.key === lastAdded ? " jf-sb-step--new" : ""}`}>
                 <div className="jf-sb-step__head">
                   <span className="jf-sb-step__num">{i + 1}</span>
-                  <span className="jf-sb-step__name">{s.ex.name}</span>
-                  <ItemActions name={s.ex.name} open={menuKey === s.key}
+                  <span className="jf-sb-step__name">{exerciseName(s.ex)}</span>
+                  <ItemActions name={exerciseName(s.ex)} open={menuKey === s.key}
                     onMore={() => setMenuKey((k) => (k === s.key ? null : s.key))} onRemove={() => remove(s.key)} />
                 </div>
                 {menuKey === s.key && (
@@ -433,7 +433,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
                 {s.canToggle && <UnitChips unit={unitOf(s)} onChange={(u) => setUnit(s.key, u)} />}
                 <SetRow sets={s.draft.sets} value={s.draft.value} rest={s.draft.rest} unit={unitOf(s)}
                   errors={{ sets: s.err === "sets", rest: s.err === "rest", value: !!s.err && !["sets", "rest", "empty"].includes(s.err) }}
-                  labels={{ sets: `${t("Sets")} · ${s.ex.name}`, value: `${s.useTime ? t("Seconds") : t("Reps")} · ${s.ex.name}`, rest: `${t("Rest")} · ${s.ex.name}` }}
+                  labels={{ sets: `${t("Sets")} · ${exerciseName(s.ex)}`, value: `${s.useTime ? t("Seconds") : t("Reps")} · ${exerciseName(s.ex)}`, rest: `${t("Rest")} · ${exerciseName(s.ex)}` }}
                   onChange={(f, v) => typeField(s.key, f, v)} onBlur={() => settleDraft(s.key)} />
                 {s.err === "empty" ? (
                   <div className="jf-sb-step__sum jf-sb-step__sum--todo">{s.useTime ? t("Fill in the seconds per set.") : t("Fill in the reps per set.")}</div>
@@ -478,7 +478,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
                 <div className="jf-sb-pins__chips">
                   {pins.map((id) => (
                     <button key={id} type="button" onClick={() => togglePin(id)} className={chip(true)}>
-                      {libById.get(id)?.name ?? id} ×
+                      {exerciseName(libById.get(id)) || id} ×
                     </button>
                   ))}
                 </div>

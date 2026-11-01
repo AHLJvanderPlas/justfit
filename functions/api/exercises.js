@@ -4,7 +4,7 @@ export async function onRequestGet({ request, env }) {
     const tags = url.searchParams.get('tags'); // e.g. "no_floor,low_impact"
     const category = url.searchParams.get('category');
 
-    let query = `SELECT id, slug, name, category, tags_json, equipment_required_json, 
+    let query = `SELECT id, slug, name, name_nl, category, tags_json, equipment_required_json, 
                         instructions_json, metrics_json, alternatives_json
                  FROM exercises WHERE is_active = 1
                    -- This endpoint is PUBLIC (no session), so it cannot scope by
