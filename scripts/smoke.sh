@@ -764,7 +764,10 @@ fi
 # Voortgang week pill moved to .jf-weekstrip* / .jf-upday* / .jf-weekpill* classes.
 # 2008 → 1955 (2026-11-01): UAT release 4 — the connect screen, the trainer-invite screen and the
 # error boundary moved to .jf-orphan* classes (they were the last screens on raw inline styles).
-STYLE_CEILING=1955
+# 1955 → 1890 (2026-11-01): UAT release 5 — Jij lost its planner block (the five small editors and
+# the Geavanceerd chrome are .jf-adv*), the duplicate cycle card, the language toggle and the
+# guest-email block; the Today coaching card is .jf-cc*; the landing language control .jf-set*.
+STYLE_CEILING=1890
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1638,6 +1641,36 @@ if [ -z "$R4_OUT" ]; then
   ok "UAT R4: login.html has its i18n hooks, loads login-i18n.js first, no inline script, e2e ids intact"
 else
   fail "UAT R4: $R4_OUT"
+fi
+
+# ── UAT R5 — Settings that grow with the user (offline source scan) ─────────
+# No "Opslaan · <doel>" save button (the chips save on tap); exactly one Appearance heading and one
+# "Cycle tracking" label in SettingsView, and "Theme" no longer reads "Weergave" too; Geavanceerd
+# exists and is closed by default; the guest button is not hidden on the Sign in tab; the Today
+# coaching card is the once-per-account component, not the old inline card.
+R5_OUT=$(node -e '
+const fs = require("fs");
+const errs = [];
+const sv = fs.readFileSync("packages/client-app/src/SettingsView.jsx", "utf8");
+if (/Save · \{goal\}|Opslaan · /.test(sv)) errs.push("SettingsView still has the Opslaan · <doel> save button");
+const n = (re) => (sv.match(re) || []).length;
+if (n(/t\("Appearance"\)/g) !== 1) errs.push("SettingsView must have exactly one Appearance (Weergave) heading, found " + n(/t\("Appearance"\)/g));
+if (n(/\{t\("Cycle tracking"\)\}/g) !== 1) errs.push("SettingsView must have exactly one Cycle tracking label, found " + n(/\{t\("Cycle tracking"\)\}/g));
+if (!/useState\(false\);\s*\n\s*const \[advRow/.test(sv) || !/const \[advOpen, setAdvOpen\] = useState\(false\)/.test(sv)) errs.push("Geavanceerd (advOpen) must start closed");
+if (/Resend/.test(sv.slice(sv.indexOf("prefs.email === null"), sv.indexOf("prefs.email === null") + 600))) errs.push("the guest Account row must not offer Resend");
+const i18n = fs.readFileSync("packages/client-app/src/i18n.js", "utf8");
+const theme = (i18n.match(/"Theme": "([^"]+)"/) || [])[1], app = (i18n.match(/\x27Appearance\x27: \x27([^\x27]+)\x27/) || [])[1];
+if (!theme || theme === app) errs.push("Theme and Appearance both read " + app + " in Dutch (two Weergave headings)");
+const lh = fs.readFileSync("packages/client-app/public/login.html", "utf8");
+if (/id="guest-section"[^>]*display:\s*none/.test(lh)) errs.push("login.html hides #guest-section");
+if (/guest-section/.test(fs.readFileSync("packages/client-app/public/login.js", "utf8"))) errs.push("login.js toggles #guest-section again (guest access belongs on both tabs)");
+const dash = fs.readFileSync("packages/client-app/src/Dashboard.jsx", "utf8");
+if (!/<CoachingCard /.test(dash) || /jf_coach_discovery_dismissed/.test(dash)) errs.push("Dashboard must render <CoachingCard>, not the old inline discovery card");
+process.stdout.write(errs.join("; "));' 2>&1)
+if [ -z "$R5_OUT" ]; then
+  ok "UAT R5: no Opslaan · <doel> button, one Appearance + one Cycle tracking, Geavanceerd closed, guest button on both tabs, CoachingCard"
+else
+  fail "UAT R5: $R5_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

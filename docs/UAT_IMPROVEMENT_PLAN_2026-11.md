@@ -113,6 +113,11 @@ Guards: inline-style ratchet lowered by the Jij migration (the moved blocks beco
 classes); e2e "settings — chips reflect the saved value after reload"; smoke scans for the removed
 save button.
 
+Status: built on branch `uat-r5` (2026-11-01), not merged. Decisions: Materiaal stays as a summary row
+under SESSIEDUUR (opens Geavanceerd → equipment); "Available time per session" (per-day schedule) moved
+into Geavanceerd as a ninth row; the language toggle lives on the landing only; the coaching card is
+shown once per account (`seen`), then gone, "Niet voor mij" persists. Style ceiling 1955 → 1890.
+
 ## Release 6 — Small phones and the first five minutes (L)
 
 1. **320 px pass**: Today title clamps at ≤ 360 px (`clamp()` in the display size), nav labels 11 px

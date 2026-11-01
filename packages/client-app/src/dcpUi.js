@@ -33,6 +33,20 @@ export function parseBirthYear(v) {
   return y >= DCP_BIRTH_YEARS[0] && y <= DCP_BIRTH_YEARS[1] ? y : null;
 }
 
+/**
+ * UAT R5 — what the birth-year field says about itself. Neutral until the user types;
+ * "invalid" (the amber one) only for a year outside DCP_BIRTH_YEARS, a non-numeric entry,
+ * or — once the field was left (blurred) — a half-typed year.
+ *   "empty" | "typing" | "valid" | "invalid"
+ */
+export function birthYearState(text, blurred = false) {
+  const s = String(text ?? "").trim();
+  if (!s) return "empty";
+  if (!/^\d+$/.test(s)) return "invalid";
+  if (s.length < 4) return blurred ? "invalid" : "typing";
+  return parseBirthYear(s) ? "valid" : "invalid";
+}
+
 /** The three minimums for this athlete, or null (no sex set, no table, no year). */
 export function dcpNormsFor(sex, birthYear, nowMs) {
   if (sex !== "male" && sex !== "female") return null;

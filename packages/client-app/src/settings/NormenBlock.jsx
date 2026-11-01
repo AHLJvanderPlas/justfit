@@ -15,7 +15,7 @@
 import { useState } from "react";
 import { t } from "../i18n.js";
 import { milClL } from "../planUtils.js";
-import { dcpMeasureLabel, dcpMeasurePlanned, dcpNormsFor, parseBirthYear } from "../dcpUi.js";
+import { birthYearState, dcpMeasureLabel, dcpMeasurePlanned, dcpNormsFor, parseBirthYear } from "../dcpUi.js";
 
 export default function NormenBlock({ prefs, assessmentPlanned, onSaveDcp, onMeasure }) {
   const mil = prefs.preferences?.military_coach ?? {};
@@ -23,7 +23,9 @@ export default function NormenBlock({ prefs, assessmentPlanned, onSaveDcp, onMea
   const [nowMs] = useState(() => Date.now());
   const [yearText, setYearText] = useState(dcp.birth_year ? String(dcp.birth_year) : "");
   const [busy, setBusy] = useState(false);
+  const [blurred, setBlurred] = useState(false);
   const year = parseBirthYear(yearText);
+  const yearState = birthYearState(yearText, blurred);
   const enabled = !!dcp.enabled;
   const bias = !!dcp.bias_enabled;
   const lastAt = dcp.last?.at_ms ?? null;
@@ -76,12 +78,14 @@ export default function NormenBlock({ prefs, assessmentPlanned, onSaveDcp, onMea
           {t("Birth year")}
           <input
             inputMode="numeric" maxLength={4} placeholder={t("e.g. 1990")} value={yearText}
-            onChange={(e) => setYearText(e.target.value.replace(/\D/g, "").slice(0, 4))}
-            onBlur={saveYear}
+            onChange={(e) => { setBlurred(false); setYearText(e.target.value.replace(/\D/g, "").slice(0, 4)); }}
+            onBlur={() => { setBlurred(true); saveYear(); }}
           />
           {sex && <span>{t("{sex} (from You)", { sex: sex === "female" ? t("woman") : t("man") })}</span>}
         </label>
-        {!year && <div className="jf-norm__hint">{t("Enter a birth year between 1930 and 2015 to switch the DCP on.")}</div>}
+        {/* UAT R5 — neutral until the user types; amber only for an invalid year */}
+        {yearState === "empty" && <div className="jf-norm__hint">{t("Birth year needed for the norm")}</div>}
+        {yearState === "invalid" && <div className="jf-norm__hint jf-norm__hint--warn">{t("Enter a birth year between 1930 and 2015 to switch the DCP on.")}</div>}
         {!sex
           ? <div className="jf-norm__hint">{t("Set your sex under You")}</div>
           : !norms && sex === "female"

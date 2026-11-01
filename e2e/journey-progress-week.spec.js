@@ -72,9 +72,15 @@ test('Dutch sweep 3: Instellingen → Jij says "Je profiel", Voortgang has no "F
   await page.getByRole('button', { name: 'Instellingen', exact: true }).click();
   await page.getByRole('button', { name: /^Jij/ }).click();
   await expect(page.getByText('Je profiel', { exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText('Dagelijkse planning', { exact: true })).toBeVisible();
-  await expect(page.getByText('Beschikbare tijd per sessie', { exact: true })).toBeVisible();
-  for (const gone of ['Your profile', 'Daily Planning', 'Available time per session', 'Known Injuries', 'Re-do onboarding']) {
+  // UAT R5: the planner block moved to Doel & coach → Geavanceerd (closed by default), so Jij no
+  // longer shows 'Dagelijkse planning'; the Dutch titles are read there instead.
+  await expect(page.getByText('Dagelijkse planning', { exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: '‹' }).click();
+  await page.getByRole('button', { name: /^Doel & coach/ }).click();
+  await page.getByRole('button', { name: /^Geavanceerd/ }).click();
+  await expect(page.getByRole('button', { name: /^Dagelijkse check-in/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('button', { name: /^Beschikbare tijd per sessie/ })).toBeVisible();
+  for (const gone of ['Your profile', 'Daily Planning', 'Available time per session', 'Known Injuries', 'Re-do onboarding', 'Daily check-in']) {
     await expect(page.getByText(gone, { exact: true }), `"${gone}" must not render in Dutch`).toHaveCount(0);
   }
   // No FTP number before one was entered: the cycling coach is not set up, nothing to print here.

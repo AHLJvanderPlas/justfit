@@ -15,6 +15,7 @@ import { parseRuleTrace, hasBlockingSafety, classifyAdvisories, coachLine, build
 import { dcpTodayMeta } from "./dcpUi.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
 import DoneCard from "./DoneCard.jsx";
+import CoachingCard from "./CoachingCard.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
@@ -917,42 +918,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         </div>
       </Glass>
 
-      {/* ── Coach discovery card (after 3 sessions, no specialist coach) ── */}
-      {(() => {
-        const pref = prefs?.preferences ?? {};
-        const milA = !!(pref.military_coach?.active);
-        const rcA  = !!(pref.run_coach?.enrolled && !pref.run_coach?.completed);
-        const ccA  = !!(pref.cycling_coach?.active && !pref.cycling_coach?.completed);
-        const sessions = (history ?? []).length;
-        if (milA || rcA || ccA || sessions < 3) return null;
-        const dismissed = localStorage.getItem("jf_coach_discovery_dismissed");
-        if (dismissed) return null;
-        return (
-          <div style={{ background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
-            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ ...eyebrow, color: "var(--accent)", marginBottom: 6 }}>{t("SPECIALIST COACHING")}</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.4, marginBottom: 4 }}>{t("Want a structured training programme?")}</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{t("Add Running, Cycling, or Military coaching as an add-on alongside your current goal.")}</div>
-              </div>
-            </div>
-            <div style={{ display: "flex", gap: 10 }}>
-              <button
-                onClick={() => onNavigateCoach?.()}
-                style={{ flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 12, cursor: "pointer", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}
-              >
-                {t("Explore coaches →")}
-              </button>
-              <button
-                onClick={() => localStorage.setItem("jf_coach_discovery_dismissed", "1")}
-                style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer", background: "transparent", border: `1px solid ${C.border}`, color: C.muted }}
-              >
-                {t("Not for me")}
-              </button>
-            </div>
-          </div>
-        );
-      })()}
+      {/* ── Coach discovery card — once per account, general path only (UAT R5, coachingCard.js) ── */}
+      <CoachingCard prefs={prefs} sessions={(history ?? []).length} onExplore={onNavigateCoach} />
 
       {/* ── Block C: Quick check-in link ─────────────── */}
       {!todayCompleted && onCheckIn && (

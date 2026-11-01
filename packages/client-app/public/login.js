@@ -56,7 +56,7 @@ function setMode(m) {
   document.getElementById('tab-signup').classList.toggle('active', m === 'signup');
   document.getElementById('method-switcher').style.display = m === 'login' ? 'flex' : 'none';
   document.getElementById('passkey-section').style.display = m === 'login' && passkeyAvailable ? 'block' : 'none';
-  document.getElementById('guest-section').style.display   = m === 'signup' ? 'block' : 'none';
+  // UAT R5 — guest access is offered on both tabs, so setMode no longer toggles it
   if (m === 'signup') { setMethod('password'); }
   if (m === 'login')  { setMethod('magic'); }
   const pwdField   = document.getElementById('password-field');

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import api from "./apiClient.js";
 import { logout, clearPlanCache } from "./authHelpers.js";
 import { C, display, ACCENT_COLORS, applyAccent, applyTheme, THEME_STORAGE_KEY } from "./tokens.js";
@@ -11,7 +11,11 @@ import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
 import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
 import { activeCoachOf, pathTitle } from "./coachPath.js";
+import { advancedRows } from "./settingsAdvanced.js";
+import { runChipSave, chipStatusText } from "./chipSave.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
+
+const GuestConvertModal = lazy(() => import("./GuestConvertModal.jsx"));   // UAT R5 — "E-mail toevoegen" for a guest
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -134,6 +138,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   // Email verification / change state
+  const [showGuestConvert, setShowGuestConvert] = useState(false);
   const [emailStep, setEmailStep]     = useState(null); // null | "verify_code" | "change_enter" | "change_code"
   const [emailCode, setEmailCode]     = useState("");
   const [emailInput, setEmailInput]   = useState("");
@@ -144,7 +149,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [cycleTrackingMode, setCycleTrackingMode] = useState(prefs.cycle?.tracking_mode ?? "off");
   const [cycleLength, setCycleLength] = useState(prefs.cycle?.cycle_length_days ?? 28);
   const [lastPeriodStart, setLastPeriodStart] = useState(prefs.cycle?.last_period_start ?? "");
-  const [cycleSaving, setCycleSaving] = useState(false);
   // Pregnancy mode state
   const [bodyMode, setBodyMode] = useState(prefs.cycle?.mode ?? "standard");
   const [pregnancySetupStep, setPregnancySetupStep] = useState(0); // 0=hidden,1=clearance,2=duedate
@@ -286,6 +290,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     ["running", "cycling", "military"].includes(prefs.training_goal ?? "health") ? "health" : (prefs.training_goal ?? "health")
   );
   const [openOther, setOpenOther] = useState(null);
+  // UAT R5 — Geavanceerd is closed by default; at most one of its rows is open
+  const [advOpen, setAdvOpen] = useState(false);
+  const [advRow, setAdvRow] = useState(null);
+  // UAT R5 — chips that save on tap: { id: "days" | "mins" | "exp" | "goal", state: "saving" | "saved" | "error" }
+  const [chipSave, setChipSave] = useState({ id: null, state: "" });
+  const chipSeqRef = useRef(0);
 
   // Show conflict modal when 2+ coaches are active and no primary_intent is set
   useEffect(() => {
@@ -713,6 +723,566 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     setFtpTestInput('');
   }
 
+  // ── UAT R5 — Doel & coach → Geavanceerd (the planner settings that used to fill Jij) ──
+  // Each row = title + one sentence + its CURRENT value (advancedRows); tapping it opens the
+  // editor, which is the control Jij used to hold. Saving is unchanged: the auto-save effects above.
+  const advEditors = {
+    checkin: () => (
+      <div className="jf-adv__seg">
+        {[
+          { id: "every_time", label: t("Every time"),  sub: t("On every open") },
+          { id: "once_a_day", label: t("Once a day"),  sub: t("First open only") },
+          { id: "manual",     label: t("Manual"),       sub: t("You decide") },
+        ].map(({ id, label, sub }) => (
+          <button key={id} className={`jf-adv__opt${checkinMode === id ? " jf-adv__opt--on" : ""}`} aria-pressed={checkinMode === id} onClick={() => setCheckinMode(id)}>
+            <span className="jf-adv__opt-title">{label}</span>
+            <span className="jf-adv__opt-sub">{sub}</span>
+          </button>
+        ))}
+      </div>
+    ),
+    schedule: () => (<div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+                  {[
+                    { id: false, label: t("Standard"), sub: t("One duration for all days") },
+                    { id: true,  label: t("Advanced"), sub: t("Set time per day of week") },
+                  ].map(({ id, label, sub }) => {
+                    const sel = showAdvancedSchedule === id;
+                    return (
+                      <button
+                        key={String(id)}
+                        onClick={() => {
+                          if (id === true && !showAdvancedSchedule) {
+                            // First activation: seed all days with current standard duration
+                            setWeeklySchedule({ mon: planDuration, tue: planDuration, wed: planDuration, thu: planDuration, fri: planDuration, sat: planDuration, sun: planDuration });
+                          }
+                          setShowAdvancedSchedule(id);
+                        }}
+                        style={{
+                          flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
+                          border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
+                          background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
+                          display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
+                        }}
+                      >
+                        <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
+                        <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {!showAdvancedSchedule ? (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
+                    {[15, 20, 30, 45, 60, 90, 120].map((d) => (
+                      <button
+                        key={d}
+                        onClick={() => setPlanDuration(d)}
+                        style={{
+                          padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
+                          border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
+                          background: planDuration === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
+                          color: planDuration === d ? C.emerald : C.muted,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {d === 60 ? '1h' : d === 90 ? '1.5h' : d === 120 ? '2h' : `${d} min`}
+                      </button>
+                    ))}
+                  </div>
+                ) : (() => {
+                  const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 270, 300, 330, 999];
+                  const fmtStep = v => {
+                    if (v === 0)   return t('Rest');
+                    if (v === 999) return '∞';
+                    if (v < 60)    return `${v}m`;
+                    const h = Math.floor(v / 60), m = v % 60;
+                    return m === 0 ? `${h}h` : `${h}h ${m}m`;
+                  };
+                  return (
+                    <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
+                      {[
+                        { key: "mon", label: t("Mon") },
+                        { key: "tue", label: t("Tue") },
+                        { key: "wed", label: t("Wed") },
+                        { key: "thu", label: t("Thu") },
+                        { key: "fri", label: t("Fri") },
+                        { key: "sat", label: t("Sat") },
+                        { key: "sun", label: t("Sun") },
+                      ].map(({ key, label }) => {
+                        const raw = weeklySchedule[key] ?? planDuration;
+                        const val = ADV_STEPS.reduce((best, s) => Math.abs(s - raw) < Math.abs(best - raw) ? s : best, ADV_STEPS[0]);
+                        const idx = ADV_STEPS.indexOf(val);
+                        const isRest = val === 0;
+                        const btnStyle = (disabled) => ({
+                          width: 44, height: 44, borderRadius: 12, flexShrink: 0,
+                          border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)",
+                          color: disabled ? C.subtle : C.text,
+                          fontSize: 22, fontWeight: 300, cursor: disabled ? "default" : "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        });
+                        return (
+                          <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <div style={{ width: 34, fontSize: 11, fontWeight: 900, color: isRest ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+                              {label}
+                            </div>
+                            <button
+                              onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.max(0, idx - 1)] }))}
+                              disabled={idx === 0}
+                              style={btnStyle(idx === 0)}
+                            >−</button>
+                            <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 900, color: isRest ? C.muted : C.emerald }}>
+                              {fmtStep(val)}
+                            </div>
+                            <button
+                              onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.min(ADV_STEPS.length - 1, idx + 1)] }))}
+                              disabled={idx === ADV_STEPS.length - 1}
+                              style={btnStyle(idx === ADV_STEPS.length - 1)}
+                            >+</button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+    </div>),
+    overhead: () => (<div>
+                {/* ── Time overhead ── */}
+                {(() => {
+                  const presetDefs = [
+                    { key: "change_clothes",    label: t("Change clothes") },
+                    { key: "prepare_equipment", label: t("Prepare equipment") },
+                    { key: "clean_equipment",   label: t("Clean equipment") },
+                    { key: "shower",            label: t("Shower") },
+                  ];
+                  const profileTotal = (profile) =>
+                    presetDefs.reduce((s, { key }) => s + (profile?.presets?.[key] || 0), 0) +
+                    (profile?.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
+                  const shortTotal = profileTotal(timeOverhead.short);
+                  const longTotal  = profileTotal(timeOverhead.long);
+
+                  const stepMin = (profile, key, delta) =>
+                    setTimeOverhead((o) => ({
+                      ...o,
+                      [profile]: { ...o[profile], presets: { ...o[profile].presets, [key]: Math.max(0, Math.min(60, (o[profile].presets?.[key] || 0) + delta)) } },
+                    }));
+                  const stepCustom = (profile, idx, delta) =>
+                    setTimeOverhead((o) => {
+                      const c = [...(o[profile].custom ?? [])];
+                      c[idx] = { ...c[idx], minutes: Math.max(0, Math.min(60, (c[idx].minutes || 0) + delta)) };
+                      return { ...o, [profile]: { ...o[profile], custom: c } };
+                    });
+                  const renameCustom = (profile, idx, lbl) =>
+                    setTimeOverhead((o) => {
+                      const c = [...(o[profile].custom ?? [])];
+                      c[idx] = { ...c[idx], label: lbl };
+                      return { ...o, [profile]: { ...o[profile], custom: c } };
+                    });
+                  const removeCustom = (profile, idx) =>
+                    setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: (o[profile].custom ?? []).filter((_, i) => i !== idx) } }));
+                  const addCustom = (profile) =>
+                    setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: [...(o[profile].custom ?? []), { label: "", minutes: 0 }] } }));
+
+                  const StepRow = ({ label, value, onMinus, onPlus }) => (
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: value > 0 ? C.text : C.muted }}>{label}</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <button className="jf-tap" onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                        <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: value > 0 ? C.emerald : C.muted }}>{value}m</span>
+                        <button className="jf-tap" onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                      </div>
+                    </div>
+                  );
+
+                  const ProfileSection = ({ profileKey, title }) => {
+                    const profile = timeOverhead[profileKey] ?? { presets: {}, custom: [] };
+                    return (
+                      <div style={{ marginBottom: 8 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 16 }}>
+                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
+                          <div style={{ flex: 1, height: 1, background: C.border }} />
+                        </div>
+                        {presetDefs.map(({ key, label }) => (
+                          <StepRow key={key} label={label} value={profile.presets?.[key] || 0}
+                            onMinus={() => stepMin(profileKey, key, -5)} onPlus={() => stepMin(profileKey, key, 5)} />
+                        ))}
+                        {(profile.custom ?? []).map((c, idx) => (
+                          <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
+                            <input
+                              value={c.label}
+                              onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
+                              placeholder={t("e.g. Drive to gym")}
+                              style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
+                            />
+                            <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                            <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
+                            <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                            <button className="jf-tap" onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: C.danger, cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
+                          </div>
+                        ))}
+                        {(profile.custom ?? []).length < 3 && (
+                          <button onClick={() => addCustom(profileKey)} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted }}>
+                            + Add custom block
+                          </button>
+                        )}
+                      </div>
+                    );
+                  };
+
+                  return (
+                    <div style={{ marginBottom: 24 }}>
+                      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                        <span />
+                        <button
+                          onClick={() => setOverheadEditMode((v) => !v)}
+                          style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.emerald : C.muted }}
+                        >
+                          {overheadEditMode ? t("Done") : t("Edit")}
+                        </button>
+                      </div>
+
+                      {!overheadEditMode ? (
+                        <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
+                          {timeOverhead.enabled && (shortTotal > 0 || longTotal > 0) ? (
+                            <span>
+                              {shortTotal > 0 && <span>{t("Quick session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> {t("overhead")}</span>}
+                              {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtle }}> · </span>}
+                              {longTotal > 0 && <span>{t("Full session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> {t("overhead")}</span>}
+                            </span>
+                          ) : (
+                            <span style={{ color: C.subtle, fontStyle: "italic" }}>{t("Not set — full window used for training")}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div>
+                          {/* Enable toggle */}
+                          <div
+                            onClick={() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled }))}
+                            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
+                          >
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>{t("Include overhead in planning")}</div>
+                              <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Subtracts overhead from your available training window")}</div>
+                            </div>
+                            <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
+                              <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: C.knob, transition: "left 0.2s" }} />
+                            </div>
+                          </div>
+
+                          <ProfileSection profileKey="short" title={t("Quick session  ≤ 30 min")} />
+                          <ProfileSection profileKey="long"  title={t("Full session  > 30 min")} />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+    </div>),
+    equipment: () => (<div>
+                {/* Equipment */}
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                  <span />
+                  <button
+                    onClick={() => setEquipEditMode((v) => !v)}
+                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.emerald : C.muted }}
+                  >
+                    {equipEditMode ? t("Done") : t("Edit")}
+                  </button>
+                </div>
+
+                {!equipEditMode ? (
+                  /* ── Collapsed: show active chips only ── */
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, minHeight: 32 }}>
+                    {planEquipment.filter((v) => v !== "none").length === 0 ? (
+                      <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No equipment — bodyweight only")}</span>
+                    ) : (
+                      planEquipment.filter((v) => v !== "none").map((val) => {
+                        const eq = ALL_EQUIPMENT.find((e) => e.value === val);
+                        return eq ? (
+                          <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                            {t(eq.label)}
+                          </span>
+                        ) : null;
+                      })
+                    )}
+                  </div>
+                ) : (
+                  /* ── Expanded: two-panel drag UI ── */
+                  <div style={{ marginBottom: 20 }}>
+                    {/* Your equipment panel */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setEquipDropZone("active"); }}
+                      onDragLeave={() => setEquipDropZone(null)}
+                      onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, true); setEquipDragItem(null); setEquipDropZone(null); }}
+                      style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        {t("Your equipment")}
+                        <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                          {planEquipment.filter((v) => v !== "none").length}
+                        </span>
+                      </div>
+                      {planEquipment.filter((v) => v !== "none").length === 0 ? (
+                        <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Drag items here or tap ✓ below")}</div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {planEquipment.filter((v) => v !== "none").map((val) => {
+                            const eq = ALL_EQUIPMENT.find((e) => e.value === val);
+                            return eq ? (
+                              <div
+                                key={val}
+                                draggable
+                                onDragStart={(e) => { setEquipDragItem(val); e.dataTransfer.effectAllowed = "move"; }}
+                                onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
+                                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
+                              >
+                                {t(eq.label)}
+                                <button
+                                  onClick={() => moveEquip(val, false)}
+                                  style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                                  title={t("Remove")}
+                                >×</button>
+                              </div>
+                            ) : null;
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Not in use panel */}
+                    <div
+                      onDragOver={(e) => { e.preventDefault(); setEquipDropZone("inactive"); }}
+                      onDragLeave={() => setEquipDropZone(null)}
+                      onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, false); setEquipDragItem(null); setEquipDropZone(null); }}
+                      style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+                    >
+                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        {t("Not in use")}
+                        <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                          {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
+                        </span>
+                      </div>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                        {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).map((eq) => (
+                          <div
+                            key={eq.value}
+                            draggable
+                            onDragStart={(e) => { setEquipDragItem(eq.value); e.dataTransfer.effectAllowed = "move"; }}
+                            onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
+                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
+                          >
+                            {t(eq.label)}
+                            <button
+                              onClick={() => moveEquip(eq.value, true)}
+                              style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                              title={t("Add")}
+                            >✓</button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                )}
+    </div>),
+    sports: () => (<div>
+                          <div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <span />
+                    <button
+                      onClick={() => setSportEditMode((v) => !v)}
+                      style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.emerald : C.muted }}
+                    >
+                      {sportEditMode ? t("Done") : t("Edit")}
+                    </button>
+                  </div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
+                    {t("Tell the planner which sports you do. It nudges your strength and conditioning targets toward the muscles your sport demands most — so gym sessions complement your training, not compete with it. A recent run or ride automatically reduces the leg and cardio bias to protect recovery.")}
+                  </div>
+
+                  {!sportEditMode ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
+                      {(sportPrefs.sports ?? []).length === 0 ? (
+                        <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No sports selected")}</span>
+                      ) : (
+                        (sportPrefs.sports ?? []).map((id) => {
+                          const sp = ALL_SPORTS.find((s) => s.id === id);
+                          return sp ? (
+                            <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                              {t(sp.label)}
+                            </span>
+                          ) : null;
+                        })
+                      )}
+                    </div>
+                  ) : (
+                    <div>
+                      {/* Your sports panel */}
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setSportDropZone("active"); }}
+                        onDragLeave={() => setSportDropZone(null)}
+                        onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, true); setSportDragItem(null); setSportDropZone(null); }}
+                        style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
+                      >
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                          {t("Your sports")}
+                          <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                            {(sportPrefs.sports ?? []).length}
+                          </span>
+                        </div>
+                        {(sportPrefs.sports ?? []).length === 0 ? (
+                          <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Tap ✓ below to add a sport")}</div>
+                        ) : (
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                            {(sportPrefs.sports ?? []).map((id) => {
+                              const sp = ALL_SPORTS.find((s) => s.id === id);
+                              return sp ? (
+                                <div
+                                  key={id}
+                                  draggable
+                                  onDragStart={(e) => { setSportDragItem(id); e.dataTransfer.effectAllowed = "move"; }}
+                                  onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
+                                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
+                                >
+                                  {t(sp.label)}
+                                  <button
+                                    onClick={() => moveSport(id, false)}
+                                    style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                                    title={t("Remove")}
+                                  >×</button>
+                                </div>
+                              ) : null;
+                            })}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Not in use panel */}
+                      <div
+                        onDragOver={(e) => { e.preventDefault(); setSportDropZone("inactive"); }}
+                        onDragLeave={() => setSportDropZone(null)}
+                        onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, false); setSportDragItem(null); setSportDropZone(null); }}
+                        style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
+                      >
+                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                          {t("Not in use")}
+                          <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                            {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
+                          </span>
+                        </div>
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                          {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).map((sp) => (
+                            <div
+                              key={sp.id}
+                              draggable
+                              onDragStart={(e) => { setSportDragItem(sp.id); e.dataTransfer.effectAllowed = "move"; }}
+                              onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
+                              style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
+                            >
+                              {t(sp.label)}
+                              <button
+                                onClick={() => moveSport(sp.id, true)}
+                                style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                                title={t("Add")}
+                              >✓</button>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Primary sport picker (if 2+) */}
+                      {(sportPrefs.sports ?? []).length >= 2 && (
+                        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t("Primary sport")}</div>
+                          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                            {(sportPrefs.sports ?? []).map((id) => {
+                              const sp = ALL_SPORTS.find((s) => s.id === id);
+                              const isPrimary = sportPrefs.primary === id;
+                              return sp ? (
+                                <button
+                                  key={id}
+                                  onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
+                                  style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? C.onAccent : C.muted }}
+                                >
+                                  {t(sp.label)}
+                                </button>
+                              ) : null;
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+    </div>),
+    bias: () => {
+      const on = sportPrefs.bias_enabled !== false;
+      return <button className={`jf-adv__toggle${on ? " jf-adv__toggle--on" : ""}`} aria-pressed={on} onClick={() => setSportPrefs(prev => ({ ...prev, bias_enabled: prev.bias_enabled === false ? true : false }))}>{on ? t("On") : t("Off")}</button>;
+    },
+    polarised: () => (
+      effectiveIsPro ? (
+        <>
+          {sportPrefs.polarised_training && <div className="jf-adv__note">{t("Next: {what} — life always wins", { what: sportPrefs.last_endurance_type === "hiit" ? t("Zone 2 easy run") : t("HIIT intervals") })}</div>}
+          <button className={`jf-adv__toggle${sportPrefs.polarised_training ? " jf-adv__toggle--on" : ""}`} aria-pressed={!!sportPrefs.polarised_training} onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}>
+            {sportPrefs.polarised_training ? t("Active") : t("Enable")}
+          </button>
+        </>
+      ) : <button className="jf-adv__toggle" disabled>{t("Pro only")}</button>
+    ),
+    replan: () => (
+      effectiveIsPro ? (
+        <button className={`jf-adv__toggle${prefs.daily_replan ? " jf-adv__toggle--on" : ""}`} aria-pressed={!!prefs.daily_replan} onClick={() => {
+          const newVal = !prefs.daily_replan;
+          onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
+          api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
+        }}>{prefs.daily_replan ? t("Active") : t("Enable")}</button>
+      ) : <button className="jf-adv__toggle" disabled>{t("Pro only")}</button>
+    ),
+    rest: () => (
+      <div className="jf-adv__days">
+        {[[1, "Mon"], [2, "Tue"], [3, "Wed"], [4, "Thu"], [5, "Fri"], [6, "Sat"], [0, "Sun"]].map(([dow, label]) => {
+          const blocked = blockedWeekdays.includes(dow);
+          return (
+            <button key={dow} className={`jf-adv__day${blocked ? " jf-adv__day--on" : ""}`} aria-pressed={blocked}
+              onClick={() => setBlockedWeekdays(prev => prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow])}>
+              {t(label)}
+            </button>
+          );
+        })}
+      </div>
+    ),
+  };
+  const advRows = advancedRows(
+    { checkinMode, planDuration, advancedSchedule: showAdvancedSchedule, timeOverhead, equipment: planEquipment, sportPrefs, dailyReplan: !!prefs.daily_replan, isPro: effectiveIsPro, blockedWeekdays },
+    t,
+    { equipment: (v) => ALL_EQUIPMENT.find((e) => e.value === v)?.label ?? v, sport: (v) => ALL_SPORTS.find((s) => s.id === v)?.label ?? v },
+  );
+  const openAdvanced = (rowId) => { setAdvOpen(true); setAdvRow(rowId); };
+  const renderAdvanced = () => (
+    <div className="jf-dc__section jf-adv">
+      <button className="jf-adv__head" aria-expanded={advOpen} onClick={() => setAdvOpen((o) => !o)}>
+        <span>{t("Advanced settings")}</span>
+        <span className="jf-dc__chev" aria-hidden="true">{advOpen ? "▾" : "▸"}</span>
+      </button>
+      {!advOpen && <div className="jf-adv__hint">{t("Check-in, time, equipment, sports and how the planner adapts.")}</div>}
+      {advOpen && (
+        <div className="jf-adv__body">
+          {advRows.map((row) => (
+            <div key={row.id} className="jf-adv__row" data-adv-row={row.id}>
+              <button className="jf-adv__row-head" aria-expanded={advRow === row.id} onClick={() => setAdvRow((r) => r === row.id ? null : row.id)}>
+                <span className="jf-adv__row-title">{row.title}</span>
+                <span className="jf-adv__row-val">{row.value}</span>
+              </button>
+              <div className="jf-adv__row-sentence">{row.sentence}</div>
+              {advRow === row.id && <div className="jf-adv__row-body">{advEditors[row.id]()}</div>}
+            </div>
+          ))}
+          {saveStatus === "saving" && <div className="jf-adv__save">{t("Saving…")}</div>}
+          {saveStatus === "saved"  && <div className="jf-adv__save jf-adv__save--ok">{t("All changes saved ✓")}</div>}
+          {saveStatus === "error"  && <div className="jf-adv__save jf-adv__save--err">{t("Save failed — check connection")}</div>}
+        </div>
+      )}
+    </div>
+  );
+
   return (
     <div>
       {/* ── Doc overlay ──────────────────────────────────────── */}
@@ -821,14 +1391,23 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {subView === null ? (
         <div style={{ marginBottom: 32 }}>
-          <h1 style={{ ...display(36), color: C.text, margin: "0 0 28px 0" }}>{t("SETTINGS")}</h1>
+          <div className="jf-set__top">
+            <h1 style={{ ...display(36), color: C.text, margin: 0 }}>{t("SETTINGS")}</h1>
+            <div className="jf-set__lang" role="group" aria-label={t("Language")}>
+              {["nl", "en"].map((lang) => (
+                <button key={lang} className={`jf-set__lang-btn${getLang() === lang ? " jf-set__lang-btn--on" : ""}`} aria-pressed={getLang() === lang} onClick={() => setLang(lang)}>
+                  {lang === "nl" ? "NL" : "EN"}
+                </button>
+              ))}
+            </div>
+          </div>
           <div style={{ display: "flex", flexDirection: "column" }}>
             {[
               // coach-dcp R2 — "Your goal" and "Coaches" are one row now: path, coach, standards
               // and training days live on one screen (the sub-view keeps the key "coach", which
               // the Strava block below also keys off).
               { key: "coach",   label: t("Goal & coach"), sub: t("Path \u00b7 coach \u00b7 standards \u00b7 training days") },
-              { key: "you",     label: t("You"),          sub: t("Body \u00b7 equipment \u00b7 schedule \u00b7 appearance") },
+              { key: "you",     label: t("You"),          sub: t("Body \u00b7 injuries \u00b7 language \u00b7 appearance") },
               { key: "trainers", label: t("Trainers"),    sub: t("Connected trainers \u00b7 data sharing \u00b7 intake") },
               { key: "awards",   label: t("Trophy room"), sub: t("Awards & milestones") },
               { key: "privacy",  label: t("Privacy"),     sub: t("Data export \u00b7 legal docs \u00b7 feedback") },
@@ -914,7 +1493,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           if (id === "cycling") return t("Activate · Cycling Coach");
           if (id === "military") return milCoachActive ? t("Save changes · {x}", { x: milChoice }) : t("Activate · Military Coach · {x}", { x: milChoice });
           const goalLabel = t(GOALS.find(g => g.value === goalSel)?.label ?? "General Health");
-          return activeCoach === "general" ? t("Save · {goal}", { goal: goalLabel }) : t("Activate · {goal}", { goal: goalLabel });
+          return t("Activate · {goal}", { goal: goalLabel });   // UAT R5: on the general path the chips save on tap, there is no save button
         };
         const saveBtn = (id) => {
           const st = focusSaveStatus.id === id ? focusSaveStatus.state : "";
@@ -935,6 +1514,29 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         );
         const upgrade = <button className="jf-dc__upgrade" onClick={onUpgrade}>{t("Upgrade to Pro →")}</button>;
 
+        // ── UAT R5 — chips save on tap. One status line per chip group; a failed write reverts. ──
+        const chipSeq = chipSeqRef;
+        const chipTap = (id, { apply, revert, persist, after }) => {
+          const my = ++chipSeq.current;
+          apply();
+          return runChipSave({
+            persist, revert,
+            setStatus: (state) => { if (!state && my !== chipSeq.current) return; setChipSave(state ? { id, state } : { id: null, state: "" }); },
+          }).then((ok) => { if (ok) after?.(); });
+        };
+        const chipLine = (id) => chipSave.id === id && chipSave.state
+          ? <div className={`jf-dc__chipline jf-dc__chipline--${chipSave.state}`} role="status">{chipStatusText(chipSave.state, t)}</div>
+          : null;
+        const saveGeneralChip = (id, goal, exp) => {
+          const prev = { goal: goalSel, exp: localExpLevel, tg: prefs.training_goal, el: prefs.experience_level };
+          return chipTap(id, {
+            apply: () => { setGoalSel(goal); setLocalExpLevel(exp); onUpdate((p) => ({ ...p, training_goal: goal, experience_level: exp })); },
+            revert: () => { setGoalSel(prev.goal); setLocalExpLevel(prev.exp); onUpdate((p) => ({ ...p, training_goal: prev.tg, experience_level: prev.el })); },
+            persist: () => api.saveProfile(token, { training_goal: goal, experience_level: exp }),
+            after: () => { clearPlanCache(); onProgressionRefresh?.(); },
+          });
+        };
+
         // ── General path: goal + experience (inside JE PAD when it is the path) ──
         const GOAL_INFO = {
           health:      ["General Health · Balanced movement", "Strength, cardio, mobility and recovery in rotation — the foundation of long-term fitness."],
@@ -944,31 +1546,33 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           endurance:   ["Endurance · Aerobic development", "Longer sessions with steady-state cardio and zone 2 work to expand your aerobic base sustainably."],
           mobility:    ["Mobility & Flex · Joint health", "Stretching, flows and recovery work to improve range of motion, posture and injury resilience."],
         };
-        const generalBlock = () => (
+        const generalBlock = (auto = false) => (
           <div className="jf-dc__stack">
             <div>
               <div className="jf-dc__label">{t("Your goal")}</div>
               <div className="jf-dc__goals">
                 {GOALS.map(g => (
-                  <button key={g.value} className={`jf-dc__goal${goalSel === g.value ? " jf-dc__goal--on" : ""}`} onClick={() => setGoalSel(g.value)}>
+                  <button key={g.value} className={`jf-dc__goal${goalSel === g.value ? " jf-dc__goal--on" : ""}`} onClick={() => auto ? saveGeneralChip("goal", g.value, localExpLevel) : setGoalSel(g.value)}>
                     <GoalIcon value={g.value} size={20} />
                     <span>{t(g.label)}</span>
                   </button>
                 ))}
               </div>
+              {auto && chipLine("goal")}
             </div>
             <div>
               <div className="jf-dc__label">{t("Experience level")}</div>
               <div className="jf-dc__seg">
                 {EXPERIENCE.map(ex => (
-                  <button key={ex.value} className={`jf-dc__seg-btn${localExpLevel === ex.value ? " jf-dc__seg-btn--on" : ""}`} onClick={() => setLocalExpLevel(ex.value)}>
+                  <button key={ex.value} className={`jf-dc__seg-btn${localExpLevel === ex.value ? " jf-dc__seg-btn--on" : ""}`} onClick={() => auto ? saveGeneralChip("exp", goalSel, ex.value) : setLocalExpLevel(ex.value)}>
                     <span className="jf-dc__seg-title">{t(ex.label)}</span>
                   </button>
                 ))}
               </div>
+              {auto && chipLine("exp")}
             </div>
             {GOAL_INFO[goalSel] && note(t(GOAL_INFO[goalSel][0]), t(GOAL_INFO[goalSel][1]))}
-            {saveBtn("general")}
+            {!auto && saveBtn("general")}
           </div>
         );
 
@@ -1200,18 +1804,25 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           );
         };
 
-        const blockFor = (id) => id === "running" ? runBlock() : id === "cycling" ? cycleBlock() : id === "military" ? milBlock() : generalBlock();
+        const blockFor = (id) => id === "running" ? runBlock() : id === "cycling" ? cycleBlock() : id === "military" ? milBlock() : generalBlock(false);
         const others = ["running", "cycling", "military", "general"].filter(id => id !== activeCoach);
         const daysPerWeek = pref.training_days_per_week ?? 3;
         const sessionMins = prefs.session_duration_min ?? 45;
-        const handleDays = async (n) => {
-          const updated = { ...pref, training_days_per_week: n };
-          onUpdate(p => ({ ...p, preferences: updated }));
-          await api.saveProfile(token, { preferences: updated });
+        const handleDays = (n) => {
+          const prev = pref.training_days_per_week;
+          return chipTap("days", {
+            apply: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), training_days_per_week: n } })),
+            revert: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), training_days_per_week: prev } })),
+            persist: () => api.saveProfile(token, { preferences: { training_days_per_week: n } }),   // the server merges preferences key by key
+          });
         };
-        const handleMins = async (m) => {
-          onUpdate(p => ({ ...p, session_duration_min: m }));
-          await api.saveProfile(token, { session_duration_min: m });
+        const handleMins = (m) => {
+          const prev = prefs.session_duration_min;
+          return chipTap("mins", {
+            apply: () => onUpdate((p) => ({ ...p, session_duration_min: m })),
+            revert: () => onUpdate((p) => ({ ...p, session_duration_min: prev })),
+            persist: () => api.saveProfile(token, { session_duration_min: m }),
+          });
         };
 
         return (
@@ -1230,7 +1841,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   {onChangePath && <button className="jf-dc__btn" onClick={onChangePath}>{t("Change path →")}</button>}
                   {onOpenCoachView && activeCoach !== "general" && <button className="jf-norm__link" onClick={onOpenCoachView}>{t("View your coach")} →</button>}
                 </div>
-                {activeCoach === "general" && <div className="jf-dc__inset">{generalBlock()}</div>}
+                {activeCoach === "general" && <div className="jf-dc__inset">{generalBlock(true)}</div>}
               </div>
             </div>
 
@@ -1265,15 +1876,29 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <div className="jf-dc__section">
               <div className="jf-dc__eyebrow">{t("Training days")}</div>
               <div className="jf-dc__days">
-                {[2, 3, 4, 5].map(n => <button key={n} className={`jf-dc__day${daysPerWeek === n ? " jf-dc__day--on" : ""}`} onClick={() => handleDays(n)}>{n}x</button>)}
+                {[2, 3, 4, 5].map(n => <button key={n} className={`jf-dc__day${daysPerWeek === n ? " jf-dc__day--on" : ""}`} aria-pressed={daysPerWeek === n} onClick={() => handleDays(n)}>{n}x</button>)}
               </div>
+              {chipLine("days")}
             </div>
             <div className="jf-dc__section">
               <div className="jf-dc__eyebrow">{t("Session length")}</div>
               <div className="jf-dc__days">
-                {[15, 30, 45, 60].map(m => <button key={m} className={`jf-dc__day${sessionMins === m ? " jf-dc__day--on" : ""}`} onClick={() => handleMins(m)}>{m}m</button>)}
+                {[15, 30, 45, 60].map(m => <button key={m} className={`jf-dc__day${sessionMins === m ? " jf-dc__day--on" : ""}`} aria-pressed={sessionMins === m} onClick={() => handleMins(m)}>{m}m</button>)}
               </div>
+              {chipLine("mins")}
             </div>
+
+            {/* UAT R5 — Materiaal stays visible: the kit decides which exercises exist at all (and the
+                running coach needs the shoes). The full editor lives in Geavanceerd; this row opens it. */}
+            <div className="jf-dc__section">
+              <div className="jf-dc__eyebrow">{t("Equipment")}</div>
+              <button className="jf-dc__kit" onClick={() => openAdvanced("equipment")}>
+                <span className="jf-dc__kit-val">{advRows.find((r) => r.id === "equipment")?.value}</span>
+                <span className="jf-dc__chev" aria-hidden="true">›</span>
+              </button>
+            </div>
+
+            {renderAdvanced()}
           </div>
         );
       })()}
@@ -1283,645 +1908,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       )}
 
       {subView === "you" && (<>
-      {/* ── Daily Planning ──────────────────────────────────── */}
-      <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          {t("Daily Planning")}
-        </div>
-        <Glass style={{ padding: 24 }}>
-
-          {/* Check-in mode */}
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
-            {t("Daily check-in")}
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-            {t("Controls when the Daily Intelligence Prompt appears.")}
-          </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
-            {[
-              { id: "every_time", label: t("Every time"),  sub: t("On every open") },
-              { id: "once_a_day", label: t("Once a day"),  sub: t("First open only") },
-              { id: "manual",     label: t("Manual"),       sub: t("You decide") },
-            ].map(({ id, label, sub }) => {
-              const sel = checkinMode === id;
-              return (
-                <button
-                  key={id}
-                  onClick={() => setCheckinMode(id)}
-                  style={{
-                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
-                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
-                  <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {/* Session duration — Standard / Advanced selector */}
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4, borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 20 }}>
-            {t("Available time per session")}
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-            {t("Sets the default length of your daily plan. You can always adjust on the day.")}
-          </div>
-          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
-            {[
-              { id: false, label: t("Standard"), sub: t("One duration for all days") },
-              { id: true,  label: t("Advanced"), sub: t("Set time per day of week") },
-            ].map(({ id, label, sub }) => {
-              const sel = showAdvancedSchedule === id;
-              return (
-                <button
-                  key={String(id)}
-                  onClick={() => {
-                    if (id === true && !showAdvancedSchedule) {
-                      // First activation: seed all days with current standard duration
-                      setWeeklySchedule({ mon: planDuration, tue: planDuration, wed: planDuration, thu: planDuration, fri: planDuration, sat: planDuration, sun: planDuration });
-                    }
-                    setShowAdvancedSchedule(id);
-                  }}
-                  style={{
-                    flex: 1, padding: "10px 6px", borderRadius: 14, cursor: "pointer",
-                    border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
-                    background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                    display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
-                  }}
-                >
-                  <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
-                  <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
-                </button>
-              );
-            })}
-          </div>
-
-          {!showAdvancedSchedule ? (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 24 }}>
-              {[15, 20, 30, 45, 60, 90, 120].map((d) => (
-                <button
-                  key={d}
-                  onClick={() => setPlanDuration(d)}
-                  style={{
-                    padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
-                    border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
-                    background: planDuration === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                    color: planDuration === d ? C.emerald : C.muted,
-                    cursor: "pointer",
-                  }}
-                >
-                  {d === 60 ? '1h' : d === 90 ? '1.5h' : d === 120 ? '2h' : `${d} min`}
-                </button>
-              ))}
-            </div>
-          ) : (() => {
-            const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 270, 300, 330, 999];
-            const fmtStep = v => {
-              if (v === 0)   return t('Rest');
-              if (v === 999) return '∞';
-              if (v < 60)    return `${v}m`;
-              const h = Math.floor(v / 60), m = v % 60;
-              return m === 0 ? `${h}h` : `${h}h ${m}m`;
-            };
-            return (
-              <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
-                {[
-                  { key: "mon", label: t("Mon") },
-                  { key: "tue", label: t("Tue") },
-                  { key: "wed", label: t("Wed") },
-                  { key: "thu", label: t("Thu") },
-                  { key: "fri", label: t("Fri") },
-                  { key: "sat", label: t("Sat") },
-                  { key: "sun", label: t("Sun") },
-                ].map(({ key, label }) => {
-                  const raw = weeklySchedule[key] ?? planDuration;
-                  const val = ADV_STEPS.reduce((best, s) => Math.abs(s - raw) < Math.abs(best - raw) ? s : best, ADV_STEPS[0]);
-                  const idx = ADV_STEPS.indexOf(val);
-                  const isRest = val === 0;
-                  const btnStyle = (disabled) => ({
-                    width: 44, height: 44, borderRadius: 12, flexShrink: 0,
-                    border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)",
-                    color: disabled ? C.subtle : C.text,
-                    fontSize: 22, fontWeight: 300, cursor: disabled ? "default" : "pointer",
-                    display: "flex", alignItems: "center", justifyContent: "center",
-                  });
-                  return (
-                    <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                      <div style={{ width: 34, fontSize: 11, fontWeight: 900, color: isRest ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
-                        {label}
-                      </div>
-                      <button
-                        onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.max(0, idx - 1)] }))}
-                        disabled={idx === 0}
-                        style={btnStyle(idx === 0)}
-                      >−</button>
-                      <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 900, color: isRest ? C.muted : C.emerald }}>
-                        {fmtStep(val)}
-                      </div>
-                      <button
-                        onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.min(ADV_STEPS.length - 1, idx + 1)] }))}
-                        disabled={idx === ADV_STEPS.length - 1}
-                        style={btnStyle(idx === ADV_STEPS.length - 1)}
-                      >+</button>
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          })()}
-
-          <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
-
-          {/* ── Time overhead ── */}
-          {(() => {
-            const presetDefs = [
-              { key: "change_clothes",    label: t("Change clothes") },
-              { key: "prepare_equipment", label: t("Prepare equipment") },
-              { key: "clean_equipment",   label: t("Clean equipment") },
-              { key: "shower",            label: t("Shower") },
-            ];
-            const profileTotal = (profile) =>
-              presetDefs.reduce((s, { key }) => s + (profile?.presets?.[key] || 0), 0) +
-              (profile?.custom ?? []).reduce((s, c) => s + (c.minutes || 0), 0);
-            const shortTotal = profileTotal(timeOverhead.short);
-            const longTotal  = profileTotal(timeOverhead.long);
-
-            const stepMin = (profile, key, delta) =>
-              setTimeOverhead((o) => ({
-                ...o,
-                [profile]: { ...o[profile], presets: { ...o[profile].presets, [key]: Math.max(0, Math.min(60, (o[profile].presets?.[key] || 0) + delta)) } },
-              }));
-            const stepCustom = (profile, idx, delta) =>
-              setTimeOverhead((o) => {
-                const c = [...(o[profile].custom ?? [])];
-                c[idx] = { ...c[idx], minutes: Math.max(0, Math.min(60, (c[idx].minutes || 0) + delta)) };
-                return { ...o, [profile]: { ...o[profile], custom: c } };
-              });
-            const renameCustom = (profile, idx, lbl) =>
-              setTimeOverhead((o) => {
-                const c = [...(o[profile].custom ?? [])];
-                c[idx] = { ...c[idx], label: lbl };
-                return { ...o, [profile]: { ...o[profile], custom: c } };
-              });
-            const removeCustom = (profile, idx) =>
-              setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: (o[profile].custom ?? []).filter((_, i) => i !== idx) } }));
-            const addCustom = (profile) =>
-              setTimeOverhead((o) => ({ ...o, [profile]: { ...o[profile], custom: [...(o[profile].custom ?? []), { label: "", minutes: 0 }] } }));
-
-            const StepRow = ({ label, value, onMinus, onPlus }) => (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: value > 0 ? C.text : C.muted }}>{label}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                  <button className="jf-tap" onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
-                  <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: value > 0 ? C.emerald : C.muted }}>{value}m</span>
-                  <button className="jf-tap" onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
-                </div>
-              </div>
-            );
-
-            const ProfileSection = ({ profileKey, title }) => {
-              const profile = timeOverhead[profileKey] ?? { presets: {}, custom: [] };
-              return (
-                <div style={{ marginBottom: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 16 }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
-                    <div style={{ flex: 1, height: 1, background: C.border }} />
-                  </div>
-                  {presetDefs.map(({ key, label }) => (
-                    <StepRow key={key} label={label} value={profile.presets?.[key] || 0}
-                      onMinus={() => stepMin(profileKey, key, -5)} onPlus={() => stepMin(profileKey, key, 5)} />
-                  ))}
-                  {(profile.custom ?? []).map((c, idx) => (
-                    <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                      <input
-                        value={c.label}
-                        onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
-                        placeholder={t("e.g. Drive to gym")}
-                        style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
-                      />
-                      <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
-                      <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
-                      <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
-                      <button className="jf-tap" onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: C.danger, cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
-                    </div>
-                  ))}
-                  {(profile.custom ?? []).length < 3 && (
-                    <button onClick={() => addCustom(profileKey)} style={{ marginTop: 8, padding: "5px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted }}>
-                      + Add custom block
-                    </button>
-                  )}
-                </div>
-              );
-            };
-
-            return (
-              <div style={{ marginBottom: 24 }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>{t("Time overhead")}</div>
-                  <button
-                    onClick={() => setOverheadEditMode((v) => !v)}
-                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.emerald : C.muted }}
-                  >
-                    {overheadEditMode ? t("Done") : t("Edit")}
-                  </button>
-                </div>
-
-                {!overheadEditMode ? (
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
-                    {timeOverhead.enabled && (shortTotal > 0 || longTotal > 0) ? (
-                      <span>
-                        {shortTotal > 0 && <span>{t("Quick session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> {t("overhead")}</span>}
-                        {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtle }}> · </span>}
-                        {longTotal > 0 && <span>{t("Full session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> {t("overhead")}</span>}
-                      </span>
-                    ) : (
-                      <span style={{ color: C.subtle, fontStyle: "italic" }}>{t("Not set — full window used for training")}</span>
-                    )}
-                  </div>
-                ) : (
-                  <div>
-                    {/* Enable toggle */}
-                    <div
-                      onClick={() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled }))}
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
-                    >
-                      <div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>{t("Include overhead in planning")}</div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Subtracts overhead from your available training window")}</div>
-                      </div>
-                      <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
-                        <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: C.knob, transition: "left 0.2s" }} />
-                      </div>
-                    </div>
-
-                    <ProfileSection profileKey="short" title={t("Quick session  ≤ 30 min")} />
-                    <ProfileSection profileKey="long"  title={t("Full session  > 30 min")} />
-                  </div>
-                )}
-              </div>
-            );
-          })()}
-
-          <div style={{ height: 1, background: C.border, marginBottom: 24 }} />
-
-          {/* Equipment */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-              {t("Available equipment")}
-            </div>
-            <button
-              onClick={() => setEquipEditMode((v) => !v)}
-              style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.emerald : C.muted }}
-            >
-              {equipEditMode ? t("Done") : t("Edit")}
-            </button>
-          </div>
-          <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-            {t("The planner only suggests exercises you can actually do. Tap Edit to change your kit.")}
-          </div>
-
-          {!equipEditMode ? (
-            /* ── Collapsed: show active chips only ── */
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, minHeight: 32 }}>
-              {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No equipment — bodyweight only")}</span>
-              ) : (
-                planEquipment.filter((v) => v !== "none").map((val) => {
-                  const eq = ALL_EQUIPMENT.find((e) => e.value === val);
-                  return eq ? (
-                    <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                      {t(eq.label)}
-                    </span>
-                  ) : null;
-                })
-              )}
-            </div>
-          ) : (
-            /* ── Expanded: two-panel drag UI ── */
-            <div style={{ marginBottom: 20 }}>
-              {/* Your equipment panel */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setEquipDropZone("active"); }}
-                onDragLeave={() => setEquipDropZone(null)}
-                onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, true); setEquipDragItem(null); setEquipDropZone(null); }}
-                style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
-              >
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  {t("Your equipment")}
-                  <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
-                    {planEquipment.filter((v) => v !== "none").length}
-                  </span>
-                </div>
-                {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                  <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Drag items here or tap ✓ below")}</div>
-                ) : (
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {planEquipment.filter((v) => v !== "none").map((val) => {
-                      const eq = ALL_EQUIPMENT.find((e) => e.value === val);
-                      return eq ? (
-                        <div
-                          key={val}
-                          draggable
-                          onDragStart={(e) => { setEquipDragItem(val); e.dataTransfer.effectAllowed = "move"; }}
-                          onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
-                          style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
-                        >
-                          {t(eq.label)}
-                          <button
-                            onClick={() => moveEquip(val, false)}
-                            style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
-                            title={t("Remove")}
-                          >×</button>
-                        </div>
-                      ) : null;
-                    })}
-                  </div>
-                )}
-              </div>
-
-              {/* Not in use panel */}
-              <div
-                onDragOver={(e) => { e.preventDefault(); setEquipDropZone("inactive"); }}
-                onDragLeave={() => setEquipDropZone(null)}
-                onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, false); setEquipDragItem(null); setEquipDropZone(null); }}
-                style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
-              >
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  {t("Not in use")}
-                  <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
-                    {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
-                  </span>
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).map((eq) => (
-                    <div
-                      key={eq.value}
-                      draggable
-                      onDragStart={(e) => { setEquipDragItem(eq.value); e.dataTransfer.effectAllowed = "move"; }}
-                      onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
-                      style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
-                    >
-                      {t(eq.label)}
-                      <button
-                        onClick={() => moveEquip(eq.value, true)}
-                        style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
-                        title={t("Add")}
-                      >✓</button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* ── Sports ── */}
-          <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-                {t("Sports & Activities")}
-              </div>
-              <button
-                onClick={() => setSportEditMode((v) => !v)}
-                style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.emerald : C.muted }}
-              >
-                {sportEditMode ? t("Done") : t("Edit")}
-              </button>
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              {t("Tell the planner which sports you do. It nudges your strength and conditioning targets toward the muscles your sport demands most — so gym sessions complement your training, not compete with it. A recent run or ride automatically reduces the leg and cardio bias to protect recovery.")}
-            </div>
-
-            {!sportEditMode ? (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
-                {(sportPrefs.sports ?? []).length === 0 ? (
-                  <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No sports selected")}</span>
-                ) : (
-                  (sportPrefs.sports ?? []).map((id) => {
-                    const sp = ALL_SPORTS.find((s) => s.id === id);
-                    return sp ? (
-                      <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                        {t(sp.label)}
-                      </span>
-                    ) : null;
-                  })
-                )}
-              </div>
-            ) : (
-              <div>
-                {/* Your sports panel */}
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setSportDropZone("active"); }}
-                  onDragLeave={() => setSportDropZone(null)}
-                  onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, true); setSportDragItem(null); setSportDropZone(null); }}
-                  style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
-                >
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    {t("Your sports")}
-                    <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
-                      {(sportPrefs.sports ?? []).length}
-                    </span>
-                  </div>
-                  {(sportPrefs.sports ?? []).length === 0 ? (
-                    <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Tap ✓ below to add a sport")}</div>
-                  ) : (
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                      {(sportPrefs.sports ?? []).map((id) => {
-                        const sp = ALL_SPORTS.find((s) => s.id === id);
-                        return sp ? (
-                          <div
-                            key={id}
-                            draggable
-                            onDragStart={(e) => { setSportDragItem(id); e.dataTransfer.effectAllowed = "move"; }}
-                            onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
-                            style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
-                          >
-                            {t(sp.label)}
-                            <button
-                              onClick={() => moveSport(id, false)}
-                              style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
-                              title={t("Remove")}
-                            >×</button>
-                          </div>
-                        ) : null;
-                      })}
-                    </div>
-                  )}
-                </div>
-
-                {/* Not in use panel */}
-                <div
-                  onDragOver={(e) => { e.preventDefault(); setSportDropZone("inactive"); }}
-                  onDragLeave={() => setSportDropZone(null)}
-                  onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, false); setSportDragItem(null); setSportDropZone(null); }}
-                  style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
-                >
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    {t("Not in use")}
-                    <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
-                      {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
-                    </span>
-                  </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                    {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).map((sp) => (
-                      <div
-                        key={sp.id}
-                        draggable
-                        onDragStart={(e) => { setSportDragItem(sp.id); e.dataTransfer.effectAllowed = "move"; }}
-                        onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
-                        style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
-                      >
-                        {t(sp.label)}
-                        <button
-                          onClick={() => moveSport(sp.id, true)}
-                          style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
-                          title={t("Add")}
-                        >✓</button>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Primary sport picker (if 2+) */}
-                {(sportPrefs.sports ?? []).length >= 2 && (
-                  <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t("Primary sport")}</div>
-                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                      {(sportPrefs.sports ?? []).map((id) => {
-                        const sp = ALL_SPORTS.find((s) => s.id === id);
-                        const isPrimary = sportPrefs.primary === id;
-                        return sp ? (
-                          <button
-                            key={id}
-                            onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
-                            style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? C.onAccent : C.muted }}
-                          >
-                            {t(sp.label)}
-                          </button>
-                        ) : null;
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* The DCP bias toggle moved to Settings → Coaches → NORMEN (coach-dcp R1). */}
-
-          {/* ── Sport bias toggle ── */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>{t("Sport-aware training bias")}</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
-                  {sportPrefs.bias_enabled !== false
-                    ? t("Planner fills the gaps your sport doesn't cover.")
-                    : t("Planner ignores your sport — trains all axes equally.")}
-                </div>
-              </div>
-              <button
-                onClick={() => setSportPrefs(prev => ({ ...prev, bias_enabled: prev.bias_enabled === false ? true : false }))}
-                style={{
-                  flexShrink: 0, padding: "8px 18px", borderRadius: 999, fontSize: 12, fontWeight: 900,
-                  cursor: "pointer",
-                  border: `1px solid ${sportPrefs.bias_enabled !== false ? C.emeraldBorder : C.border}`,
-                  background: sportPrefs.bias_enabled !== false ? C.emeraldDim : "rgba(var(--overlay-rgb),0.05)",
-                  color: sportPrefs.bias_enabled !== false ? C.emerald : C.muted,
-                }}
-              >
-                {sportPrefs.bias_enabled !== false ? t("On") : t("Off")}
-              </button>
-            </div>
-          </div>
-
-          {/* ── Polarised Training ── */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: effectiveIsPro ? 1 : 0.45 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>{t("Polarised Training")}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              {sportPrefs.polarised_training
-                ? t("Next: {what} — life always wins", { what: sportPrefs.last_endurance_type === "hiit" ? t("Zone 2 easy run") : t("HIIT intervals") })
-                : t("Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen.")}
-            </div>
-            {effectiveIsPro ? (
-              <button
-                onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
-                style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: sportPrefs.polarised_training ? C.onAccent : C.muted }}
-              >
-                {sportPrefs.polarised_training ? t("Active") : t("Enable")}
-              </button>
-            ) : (
-              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.05)", color: C.muted }}>{t("Pro only")}</button>
-            )}
-          </div>
-
-          {/* Daily Adaptive Replan */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>{t("Daily Adaptive Replan")}</div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              {effectiveIsPro ? t("Recalibrates your plan each morning based on your check-in.") : t("Upgrade to Pro to unlock.")}
-            </div>
-            <button
-              onClick={() => {
-                if (!effectiveIsPro) return;
-                const newVal = !prefs.daily_replan;
-                onUpdate((p) => ({ ...p, daily_replan: newVal, preferences: { ...(p.preferences ?? {}), daily_replan: newVal } }));
-                api.saveProfile(token, { preferences: { ...(prefs.preferences ?? {}), daily_replan: newVal } }).catch(() => {});
-              }}
-              style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: effectiveIsPro && prefs.daily_replan ? C.onAccent : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
-            >
-              {effectiveIsPro ? (prefs.daily_replan ? t("Active") : t("Enable")) : t("Pro only")}
-            </button>
-          </div>
-
-          {/* Rustdagen */}
-          <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginTop: 4, marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
-              Rustdagen
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              Gemarkeerde dagen worden automatisch rustdagen. Je kunt altijd handmatig een sessie starten.
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[
-                { dow: 1, label: "Ma" },
-                { dow: 2, label: "Di" },
-                { dow: 3, label: "Wo" },
-                { dow: 4, label: "Do" },
-                { dow: 5, label: "Vr" },
-                { dow: 6, label: "Za" },
-                { dow: 0, label: "Zo" },
-              ].map(({ dow, label }) => {
-                const blocked = blockedWeekdays.includes(dow);
-                return (
-                  <button
-                    key={dow}
-                    onClick={() => setBlockedWeekdays(prev =>
-                      prev.includes(dow) ? prev.filter(d => d !== dow) : [...prev, dow]
-                    )}
-                    style={{
-                      flex: 1, padding: "8px 2px", borderRadius: 10, cursor: "pointer",
-                      border: `1px solid ${blocked ? "rgba(244,63,94,0.4)" : C.border}`,
-                      background: blocked ? "rgba(244,63,94,0.08)" : "rgba(var(--overlay-rgb),0.03)",
-                      color: blocked ? "#f43f5e" : C.muted,
-                      fontSize: 11, fontWeight: 900,
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>{t("Saving…")}</div>}
-          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>{t("All changes saved ✓")}</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>{t("Save failed — check connection")}</div>}
-        </Glass>
-      </div>
-
       {/* ── Known Injuries ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
@@ -2147,6 +2133,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {profileSex === "female" && (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Cycle tracking")}</div>
+              {cycleTrackingMode === "smart" && prefs.cycle?.current_phase && (
+                <div style={{ fontSize: 12, color: "rgba(167,139,250,0.8)", marginBottom: 8 }}>
+                  {t("Currently in your {phase} · Day {day}", { phase: t(PHASE_LABELS[prefs.cycle.current_phase]), day: prefs.cycle.cycle_day })}
+                </div>
+              )}
               <div style={{ display: "flex", gap: 8, marginBottom: cycleTrackingMode === "smart" ? 14 : 0 }}>
                 {[{ label: t("Smart"), value: "smart" }, { label: t("Off"), value: "off" }].map((opt) => (
                   <button
@@ -2630,6 +2621,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
           <Glass style={{ padding: 24 }}>
+            {/* UAT R5 — a guest has no email: one row that opens the guest-convert flow, no Resend / Enter code */}
+            {prefs.email === null ? (
+              <div className="jf-set__guest">
+                <button className="jf-set__row" onClick={() => setShowGuestConvert(true)}>
+                  <span className="jf-set__row-title">{t("Add email")}</span>
+                  <span className="jf-dc__chev" aria-hidden="true">›</span>
+                </button>
+                <div className="jf-set__row-sub">{t("Add your email to keep your data")}</div>
+              </div>
+            ) : (
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Email address")}</div>
               {prefs.email_verified ? (
@@ -2662,6 +2663,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 </div>
               )}
             </div>
+            )}
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Account ID")}</div>
               <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
@@ -3059,34 +3061,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
           </div>
 
-          {/* ── Language toggle ── */}
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>
-              {t("Language")}
-            </div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {["nl", "en"].map((lang) => {
-                const active = getLang() === lang;
-                return (
-                  <button
-                    key={lang}
-                    onClick={() => setLang(lang)}
-                    style={{
-                      padding: "8px 20px", borderRadius: 12, fontWeight: 900, fontSize: 14, cursor: "pointer",
-                      border: `1px solid ${active ? "var(--accent-border, rgba(16,185,129,0.3))" : C.border}`,
-                      background: active ? "var(--accent-dim, rgba(16,185,129,0.15))" : "rgba(var(--overlay-rgb),0.04)",
-                      color: active ? "var(--accent, #10b981)" : C.muted,
-                    }}
-                  >
-                    {lang === "nl" ? "NL" : "EN"}
-                  </button>
-                );
-              })}
-            </div>
-            <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
-              {getLang() === "nl" ? "App wordt weergegeven in het Nederlands." : "App is displayed in English."}
-            </div>
-          </div>
+          {/* Language: one place — the toggle on the Settings landing (UAT R5). */}
           <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Accent colour")}
@@ -3206,84 +3181,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       </>)}  {/* closes subView === "privacy" for Feedback + Information */}
 
       {/* ── Your body — only shown to female users, you sub-view ── */}
-      {subView === "you" && prefs.sex === "female" && (
+      {subView === "you" && prefs.sex === "female" && (bodyMode === "pregnant" || bodyMode === "postnatal") && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Your body")}
           </div>
-
-          <Glass style={{ padding: 20, marginBottom: 12 }}>
-            {/* Cycle tracking mode */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{t("Cycle tracking")}</div>
-                {cycleTrackingMode === "smart" && prefs.cycle?.current_phase && (
-                  <div style={{ fontSize: 12, color: "rgba(167,139,250,0.8)", marginTop: 3 }}>
-                    {t("Currently in your {phase} · Day {day}", { phase: t(PHASE_LABELS[prefs.cycle.current_phase]), day: prefs.cycle.cycle_day })}
-                  </div>
-                )}
-              </div>
-              <div style={{ display: "flex", gap: 6 }}>
-                {["smart", "off"].map((mode) => (
-                  <button
-                    key={mode}
-                    onClick={() => setCycleTrackingMode(mode)}
-                    style={{
-                      padding: "6px 12px", borderRadius: 10, fontSize: 12, fontWeight: 700,
-                      border: `1px solid ${cycleTrackingMode === mode ? C.emeraldBorder : C.border}`,
-                      background: cycleTrackingMode === mode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                      color: cycleTrackingMode === mode ? C.emerald : C.muted, cursor: "pointer",
-                    }}
-                  >
-                    {mode === "smart" ? t("Smart") : t("Off")}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {cycleTrackingMode === "smart" && (
-              <>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{t("Last period started")}</div>
-                <input
-                  type="date"
-                  value={lastPeriodStart}
-                  max={new Date().toISOString().split("T")[0]}
-                  onChange={(e) => setLastPeriodStart(e.target.value)}
-                  style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 14, boxSizing: "border-box" }}
-                />
-
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("Cycle length")}</div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
-                  {CYCLE_LENGTHS.map((d) => (
-                    <button
-                      key={d}
-                      onClick={() => setCycleLength(d)}
-                      style={{ padding: "6px 11px", borderRadius: 999, fontSize: 12, fontWeight: 700, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
-                    >
-                      {d}d
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-
-            <button
-              disabled={cycleSaving}
-              onClick={async () => {
-                setCycleSaving(true);
-                try {
-                  await api.saveProfile(token, {
-                    cycle: { tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart || undefined },
-                  });
-                  onUpdate((p) => ({ ...p, cycle: { ...(p.cycle ?? {}), tracking_mode: cycleTrackingMode, cycle_length_days: cycleLength, last_period_start: lastPeriodStart } }));
-                } catch { /* ignore */ }
-                setCycleSaving(false);
-              }}
-              style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(var(--overlay-rgb),0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
-            >
-              {cycleSaving ? t("Saving…") : t("Save")}
-            </button>
-          </Glass>
 
           {bodyMode === "pregnant" && (
             <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
@@ -3488,6 +3390,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         </div>
       </div>
       )}  {/* closes subView === "account" for Delete account */}
+
+      {showGuestConvert && (
+        <Suspense fallback={null}>
+          <GuestConvertModal onClose={() => setShowGuestConvert(false)} onConverted={() => window.location.reload()} />
+        </Suspense>
+      )}
 
       {/* ── Coach conflict modal ── */}
       {showConflictModal && (

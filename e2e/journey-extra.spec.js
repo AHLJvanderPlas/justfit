@@ -43,10 +43,39 @@ async function signupFresh(page, suffix = '') {
 test('guest mode — banner shown after skipping sign-in', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   await page.goto('/login.html');
-  await page.locator('#tab-signup').click(); // #guest-section is hidden until signup tab is active
+  // UAT R5: the guest button is on the Sign in tab too (the default tab); no tab switch needed.
+  await expect(page.locator('#guest-btn')).toBeVisible();
   await page.locator('#guest-btn').click();
   await page.waitForURL('/');
   await expect(page.getByText('Add your email to keep your data')).toBeVisible({ timeout: 10_000 });
+});
+
+test('guest mode — the guest button is visible on both tabs', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
+  await page.goto('/login.html');
+  await expect(page.locator('#tab-login')).toHaveClass(/active/);
+  await expect(page.locator('#guest-btn')).toBeVisible();
+  await page.locator('#tab-signup').click();
+  await expect(page.locator('#guest-btn')).toBeVisible();
+});
+
+// UAT release 5 — a guest has no email: Settings → Account offers "Add email", not Resend / Enter code.
+test('guest mode — Settings → Account shows "Add email", no Resend', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
+  await page.goto('/login.html');
+  await page.locator('#guest-btn').click();
+  await page.waitForURL('/');
+  await expect(page.getByText('Add your email to keep your data').first()).toBeVisible({ timeout: 10_000 });
+  await page.getByRole('button', { name: /I Agree/ }).click();
+  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
+  await page.getByRole('button', { name: 'Good' }).click();
+  await page.getByRole('button', { name: 'Apply →' }).click();
+  await page.getByRole('button', { name: /GENERAL/i }).click();
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Account/ }).click();
+  await expect(page.getByRole('button', { name: /^Add email/ })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByRole('button', { name: 'Resend' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Enter code' })).toHaveCount(0);
 });
 
 // ─── Journey 3: FIT-code connect success ────────────────────────────────────
