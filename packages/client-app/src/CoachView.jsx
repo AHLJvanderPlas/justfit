@@ -9,6 +9,7 @@ import { milClL, fmtDateNL, getUserId } from "./planUtils.js";
 import { DcpCard } from "./DcpCard.jsx";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+import { cycleSubGoalLabel } from "./messagePolicy.js";
 import { useAppShell } from "./AppShellContext.js";
 import { MyTrainingsCard } from "./MyTrainings.jsx";
 
@@ -235,7 +236,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const intents = [
     { id: "military", label: t("Military"), headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : t("Not enrolled"), available: milA },
     { id: "running",  label: t("Running"),  headline: rcA ? t("{km}km goal", { km: pref.run_coach.target_km }) : t("Not enrolled"), available: rcA },
-    { id: "cycling",  label: t("Cycling"),  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? t("Active")}` : t("Not enrolled"), available: ccA },
+    { id: "cycling",  label: t("Cycling"),  headline: ccA ? (pref.cycling_coach.sub_goal ? cycleSubGoalLabel(pref.cycling_coach.sub_goal) : t("Active")) : t("Not enrolled"), available: ccA },
     { id: "general",  label: t("General health"), headline: t("Consistent daily training"), available: true },
   ];
 
@@ -400,9 +401,9 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             </div>
             <div>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{currentGoal.label}</div>
+              <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{t(currentGoal.label)}</div>
               <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-                {exp.label}
+                {t(exp.label)}
               </span>
             </div>
             <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>{t("Change in Settings →")}</div>

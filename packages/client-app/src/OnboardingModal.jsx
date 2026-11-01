@@ -1,6 +1,7 @@
 // First-run / re-do onboarding. Moved out of App.jsx (F4); lazy — shown once.
 import { useState } from "react";
 import { C } from "./tokens.js";
+import { t } from "./i18n.js";
 import { EXPERIENCE, EQUIPMENT_OPTIONS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS } from "./appConstants.js";
 import api from "./apiClient.js";
 
@@ -413,7 +414,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack }) {
                       color: C.text, fontWeight: 700, fontSize: 14, cursor: "pointer", textAlign: "left",
                     }}
                   >
-                    <div style={{ color: experience === e.value ? C.emerald : C.text, marginBottom: 3 }}>{e.label}</div>
+                    <div style={{ color: experience === e.value ? C.emerald : C.text, marginBottom: 3 }}>{t(e.label)}</div>
                     <div style={{ fontSize: 12, color: C.muted, fontWeight: 500 }}>{e.sub}</div>
                   </button>
                 ))}

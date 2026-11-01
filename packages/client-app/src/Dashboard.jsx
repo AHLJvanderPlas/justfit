@@ -10,7 +10,7 @@ import { GOALS, EXPERIENCE } from "./appConstants.js";
 import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import api from "./apiClient.js";
-import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle } from "./messagePolicy.js";
+import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, coachSentenceT, cycleSubGoalLabel } from "./messagePolicy.js";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
@@ -512,7 +512,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           coachText = t("{km}km programme · Week {w}", { km: pref.run_coach.target_km, w: pref.run_coach.week ?? 1 });
         } else if (ccA) {
           goalText  = t("CYCLING COACH");
-          coachText = `${(pref.cycling_coach.sub_goal ?? "build_fitness").replace(/_/g, " ")} · Week ${pref.cycling_coach.week ?? 1}`;
+          coachText = `${cycleSubGoalLabel(pref.cycling_coach.sub_goal ?? "build_fitness")} · Week ${pref.cycling_coach.week ?? 1}`;
         } else {
           goalText  = t(GOAL_LABELS[prefs?.training_goal ?? "health"] ?? "Improve overall fitness").toUpperCase();
           coachText = null;
@@ -633,7 +633,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     : null;
                   const text = sentence ?? fallback;
                   return text ? (
-                    <div style={{ fontSize: 15, lineHeight: 1.5, color: C.textSoft, maxWidth: '34ch', marginBottom: 14 }}>{t(text)}</div>
+                    <div style={{ fontSize: 15, lineHeight: 1.5, color: C.textSoft, maxWidth: '34ch', marginBottom: 14 }}>{coachSentenceT(text)}</div>
                   ) : null;
                 })()}
                 {/* Session meta: time / moves / intensity */}
@@ -754,9 +754,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 {!todayCompleted && <OwnSessionAssessmentOffer plan={plan} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
-                    {t("Your daily plan is ready.")}{" "}
-                    <span onClick={onUpgrade} style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 700 }}>Pro</span>
-                    {" "}{t("users can regenerate.")}
+                    {t("Your daily plan is ready. {pro} users can regenerate.", { pro: "\u0001" }).split("\u0001").flatMap((part, i) => i === 0 ? [part] : [<span key="pro" onClick={onUpgrade} style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 700 }}>Pro</span>, part])}
                   </div>
                 )}
               </>

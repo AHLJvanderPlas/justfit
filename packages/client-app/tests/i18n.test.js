@@ -99,8 +99,6 @@ const V16_KEYS = [
   "Your session is kept gentle until you confirm exercise clearance with your healthcare provider.",
   "Update clearance in Settings when you're cleared.",
   "Health & Safety",
-  "Your daily plan is ready.",
-  "users can regenerate.",
   "Complete the daily check-in to generate today's session.",
   "{sets} × {dur} run",
   "Run Day",
@@ -339,12 +337,25 @@ const V16_KEYS = [
   "MILITARY · {x}",
   "RUNNING · {km}km",
   "CYCLING · WEEK {w}",
+  "Your daily plan is ready. {pro} users can regenerate.",
+  "Deload",
+  "Open",
+  "baseline",
+  "progress check",
+  "assessment simulation",
+  "Adapted for pregnancy",
+  "Postnatal-safe",
+  "Build fitness",
+  "Climbing",
+  "Sprint",
+  "Aerobic base",
+  "Race fitness"
 ];
 // Loanwords that are the same word in Dutch.
-const SAME_IN_DUTCH = new Set(["Beginner", "Kettlebell", "Power tower", "Lat pulldown"]);
+const SAME_IN_DUTCH = new Set(['Open', 'Sprint', "Beginner", "Kettlebell", "Power tower", "Lat pulldown"]);
 
 describe('v1.6 shell — every key has its own Dutch value', () => {
-  it('lists 258 keys', () => { expect(V16_KEYS.length).toBe(258); });
+  it('lists 269 keys', () => { expect(V16_KEYS.length).toBe(269); });
   it('non-empty, and never equal to the key', async () => {
     const { i18n } = await load('nl');
     const bad = V16_KEYS.filter((k) => {
@@ -369,9 +380,15 @@ describe('v1.6 shell — every key has its own Dutch value', () => {
     expect(i18n.t('THIS WEEK')).toBe('DEZE WEEK');
     expect(i18n.t('Improve overall fitness').toUpperCase()).not.toBe('IMPROVE OVERALL FITNESS');
   });
-  it('training-science terms stay English in both languages', async () => {
+  it('training-science terms stay English inside the Dutch values', async () => {
     const { i18n } = await load('nl');
-    for (const term of ['FTP', 'TSS', 'RPE', 'VO2max', 'CTL', 'ATL', 'TSB']) expect(i18n.t(term)).toBe(term);
+    expect(i18n.t('Zone 2 \u2014 aerobic base')).toContain('Zone 2');
+    expect(i18n.t('Threshold \u2014 FTP work')).toContain('FTP');
+    expect(i18n.t('VO2max \u2014 high intensity')).toContain('VO2max');
+  });
+  it('experience labels: Beginner / Gemiddeld / Gevorderd', async () => {
+    const { i18n } = await load('nl');
+    expect([i18n.t('Beginner'), i18n.t('Intermediate'), i18n.t('Advanced')]).toEqual(['Beginner', 'Gemiddeld', 'Gevorderd']);
   });
 });
 
@@ -406,7 +423,32 @@ describe('v1.6 shell — engine session names', () => {
   });
 });
 
-describe('v1.6 shell — intensity and slot words, one translation for both screens', () => {
+describe('v1.6 shell — review fixes', () => {
+  it('Cooper titles end in Dutch', async () => {
+    const { sessionTitle } = (await load('nl')).policy;
+    expect(sessionTitle('Cooper Test \u00b7 Block 2 \u00b7 baseline')).toBe('Cooper Test \u00b7 Blok 2 \u00b7 nulmeting');
+    expect(sessionTitle('Cooper Test \u00b7 Block 2 \u00b7 progress check')).toBe('Cooper Test \u00b7 Blok 2 \u00b7 voortgangstest');
+    expect(sessionTitle('Cooper Test \u00b7 Block 6 \u00b7 assessment simulation')).toBe('Cooper Test \u00b7 Blok 6 \u00b7 proefkeuring');
+  });
+  it('coachSentenceT translates the pregnancy prefix and the sentence apart', async () => {
+    const m = await load('nl');
+    const base = m.policy.deriveCoachSentence(['R512'], null, 'standard', '');
+    const preg = m.policy.deriveCoachSentence(['R512'], null, 'pregnant', '');
+    expect(preg.startsWith('Adapted for pregnancy')).toBe(true);
+    const out = m.policy.coachSentenceT(preg);
+    expect(out.startsWith('Aangepast voor zwangerschap \u2014 ')).toBe(true);
+    expect(out).not.toMatch(/Adapted|your|today/i);
+    expect(m.policy.coachSentenceT(base)).toBe(m.i18n.t(base));
+  });
+  it('cycling sub-goals', async () => {
+    const { cycleSubGoalLabel } = (await load('nl')).policy;
+    expect(['build_fitness', 'climbing', 'sprint', 'aerobic_base', 'race_fitness'].map(cycleSubGoalLabel))
+      .toEqual(['Conditie opbouwen', 'Klimmen', 'Sprint', 'Aerobe basis', 'Wedstrijdvorm']);
+    expect(cycleSubGoalLabel('other_thing')).toBe('other thing');
+  });
+});
+
+describe('v1.6 shell \u2014 intensity and slot words, one translation for both screens', () => {
   it('intensityLabel: LAAG / GEMIDDELD / HOOG in Dutch', async () => {
     const { intensityLabel } = (await load('nl')).policy;
     expect(intensityLabel('low')).toBe('LAAG');

@@ -1129,7 +1129,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         display: "flex", flexDirection: "column", alignItems: "center", gap: 2,
                       }}
                     >
-                      <span style={{ fontSize: 11, fontWeight: 900, color: sel ? C.emerald : C.text }}>{ex.label}</span>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: sel ? C.emerald : C.text }}>{t(ex.label)}</span>
                     </button>
                   );
                 })}

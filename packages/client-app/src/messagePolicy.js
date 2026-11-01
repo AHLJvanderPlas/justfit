@@ -478,3 +478,27 @@ export function sessionTitle(name) {
   }
   return t(name);
 }
+
+// Builder v1.6 — pregnancy/postnatal prefixes are joined to the sentence in English
+// (deriveCoachSentence), so the whole string is no key. Translate the two parts apart.
+const BODY_PREFIXES = ['Adapted for pregnancy', 'Postnatal-safe'];
+export function coachSentenceT(sentence) {
+  if (!sentence) return sentence;
+  for (const prefix of BODY_PREFIXES) {
+    if (sentence.startsWith(prefix + ' \u2014 ')) {
+      const rest = sentence.slice(prefix.length + 3);
+      const base = t(rest.charAt(0).toUpperCase() + rest.slice(1));
+      return `${t(prefix)} \u2014 ${base.charAt(0).toLowerCase()}${base.slice(1)}`;
+    }
+  }
+  return t(sentence);
+}
+
+export const CYCLE_SUBGOAL_LABELS = {
+  build_fitness: 'Build fitness', climbing: 'Climbing', sprint: 'Sprint',
+  aerobic_base: 'Aerobic base', race_fitness: 'Race fitness',
+};
+export function cycleSubGoalLabel(value) {
+  const key = CYCLE_SUBGOAL_LABELS[value];
+  return key ? t(key) : String(value ?? '').replace(/_/g, ' ');
+}
