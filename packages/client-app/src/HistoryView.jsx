@@ -3,7 +3,8 @@ import { C, display, eyebrow, mono , overlay, themeValue} from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { Glass } from "./uiComponents.jsx";
 import api from "./apiClient.js";
-import { t, useLang, exerciseName } from "./i18n.js";
+import { t, useLang, getLang, exerciseName } from "./i18n.js";
+import { fmtDateShort } from "./planUtils.js";
 import { summarizeLogged } from "./logSession.js";
 // C-F13 — the DCP is a standing requirement, so it belongs on the screen where
 // someone asks "where am I", not only inside the military programme.
@@ -203,10 +204,10 @@ function weeklyOutcomeSentence(history) {
   const sorted = [...trailingCounts].sort((a, b) => a - b);
   const median = (sorted[1] + sorted[2]) / 2; // median of 4 values
 
-  if (thisWeekCount === 0 || median === 0) return "Fresh start \u2014 let\u2019s build from here.";
-  if (thisWeekCount > median) return "Strong week \u2014 above your average.";
-  if (thisWeekCount >= median - 0.5) return "On track \u2014 steady as usual.";
-  return "Lighter week \u2014 still consistent.";
+  if (thisWeekCount === 0 || median === 0) return t("Fresh start \u2014 let\u2019s build from here.");
+  if (thisWeekCount > median) return t("Strong week \u2014 above your average.");
+  if (thisWeekCount >= median - 0.5) return t("On track \u2014 steady as usual.");
+  return t("Lighter week \u2014 still consistent.");
 }
 
 function TrajectoryChart({ history, accentHex }) {
@@ -802,7 +803,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     const blob = await shareProgressImage(history, streak, accentHex);
                     const file = new File([blob], "justfit-progress.png", { type: "image/png" });
                     if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                      await navigator.share({ files: [file], title: "My JustFit Progress" });
+                      await navigator.share({ files: [file], title: t("My JustFit Progress") });
                     } else {
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -815,13 +816,13 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 }}
                 style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: shareState === "done" ? accentHex : C.muted, fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}
               >
-                {shareState === "generating" ? "…" : shareState === "done" ? "✓ Saved" : "↑ Share progress"}
+                {shareState === "generating" ? "…" : shareState === "done" ? t("✓ Saved") : t("↑ Share progress")}
               </button>
             </>
           )}
         </Glass>
         <div style={{ marginBottom: 8 }}>
-          <span style={{ ...display(28), color: C.text }}>STREAK · </span>
+          <span style={{ ...display(28), color: C.text }}>{t("STREAK")} · </span>
           <span style={{ ...display(28), color: "var(--accent)" }}>{streak} {streak === 1 ? t("DAY") : t("DAYS")}</span>
         </div>
         <div style={{ fontSize: 16, color: C.muted, lineHeight: 1.5 }}>{trajectorySentence(history)}</div>
@@ -1365,7 +1366,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               <div style={{ marginBottom: 20, paddingTop: 4 }}>
                 {nextAward && (
                   <div style={{ fontSize: 13, color: C.muted, marginBottom: 4 }}>
-                    Next: {nextAward.name} — {nextAward.remaining} {t(nextAward.remaining === 1 ? "session to go" : "sessions to go")}
+                    {t(nextAward.remaining === 1 ? "Next: {name} — {n} session to go" : "Next: {name} — {n} sessions to go", { name: nextAward.name, n: nextAward.remaining })}
                   </div>
                 )}
                 <button onClick={() => (onOpenAwards ?? (() => setView("awards")))()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
@@ -1386,7 +1387,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   const steps = session.steps ?? [];
                   const mins = session.total_duration_sec ? Math.round(session.total_duration_sec / 60) : null;
                   const d = new Date(session.date + "T12:00:00");
-                  const dateLabel = d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
+                  const dateLabel = fmtDateShort(d, getLang());
                   return (
                     <Glass key={session.id} style={{ padding: "14px 16px", marginBottom: 10 }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: steps.length ? 10 : 0 }}>
@@ -1412,7 +1413,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           const durSec = prescribed.duration_sec ?? null;
                           stat = durSec
                             ? `${sets ?? 1} × ${Math.round(durSec / 60)}min`
-                            : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} sets` : null;
+                            : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} ${t("sets")}` : null;
                         }
                         return (
                           <div key={i} className="jf-rec-row">
@@ -1465,7 +1466,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 </button>
                 {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{t(recomputeMsg)}</div>}
                 <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-                  Recalculates progression scores from your full workout history. Use if you migrate accounts or need a fresh score.
+                  {t("Recalculates progression scores from your full workout history. Use if you migrate accounts or need a fresh score.")}
                 </div>
               </div>
             )}

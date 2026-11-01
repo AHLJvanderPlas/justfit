@@ -41,6 +41,7 @@ async function signupFresh(page, suffix = '') {
 // ─── Journey 2: guest mode ───────────────────────────────────────────────────
 
 test('guest mode — banner shown after skipping sign-in', async ({ page }) => {
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   await page.goto('/login.html');
   await page.locator('#tab-signup').click(); // #guest-section is hidden until signup tab is active
   await page.locator('#guest-btn').click();

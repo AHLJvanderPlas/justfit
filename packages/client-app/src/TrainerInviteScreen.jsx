@@ -1,9 +1,12 @@
 import { useState, useEffect } from "react";
-import { C, display, eyebrow } from "./tokens.js";
 import api from "./apiClient.js";
 import { useAppShell } from "./AppShellContext.js";
+import { t, useLang } from "./i18n.js";
 
+// The trainer-invite screen (/invite?t=). UAT R4: Dutch first, app fonts via the
+// .jf-orphan classes in styles.css, and no "your trainer" stand-in in a name slot.
 export default function TrainerInviteScreen({ inviteToken }) {
+  useLang();
   const { token, userId } = useAppShell();
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -30,89 +33,74 @@ export default function TrainerInviteScreen({ inviteToken }) {
     finally { setActing(false); }
   }
 
-  const overlay = {
-    position: 'fixed', inset: 0, background: C.bg, zIndex: 90,
-    display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
-    padding: 'max(40px, calc(env(safe-area-inset-top) + 20px)) 24px 48px',
-  };
-  const card = { width: '100%', maxWidth: 480, borderRadius: 28, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px solid ${C.border}`, padding: 32 };
   const goHome = () => { window.history.replaceState({}, '', '/'); window.location.href = '/'; };
+  const who = info?.gym_name || info?.trainer_name || '';
 
   if (loading) return (
-    <div style={{ ...overlay, gap: 16 }}>
-      <div className="jf-spin" style={{ width: 36, height: 36, border: `3px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: '50%', animation: 'spin 0.8s linear infinite' }} />
-      <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-    </div>
+    <div className="jf-orphan"><div className="jf-orphan__spin jf-spin" /></div>
   );
 
   if (done) return (
-    <div style={overlay}>
-      <div style={card}>
-        <div style={{ fontSize: 36, marginBottom: 12 }}>{done === 'accepted' ? '✓' : '—'}</div>
-        <div style={{ ...display(26, 900), color: C.text, marginBottom: 8 }}>
-          {done === 'accepted' ? 'Connected!' : 'Declined'}
-        </div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>
+    <div className="jf-orphan">
+      <div className="jf-orphan__card">
+        <div className="jf-orphan__icon">{done === 'accepted' ? '✓' : '—'}</div>
+        <div className="jf-orphan__title">{done === 'accepted' ? t('Connected!') : t('Declined')}</div>
+        <div className="jf-orphan__text">
           {done === 'accepted'
-            ? `You're now connected to ${info?.gym_name ?? 'your trainer'}. Go to Settings → Trainers to manage data sharing.`
-            : 'Invite declined. You can connect at any time via Settings → Trainers.'}
+            ? (who
+              ? t("You're now connected to {name}. Go to Settings → Trainers to manage data sharing.", { name: who })
+              : t("You're now connected. Go to Settings → Trainers to manage data sharing."))
+            : t('Invite declined. You can connect at any time via Settings → Trainers.')}
         </div>
-        <button onClick={goHome} style={{ width: '100%', padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: 'pointer' }}>
-          Open JustFit →
-        </button>
+        <button className="jf-orphan__btn" onClick={goHome}>{t('Open JustFit →')}</button>
       </div>
     </div>
   );
 
   if (err && !info) return (
-    <div style={overlay}>
-      <div style={card}>
-        <div style={{ ...display(22, 900), color: C.text, marginBottom: 8 }}>Invite not found</div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
-          {err === 'Invite not found or expired' ? 'This invite link has expired or already been used.' : err}
+    <div className="jf-orphan">
+      <div className="jf-orphan__card">
+        <div className="jf-orphan__title">{t('Invite not found')}</div>
+        <div className="jf-orphan__text">
+          {err === 'Invite not found or expired' ? t('This invite link has expired or already been used.') : t(err)}
         </div>
-        <button onClick={goHome} style={{ padding: '12px 24px', borderRadius: 14, background: 'rgba(var(--overlay-rgb),0.06)', border: `1px solid ${C.border}`, color: C.text, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-          Back to JustFit
-        </button>
+        <button className="jf-orphan__btn jf-orphan__btn--ghost" onClick={goHome}>{t('Back to JustFit')}</button>
       </div>
     </div>
   );
 
   if (info?.already_connected) return (
-    <div style={overlay}>
-      <div style={card}>
-        <div style={{ ...display(22, 900), color: C.text, marginBottom: 8 }}>Already connected</div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 24 }}>You're already connected to {info.gym_name}.</div>
-        <button onClick={goHome} style={{ padding: '12px 24px', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 700, fontSize: 14, cursor: 'pointer' }}>
-          Open JustFit
-        </button>
+    <div className="jf-orphan">
+      <div className="jf-orphan__card">
+        <div className="jf-orphan__title">{t('Already connected')}</div>
+        <div className="jf-orphan__text">
+          {who ? t("You're already connected to {name}.", { name: who }) : t("You're already connected.")}
+        </div>
+        <button className="jf-orphan__btn" onClick={goHome}>{t('Open JustFit')}</button>
       </div>
     </div>
   );
 
   return (
-    <div style={overlay}>
-      <style>{'@keyframes spin { to { transform: rotate(360deg); } }'}</style>
-      <div style={card}>
+    <div className="jf-orphan">
+      <div className="jf-orphan__card">
         {info?.trainer_photo_url
-          ? <img src={info.trainer_photo_url} alt="" style={{ width: 56, height: 56, borderRadius: '50%', objectFit: 'cover', marginBottom: 16, border: `2px solid ${C.emeraldBorder}` }} />
-          : <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 16, fontSize: 22 }}>👤</div>
+          ? <img className="jf-orphan__avatar" src={info.trainer_photo_url} alt="" />
+          : <div className="jf-orphan__avatar">👤</div>
         }
-        <div style={{ ...eyebrow, color: C.muted, fontSize: 9.5, marginBottom: 8 }}>TRAINER INVITE</div>
-        <div style={{ ...display(28, 900), color: C.text, marginBottom: 4, lineHeight: 1.1 }}>{info?.trainer_name ?? 'Your trainer'}</div>
-        <div style={{ fontSize: 14, color: 'var(--accent)', fontWeight: 700, marginBottom: 20 }}>{info?.gym_name}</div>
-        <div style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.6 }}>
-          Accepting lets your trainer view the training data you choose to share and send you personalised programming.
+        <div className="jf-orphan__eyebrow">{t('TRAINER INVITE')}</div>
+        {info?.trainer_name && <div className="jf-orphan__title">{info.trainer_name}</div>}
+        {info?.gym_name && <div className="jf-orphan__sub">{info.gym_name}</div>}
+        <div className="jf-orphan__text">
+          {t('Accepting lets your trainer view the training data you choose to share and send you personalised programming.')}
         </div>
-        {err && <div style={{ fontSize: 13, color: C.danger, marginBottom: 14 }}>{err}</div>}
-        <div style={{ display: 'flex', gap: 10 }}>
-          <button disabled={acting} onClick={() => handleAction('accept')}
-            style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
-            {acting ? '…' : 'Accept'}
+        {err && <div className="jf-orphan__err" role="alert">{t(err)}</div>}
+        <div className="jf-orphan__row">
+          <button className="jf-orphan__btn" disabled={acting} onClick={() => handleAction('accept')}>
+            {acting ? '…' : t('Accept')}
           </button>
-          <button disabled={acting} onClick={() => handleAction('decline')}
-            style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: 'transparent', border: `1px solid ${C.border}`, color: C.muted, fontWeight: 700, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
-            Decline
+          <button className="jf-orphan__btn jf-orphan__btn--ghost" disabled={acting} onClick={() => handleAction('decline')}>
+            {t('Decline')}
           </button>
         </div>
       </div>

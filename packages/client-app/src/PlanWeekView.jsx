@@ -12,6 +12,12 @@ import { selectedDay, dayRowKind, upcomingShown } from "./weekPlan.js";   // UAT
 
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
+// The confirm word: the Dutch UI asks for VERWIJDER, DELETE keeps working everywhere.
+const isDeleteWord = (s) => ["DELETE", t("DELETE")].includes(String(s).trim().toUpperCase());
+// A history row's execution type, in the reader's language (unknown types read as a plain workout).
+const EXEC_LABEL = { workout: "workout", run_coach: "running coach", cycling_coach: "cycling coach", cycling_cross_run: "cross-run", military: "military coach" };
+const execTypeLabel = (type) => t(EXEC_LABEL[type] ?? "workout");
+
 export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged, templates = [] }) {
   const lang = useLang();
   const [logDate, setLogDate] = useState(null);   // need C — the day being logged
@@ -27,7 +33,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
   const [deleteToast, setDeleteToast] = useState("");
 
   const handleDeleteConfirm = async () => {
-    if (deleteInput !== "DELETE") return;
+    if (!isDeleteWord(deleteInput)) return;
     setDeleting(true);
     try {
       await onDeleteExecution(deleteTarget.id);
@@ -340,7 +346,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               const sportType  = stravaSource?.execution_type ?? '';
               const sportIconKey = STRAVA_ICON[sportType] ?? 'bolt';
               const SportIcon = Icons[sportIconKey] || Icons.bolt;
-              const sportLabel = STRAVA_LABEL[sportType] ?? sportType;
+              const sportLabel = t(STRAVA_LABEL[sportType] ?? sportType);
               const distKm = stravaMeta?.distance_m ? (stravaMeta.distance_m / 1000).toFixed(1) : null;
               const elevM  = stravaMeta?.elevation_m ? Math.round(stravaMeta.elevation_m) : null;
 
@@ -367,7 +373,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           ? [new Date(h.date + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
                           : h.execution_type === "logged"
                             ? t("Recorded afterwards")
-                            : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
+                            : `${execTypeLabel(h.execution_type)} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : t("completed")}`}
                       </div>
                       {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={t(chip)} /></div> : null; })()}
                       {/* Strava activity name when merged from a separate entry */}
@@ -436,7 +442,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         return (
                           <div className="jf-rec-lines">
                             {lines.slice(0, 6).map((line, i) => <div key={i} className="jf-rec-line">{line}</div>)}
-                            {lines.length > 6 && <div className="jf-rec-line jf-rec-line--more">+{lines.length - 6} more</div>}
+                            {lines.length > 6 && <div className="jf-rec-line jf-rec-line--more">{t("+{n} more", { n: lines.length - 6 })}</div>}
                           </div>
                         );
                       })()}
@@ -458,7 +464,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       <button
                         onClick={() => { setDeleteTarget(h); setDeleteInput(""); }}
                         style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: C.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
-                        aria-label="Delete session"
+                        aria-label={t("Delete session")}
                       >
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <polyline points="3 6 5 6 21 6" />
@@ -482,7 +488,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Delete session?")}</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
-              This will permanently remove your {new Date(deleteTarget.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })} session. Type <strong style={{ color: C.danger }}>DELETE</strong> to confirm.
+              {t("This will permanently remove your session of {date}. Type {word} to confirm.", { date: longDate(deleteTarget.date), word: t("DELETE") })}
             </div>
             <input
               type="text"
@@ -501,7 +507,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
               </button>
               <button
                 onClick={handleDeleteConfirm}
-                disabled={deleteInput !== "DELETE" || deleting}
+                disabled={!isDeleteWord(deleteInput) || deleting}
                 style={{ flex: 1, padding: "12px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, background: deleteInput === "DELETE" ? "rgba(248,113,113,0.15)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.4)" : C.border}`, color: deleteInput === "DELETE" ? C.danger : C.muted, cursor: deleteInput === "DELETE" && !deleting ? "pointer" : "default" }}
               >
                 {deleting ? t("Deleting\u2026") : t("Delete")}

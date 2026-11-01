@@ -43,6 +43,12 @@ export function fmtDayStrip(date = new Date(), lang = 'nl') {
     : `${get('weekday')} \u00b7 ${get('month')} ${get('day')}`.toUpperCase();
 }
 
+// UAT R4 — "zo 1 nov" / "Sun 1 Nov": weekday, day, month in the reader's language.
+export function fmtDateShort(date, lang = 'nl') {
+  const loc = lang === 'en' ? 'en-GB' : 'nl-NL';
+  return new Intl.DateTimeFormat(loc, { weekday: 'short', day: 'numeric', month: 'short' }).format(date).replace(/[.,]/g, '').replace(/\s+/g, ' ').trim();
+}
+
 // Monday-first single letters: "M T W T F S S" / "M D W D V Z Z".
 export function weekdayLetters(lang = 'nl') {
   const fmt = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'nl-NL', { weekday: 'narrow' });

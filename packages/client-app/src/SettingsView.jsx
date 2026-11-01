@@ -11,6 +11,7 @@ import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
 import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
 import { activeCoachOf, pathTitle } from "./coachPath.js";
+import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -234,7 +235,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
     prefs.preferences?.cycling_coach?.unit ?? 'watts'
   );
   const [cycleFtpInput, setCycleFtpInput] = useState(
-    String(prefs.preferences?.cycling_coach?.ftp_watts ?? 200)
+    ftpEntered(prefs.preferences?.cycling_coach) ? String(prefs.preferences.cycling_coach.ftp_watts) : ""   // UAT R4 — empty until one is entered
   );
   const [cycleMaxHrInput, setCycleMaxHrInput] = useState(
     String(prefs.preferences?.cycling_coach?.max_hr ?? 180)
@@ -802,7 +803,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {activeDoc.lastUpdated && activeDoc.lastUpdated !== activeDoc.effectiveDate && <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>Updated {activeDoc.lastUpdated}</span>}
           </div>
           <h2 style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 28, lineHeight: 1.2 }}>
-            {activeDoc.title}
+            {t(activeDoc.title)}
           </h2>
           <div style={{ marginBottom: 28 }}>
             <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
@@ -897,7 +898,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
              todaySession && SESSION_LABEL[todaySession] ? t("{x} today", { x: t(SESSION_LABEL[todaySession]) }) : null,
              milDays != null ? t("keuring in {n} days", { n: milDays }) : null].filter(Boolean).join(" · ")
           : activeCoach === "running" ? t("Week {w} of {total} · {km} km", { w: rc.week ?? 1, total: RUN_WEEKS[rc.target_km] ?? 8, km: rc.target_km ?? 5 })
-          : activeCoach === "cycling" ? (cc.unit === "hr" ? t("Week {w} · max HR {hr} bpm", { w: cc.week ?? 1, hr: cc.max_hr ?? 180 }) : t("Week {w} · FTP {ftp} W", { w: cc.week ?? 1, ftp: cc.ftp_watts ?? 200 }))
+          : activeCoach === "cycling" ? (cc.unit === "hr" ? t("Week {w} · max HR {hr} bpm", { w: cc.week ?? 1, hr: cc.max_hr ?? 180 }) : (ftpEntered(cc) ? t("Week {w} · FTP {ftp} W", { w: cc.week ?? 1, ftp: cc.ftp_watts }) : t("Week {w}", { w: cc.week ?? 1 })))
           : t("Adaptive daily training");
         const clusterLabel = (c) => milTrack === "keuring" ? (c === 0 ? "KB" : `K${c}`) : `O${c}`;
         const milChoice = milMode === "open" ? t("Open") : `${clusterLabel(milCluster)}${milMode === "fit" ? ` · ${t("Fit target")}` : ""}`;
@@ -1032,7 +1033,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <div className={`jf-dc__stack${effectiveIsPro ? "" : " jf-dc__locked"}`}>
               <div className="jf-dc__sub">
                 {ccActive
-                  ? `${t("Week {w} · Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week ?? 0, total: cc.cycling_days_per_week ?? 3 })} · ${cc.unit === "hr" ? t("HR-based") : `FTP ${cc.ftp_watts ?? 200} W`}`
+                  ? `${t("Week {w} · Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week ?? 0, total: cc.cycling_days_per_week ?? 3 })} · ${cc.unit === "hr" ? t("HR-based") : ftpEntered(cc) ? `FTP ${cc.ftp_watts} W` : t("FTP not set")}`
                   : t("Structured training — 5 goals, 7-week block cycle, 3–5 sessions per week, any days.")}
               </div>
               {!effectiveIsPro ? upgrade : !ccActive ? (
@@ -1049,7 +1050,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     {cycleUnitSelect === "watts" ? (
                       <>
                         <label className="jf-dc__field"><span className="jf-dc__label">{t("Current FTP (W)")}</span>
-                          <input className="jf-dc__input" type="number" min={50} max={600} value={cycleFtpInput} onChange={e => setCycleFtpInput(e.target.value)} /></label>
+                          <input className="jf-dc__input" type="number" min={50} max={600} value={cycleFtpInput} placeholder={t("e.g. 200")} onChange={e => setCycleFtpInput(e.target.value)} /></label>
                         <label className="jf-dc__field"><span className="jf-dc__label">{t("Target FTP (W)")}</span>
                           <input className="jf-dc__input" type="number" min={50} max={600} value={cycleTargetFtpInput} onChange={e => setCycleTargetFtpInput(e.target.value)} /></label>
                         <button className="jf-dc__btn" onClick={() => setShowFtpTestModal(true)}>{t("Test FTP")}</button>
@@ -1066,7 +1067,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </div>
                   <div className="jf-dc__hint">
                     {t("7-week block cycle (base → build → recovery) · {n} sessions/week · any days", { n: cycleDaysPerWeek })}
-                    {cycleUnitSelect === "watts" && ftp > 0 && ` · ${t("Z2 target: {lo}–{hi}W", { lo: Math.round(ftp * 0.55), hi: Math.round(ftp * 0.75) })}`}
+                    {cycleUnitSelect === "watts" && parseInt(cycleFtpInput) > 0 && ` · ${t("Z2 target: {lo}–{hi}W", { lo: Math.round(ftp * 0.55), hi: Math.round(ftp * 0.75) })}`}
                     {cycleUnitSelect === "hr" && maxHr > 0 && ` · ${t("Z2 target: {lo}–{hi} bpm", { lo: Math.round(maxHr * 0.68), hi: Math.round(maxHr * 0.83) })}`}
                   </div>
                   {saveBtn("cycling")}
@@ -1285,22 +1286,22 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Daily Planning ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Daily Planning
+          {t("Daily Planning")}
         </div>
         <Glass style={{ padding: 24 }}>
 
           {/* Check-in mode */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
-            Daily check-in
+            {t("Daily check-in")}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-            Controls when the Daily Intelligence Prompt appears.
+            {t("Controls when the Daily Intelligence Prompt appears.")}
           </div>
           <div style={{ display: "flex", gap: 6, marginBottom: 24 }}>
             {[
-              { id: "every_time", label: "Every time",  sub: "On every open" },
-              { id: "once_a_day", label: "Once a day",  sub: "First open only" },
-              { id: "manual",     label: "Manual",       sub: "You decide" },
+              { id: "every_time", label: t("Every time"),  sub: t("On every open") },
+              { id: "once_a_day", label: t("Once a day"),  sub: t("First open only") },
+              { id: "manual",     label: t("Manual"),       sub: t("You decide") },
             ].map(({ id, label, sub }) => {
               const sel = checkinMode === id;
               return (
@@ -1323,15 +1324,15 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
           {/* Session duration — Standard / Advanced selector */}
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4, borderTop: `1px solid ${C.border}`, marginTop: 4, paddingTop: 20 }}>
-            Available time per session
+            {t("Available time per session")}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-            Sets the default length of your daily plan. You can always adjust on the day.
+            {t("Sets the default length of your daily plan. You can always adjust on the day.")}
           </div>
           <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
             {[
-              { id: false, label: "Standard", sub: "One duration for all days" },
-              { id: true,  label: "Advanced", sub: "Set time per day of week" },
+              { id: false, label: t("Standard"), sub: t("One duration for all days") },
+              { id: true,  label: t("Advanced"), sub: t("Set time per day of week") },
             ].map(({ id, label, sub }) => {
               const sel = showAdvancedSchedule === id;
               return (
@@ -1379,7 +1380,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           ) : (() => {
             const ADV_STEPS = [0, 10, 20, 30, 40, 50, 60, 75, 90, 105, 120, 135, 150, 165, 180, 210, 240, 270, 300, 330, 999];
             const fmtStep = v => {
-              if (v === 0)   return 'Rest';
+              if (v === 0)   return t('Rest');
               if (v === 999) return '∞';
               if (v < 60)    return `${v}m`;
               const h = Math.floor(v / 60), m = v % 60;
@@ -1388,13 +1389,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             return (
               <div style={{ marginBottom: 24, display: "flex", flexDirection: "column", gap: 8 }}>
                 {[
-                  { key: "mon", label: "Mon" },
-                  { key: "tue", label: "Tue" },
-                  { key: "wed", label: "Wed" },
-                  { key: "thu", label: "Thu" },
-                  { key: "fri", label: "Fri" },
-                  { key: "sat", label: "Sat" },
-                  { key: "sun", label: "Sun" },
+                  { key: "mon", label: t("Mon") },
+                  { key: "tue", label: t("Tue") },
+                  { key: "wed", label: t("Wed") },
+                  { key: "thu", label: t("Thu") },
+                  { key: "fri", label: t("Fri") },
+                  { key: "sat", label: t("Sat") },
+                  { key: "sun", label: t("Sun") },
                 ].map(({ key, label }) => {
                   const raw = weeklySchedule[key] ?? planDuration;
                   const val = ADV_STEPS.reduce((best, s) => Math.abs(s - raw) < Math.abs(best - raw) ? s : best, ADV_STEPS[0]);
@@ -1437,10 +1438,10 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* ── Time overhead ── */}
           {(() => {
             const presetDefs = [
-              { key: "change_clothes",    label: "Change clothes" },
-              { key: "prepare_equipment", label: "Prepare equipment" },
-              { key: "clean_equipment",   label: "Clean equipment" },
-              { key: "shower",            label: "Shower" },
+              { key: "change_clothes",    label: t("Change clothes") },
+              { key: "prepare_equipment", label: t("Prepare equipment") },
+              { key: "clean_equipment",   label: t("Clean equipment") },
+              { key: "shower",            label: t("Shower") },
             ];
             const profileTotal = (profile) =>
               presetDefs.reduce((s, { key }) => s + (profile?.presets?.[key] || 0), 0) +
@@ -1498,7 +1499,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <input
                         value={c.label}
                         onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
-                        placeholder="e.g. Drive to gym"
+                        placeholder={t("e.g. Drive to gym")}
                         style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
                       />
                       <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
@@ -1519,12 +1520,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             return (
               <div style={{ marginBottom: 24 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>Time overhead</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>{t("Time overhead")}</div>
                   <button
                     onClick={() => setOverheadEditMode((v) => !v)}
                     style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.emerald : C.muted }}
                   >
-                    {overheadEditMode ? "Done" : "Edit"}
+                    {overheadEditMode ? t("Done") : t("Edit")}
                   </button>
                 </div>
 
@@ -1532,12 +1533,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
                     {timeOverhead.enabled && (shortTotal > 0 || longTotal > 0) ? (
                       <span>
-                        {shortTotal > 0 && <span>Quick session: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> overhead</span>}
+                        {shortTotal > 0 && <span>{t("Quick session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> {t("overhead")}</span>}
                         {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtle }}> · </span>}
-                        {longTotal > 0 && <span>Full session: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> overhead</span>}
+                        {longTotal > 0 && <span>{t("Full session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> {t("overhead")}</span>}
                       </span>
                     ) : (
-                      <span style={{ color: C.subtle, fontStyle: "italic" }}>Not set — full window used for training</span>
+                      <span style={{ color: C.subtle, fontStyle: "italic" }}>{t("Not set — full window used for training")}</span>
                     )}
                   </div>
                 ) : (
@@ -1548,16 +1549,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
                     >
                       <div>
-                        <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>Include overhead in planning</div>
-                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Subtracts overhead from your available training window</div>
+                        <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>{t("Include overhead in planning")}</div>
+                        <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Subtracts overhead from your available training window")}</div>
                       </div>
                       <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
                         <div style={{ position: "absolute", top: 2, left: timeOverhead.enabled ? 18 : 2, width: 16, height: 16, borderRadius: 999, background: C.knob, transition: "left 0.2s" }} />
                       </div>
                     </div>
 
-                    <ProfileSection profileKey="short" title="Quick session  ≤ 30 min" />
-                    <ProfileSection profileKey="long"  title="Full session  > 30 min" />
+                    <ProfileSection profileKey="short" title={t("Quick session  ≤ 30 min")} />
+                    <ProfileSection profileKey="long"  title={t("Full session  > 30 min")} />
                   </div>
                 )}
               </div>
@@ -1569,30 +1570,30 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* Equipment */}
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-              Available equipment
+              {t("Available equipment")}
             </div>
             <button
               onClick={() => setEquipEditMode((v) => !v)}
               style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.emerald : C.muted }}
             >
-              {equipEditMode ? "Done" : "Edit"}
+              {equipEditMode ? t("Done") : t("Edit")}
             </button>
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-            The planner only suggests exercises you can actually do. Tap Edit to change your kit.
+            {t("The planner only suggests exercises you can actually do. Tap Edit to change your kit.")}
           </div>
 
           {!equipEditMode ? (
             /* ── Collapsed: show active chips only ── */
             <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, minHeight: 32 }}>
               {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>No equipment — bodyweight only</span>
+                <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No equipment — bodyweight only")}</span>
               ) : (
                 planEquipment.filter((v) => v !== "none").map((val) => {
                   const eq = ALL_EQUIPMENT.find((e) => e.value === val);
                   return eq ? (
                     <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                      {eq.label}
+                      {t(eq.label)}
                     </span>
                   ) : null;
                 })
@@ -1609,13 +1610,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
               >
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  Your equipment
+                  {t("Your equipment")}
                   <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                     {planEquipment.filter((v) => v !== "none").length}
                   </span>
                 </div>
                 {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                  <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>Drag items here or tap ✓ below</div>
+                  <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Drag items here or tap ✓ below")}</div>
                 ) : (
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {planEquipment.filter((v) => v !== "none").map((val) => {
@@ -1628,11 +1629,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
                           style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
                         >
-                          {eq.label}
+                          {t(eq.label)}
                           <button
                             onClick={() => moveEquip(val, false)}
                             style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
-                            title="Remove"
+                            title={t("Remove")}
                           >×</button>
                         </div>
                       ) : null;
@@ -1649,7 +1650,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
               >
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                  Not in use
+                  {t("Not in use")}
                   <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                     {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
                   </span>
@@ -1663,11 +1664,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
                       style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: equipDragItem === eq.value ? 0.4 : 1 }}
                     >
-                      {eq.label}
+                      {t(eq.label)}
                       <button
                         onClick={() => moveEquip(eq.value, true)}
                         style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
-                        title="Add"
+                        title={t("Add")}
                       >✓</button>
                     </div>
                   ))}
@@ -1680,29 +1681,29 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${C.border}`, marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
               <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-                Sports & Activities
+                {t("Sports & Activities")}
               </div>
               <button
                 onClick={() => setSportEditMode((v) => !v)}
                 style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.emerald : C.muted }}
               >
-                {sportEditMode ? "Done" : "Edit"}
+                {sportEditMode ? t("Done") : t("Edit")}
               </button>
             </div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
-              Tell the planner which sports you do. It nudges your strength and conditioning targets toward the muscles your sport demands most — so gym sessions complement your training, not compete with it. A recent run or ride automatically reduces the leg and cardio bias to protect recovery.
+              {t("Tell the planner which sports you do. It nudges your strength and conditioning targets toward the muscles your sport demands most — so gym sessions complement your training, not compete with it. A recent run or ride automatically reduces the leg and cardio bias to protect recovery.")}
             </div>
 
             {!sportEditMode ? (
               <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
                 {(sportPrefs.sports ?? []).length === 0 ? (
-                  <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>No sports selected</span>
+                  <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No sports selected")}</span>
                 ) : (
                   (sportPrefs.sports ?? []).map((id) => {
                     const sp = ALL_SPORTS.find((s) => s.id === id);
                     return sp ? (
                       <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                        {sp.label}
+                        {t(sp.label)}
                       </span>
                     ) : null;
                   })
@@ -1718,13 +1719,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
                 >
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    Your sports
+                    {t("Your sports")}
                     <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                       {(sportPrefs.sports ?? []).length}
                     </span>
                   </div>
                   {(sportPrefs.sports ?? []).length === 0 ? (
-                    <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>Tap ✓ below to add a sport</div>
+                    <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Tap ✓ below to add a sport")}</div>
                   ) : (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {(sportPrefs.sports ?? []).map((id) => {
@@ -1737,11 +1738,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
                             style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
                           >
-                            {sp.label}
+                            {t(sp.label)}
                             <button
                               onClick={() => moveSport(id, false)}
                               style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
-                              title="Remove"
+                              title={t("Remove")}
                             >×</button>
                           </div>
                         ) : null;
@@ -1758,7 +1759,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
                 >
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
-                    Not in use
+                    {t("Not in use")}
                     <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
                       {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
                     </span>
@@ -1772,11 +1773,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
                         style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 12, fontWeight: 600, cursor: "grab", userSelect: "none", opacity: sportDragItem === sp.id ? 0.4 : 1 }}
                       >
-                        {sp.label}
+                        {t(sp.label)}
                         <button
                           onClick={() => moveSport(sp.id, true)}
                           style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
-                          title="Add"
+                          title={t("Add")}
                         >✓</button>
                       </div>
                     ))}
@@ -1786,7 +1787,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 {/* Primary sport picker (if 2+) */}
                 {(sportPrefs.sports ?? []).length >= 2 && (
                   <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${C.border}` }}>
-                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>Primary sport</div>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t("Primary sport")}</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                       {(sportPrefs.sports ?? []).map((id) => {
                         const sp = ALL_SPORTS.find((s) => s.id === id);
@@ -1797,7 +1798,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             onClick={() => setSportPrefs((p) => ({ ...p, primary: id }))}
                             style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${isPrimary ? C.emeraldBorder : C.border}`, background: isPrimary ? C.emerald : "rgba(var(--overlay-rgb),0.04)", color: isPrimary ? C.onAccent : C.muted }}
                           >
-                            {sp.label}
+                            {t(sp.label)}
                           </button>
                         ) : null;
                       })}
@@ -1814,11 +1815,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>Sport-aware training bias</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 2 }}>{t("Sport-aware training bias")}</div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>
                   {sportPrefs.bias_enabled !== false
-                    ? "Planner fills the gaps your sport doesn't cover."
-                    : "Planner ignores your sport — trains all axes equally."}
+                    ? t("Planner fills the gaps your sport doesn't cover.")
+                    : t("Planner ignores your sport — trains all axes equally.")}
                 </div>
               </div>
               <button
@@ -1831,36 +1832,36 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   color: sportPrefs.bias_enabled !== false ? C.emerald : C.muted,
                 }}
               >
-                {sportPrefs.bias_enabled !== false ? "On" : "Off"}
+                {sportPrefs.bias_enabled !== false ? t("On") : t("Off")}
               </button>
             </div>
           </div>
 
           {/* ── Polarised Training ── */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20, opacity: effectiveIsPro ? 1 : 0.45 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Polarised Training</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>{t("Polarised Training")}</div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
               {sportPrefs.polarised_training
-                ? `Next: ${sportPrefs.last_endurance_type === "hiit" ? "Zone 2 easy run" : "HIIT intervals"} — life always wins`
-                : "Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen."}
+                ? t("Next: {what} — life always wins", { what: sportPrefs.last_endurance_type === "hiit" ? t("Zone 2 easy run") : t("HIIT intervals") })
+                : t("Alternates high-intensity (HIIT) and easy aerobic (Zone 2). On low-energy days, Zone 2 is always chosen.")}
             </div>
             {effectiveIsPro ? (
               <button
                 onClick={() => setSportPrefs(prev => ({ ...prev, polarised_training: !prev.polarised_training }))}
                 style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "pointer", border: `1px solid ${sportPrefs.polarised_training ? "transparent" : C.border}`, background: sportPrefs.polarised_training ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: sportPrefs.polarised_training ? C.onAccent : C.muted }}
               >
-                {sportPrefs.polarised_training ? "Active" : "Enable"}
+                {sportPrefs.polarised_training ? t("Active") : t("Enable")}
               </button>
             ) : (
-              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.05)", color: C.muted }}>Pro only</button>
+              <button style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: "not-allowed", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.05)", color: C.muted }}>{t("Pro only")}</button>
             )}
           </div>
 
           {/* Daily Adaptive Replan */}
           <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20, marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>Daily Adaptive Replan</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>{t("Daily Adaptive Replan")}</div>
             <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-              {effectiveIsPro ? "Recalibrates your plan each morning based on your check-in." : "Upgrade to Pro to unlock."}
+              {effectiveIsPro ? t("Recalibrates your plan each morning based on your check-in.") : t("Upgrade to Pro to unlock.")}
             </div>
             <button
               onClick={() => {
@@ -1871,7 +1872,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               }}
               style={{ padding: "8px 20px", borderRadius: 999, fontSize: 12, fontWeight: 900, cursor: effectiveIsPro ? "pointer" : "not-allowed", border: `1px solid ${effectiveIsPro && prefs.daily_replan ? "transparent" : C.border}`, background: effectiveIsPro && prefs.daily_replan ? C.emerald : "rgba(var(--overlay-rgb),0.05)", color: effectiveIsPro && prefs.daily_replan ? C.onAccent : C.muted, opacity: effectiveIsPro ? 1 : 0.4 }}
             >
-              {effectiveIsPro ? (prefs.daily_replan ? "Active" : "Enable") : "Pro only"}
+              {effectiveIsPro ? (prefs.daily_replan ? t("Active") : t("Enable")) : t("Pro only")}
             </button>
           </div>
 
@@ -1915,27 +1916,27 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
           </div>
 
-          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
-          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>Save failed — check connection</div>}
+          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>{t("Saving…")}</div>}
+          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>{t("All changes saved ✓")}</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>{t("Save failed — check connection")}</div>}
         </Glass>
       </div>
 
       {/* ── Known Injuries ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Known Injuries
+          {t("Known Injuries")}
         </div>
         <Glass style={{ padding: 24 }}>
           <div style={{ fontSize: 13, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
-            Ongoing injury areas are always filtered from your plan. Tap to add or remove.
+            {t("Ongoing injury areas are always filtered from your plan. Tap to add or remove.")}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 12 }}>
             {[
-              { k: "knee", l: "Knee" },
-              { k: "shoulder", l: "Shoulder" },
-              { k: "lower_back", l: "Lower back" },
-              { k: "ankle", l: "Ankle" },
+              { k: "knee", l: t("Knee") },
+              { k: "shoulder", l: t("Shoulder") },
+              { k: "lower_back", l: t("Lower back") },
+              { k: "ankle", l: t("Ankle") },
             ].map(({ k, l }) => {
               const active = (prefs.preferences?.chronic_injury_areas ?? []).includes(k);
               return (
@@ -1957,7 +1958,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             })}
           </div>
           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
-            You can also mark areas during check-in using "Save as ongoing issue". Not medical advice — stop any exercise causing sharp or worsening pain.
+            {t("You can also mark areas during check-in using \"Save as ongoing issue\". Not medical advice — stop any exercise causing sharp or worsening pain.")}
           </div>
         </Glass>
       </div>
@@ -1968,24 +1969,24 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Your profile
+          {t("Your profile")}
         </div>
         <Glass style={{ padding: 24 }}>
           {/* Display name */}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Display name</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Display name")}</div>
             <input
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Your name"
+              placeholder={t("Your name")}
               style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
             />
           </div>
 
           {/* Sex */}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Sex</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Sex")}</div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
               {SEX_OPTIONS.map((opt) => (
                 <button
@@ -2002,7 +2003,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   }}
                   style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
                 >
-                  {opt.label}
+                  {t(opt.label)}
                 </button>
               ))}
             </div>
@@ -2010,13 +2011,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
           {/* Weight */}
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Weight</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Weight")}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="number"
                 value={profileWeight}
                 onChange={(e) => setProfileWeight(e.target.value)}
-                placeholder={profileWeightUnit === "kg" ? "e.g. 70" : "e.g. 154"}
+                placeholder={profileWeightUnit === "kg" ? t("e.g. 70") : t("e.g. 154")}
                 style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
               />
               <button
@@ -2029,13 +2030,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           </div>
 
           <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Height</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Height")}</div>
             <div style={{ display: "flex", gap: 8 }}>
               <input
                 type="number"
                 value={profileHeight}
                 onChange={(e) => setProfileHeight(e.target.value)}
-                placeholder={profileHeightUnit === "cm" ? "e.g. 175" : "e.g. 69"}
+                placeholder={profileHeightUnit === "cm" ? t("e.g. 175") : t("e.g. 69")}
                 style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
               />
               <button
@@ -2059,11 +2060,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               const hcm = (() => { const h = parseFloat(profileHeight); if (isNaN(h)) return null; return profileHeightUnit === "in" ? h * 2.54 : h; })();
               if (!wkg || !hcm || hcm === 0) return null;
               const bmi = wkg / ((hcm / 100) ** 2);
-              const { label, color } = bmi < 18.5 ? { label: "Underweight", color: "#60a5fa" }
-                : bmi < 25 ? { label: "Normal", color: C.emerald }
-                : bmi < 30 ? { label: "Overweight", color: C.amber }
-                : bmi < 35 ? { label: "Obese I", color: "#f97316" }
-                : { label: "Obese II", color: C.danger };
+              const { label, color } = bmi < 18.5 ? { label: t("Underweight"), color: "#60a5fa" }
+                : bmi < 25 ? { label: t("Normal"), color: C.emerald }
+                : bmi < 30 ? { label: t("Overweight"), color: C.amber }
+                : bmi < 35 ? { label: t("Obese I"), color: "#f97316" }
+                : { label: t("Obese II"), color: C.danger };
               const isObese = bmi >= 30;
               return (
                 <div style={{ marginTop: 16 }}>
@@ -2074,13 +2075,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   {isObese && (
                     <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}` }}>
                       <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, fontWeight: 700, marginBottom: 8 }}>
-                        Consistency and will always produce results — every session counts.
+                        {t("Consistency and will always produce results — every session counts.")}
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-                        JustFit uses your BMI to protect your joints — at this range, the planner will substitute low-impact alternatives for running and high-impact cardio to reduce injury risk as you build fitness.
+                        {t("JustFit uses your BMI to protect your joints — at this range, the planner will substitute low-impact alternatives for running and high-impact cardio to reduce injury risk as you build fitness.")}
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginTop: 8, fontStyle: "italic" }}>
-                        We are not a medical app. Always seek advice from a qualified health professional before starting or changing your exercise routine.
+                        {t("We are not a medical app. Always seek advice from a qualified health professional before starting or changing your exercise routine.")}
                       </div>
                     </div>
                   )}
@@ -2095,7 +2096,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   onClick={onRedoOnboarding}
                   style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
                 >
-                  Re-do onboarding
+                  {t("Re-do onboarding")}
                 </button>
               </div>
             )}
@@ -2108,20 +2109,20 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     onClick={() => setShowResetConfirm(true)}
                     style={{ width: "100%", padding: "12px 0", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)", color: C.dangerStrong, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
                   >
-                    Set values to default
+                    {t("Set values to default")}
                   </button>
                 ) : (
                   <div style={{ padding: "16px", borderRadius: 14, border: `1px solid rgba(239,68,68,0.3)`, background: "rgba(239,68,68,0.06)" }}>
-                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>Reset all settings to default?</div>
+                    <div style={{ fontSize: 13, color: C.text, fontWeight: 700, marginBottom: 6 }}>{t("Reset all settings to default?")}</div>
                     <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 14 }}>
-                      This will clear your personal settings and preferences — name, body data, equipment, sports, injuries and accent colour — and reset them to the default values. Your workout history and progress are not affected.
+                      {t("This will clear your personal settings and preferences — name, body data, equipment, sports, injuries and accent colour — and reset them to the default values. Your workout history and progress are not affected.")}
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
                       <button
                         onClick={() => setShowResetConfirm(false)}
                         style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, fontWeight: 700, fontSize: 13, cursor: "pointer" }}
                       >
-                        Cancel
+                        {t("Cancel")}
                       </button>
                       <button
                         disabled={resetting}
@@ -2133,7 +2134,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         }}
                         style={{ flex: 1, padding: "10px 0", borderRadius: 12, border: "none", background: C.dangerStrong, color: C.onStatus, fontWeight: 900, fontSize: 13, cursor: resetting ? "not-allowed" : "pointer", opacity: resetting ? 0.6 : 1 }}
                       >
-                        {resetting ? "Resetting…" : "Yes, reset"}
+                        {resetting ? t("Resetting…") : t("Yes, reset")}
                       </button>
                     </div>
                   </div>
@@ -2145,9 +2146,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* Female-only: cycle tracking */}
           {profileSex === "female" && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Cycle tracking</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Cycle tracking")}</div>
               <div style={{ display: "flex", gap: 8, marginBottom: cycleTrackingMode === "smart" ? 14 : 0 }}>
-                {[{ label: "Smart", value: "smart" }, { label: "Off", value: "off" }].map((opt) => (
+                {[{ label: t("Smart"), value: "smart" }, { label: t("Off"), value: "off" }].map((opt) => (
                   <button
                     key={opt.value}
                     onClick={() => setCycleTrackingMode(opt.value)}
@@ -2160,7 +2161,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {cycleTrackingMode === "smart" && (
                 <>
                   <div style={{ marginBottom: 12 }}>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Last period start</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("Last period start")}</div>
                     <input
                       type="date"
                       value={lastPeriodStart}
@@ -2169,7 +2170,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     />
                   </div>
                   <div>
-                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>Cycle length (days)</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("Cycle length (days)")}</div>
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                       {CYCLE_LENGTHS.map((d) => (
                         <button
@@ -2190,7 +2191,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* Female-only: pregnancy/postnatal status */}
           {profileSex === "female" && (
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Body mode</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Body mode")}</div>
 
               {/* Standard — show activate buttons, or inline setup steps */}
               {bodyMode === "standard" && pregnancySetupStep === 0 && (
@@ -2199,7 +2200,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     onClick={() => setPregnancySetupStep(1)}
                     style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer", textAlign: "left" }}
                   >
-                    Standard · Enable pregnancy mode →
+                    {t("Standard · Enable pregnancy mode →")}
                   </button>
                   <button
                     onClick={async () => {
@@ -2215,10 +2216,10 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     disabled={pregnancySaving}
                     style={{ width: "100%", padding: "10px 16px", borderRadius: 14, fontWeight: 700, fontSize: 14, border: "1px solid rgba(167,139,250,0.25)", background: "rgba(167,139,250,0.05)", color: pregnancySaving ? C.muted : "#a78bfa", cursor: pregnancySaving ? "not-allowed" : "pointer", textAlign: "left" }}
                   >
-                    {pregnancySaving ? "Saving…" : "Enable perimenopause mode →"}
+                    {pregnancySaving ? t("Saving…") : t("Enable perimenopause mode →")}
                   </button>
                   <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
-                    Pregnancy mode: full journey from conception to 3 months postnatal. Perimenopause mode: lowers stress threshold, caps intensity at moderate, pauses cycle phase rules.
+                    {t("Pregnancy mode: full journey from conception to 3 months postnatal. Perimenopause mode: lowers stress threshold, caps intensity at moderate, pauses cycle phase rules.")}
                   </div>
                 </div>
               )}
@@ -2226,12 +2227,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {/* Step 1 — Medical advisory (inline, shown right after clicking) */}
               {bodyMode === "standard" && pregnancySetupStep === 1 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 1 of 2 — Medical guidance</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 1 of 2 — Medical guidance")}</div>
                   <div style={{ fontSize: 12, color: C.text, lineHeight: 1.7, marginBottom: 6 }}>
-                    JustFit is a fitness app, not a medical service. Pregnancy mode is designed for use during the 9 months of pregnancy and up to 3 months after birth.
+                    {t("JustFit is a fitness app, not a medical service. Pregnancy mode is designed for use during the 9 months of pregnancy and up to 3 months after birth.")}
                   </div>
                   <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 16 }}>
-                    Please confirm that you have discussed or will discuss exercise with your midwife, GP, or OB-GYN.
+                    {t("Please confirm that you have discussed or will discuss exercise with your midwife, GP, or OB-GYN.")}
                   </div>
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer", marginBottom: 16 }}>
                     <input
@@ -2241,7 +2242,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       style={{ marginTop: 2, accentColor: C.warningBright, width: 16, height: 16, flexShrink: 0 }}
                     />
                     <span style={{ fontSize: 12, color: C.text, lineHeight: 1.6 }}>
-                      I will seek medical guidance regarding exercise during this period.
+                      {t("I will seek medical guidance regarding exercise during this period.")}
                     </span>
                   </label>
                   <div style={{ display: "flex", gap: 8 }}>
@@ -2249,14 +2250,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       onClick={() => { setPregnancySetupStep(0); setMedicalClearance(false); }}
                       style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
                     >
-                      Cancel
+                      {t("Cancel")}
                     </button>
                     <button
                       disabled={!medicalClearance}
                       onClick={() => setPregnancySetupStep(2)}
                       style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: medicalClearance ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: medicalClearance ? C.warningBright : C.muted, cursor: medicalClearance ? "pointer" : "not-allowed" }}
                     >
-                      Continue
+                      {t("Continue")}
                     </button>
                   </div>
                 </div>
@@ -2265,8 +2266,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {/* Step 2 — Due date (inline) */}
               {bodyMode === "standard" && pregnancySetupStep === 2 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 2 of 2 — Your due date</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When is your estimated due date?</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 2 of 2 — Your due date")}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("When is your estimated due date?")}</div>
                   <input
                     type="date"
                     value={pregnancyDueDate}
@@ -2275,14 +2276,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
-                    Your due date helps us calculate your trimester and adapt sessions accordingly. You can update it anytime.
+                    {t("Your due date helps us calculate your trimester and adapt sessions accordingly. You can update it anytime.")}
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
                     <button
                       onClick={() => setPregnancySetupStep(1)}
                       style={{ flex: 1, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
                     >
-                      Back
+                      {t("Back")}
                     </button>
                     <button
                       disabled={!pregnancyDueDate || pregnancySaving}
@@ -2314,7 +2315,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       }}
                       style={{ flex: 2, padding: "9px 12px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancyDueDate && !pregnancySaving ? "rgba(251,191,36,0.12)" : "rgba(var(--overlay-rgb),0.03)", color: pregnancyDueDate && !pregnancySaving ? C.warningBright : C.muted, cursor: pregnancyDueDate && !pregnancySaving ? "pointer" : "not-allowed" }}
                     >
-                      {pregnancySaving ? "Saving…" : "Enable pregnancy mode"}
+                      {pregnancySaving ? t("Saving…") : t("Enable pregnancy mode")}
                     </button>
                   </div>
                 </div>
@@ -2324,15 +2325,15 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ borderRadius: 14, background: C.amberDim, border: "1px solid rgba(245,158,11,0.3)", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                     <span style={{ color: C.amber, fontWeight: 700, fontSize: 14 }}>
-                      Pregnancy mode active
-                      {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · Due {pregnancyDueDate}</span>}
+                      {t("Pregnancy mode active")}
+                      {pregnancyDueDate && <span style={{ color: C.muted, fontWeight: 500 }}> · {t("Due {date}", { date: pregnancyDueDate })}</span>}
                     </span>
                     <button
                       onClick={handleDeactivateBodyMode}
                       disabled={bodyModeDeactivating}
                       style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(245,158,11,0.3)", background: "rgba(245,158,11,0.1)", color: C.amber, cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
                     >
-                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                      {bodyModeDeactivating ? "…" : t("Deactivate")}
                     </button>
                   </div>
                 </div>
@@ -2340,13 +2341,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {bodyMode === "postnatal" && (
                 <div style={{ borderRadius: 14, background: C.roseDim, border: "1px solid rgba(244,63,94,0.3)", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ color: C.rose, fontWeight: 700, fontSize: 14 }}>Postnatal mode active</span>
+                    <span style={{ color: C.rose, fontWeight: 700, fontSize: 14 }}>{t("Postnatal mode active")}</span>
                     <button
                       onClick={handleDeactivateBodyMode}
                       disabled={bodyModeDeactivating}
                       style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.1)", color: C.rose, cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
                     >
-                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                      {bodyModeDeactivating ? "…" : t("Deactivate")}
                     </button>
                   </div>
                 </div>
@@ -2354,26 +2355,26 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {bodyMode === "perimenopause" && (
                 <div style={{ borderRadius: 14, background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.3)", overflow: "hidden" }}>
                   <div style={{ padding: "10px 14px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                    <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 14 }}>Perimenopause mode active</span>
+                    <span style={{ color: "#a78bfa", fontWeight: 700, fontSize: 14 }}>{t("Perimenopause mode active")}</span>
                     <button
                       onClick={handleDeactivateBodyMode}
                       disabled={bodyModeDeactivating}
                       style={{ padding: "5px 12px", borderRadius: 10, fontSize: 12, fontWeight: 800, border: "1px solid rgba(167,139,250,0.3)", background: "rgba(167,139,250,0.1)", color: "#a78bfa", cursor: "pointer", flexShrink: 0, opacity: bodyModeDeactivating ? 0.5 : 1 }}
                     >
-                      {bodyModeDeactivating ? "…" : "Deactivate"}
+                      {bodyModeDeactivating ? "…" : t("Deactivate")}
                     </button>
                   </div>
                   <div style={{ padding: "0 14px 10px", fontSize: 11, color: "rgba(167,139,250,0.7)", lineHeight: 1.5 }}>
-                    Intensity capped at moderate · stress threshold lowered · standard cycle rules paused
+                    {t("Intensity capped at moderate · stress threshold lowered · standard cycle rules paused")}
                   </div>
                 </div>
               )}
             </div>
           )}
 
-          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>Saving…</div>}
-          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>All changes saved ✓</div>}
-          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>Save failed — check connection</div>}
+          {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>{t("Saving…")}</div>}
+          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>{t("All changes saved ✓")}</div>}
+          {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>{t("Save failed — check connection")}</div>}
         </Glass>
 
         {/* Sex-change warning modal */}
@@ -2387,24 +2388,24 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               style={{ width: "100%", maxWidth: 380, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}
             >
               <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", marginBottom: 10 }}>
-                Deactivate female settings?
+                {t("Deactivate female settings?")}
               </div>
               <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.6, marginBottom: 20 }}>
-                Switching to <strong style={{ color: C.text }}>{pendingSex === "male" ? "Male" : "Non-binary"}</strong> will deactivate:
+                {t("Switching to {sex} will deactivate:", { sex: pendingSex === "male" ? t("Male") : t("Non-binary") })}
               </p>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
                 {bodyMode !== "standard" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: "1px solid rgba(245,158,11,0.2)" }}>
                     <Icons.moon size={16} c={C.amber} />
                     <span style={{ fontSize: 13, fontWeight: 700, color: C.amber }}>
-                      {bodyMode === "pregnant" ? "Pregnancy mode" : bodyMode === "postnatal" ? "Postnatal mode" : "Perimenopause mode"}
+                      {bodyMode === "pregnant" ? t("Pregnancy mode") : bodyMode === "postnatal" ? t("Postnatal mode") : t("Perimenopause mode")}
                     </span>
                   </div>
                 )}
                 {cycleTrackingMode === "smart" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                     <Icons.refresh size={16} c={C.emerald} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>Smart cycle tracking</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>{t("Smart cycle tracking")}</span>
                   </div>
                 )}
               </div>
@@ -2413,13 +2414,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   onClick={() => { setShowSexWarning(false); setPendingSex(null); }}
                   style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 800, fontSize: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer" }}
                 >
-                  Cancel
+                  {t("Cancel")}
                 </button>
                 <button
                   onClick={handleConfirmSexChange}
                   style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, background: C.dangerStrong, border: "none", color: C.onStatus, cursor: "pointer" }}
                 >
-                  Yes, deactivate
+                  {t("Yes, deactivate")}
                 </button>
               </div>
             </div>
@@ -2627,18 +2628,18 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         )}
 
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Email & identity</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
           <Glass style={{ padding: 24 }}>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Email address</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Email address")}</div>
               {prefs.email_verified ? (
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                   <div>
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
-                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ Verified</div>
+                    <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ {t("Verified")}</div>
                   </div>
                   <button onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
-                    Change email →
+                    {t("Change email →")}
                   </button>
                 </div>
               ) : (
@@ -2646,14 +2647,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: emailSuccess ? 8 : 0 }}>
                     <div>
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
-                      <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ Not verified</div>
+                      <div style={{ fontSize: 12, color: C.amber, fontWeight: 700, marginTop: 2 }}>⚠ {t("Not verified")}</div>
                     </div>
                     <div style={{ display: "flex", gap: 8 }}>
-                      <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess("Verification email sent"); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
-                        {emailLoading ? "Sending…" : "Resend"}
+                      <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess(t("Verification email sent")); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
+                        {emailLoading ? t("Sending…") : t("Resend")}
                       </button>
                       <button onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
-                        Enter code
+                        {t("Enter code")}
                       </button>
                     </div>
                   </div>
@@ -2662,16 +2663,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               )}
             </div>
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Account ID</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Account ID")}</div>
               <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>Your unique identifier — links your workouts, plan, and score to your account privately and securely.</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{t("Your unique identifier — links your workouts, plan, and score to your account privately and securely.")}</div>
             </div>
           </Glass>
         </div>
         <div style={{ marginBottom: 32 }}>
           <Glass style={{ padding: 20 }}>
             <button onClick={() => { logout(); }} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:"rgba(var(--overlay-rgb),0.03)", color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}>
-              Sign out
+              {t("Sign out")}
             </button>
           </Glass>
         </div>
@@ -2681,34 +2682,34 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "privacy" && (<>
         {/* ── Privacy Centre header ── */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>Privacy Centre</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t("Privacy Centre")}</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
-            JustFit stores only what is needed to run your training. Your data is never sold and never used for advertising. Below is an honest account of what we hold and who can see it.
+            {t("JustFit stores only what is needed to run your training. Your data is never sold and never used for advertising. Below is an honest account of what we hold and who can see it.")}
           </div>
         </div>
 
         {/* ── What we store ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>What we store</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("What we store")}</div>
           <Glass style={{ padding: 0 }}>
             {[
-              { label: "Identity", detail: "Email address, display name", purpose: "Account login and essential notifications", visible: "JustFit only" },
-              { label: "Training history", detail: "Completed workouts, duration, effort, exercise steps", purpose: "Consistency score, progression radar, planner adaptation", visible: "Visible to connected trainer if you are a gym member" },
-              { label: "Training plan", detail: "Daily plan and rule trace", purpose: "Explain every coaching decision — fully traceable", visible: "JustFit only, rule trace visible in 'Why this plan?'" },
-              { label: "Body context", detail: "Sex, weight, height, goal, injuries, cycle / pregnancy data", purpose: "Adapt training safely to your body and life stage", visible: "JustFit only — not shared with trainers" },
-              { label: "Daily check-ins", detail: "Mood, energy, sleep, pain signals, free text", purpose: "Generate today's plan — used once, not retained as a profile", visible: "JustFit only" },
-              { label: "Settings & preferences", detail: "Equipment, sports, coach enrollments, language, accent colour", purpose: "Personalise your daily plan and app experience", visible: "JustFit only" },
+              { label: t("Identity"), detail: t("Email address, display name"), purpose: t("Account login and essential notifications"), visible: t("JustFit only") },
+              { trainer: true, label: t("Training history"), detail: t("Completed workouts, duration, effort, exercise steps"), purpose: t("Consistency score, progression radar, planner adaptation"), visible: t("Visible to connected trainer if you are a gym member") },
+              { label: t("Training plan"), detail: t("Daily plan and rule trace"), purpose: t("Explain every coaching decision — fully traceable"), visible: t("JustFit only, rule trace visible in 'Why this plan?'") },
+              { label: t("Body context"), detail: t("Sex, weight, height, goal, injuries, cycle / pregnancy data"), purpose: t("Adapt training safely to your body and life stage"), visible: t("JustFit only — not shared with trainers") },
+              { label: t("Daily check-ins"), detail: t("Mood, energy, sleep, pain signals, free text"), purpose: t("Generate today's plan — used once, not retained as a profile"), visible: t("JustFit only") },
+              { label: t("Settings & preferences"), detail: t("Equipment, sports, coach enrollments, language, accent colour"), purpose: t("Personalise your daily plan and app experience"), visible: t("JustFit only") },
             ].map((row, i, arr) => (
               <div key={row.label} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.label}</div>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.visible.startsWith("Visible") ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
-                    {row.visible.startsWith("Visible") ? "Trainer visible" : "Private"}
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.trainer ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
+                    {row.trainer ? t("Trainer visible") : t("Private")}
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{row.detail}</div>
-                <div style={{ fontSize: 11, color: C.subtle, marginTop: 3, lineHeight: 1.4 }}>Used for: {row.purpose}</div>
-                {row.visible.startsWith("Visible") && (
+                <div style={{ fontSize: 11, color: C.subtle, marginTop: 3, lineHeight: 1.4 }}>{t("Used for: {what}", { what: row.purpose })}</div>
+                {row.trainer && (
                   <div style={{ fontSize: 11, color: C.warning, marginTop: 3 }}>{row.visible}</div>
                 )}
               </div>
@@ -2719,14 +2720,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* ── Trainer visibility (only when connected to a gym) ── */}
         {prefs.gym_name && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Trainer visibility</div>
+            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Trainer visibility")}</div>
             <Glass style={{ padding: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>Connected: {prefs.gym_name}</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>{t("Connected")}: {prefs.gym_name}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
-                Your trainer can see your <strong style={{ color: C.text }}>completed workout history</strong> and <strong style={{ color: C.text }}>progression scores</strong> so they can coach you effectively.
+                {t("Your trainer can see your completed workout history and progression scores so they can coach you effectively.")}
               </div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
-                Your trainer <strong style={{ color: C.text }}>cannot</strong> see: daily check-in free text, body mode details (cycle / pregnancy), injury areas, or your email address.
+                {t("Your trainer cannot see: daily check-in free text, body mode details (cycle / pregnancy), injury areas, or your email address.")}
               </div>
             </Glass>
           </div>
@@ -2734,30 +2735,30 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── Integration data (Strava) ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Integration data</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Integration data")}</div>
           <Glass style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Strava</div>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.emerald : C.subtle, textTransform: "uppercase" }}>
-                {prefs.strava_connected ? "Connected" : "Not connected"}
+                {prefs.strava_connected ? t("Connected") : t("Not connected")}
               </div>
             </div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 8 }}>
-              When connected: we read <strong style={{ color: C.text }}>activity type, duration, distance, and heart rate</strong> to power your PMC chart and consistency score.
+              {t("When connected: we read activity type, duration, distance, and heart rate to power your PMC chart and consistency score.")}
             </div>
             <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-              We do <strong style={{ color: C.text }}>not</strong> store GPS routes, location history, or your Strava contacts. Disconnect at any time in Settings → Your Coach → Integrations.
+              {t("We do not store GPS routes, location history, or your Strava contacts. Disconnect at any time in Settings → Goal & coach → Integrations.")}
             </div>
           </Glass>
         </div>
 
         {/* ── Data controls ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Your controls</div>
+          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Your controls")}</div>
           <Glass style={{ padding: 24 }}>
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>Export your data</div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>Download your full profile, settings, and workout history as a portable JSON file.</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Export your data")}</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>{t("Download your full profile, settings, and workout history as a portable JSON file.")}</div>
               <button disabled={exporting} onClick={async () => {
                 setExporting(true);
                 try {
@@ -2772,15 +2773,15 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 } catch { setExportMsg("Export failed — please try again."); }
                 setExporting(false);
               }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1 }}>
-                {exporting ? "Preparing…" : "Download my data (JSON)"}
+                {exporting ? t("Preparing…") : t("Download my data (JSON)")}
               </button>
-              {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginTop: 8 }}>{exportMsg}</div>}
+              {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginTop: 8 }}>{t(exportMsg)}</div>}
             </div>
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
-              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>Delete your account</div>
-              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>Permanently removes your account and all associated data. This cannot be undone.</div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Delete your account")}</div>
+              <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5, marginBottom: 10 }}>{t("Permanently removes your account and all associated data. This cannot be undone.")}</div>
               <button onClick={() => setSubView("account")} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: "pointer", border: "1px solid rgba(244,63,94,0.3)", background: "rgba(244,63,94,0.06)", color: "#f43f5e" }}>
-                Go to Account settings →
+                {t("Go to Account settings →")}
               </button>
             </div>
           </Glass>
@@ -2791,7 +2792,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "coach" && stravaAvailable && (
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Integrations
+          {t("Integrations")}
         </div>
         <Glass style={{ padding: 20 }}>
           {/* Header row */}
@@ -2975,7 +2976,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <Glass style={{ padding: 20 }}>
               <div style={{ fontSize: 14, fontWeight: 800, color: C.text, marginBottom: 4 }}>Face ID / Touch ID</div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>
-                Register a passkey so you can log in with biometrics — no password needed.
+                {t("Register a passkey so you can log in with biometrics — no password needed.")}
               </div>
               {passkeyMsg && (
                 <div style={{
@@ -2984,7 +2985,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.3)" : "rgba(226,76,74,0.3)"}`,
                   color: passkeyMsg.startsWith("✓") ? C.emerald : C.danger,
                 }}>
-                  {passkeyMsg}
+                  {t(passkeyMsg)}
                 </div>
               )}
               <button
@@ -2999,7 +3000,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   opacity: addingPasskey ? 0.6 : 1,
                 }}
               >
-                {addingPasskey ? "Follow your device prompt…" : "Add Face ID / Touch ID"}
+                {addingPasskey ? t("Follow your device prompt…") : t("Add Face ID / Touch ID")}
               </button>
             </Glass>
           </div>
@@ -3096,7 +3097,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               return (
                 <button
                   key={ac.id}
-                  title={ac.name}
+                  title={t(ac.name)}
                   onClick={() => {
                     setAccentHex(ac.hex);
                     applyAccent(ac.hex);
@@ -3120,7 +3121,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             })}
           </div>
           <div style={{ fontSize: 12, color: C.muted, marginTop: 14, lineHeight: 1.5 }}>
-            {ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom"} — saved locally on this device.
+            {t("{name} — saved locally on this device.", { name: t(ACCENT_COLORS.find((a) => a.hex === accentHex)?.name ?? "Custom") })}
           </div>
         </Glass>
       </div>
@@ -3130,24 +3131,24 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Feedback ── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Feedback
+          {t("Feedback")}
         </div>
         <Glass style={{ padding: 24 }}>
           {feedbackDone ? (
             <div style={{ textAlign: "center", padding: "12px 0" }}>
               <div style={{ fontSize: 20, marginBottom: 8 }}>✓</div>
-              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>Thanks for your feedback!</div>
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>We read every message.</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{t("Thanks for your feedback!")}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{t("We read every message.")}</div>
             </div>
           ) : (
             <>
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
-                Bugs, ideas, or just a note — we read everything.
+                {t("Bugs, ideas, or just a note — we read everything.")}
               </div>
               <textarea
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
-                placeholder="Type your message here…"
+                placeholder={t("Type your message here…")}
                 rows={4}
                 style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontWeight: 500, resize: "vertical", fontFamily: "inherit", outline: "none", lineHeight: 1.5 }}
               />
@@ -3169,7 +3170,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 }}
                 style={{ marginTop: 12, width: "100%", padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: feedbackSending || feedbackText.trim().length === 0 ? "not-allowed" : "pointer", opacity: feedbackSending || feedbackText.trim().length === 0 ? 0.5 : 1 }}
               >
-                {feedbackSending ? "Sending…" : "Submit feedback"}
+                {feedbackSending ? t("Sending…") : t("Submit feedback")}
               </button>
             </>
           )}
@@ -3179,7 +3180,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Information ─────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
         <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-          Information
+          {t("Information")}
         </div>
         <Glass style={{ padding: 20 }}>
           {DOCS.map((doc, i) => (
@@ -3194,8 +3195,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               }}
             >
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{doc.title}</div>
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{doc.subtitle}</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{t(doc.title)}</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t(doc.subtitle)}</div>
               </div>
               <span style={{ color: C.muted, fontSize: 18, marginLeft: 12, flexShrink: 0 }}>›</span>
             </button>
@@ -3208,17 +3209,17 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && prefs.sex === "female" && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-            Your body
+            {t("Your body")}
           </div>
 
           <Glass style={{ padding: 20, marginBottom: 12 }}>
             {/* Cycle tracking mode */}
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Cycle tracking</div>
+                <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{t("Cycle tracking")}</div>
                 {cycleTrackingMode === "smart" && prefs.cycle?.current_phase && (
                   <div style={{ fontSize: 12, color: "rgba(167,139,250,0.8)", marginTop: 3 }}>
-                    Currently in your {PHASE_LABELS[prefs.cycle.current_phase]} · Day {prefs.cycle.cycle_day}
+                    {t("Currently in your {phase} · Day {day}", { phase: t(PHASE_LABELS[prefs.cycle.current_phase]), day: prefs.cycle.cycle_day })}
                   </div>
                 )}
               </div>
@@ -3234,7 +3235,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       color: cycleTrackingMode === mode ? C.emerald : C.muted, cursor: "pointer",
                     }}
                   >
-                    {mode === "smart" ? "Smart" : "Off"}
+                    {mode === "smart" ? t("Smart") : t("Off")}
                   </button>
                 ))}
               </div>
@@ -3242,7 +3243,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
             {cycleTrackingMode === "smart" && (
               <>
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Last period started</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{t("Last period started")}</div>
                 <input
                   type="date"
                   value={lastPeriodStart}
@@ -3251,7 +3252,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 14, boxSizing: "border-box" }}
                 />
 
-                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>Cycle length</div>
+                <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("Cycle length")}</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 16 }}>
                   {CYCLE_LENGTHS.map((d) => (
                     <button
@@ -3280,7 +3281,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               }}
               style={{ width: "100%", padding: "10px 16px", borderRadius: 12, background: cycleSaving ? "rgba(var(--overlay-rgb),0.03)" : C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: cycleSaving ? "not-allowed" : "pointer" }}
             >
-              {cycleSaving ? "Saving…" : "Save"}
+              {cycleSaving ? t("Saving…") : t("Save")}
             </button>
           </Glass>
 
@@ -3288,20 +3289,20 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.25)" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 12 }}>
                 <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright }}>Pregnancy mode active</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright }}>{t("Pregnancy mode active")}</div>
                   {prefs.cycle?.pregnancy_week && (
                     <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginTop: 3 }}>
-                      Week {prefs.cycle.pregnancy_week} · Trimester {prefs.cycle.trimester}
+                      {t("Week {n} · Trimester {tri}", { n: prefs.cycle.pregnancy_week, tri: prefs.cycle.trimester })}
                     </div>
                   )}
                 </div>
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
-                Your sessions are adapted for pregnancy — pelvic floor included, high-impact excluded, intensity matched to your trimester.
+                {t("Your sessions are adapted for pregnancy — pelvic floor included, high-impact excluded, intensity matched to your trimester.")}
               </div>
               {pregnancyDueDate && (
                 <>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>Due date</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{t("Due date")}</div>
                   <input
                     type="date"
                     value={pregnancyDueDate}
@@ -3322,30 +3323,30 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     }}
                     style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 13, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: pregnancySaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: pregnancySaving ? C.muted : C.warningBright, cursor: pregnancySaving ? "not-allowed" : "pointer", marginBottom: 12 }}
                   >
-                    {pregnancySaving ? "Saving…" : "Update due date"}
+                    {pregnancySaving ? t("Saving…") : t("Update due date")}
                   </button>
                 </>
               )}
               {/* Baby arrived prompt — show when due date has passed */}
               {prefs.cycle?.pregnancy_due_date && new Date(prefs.cycle.pregnancy_due_date) <= new Date() && postnatalSetupStep === 0 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 6 }}>Has your baby arrived?</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 6 }}>{t("Has your baby arrived?")}</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 12, lineHeight: 1.6 }}>
-                    When you're ready, switch to postnatal mode for a gentle recovery programme.
+                    {t("When you're ready, switch to postnatal mode for a gentle recovery programme.")}
                   </div>
                   <button
                     onClick={() => setPostnatalSetupStep(1)}
                     style={{ padding: "8px 14px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: "rgba(251,191,36,0.1)", color: C.warningBright, cursor: "pointer" }}
                   >
-                    Yes — set up postnatal mode
+                    {t("Yes — set up postnatal mode")}
                   </button>
                 </div>
               )}
 
               {postnatalSetupStep === 1 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 1 of 2 — Birth date</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>When did your baby arrive?</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 1 of 2 — Birth date")}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("When did your baby arrive?")}</div>
                   <input
                     type="date"
                     value={postnatalBirthDate}
@@ -3354,22 +3355,22 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>Cancel</button>
+                    <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>{t("Cancel")}</button>
                     <button
                       disabled={!postnatalBirthDate}
                       onClick={() => setPostnatalSetupStep(2)}
                       style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalBirthDate ? "rgba(251,191,36,0.1)" : "rgba(var(--overlay-rgb),0.03)", color: postnatalBirthDate ? C.warningBright : C.muted, cursor: postnatalBirthDate ? "pointer" : "not-allowed" }}
-                    >Continue</button>
+                    >{t("Continue")}</button>
                   </div>
                 </div>
               )}
 
               {postnatalSetupStep === 2 && (
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
-                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>Step 2 of 2 — Birth type</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.6 }}>This helps us adapt your recovery timeline. (Optional)</div>
+                  <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 2 of 2 — Birth type")}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginBottom: 10, lineHeight: 1.6 }}>{t("This helps us adapt your recovery timeline. (Optional)")}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
-                    {[["vaginal", "Vaginal"], ["caesarean", "Caesarean"], ["prefer_not_to_say", "Prefer not to say"]].map(([val, label]) => (
+                    {[["vaginal", t("Vaginal")], ["caesarean", t("Caesarean")], ["prefer_not_to_say", t("Prefer not to say")]].map(([val, label]) => (
                       <button
                         key={val}
                         onClick={() => setPostnatalBirthType(val)}
@@ -3378,7 +3379,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     ))}
                   </div>
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => setPostnatalSetupStep(1)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>Back</button>
+                    <button onClick={() => setPostnatalSetupStep(1)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>{t("Back")}</button>
                     <button
                       disabled={postnatalSaving}
                       onClick={async () => {
@@ -3407,14 +3408,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         setPostnatalSaving(false);
                       }}
                       style={{ flex: 2, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: "1px solid rgba(251,191,36,0.3)", background: postnatalSaving ? "rgba(var(--overlay-rgb),0.03)" : "rgba(251,191,36,0.1)", color: postnatalSaving ? C.muted : C.warningBright, cursor: postnatalSaving ? "not-allowed" : "pointer" }}
-                    >{postnatalSaving ? "Saving…" : "Start postnatal mode"}</button>
+                    >{postnatalSaving ? t("Saving…") : t("Start postnatal mode")}</button>
                   </div>
                 </div>
               )}
 
               <button
                 onClick={async () => {
-                  if (!confirm("Switch back to standard mode? Your pregnancy data will be kept.")) return;
+                  if (!confirm(t("Switch back to standard mode? Your pregnancy data will be kept."))) return;
                   setPregnancySaving(true);
                   try {
                     await api.saveProfile(token, {
@@ -3427,7 +3428,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 }}
                 style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
               >
-                Leave pregnancy mode
+                {t("Leave pregnancy mode")}
               </button>
             </Glass>
           )}
@@ -3435,18 +3436,18 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* ── Postnatal mode card ── */}
           {bodyMode === "postnatal" && (
             <Glass style={{ padding: 20, marginBottom: 12, border: "1px solid rgba(251,191,36,0.2)" }}>
-              <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright, marginBottom: 4 }}>Postnatal mode active</div>
+              <div style={{ fontSize: 14, fontWeight: 800, color: C.warningBright, marginBottom: 4 }}>{t("Postnatal mode active")}</div>
               {prefs.cycle?.postnatal_phase && (
                 <div style={{ fontSize: 12, color: "rgba(251,191,36,0.7)", marginBottom: 12 }}>
-                  {{ immediate: "Immediate recovery (0–2 wks)", early: "Early recovery (2–6 wks)", rebuilding: "Rebuilding (6–16 wks)", strengthening: "Strengthening (16–26 wks)", returning: "Returning to fitness (26+ wks)" }[prefs.cycle.postnatal_phase]}
+                  {t({ immediate: "Immediate recovery (0–2 wks)", early: "Early recovery (2–6 wks)", rebuilding: "Rebuilding (6–16 wks)", strengthening: "Strengthening (16–26 wks)", returning: "Returning to fitness (26+ wks)" }[prefs.cycle.postnatal_phase])}
                 </div>
               )}
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, marginBottom: 14 }}>
-                Your programme is adapted to your postnatal phase — pelvic floor foundation first, progressive rebuilding as you heal.
+                {t("Your programme is adapted to your postnatal phase — pelvic floor foundation first, progressive rebuilding as you heal.")}
               </div>
               <button
                 onClick={async () => {
-                  if (!confirm("Switch back to standard mode?")) return;
+                  if (!confirm(t("Switch back to standard mode?"))) return;
                   setPostnatalSaving(true);
                   try {
                     await api.saveProfile(token, { cycle: { mode: "standard", tracking_mode: "off" } });
@@ -3457,13 +3458,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 }}
                 style={{ width: "100%", padding: "9px 16px", borderRadius: 10, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}
               >
-                Leave postnatal mode
+                {t("Leave postnatal mode")}
               </button>
             </Glass>
           )}
 
           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6, padding: "0 4px" }}>
-            Your body data is stored privately on your device and our secure servers. It is never shared, sold, or used for advertising. Ever.
+            {t("Your body data is stored privately on your device and our secure servers. It is never shared, sold, or used for advertising. Ever.")}
           </div>
         </div>
       )}
@@ -3473,16 +3474,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* Delete account card */}
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
           <div>
-            <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:2 }}>Delete Account</div>
+            <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:2 }}>{t("Delete Account")}</div>
             <div style={{ fontSize:12, color:C.subtle, lineHeight:1.5 }}>
-              Permanently removes your account and all data.
+              {t("Permanently removes your account and all data.")}
             </div>
           </div>
           <button
             onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
             style={{ flexShrink:0, padding:"10px 14px", borderRadius:14, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:C.danger, fontWeight:900, fontSize:12, cursor:"pointer" }}
           >
-            Delete →
+            {t("Delete →")}
           </button>
         </div>
       </div>
@@ -3524,9 +3525,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           >
             {emailStep === "verify_code" && (
               <>
-                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Verify your email</div>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{t("Verify your email")}</div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
-                  Enter the 6-digit code sent to <strong style={{color:C.text}}>{prefs.email}</strong>. No email yet? Close this and tap "Resend email".
+                  {t("Enter the 6-digit code sent to {email}.", { email: prefs.email })}
                 </div>
                 <input
                   type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
@@ -3535,11 +3536,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   placeholder="123456" autoFocus
                   style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => { setEmailStep(null); setEmailCode(""); setEmailError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     disabled={emailLoading || emailCode.length !== 6}
@@ -3553,28 +3554,28 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       } else { setEmailError(res.error ?? "Invalid code"); }
                     }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
-                    {emailLoading ? "Verifying…" : "Verify"}
+                    {emailLoading ? t("Verifying…") : t("Verify")}
                   </button>
                 </div>
               </>
             )}
             {emailStep === "change_enter" && (
               <>
-                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Change email address</div>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{t("Change email address")}</div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
-                  We'll send a verification link and code to your new address.
+                  {t("We'll send a verification link and code to your new address.")}
                 </div>
                 <input
                   type="email" value={emailInput}
                   onChange={e => { setEmailInput(e.target.value); setEmailError(""); }}
-                  placeholder="new@email.com" autoFocus
+                  placeholder={t("new@email.com")} autoFocus
                   style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => { setEmailStep(null); setEmailInput(""); setEmailError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     disabled={emailLoading || !emailInput.includes("@")}
@@ -3586,16 +3587,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       else { setEmailError(res.error ?? "Something went wrong"); }
                     }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || !emailInput.includes("@")) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || !emailInput.includes("@")) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || !emailInput.includes("@")) ? "default" : "pointer" }}>
-                    {emailLoading ? "Sending…" : "Send verification"}
+                    {emailLoading ? t("Sending…") : t("Send verification")}
                   </button>
                 </div>
               </>
             )}
             {emailStep === "change_code" && (
               <>
-                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>Enter verification code</div>
+                <div style={{ fontSize:18, fontWeight:900, color:C.text }}>{t("Enter verification code")}</div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
-                  Enter the 6-digit code sent to <strong style={{color:C.text}}>{emailInput}</strong>. Or click the link in that email.
+                  {t("Enter the 6-digit code sent to {email}. Or click the link in that email.", { email: emailInput })}
                 </div>
                 <input
                   type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
@@ -3604,11 +3605,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   placeholder="123456" autoFocus
                   style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
-                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{emailError}</div>}
+                {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button onClick={() => setEmailStep("change_enter")}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}>
-                    Back
+                    {t("Back")}
                   </button>
                   <button
                     disabled={emailLoading || emailCode.length !== 6}
@@ -3622,7 +3623,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       } else { setEmailError(res.error ?? "Invalid code"); }
                     }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
-                    {emailLoading ? "Confirming…" : "Confirm change"}
+                    {emailLoading ? t("Confirming…") : t("Confirm change")}
                   </button>
                 </div>
               </>
@@ -3642,56 +3643,56 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {deleteStep === "confirm" ? (
               <>
                 <div style={{ fontSize:18, fontWeight:900, color:C.text, lineHeight:1.3 }}>
-                  Delete your account?
+                  {t("Delete your account?")}
                 </div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
-                  This will permanently delete your account and <strong style={{color:C.text}}>all relevant data</strong> — workouts, history, preferences, and progress. This action cannot be undone.
+                  {t("This will permanently delete your account and all relevant data — workouts, history, preferences, and progress. This action cannot be undone.")}
                 </div>
                 <div style={{ display:"flex", gap:10 }}>
                   <button
                     onClick={() => { setDeleteStep(null); setDeleteText(""); setDeleteError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.text, fontWeight:700, fontSize:14, cursor:"pointer" }}
                   >
-                    No, keep it
+                    {t("No, keep it")}
                   </button>
                   <button
                     onClick={() => setDeleteStep("type")}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background:"rgba(226,76,74,0.1)", color:C.danger, fontWeight:700, fontSize:14, cursor:"pointer" }}
                   >
-                    Yes, delete
+                    {t("Yes, delete")}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <div style={{ fontSize:18, fontWeight:900, color:C.danger, lineHeight:1.3 }}>
-                  Confirm deletion
+                  {t("Confirm deletion")}
                 </div>
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
-                  Type <strong style={{color:C.text, fontFamily:"monospace"}}>delete</strong> to confirm.
+                  {t("Type {word} to confirm.", { word: t("delete") })}
                 </div>
                 <input
                   type="text"
                   value={deleteText}
                   onChange={e => { setDeleteText(e.target.value); setDeleteError(""); }}
-                  placeholder="delete"
+                  placeholder={t("delete")}
                   autoFocus
                   style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
                 />
-                {deleteError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{deleteError}</div>}
+                {deleteError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(deleteError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
                   <button
                     disabled={deleteLoading}
                     onClick={() => { setDeleteStep("confirm"); setDeleteText(""); setDeleteError(""); }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:C.bgCard, color:C.muted, fontWeight:700, fontSize:14, cursor:"pointer" }}
                   >
-                    Cancel
+                    {t("Cancel")}
                   </button>
                   <button
                     disabled={deleteLoading}
                     onClick={async () => {
-                      if (deleteText.trim().toLowerCase() !== "delete") {
-                        setDeleteError('Please type "delete" to confirm.');
+                      if (![t("delete"), "delete"].includes(deleteText.trim().toLowerCase())) {
+                        setDeleteError(t('Please type "{word}" to confirm.', { word: t("delete") }));
                         return;
                       }
                       setDeleteLoading(true);
@@ -3707,7 +3708,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     }}
                     style={{ flex:1, padding:"12px 0", borderRadius:12, border:"1px solid rgba(226,76,74,0.4)", background: deleteLoading ? "rgba(226,76,74,0.05)" : "rgba(226,76,74,0.15)", color: deleteLoading ? C.muted : C.danger, fontWeight:900, fontSize:14, cursor: deleteLoading ? "default" : "pointer" }}
                   >
-                    {deleteLoading ? "Deleting…" : "Delete account"}
+                    {deleteLoading ? t("Deleting…") : t("Delete account")}
                   </button>
                 </div>
               </>

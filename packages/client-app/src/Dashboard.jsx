@@ -13,6 +13,7 @@ import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
 import { parseRuleTrace, hasBlockingSafety, classifyAdvisories, coachLine, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, cycleSubGoalLabel } from "./messagePolicy.js";
 import { dcpTodayMeta } from "./dcpUi.js";
+import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
 import DoneCard from "./DoneCard.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
@@ -534,7 +535,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                       const whyEntry =
                         [...advisories.blocking, ...advisories.safety].find(a => REST_CODES.includes(a.code)) ??
                         ((plan.rule_trace ?? []).some(t => t.includes("adapt:pain_rest"))
-                          ? { text: "Your check-in reported significant pain — rest is the right call today." }
+                          ? { text: t("Your check-in reported significant pain — rest is the right call today.") }
                           : null);
                       return whyEntry ? (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
@@ -817,7 +818,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach")}</div>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? t('HR-based') : `FTP ${cc.ftp_watts ?? 200}W`}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("Week {n}", { n: cc.week ?? 1 })}{cc.unit === 'hr' ? ` · ${t('HR-based')}` : ftpEntered(cc) ? ` · FTP ${cc.ftp_watts}W` : ""}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Session {a} of {b} this week", { a: cc.session_in_week ?? 0, b: cc.cycling_days_per_week ?? 3 })}</div>
                 {sessionTypeLabel && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{ccPhaseShort} · {t(sessionTypeLabel)}</div>
@@ -831,16 +832,17 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               </div>
               {canExportTcx && (() => {
                 const intervals = JSON.parse(cycStep.intervals_json);
-                const ftpW = cc.unit !== 'hr' ? (cc.ftp_watts ?? 200) : null;
+                const ftpW = cc.unit !== 'hr' && ftpEntered(cc) ? cc.ftp_watts : null;   // UAT R4 — no stand-in 200
                 const hrMax = cc.unit === 'hr' ? (cc.max_hr ?? 180) : null;
+                const hasTarget = !!(ftpW || hrMax);   // TCX / ERG need a power or HR target
                 const slug = cycStep.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                 const dateStr = new Date().toISOString().slice(0, 10);
                 const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
                 return (
                   <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
-                    <button onClick={() => triggerFileDownload(generateCyclingTcx(cycStep.name, intervals, ftpW, hrMax), `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml')} style={btnStyle}>↓ TCX</button>
+                    {hasTarget && <button onClick={() => triggerFileDownload(generateCyclingTcx(cycStep.name, intervals, ftpW, hrMax), `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml')} style={btnStyle}>↓ TCX</button>}
                     <button onClick={() => triggerFileDownload(generateZwoFile(cycStep.name, intervals, ftpW), `${slug}_${dateStr}.zwo`, 'application/xml')} style={btnStyle}>↓ ZWO</button>
-                    <button onClick={() => triggerFileDownload(generateErgFile(cycStep.name, intervals, ftpW), `${slug}_${dateStr}.erg`, 'text/plain')} style={btnStyle}>↓ ERG</button>
+                    {ftpW && <button onClick={() => triggerFileDownload(generateErgFile(cycStep.name, intervals, ftpW), `${slug}_${dateStr}.erg`, 'text/plain')} style={btnStyle}>↓ ERG</button>}
                   </div>
                 );
               })()}

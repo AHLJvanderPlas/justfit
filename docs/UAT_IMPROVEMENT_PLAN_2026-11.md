@@ -78,6 +78,9 @@ The week pill counts the same rolling 7 days the card shows; "first activity" is
 
 ## Release 4 — Dutch sweep 3 and the two orphan screens (M)
 
+Status: built on branch `uat-r4` (not deployed). `npm test` vitest 496 + shared 20; `npm run release` smoke 101, e2e 25.
+Inline styles 2008 → 1955. Also fixed: `GET /api/connect` selected columns that `users` does not have (it 500'd; the old screen hid that).
+
 Screens: Settings → Jij (every section title and helper), Deze week (dates via `fmtDateNL`, session
 names via `sessionTitle`, the "TIME-ADJUSTED" chip), Voortgang strings ("Fresh start", "Share
 progress", "Sun 1 Nov", "Next: The Habit"), Trophy room chrome, the Privacy centre, the pregnancy /

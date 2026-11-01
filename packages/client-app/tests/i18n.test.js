@@ -837,3 +837,61 @@ describe('coach-dcp R2 — every key has its own Dutch value', () => {
     expect(i18n.t('GENERAL\nFITNESS')).toBe('GENERAL\nFITNESS');
   });
 });
+
+// ─── UAT release 4 — Dutch sweep 3 ────────────────────────────────────────────
+// Settings → Jij / Account / Privacy, Deze week, Voortgang, the Trophy room, the body-mode
+// banners, the instruction why-line, the three orphan screens. The key list is a file so
+// it can grow without this test getting longer.
+import { readFileSync } from 'node:fs';
+const R4_KEYS = JSON.parse(readFileSync(new URL('./uatRelease4.keys.json', import.meta.url), 'utf8'));
+// Words that are the same in both languages (a Dutch reader also says "Week 3").
+const R4_SAME = new Set(['Week {n}', 'Trimester {n}', 'Week {n} · Trimester {tri}']);
+
+describe('UAT release 4 — every new key has its own Dutch value', () => {
+  it('lists the new keys', () => { expect(R4_KEYS.length).toBeGreaterThanOrEqual(400); });
+  it('non-empty, and never equal to the key', async () => {
+    const { i18n } = await load('nl');
+    const bad = R4_KEYS.filter((k) => {
+      const nl = i18n.t(k);
+      return !nl || (nl === k && !R4_SAME.has(k));
+    });
+    expect(bad).toEqual([]);
+  });
+  it('keeps every {placeholder} of the English key', async () => {
+    const { i18n } = await load('nl');
+    const vars = (s) => (s.match(/\{\w+\}/g) ?? []).sort().join(',');
+    const bad = R4_KEYS.filter((k) => vars(i18n.t(k)) !== vars(k));
+    expect(bad).toEqual([]);
+  });
+  it('the pregnancy and postnatal milestone sentences are all translated', async () => {
+    const { i18n } = await load('nl');
+    const b = await import('../src/bodyBanner.js');
+    const msgs = [...b.PREGNANCY_MILESTONES, ...b.POSTNATAL_MILESTONES].map((m) => m.msg);
+    expect(msgs.length).toBe(17);
+    expect(msgs.filter((m) => i18n.t(m) === m)).toEqual([]);
+  });
+  it('the seeded why-lines and muscle targets of migration 0055 are translated', async () => {
+    const { i18n } = await load('nl');
+    const sql = readFileSync(new URL('../../../migrations/0055_why_muscle_target.sql', import.meta.url), 'utf8');
+    const seeded = [...sql.matchAll(/THEN '([^']+)'/g)].map((m) => m[1]);
+    expect(seeded.length).toBeGreaterThanOrEqual(15);
+    expect(seeded.filter((s) => i18n.t(s) === s)).toEqual([]);
+  });
+  it('the perimenopause banner is plain Dutch, no "stress threshold lowered"', async () => {
+    const { i18n } = await load('nl');
+    const nl = i18n.t('Perimenopause: intensity up to moderate, calmer sessions when you are stressed, cycle rules are off.');
+    expect(nl).toBe('Overgangsmodus — intensiteit tot gemiddeld, bij stress kiezen we rustiger, cyclusregels staan uit');
+    expect(i18n.t('Perimenopause mode')).toBe('Overgangsmodus');
+  });
+  it('the English reader keeps the keys (the e2e journeys match them)', async () => {
+    const { i18n } = await load('en');
+    expect(i18n.t('Your profile')).toBe('Your profile');
+    expect(i18n.t('Fresh start — let’s build from here.')).toBe('Fresh start — let’s build from here.');
+  });
+  it('the Dutch short date reads "zo 1 nov", the English one "Sun 1 Nov"', async () => {
+    const { utils } = await load('nl');
+    const d = new Date(2026, 10, 1, 12);
+    expect(utils.fmtDateShort(d, 'nl')).toBe('zo 1 nov');
+    expect(utils.fmtDateShort(d, 'en')).toBe('Sun 1 Nov');
+  });
+});

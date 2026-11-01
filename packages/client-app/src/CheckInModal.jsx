@@ -258,13 +258,13 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
           {step === 3 && (
             <div>
               <div style={{ paddingTop: 8, paddingBottom: 4 }}>
-                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>A bit more...</div>
-                <div style={{ fontSize: 14, color: C.muted }}>Helps us tune today's session</div>
+                <div style={{ ...display(24, 900), color: C.text, textTransform: "uppercase", marginBottom: 4 }}>{t("A bit more...")}</div>
+                <div style={{ fontSize: 14, color: C.muted }}>{t("Helps us tune today's session")}</div>
               </div>
 
               {hasPain && (
                 <div style={{ marginTop: 16, marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>Pain detail</div>
+                  <div style={{ ...mono(10), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("Pain detail")}</div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
                       <button
@@ -298,9 +298,9 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                             onClick={() => onMarkChronic && onMarkChronic(painAreas)}
                             style={{ display: "block", width: "100%", textAlign: "left", background: "none", border: "none", color: C.danger, fontSize: 12, fontWeight: 700, cursor: "pointer", marginBottom: 2, padding: 0 }}
                           >
-                            Save as ongoing issue →
+                            {t("Save as ongoing issue →")}
                           </button>
-                          Adds to your profile so we always avoid these areas.
+                          {t("Adds to your profile so we always avoid these areas.")}
                         </div>
                       )}
                     </>
@@ -310,12 +310,12 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {bodyMode === "pregnant" && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: C.warningBright, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your body today?</div>
+                  <div style={{ ...mono(10), color: C.warningBright, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your body today?")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {[
-                      { key: "nausea",            label: "Feeling nauseous",  sub: "We'll keep it very gentle" },
-                      { key: "breathless",        label: "Feeling breathless", sub: "We'll shorten intervals"  },
-                      { key: "pelvic_discomfort", label: "Pelvic discomfort",  sub: "Low-load focus today"     },
+                      { key: "nausea",            label: t("Feeling nauseous"),  sub: t("We'll keep it very gentle") },
+                      { key: "breathless",        label: t("Feeling breathless"), sub: t("We'll shorten intervals")  },
+                      { key: "pelvic_discomfort", label: t("Pelvic discomfort"),  sub: t("Low-load focus today")     },
                     ].map(({ key, label, sub }) => {
                       const active = pregnancySignals[key];
                       return (
@@ -340,11 +340,11 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {bodyMode === "postnatal" && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: "rgba(251,191,36,0.8)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>How is your recovery today?</div>
+                  <div style={{ ...mono(10), color: "rgba(251,191,36,0.8)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your recovery today?")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {[
-                      { key: "heaviness",     label: "Feeling pelvic heaviness", sub: "We'll reduce load and impact"  },
-                      { key: "running_today", label: "Returned to running",       sub: "Clearance note will be added" },
+                      { key: "heaviness",     label: t("Feeling pelvic heaviness"), sub: t("We'll reduce load and impact")  },
+                      { key: "running_today", label: t("Returned to running"),       sub: t("Clearance note will be added") },
                     ].map(({ key, label, sub }) => {
                       const active = postnatalSignals[key];
                       return (
@@ -378,7 +378,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                 onClick={onClose}
                 style={{ flex: 1, padding: 14, borderRadius: 14, fontWeight: 700, fontSize: 13, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontFamily: "inherit" }}
               >
-                Skip
+                {t("Skip")}
               </button>
               <button
                 onClick={handleStep2Apply}
@@ -394,7 +394,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                 onClick={onClose}
                 style={{ flex: "0 0 auto", padding: "14px 20px", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer", fontFamily: "inherit" }}
               >
-                Skip
+                {t("Skip")}
               </button>
               <button
                 onClick={buildAndSave}

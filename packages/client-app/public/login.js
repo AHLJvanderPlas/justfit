@@ -1,3 +1,6 @@
+// Text comes from login-i18n.js (loaded first): Dutch by default, English per jf_lang / browser.
+const T = (key) => (window.JF_LOGIN ? window.JF_LOGIN.T(key) : key);
+
 // ─── STATE ───────────────────────────────────────────────────────────────
 let mode   = 'login';
 let method = 'magic';
@@ -63,13 +66,13 @@ function setMode(m) {
     pwdField.style.display   = 'block';
     forgotLink.style.display = 'none';
     acceptRow.style.display  = 'flex';
-    document.getElementById('submit-btn').textContent = 'Create Account';
+    document.getElementById('submit-btn').textContent = T('btn_create');
     document.getElementById('password').autocomplete  = 'new-password';
   } else {
     pwdField.style.display   = method === 'password' ? 'block' : 'none';
     forgotLink.style.display = method === 'password' ? 'block' : 'none';
     acceptRow.style.display  = 'none';
-    document.getElementById('submit-btn').textContent = 'Sign in';
+    document.getElementById('submit-btn').textContent = T('btn_signin');
     document.getElementById('password').autocomplete  = 'current-password';
   }
   hideAlert('main-alert');
@@ -103,11 +106,11 @@ async function handleSubmit() {
   const password = document.getElementById('password').value;
   const btn      = document.getElementById('submit-btn');
 
-  if (!email)              { showAlert('main-alert', 'Please enter your email.'); return; }
-  if (!password)           { showAlert('main-alert', 'Please enter your password.'); return; }
-  if (password.length < 6) { showAlert('main-alert', 'Password must be at least 6 characters.'); return; }
+  if (!email)              { showAlert('main-alert', T('a_email')); return; }
+  if (!password)           { showAlert('main-alert', T('a_password')); return; }
+  if (password.length < 6) { showAlert('main-alert', T('a_pw_short')); return; }
   if (mode === 'signup' && !document.getElementById('accept-check').checked) {
-    showAlert('main-alert', 'Please accept the Terms & Conditions to create an account.');
+    showAlert('main-alert', T('a_accept'));
     return;
   }
 
@@ -132,21 +135,21 @@ async function handleSubmit() {
       if (data.loginRequired) {
         btn.disabled = false;
         setMode('login');
-        showAlert('main-alert', data.error || 'This email is already registered — try signing in.');
+        showAlert('main-alert', T(data.error || 'a_registered'));
         return;
       }
-      showAlert('main-alert', data.error || 'Something went wrong.');
+      showAlert('main-alert', T(data.error || 'a_wrong'));
       btn.disabled = false;
-      btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
+      btn.textContent = mode === 'login' ? T('btn_login') : T('btn_create');
       return;
     }
 
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
-    showAlert('main-alert', 'Network error. Please try again.');
+    showAlert('main-alert', T('a_network'));
     btn.disabled = false;
-    btn.textContent = mode === 'login' ? 'Login' : 'Create Account';
+    btn.textContent = mode === 'login' ? T('btn_login') : T('btn_create');
   }
 }
 
@@ -154,7 +157,7 @@ async function handleMagicLink() {
   const email = document.getElementById('magic-email').value.trim();
   const btn   = document.getElementById('magic-btn');
 
-  if (!email) { showAlert('main-alert', 'Please enter your email.'); return; }
+  if (!email) { showAlert('main-alert', T('a_email')); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
@@ -166,20 +169,20 @@ async function handleMagicLink() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ action: 'magic_link', email }),
     });
-    showAlert('main-alert', 'If this email is registered, a login link has been sent. Check your inbox.', 'success');
+    showAlert('main-alert', T('a_magic_sent'), 'success');
   } catch {
-    showAlert('main-alert', 'Network error. Please try again.');
+    showAlert('main-alert', T('a_network'));
   }
 
   btn.disabled = false;
-  btn.textContent = 'Send Login Link';
+  btn.textContent = T('btn_magic');
 }
 
 async function handleForgot() {
   const email = document.getElementById('forgot-email').value.trim();
   const btn   = document.getElementById('forgot-btn');
 
-  if (!email) { showAlert('forgot-alert', 'Please enter your email.'); return; }
+  if (!email) { showAlert('forgot-alert', T('a_email')); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
@@ -191,20 +194,20 @@ async function handleForgot() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ action: 'forgot_password', email }),
     });
-    showAlert('forgot-alert', 'If this email is registered, a reset link has been sent. Check your inbox.', 'success');
+    showAlert('forgot-alert', T('a_reset_sent'), 'success');
   } catch {
-    showAlert('forgot-alert', 'Network error. Please try again.');
+    showAlert('forgot-alert', T('a_network'));
   }
 
   btn.disabled = false;
-  btn.textContent = 'Send Reset Link';
+  btn.textContent = T('btn_reset');
 }
 
 // ─── PASSKEY LOGIN ───────────────────────────────────────────────────────
 async function handlePasskeyLogin() {
   const btn = document.getElementById('passkey-btn');
   btn.disabled = true;
-  document.getElementById('passkey-label').textContent = 'Waiting for biometrics…';
+  document.getElementById('passkey-label').textContent = T('passkey_wait');
   hideAlert('main-alert');
 
   try {
@@ -249,12 +252,12 @@ async function handlePasskeyLogin() {
     redirectAfterAuth();
   } catch (e) {
     if (e.name === 'NotAllowedError') {
-      showAlert('main-alert', 'Passkey sign-in was cancelled or no passkey found. Use password or magic link instead.');
+      showAlert('main-alert', T('a_passkey_cancel'));
     } else {
-      showAlert('main-alert', e.message || 'Passkey sign-in failed.');
+      showAlert('main-alert', e.message ? T(e.message) : T('a_passkey_failed'));
     }
     btn.disabled = false;
-    document.getElementById('passkey-label').textContent = 'Use Face ID / Touch ID';
+    document.getElementById('passkey-label').textContent = T('passkey');
   }
 }
 
@@ -262,7 +265,7 @@ async function handlePasskeyLogin() {
 async function handleGuestSignup() {
   const btn = document.getElementById('guest-btn');
   btn.disabled = true;
-  btn.textContent = 'Setting up…';
+  btn.textContent = T('guest_setup');
   hideAlert('main-alert');
   try {
     const res = await fetch('/api/auth', {
@@ -272,17 +275,17 @@ async function handleGuestSignup() {
     });
     const data = await res.json();
     if (!data.ok) {
-      showAlert('main-alert', data.error || 'Could not create guest session.');
+      showAlert('main-alert', T(data.error || 'a_guest_failed'));
       btn.disabled = false;
-      btn.textContent = 'Continue without account →';
+      btn.textContent = T('guest');
       return;
     }
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
-    showAlert('main-alert', 'Network error. Please try again.');
+    showAlert('main-alert', T('a_network'));
     btn.disabled = false;
-    btn.textContent = 'Continue without account →';
+    btn.textContent = T('guest');
   }
 }
 
@@ -295,16 +298,16 @@ async function verifyMagicLink(token) {
     const res  = await fetch(`/api/auth?magic=${encodeURIComponent(token)}`);
     const data = await res.json();
 
-    if (!data.ok) throw new Error(data.error || 'Invalid or expired link');
+    if (!data.ok) throw new Error(T(data.error || 'magic_invalid'));
 
     localStorage.setItem('jf_user_id', data.userId);
-    document.getElementById('magic-title').textContent = 'Signed in!';
-    document.getElementById('magic-sub').textContent   = 'Redirecting…';
+    document.getElementById('magic-title').textContent = T('magic_done');
+    document.getElementById('magic-sub').textContent   = T('magic_redirect');
     setTimeout(redirectAfterAuth, 600);
   } catch (e) {
-    document.getElementById('magic-title').textContent = 'Link expired';
+    document.getElementById('magic-title').textContent = T('magic_expired');
     document.getElementById('magic-sub').innerHTML =
-      `${e.message}<br/><a href="/login.html" style="color:#10b981;text-decoration:none;font-weight:700;margin-top:12px;display:inline-block;">Back to login →</a>`;
+      `${e.message}<br/><a href="/login.html" style="color:#10b981;text-decoration:none;font-weight:700;margin-top:12px;display:inline-block;">${T('magic_back')}</a>`;
   }
 }
 
@@ -380,9 +383,9 @@ async function verifyMagicLink(token) {
     if (passkeyAvailable) {
       document.getElementById('passkey-section').style.display = 'block';
       const ua = navigator.userAgent;
-      let label = 'Use Face ID / Touch ID';
-      if (/Windows/i.test(ua)) label = 'Use Windows Hello';
-      if (/Android/i.test(ua)) label = 'Use Fingerprint / Face Unlock';
+      let label = T('passkey');
+      if (/Windows/i.test(ua)) label = T('passkey_windows');
+      if (/Android/i.test(ua)) label = T('passkey_android');
       document.getElementById('passkey-label').textContent = label;
     }
   }

@@ -47,3 +47,36 @@ test('Deze week: one "Log a training" row, two upcoming days, "Whole week →" f
   await expect(page.getByText('Completed Sessions')).toHaveCount(0);
   await expect(page.getByText('Your workout history will appear here.')).toHaveCount(0);
 });
+
+// UAT release 4 — Dutch sweep 3. The rest of this file is the English suite; this one test reads the
+// same app in Dutch: Settings → Jij has no English section titles, and Voortgang's weekly sentence,
+// share link and dates are Dutch. A self-logged-style activity gives Voortgang its first session.
+test('Dutch sweep 3: Instellingen → Jij says "Je profiel", Voortgang has no "Fresh start" (UAT R4)', async ({ page }) => {
+  await signupFresh(page, '-nl4');
+  await pickGeneralPath(page);
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  const today = await page.evaluate(() => new Date().toISOString().split('T')[0]);
+  expect((await page.request.post('/api/execution', { data: { date: today, session_type: 'run', duration_sec: 1800 } })).ok()).toBe(true);
+  // Dutch from here (signupFresh pinned jf_lang = en; a later init script runs after it).
+  await page.addInitScript(() => localStorage.setItem('jf_lang', 'nl'));
+  await page.reload();
+
+  // Voortgang: the weekly outcome, the share link and the awards entry in Dutch.
+  await page.getByRole('button', { name: 'Voortgang', exact: true }).click();
+  await expect(page.getByText('Frisse start — we bouwen vanaf hier.')).toBeVisible({ timeout: 20_000 });
+  await expect(page.getByText(/Fresh start/)).toHaveCount(0);
+  await expect(page.getByText('↑ Deel je voortgang')).toBeVisible();
+  await expect(page.getByText(/Share progress/)).toHaveCount(0);
+
+  // Instellingen → Jij: Dutch section titles, no English ones.
+  await page.getByRole('button', { name: 'Instellingen', exact: true }).click();
+  await page.getByRole('button', { name: /^Jij/ }).click();
+  await expect(page.getByText('Je profiel', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.getByText('Dagelijkse planning', { exact: true })).toBeVisible();
+  await expect(page.getByText('Beschikbare tijd per sessie', { exact: true })).toBeVisible();
+  for (const gone of ['Your profile', 'Daily Planning', 'Available time per session', 'Known Injuries', 'Re-do onboarding']) {
+    await expect(page.getByText(gone, { exact: true }), `"${gone}" must not render in Dutch`).toHaveCount(0);
+  }
+  // No FTP number before one was entered: the cycling coach is not set up, nothing to print here.
+  await expect(page.getByText(/FTP 200/)).toHaveCount(0);
+});

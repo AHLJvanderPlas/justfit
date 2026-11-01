@@ -128,8 +128,8 @@ function PregnancyProgressBanner({ cycle }) {
     return (
       <div style={{ marginBottom: 20 }}>
         <div style={{ background: "rgba(167,139,250,0.06)", border: "1px solid rgba(167,139,250,0.2)", borderRadius: 16, padding: "14px 16px" }}>
-          <div style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa", marginBottom: 3 }}>Perimenopause mode</div>
-          <div style={{ fontSize: 11, color: "rgba(167,139,250,0.65)", lineHeight: 1.5 }}>Intensity capped at moderate · stress threshold lowered · cycle phase rules paused</div>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "#a78bfa", marginBottom: 3 }}>{t("Perimenopause mode")}</div>
+          <div style={{ fontSize: 11, color: "rgba(167,139,250,0.65)", lineHeight: 1.5 }}>{t("Perimenopause: intensity up to moderate, calmer sessions when you are stressed, cycle rules are off.")}</div>
         </div>
       </div>
     );
@@ -157,7 +157,7 @@ function PregnancyProgressBanner({ cycle }) {
       <div style={{ marginBottom: 20 }}>
         <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.15)", borderRadius: 16, padding: "14px 16px" }}>
           <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 3 }}>
-            {PHASE_LABELS_PN[postnatalPhase] ?? "Postnatal recovery"}
+            {t(PHASE_LABELS_PN[postnatalPhase] ?? "Postnatal recovery")}
           </div>
           <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)" }}>{t("Day {n} after birth", { n: daysSince })}</div>
           {showMilestone && (
@@ -1201,7 +1201,7 @@ export default function App() {
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
                 </svg>
-                Sign out
+                {t("Sign out")}
               </button>
             ) : (
               <button
@@ -1318,11 +1318,11 @@ export default function App() {
                   <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 12 }}>
                     <span style={{ fontSize: 16, flexShrink: 0 }}>⚠</span>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>Add your email to keep your data</div>
-                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>Without email, you can't log back in when your session expires.</div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>{t("Add your email to keep your data")}</div>
+                      <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Without email, you can't log back in when your session expires.")}</div>
                     </div>
                     <button onClick={() => setShowGuestConvert(true)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: C.warning, fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
-                      Add →
+                      {t("Add →")}
                     </button>
                     <button onClick={() => { setEmailBannerDismissed(true); localStorage.setItem(uKey('jf_email_banner_dismissed'), String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
                       ×
@@ -1398,7 +1398,7 @@ export default function App() {
               </>
             )}
             {view === "coach" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
                 <CoachView
                   prefs={prefs}
                   plan={plan}
@@ -1449,7 +1449,7 @@ export default function App() {
               />
             )}
             {view === "awards" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
                 <AwardsView history={history} score={score} isPro={isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView(awardsOrigin)} origin={awardsOrigin} />
               </Suspense>
             )}
@@ -1459,7 +1459,7 @@ export default function App() {
               </Suspense>
             )}
             {view === "settings" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>Loading…</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
                 <SettingsView
                   prefs={prefs}
                   onUpdate={setPrefs}
@@ -1529,21 +1529,21 @@ export default function App() {
             onClick={e => e.stopPropagation()}
           >
             <div>
-              <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>Sign out?</div>
-              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>Your plan and progress are saved. See you next time.</div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Sign out?")}</div>
+              <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.6 }}>{t("Your plan and progress are saved. See you next time.")}</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
                 onClick={() => setShowSignOutConfirm(false)}
                 style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
               >
-                Return sporting
+                {t("Return sporting")}
               </button>
               <button
                 onClick={() => { setShowSignOutConfirm(false); logout(); }}
                 style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
               >
-                Leave
+                {t("Leave")}
               </button>
             </div>
           </div>
@@ -1594,19 +1594,19 @@ export default function App() {
               <div style={{ width: 36, height: 36, background: C.emerald, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: C.onAccent }}>JF</div>
               <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>Just<span style={{ color: C.emerald }}>Fit</span>.cc</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>Updated Policies</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>{t("Updated Policies")}</div>
             <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 10, lineHeight: 1.2 }}>
               Review &amp; accept our terms
             </h2>
             <p style={{ fontSize: 13, color: C.muted, lineHeight: 1.65, marginBottom: 24 }}>
-              We've updated our legal documents. Please review and accept them to continue using JustFit.
+              {t("We've updated our legal documents. Please review and accept them to continue using JustFit.")}
             </p>
             {/* Policy links */}
             <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 24 }}>
               {[
-                { label: "Terms & Conditions", href: "/terms.html" },
-                { label: "Disclaimer & Liability Waiver", href: "/disclaimer.html" },
-                { label: "Privacy Policy", href: "/privacy.html" },
+                { label: t("Terms & Conditions"), href: "/terms.html" },
+                { label: t("Disclaimer & Liability Waiver"), href: "/disclaimer.html" },
+                { label: t("Privacy Policy"), href: "/privacy.html" },
               ].map(({ label, href }) => (
                 <a
                   key={href}
@@ -1640,7 +1640,7 @@ export default function App() {
                   onClick={() => setTermsAcceptError(null)}
                   style={{ background: "none", border: "none", color: C.danger, fontWeight: 700, fontSize: 12, cursor: "pointer", textDecoration: "underline", padding: 0 }}
                 >
-                  Retry
+                  {t("Retry")}
                 </button>
               </div>
             )}
@@ -1667,7 +1667,7 @@ export default function App() {
               onClick={logout}
               style={{ width: "100%", marginTop: 10, padding: "10px 0", background: "none", border: "none", color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer" }}
             >
-              Sign out instead
+              {t("Sign out instead")}
             </button>
           </div>
         </div>
@@ -1722,8 +1722,8 @@ export default function App() {
         <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
             <div style={{ marginBottom: 12 }}><Icons.run size={28} c={C.emerald} /></div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>Cooper Test Complete</div>
-            <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>How far did you run in 12 minutes? Enter your distance in meters.</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>{t("Cooper Test Complete")}</div>
+            <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>{t("How far did you run in 12 minutes? Enter your distance in meters.")}</div>
             <input
               type="number"
               inputMode="numeric"
@@ -1749,13 +1749,13 @@ export default function App() {
               onClick={() => handleCooperSubmit(parseInt(cooperDistance, 10) || 0)}
               style={{ width: "100%", padding: "16px", borderRadius: 16, background: C.emerald, border: "none", color: C.onAccent, fontSize: 15, fontWeight: 900, cursor: "pointer", marginBottom: 10 }}
             >
-              Save Result
+              {t("Save Result")}
             </button>
             <button
               onClick={() => handleCooperSubmit(0)}
               style={{ width: "100%", padding: "12px", borderRadius: 16, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
             >
-              Skip — record without distance
+              {t("Skip — record without distance")}
             </button>
           </div>
         </div>

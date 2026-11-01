@@ -42,7 +42,7 @@ function ExerciseGif({ gifUrl, name }) {
 // override with a better rationale.
 function deriveExerciseWhy(ex) {
   const { stored, purpose, regions } = whyParts(ex);
-  if (stored) return stored;
+  if (stored) return t(stored);
 
   const labels = getLang() === "en" ? REGION_LABELS_EN : REGION_LABELS_NL;
   const named = regions.map((r) => (labels[r] ?? r).toLowerCase());
@@ -853,7 +853,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // Prefer DB-seeded why (migration 0055); derive from category when absent or when cues exist
           const derivedWhy = (() => {
             if (cleanCues.length > 0) return null;
-            if (instr?.why) return instr.why;
+            if (instr?.why) return t(instr.why);
             if (cur.category === 'recovery') return t("Supports muscle recovery and keeps you ready for your next session.");
             if (cur.category === 'mobility') return t("Maintains joint range of motion and helps prevent injury over time.");
             if (cur.category === 'cardio') return t("Trains your heart and lungs — the base that makes every other exercise feel easier.");

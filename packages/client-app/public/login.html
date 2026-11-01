@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>JustFit.cc — Login</title>
+  <title data-i18n="page_title">JustFit.cc — Login</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Inter+Tight:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
@@ -355,21 +355,21 @@
             <path d="M3 8 L12 14 L21 8"/>
           </svg>
         </div>
-        <div id="magic-title" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
-        <div id="magic-sub" style="font-size:14px;color:#64748b;">Verifying your link.</div>
+        <div id="magic-title" data-i18n="magic_signing" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
+        <div id="magic-sub" data-i18n="magic_verifying" style="font-size:14px;color:#64748b;">Verifying your link.</div>
       </div>
 
       <!-- FORGOT PASSWORD VIEW -->
       <div id="forgot-view" style="display:none;">
-        <h1 style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
-        <p style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
+        <h1 data-i18n="forgot_title" style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h1>
+        <p data-i18n="forgot_text" style="font-size:14px;color:#64748b;margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
         <div id="forgot-alert" class="alert"></div>
         <div class="field">
-          <label>Email</label>
-          <input type="email" id="forgot-email" placeholder="you@example.com" autocomplete="email" />
+          <label data-i18n="label_email">Email</label>
+          <input type="email" id="forgot-email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
         </div>
-        <button class="btn-primary" id="forgot-btn">Send Reset Link</button>
-        <a id="back-link" class="back-link">← Back to login</a>
+        <button class="btn-primary" id="forgot-btn" data-i18n="btn_reset">Send Reset Link</button>
+        <a id="back-link" class="back-link" data-i18n="back_login">← Back to login</a>
       </div>
 
       <!-- MAIN AUTH VIEW -->
@@ -382,76 +382,77 @@
               <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
               <circle cx="12" cy="9" r="2.5"/>
             </svg>
-            <span id="passkey-label">Use Face ID / Touch ID</span>
+            <span id="passkey-label" data-i18n="passkey">Use Face ID / Touch ID</span>
           </button>
-          <div class="divider">or</div>
+          <div class="divider" data-i18n="or">or</div>
         </div>
 
         <div class="mode-tabs">
-          <button class="mode-tab active" id="tab-login">Sign in</button>
-          <button class="mode-tab"        id="tab-signup">Create account</button>
+          <button class="mode-tab active" id="tab-login" data-i18n="tab_login">Sign in</button>
+          <button class="mode-tab"        id="tab-signup" data-i18n="tab_signup">Create account</button>
         </div>
 
         <div id="main-alert" class="alert"></div>
 
         <!-- Method switcher (sign-in tab only) -->
         <div id="method-switcher" class="method-tabs">
-          <button class="method-tab active" id="mt-magic">Magic Link</button>
-          <button class="method-tab"        id="mt-password">Password</button>
+          <button class="method-tab active" id="mt-magic" data-i18n="mt_magic">Magic Link</button>
+          <button class="method-tab"        id="mt-password" data-i18n="mt_password">Password</button>
         </div>
 
         <!-- Password form -->
         <div id="password-form" style="display:none;">
           <div class="field">
-            <label>Email</label>
-            <input type="email" id="email" placeholder="you@example.com" autocomplete="email" />
+            <label data-i18n="label_email">Email</label>
+            <input type="email" id="email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
           </div>
           <div class="field" id="password-field">
-            <label>Password</label>
+            <label data-i18n="label_password">Password</label>
             <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
           </div>
-          <a id="forgot-link" class="forgot-link">Forgot password?</a>
+          <a id="forgot-link" class="forgot-link" data-i18n="forgot_link">Forgot password?</a>
           <!-- Acceptance checkbox — shown only in Sign Up mode (toggled by login.js) -->
           <div class="accept-row" id="accept-row" style="display:none;">
             <input type="checkbox" id="accept-check" />
             <label for="accept-check">
-              I have read and agree to the
-              <a href="/terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a>,
-              <a href="/disclaimer.html" target="_blank" rel="noopener">Disclaimer &amp; Liability Waiver</a>,
-              and <a href="/privacy.html" target="_blank" rel="noopener">Privacy Policy</a>
-              of JustFit.cc.
+              <span data-i18n="terms_pre">I have read and agree to the</span>
+              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Terms &amp; Conditions</a>,
+              <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer &amp; Liability Waiver</a>,
+              <span data-i18n="terms_and">and</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacy Policy</a>
+              <span data-i18n="terms_post">of JustFit.cc.</span>
             </label>
           </div>
-          <button class="btn-primary" id="submit-btn">Login</button>
+          <button class="btn-primary" id="submit-btn" data-i18n="btn_login">Login</button>
         </div>
 
         <!-- Magic link form -->
         <div id="magic-form">
-          <p style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
+          <p data-i18n="magic_intro" style="font-size:14px;color:#64748b;margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
           <div class="field">
-            <label>Email</label>
-            <input type="email" id="magic-email" placeholder="you@example.com" autocomplete="email" />
+            <label data-i18n="label_email">Email</label>
+            <input type="email" id="magic-email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
           </div>
-          <button class="btn-primary" id="magic-btn">Send Login Link</button>
+          <button class="btn-primary" id="magic-btn" data-i18n="btn_magic">Send Login Link</button>
         </div>
 
         <!-- Guest access (create account tab only) -->
         <div id="guest-section" style="display:none;">
-          <div class="divider">or</div>
-          <button id="guest-btn" class="btn-ghost-full">Continue without account →</button>
-          <p class="guest-note">Your data is saved locally. Add email later to keep access.</p>
+          <div class="divider" data-i18n="or">or</div>
+          <button id="guest-btn" class="btn-ghost-full" data-i18n="guest">Continue without account →</button>
+          <p class="guest-note" data-i18n="guest_note">Your data is saved locally. Add email later to keep access.</p>
         </div>
       </div>
 
       <p style="margin-top:16px;font-size:12px;text-align:center;">
-        <a href="/privacy.html" style="color:#64748b;text-decoration:none;margin-right:12px;">Privacy Policy</a>
-        <a href="/terms.html" style="color:#64748b;text-decoration:none;">Terms &amp; Conditions</a>
+        <a href="/privacy.html" data-i18n="link_privacy" style="color:#64748b;text-decoration:none;margin-right:12px;">Privacy Policy</a>
+        <a href="/terms.html" data-i18n="link_terms" style="color:#64748b;text-decoration:none;">Terms &amp; Conditions</a>
       </p>
     </div><!-- /.card -->
 
   </div><!-- /.zone1 -->
 
   <script src="/login-wave.js" defer></script>
+  <script src="/login-i18n.js" defer></script>
   <script src="/login.js" defer></script>
 </body>
 </html>

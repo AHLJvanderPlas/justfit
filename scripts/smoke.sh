@@ -762,7 +762,9 @@ fi
 # overlay (.jf-stop*) moved to styles.css.
 # 2025 → 2008 (2026-11-01): UAT release 3 — the Deze week day strip, Aankomend cards and the
 # Voortgang week pill moved to .jf-weekstrip* / .jf-upday* / .jf-weekpill* classes.
-STYLE_CEILING=2008
+# 2008 → 1955 (2026-11-01): UAT release 4 — the connect screen, the trainer-invite screen and the
+# error boundary moved to .jf-orphan* classes (they were the last screens on raw inline styles).
+STYLE_CEILING=1955
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1616,6 +1618,26 @@ if [ -z "$R3_OUT" ]; then
   ok "UAT R3: both body banners use the bodyBanner.js helpers, no literal week in a milestone, clearance prompt gated"
 else
   fail "UAT R3: $R3_OUT"
+fi
+
+# ── UAT release 4 — the login page speaks Dutch (offline source scan) ─────────
+# login.html is static: its text carries data-i18n hooks and login-i18n.js (dictionary + language
+# rule) loads before login.js. No inline script (CSP script-src 'self'); the two dictionaries are
+# compared key for key in tests/loginI18n.test.js.
+R4_OUT=$(node -e '
+const fs = require("fs");
+const errs = [];
+const h = fs.readFileSync("packages/client-app/public/login.html", "utf8");
+const i = h.indexOf("/login-i18n.js"), j = h.indexOf("/login.js");
+if (i < 0 || j < 0 || i > j) errs.push("login-i18n.js must load before login.js");
+if ((h.match(/data-i18n=/g) || []).length < 25) errs.push("login.html has fewer than 25 data-i18n hooks");
+if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(h)) errs.push("login.html has an inline script (CSP is script-src self)");
+for (const id of ["tab-signup","tab-login","email","password","accept-check","submit-btn","guest-btn","mt-password"]) if (!h.includes("id=\"" + id + "\"")) errs.push("login.html lost #" + id);
+process.stdout.write(errs.join("; "));' 2>&1)
+if [ -z "$R4_OUT" ]; then
+  ok "UAT R4: login.html has its i18n hooks, loads login-i18n.js first, no inline script, e2e ids intact"
+else
+  fail "UAT R4: $R4_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

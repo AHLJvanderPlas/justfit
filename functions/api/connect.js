@@ -18,11 +18,11 @@ export async function onRequest(context) {
 
     const gym = await env.DB.prepare(
       `SELECT g.id, g.name,
-              u.display_name AS trainer_name,
-              u.photo_r2_key AS trainer_photo_r2_key
+              tp.display_name AS trainer_name,
+              tp.photo_r2_key AS trainer_photo_r2_key
        FROM gyms g
        JOIN gym_memberships gm ON gm.gym_id = g.id AND gm.role = 'owner' AND gm.status = 'active'
-       JOIN users u ON u.id = gm.user_id
+       LEFT JOIN trainer_profiles tp ON tp.user_id = gm.user_id
        WHERE LOWER(g.trainer_token) LIKE ? || '%'
        LIMIT 1`
     ).bind(token).first();

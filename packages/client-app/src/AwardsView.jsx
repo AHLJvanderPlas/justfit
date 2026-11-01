@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Icons } from "./icons.jsx";
 import { C } from "./tokens.js";
-import { t } from "./i18n.js";
+import { t, useLang } from "./i18n.js";
 
 
 // ── Award row component ───────────────────────────────────────────────────────
@@ -21,8 +21,8 @@ function AwardRow({ award, state, first }) {
       <div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase", color: state === "locked" ? C.subtle : C.text }}>{award.title}</div>
         <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
-          {state === "earned" && "Earned"}
-          {state === "next" && (award.deltaText ? `${award.deltaText} to go` : award.req)}
+          {state === "earned" && t("Earned")}
+          {state === "next" && (award.deltaText ? t("{what} to go", { what: award.deltaText }) : award.req)}
           {state === "locked" && award.req}
         </div>
       </div>
@@ -31,6 +31,7 @@ function AwardRow({ award, state, first }) {
 }
 
 export default function AwardsView({ history, score, isPro, progression, runUnlocked = [], onBack, origin = "history" }) {
+  useLang();
   const [showHorizon, setShowHorizon] = useState(false);
   const n = history.length;
 
@@ -74,7 +75,7 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
     return bal ? Math.max(...Object.values(bal)) : 0;
   })();
 
-  const d = (v, t, unit) => ({ delta: Math.max(0, t - v), deltaText: `${Math.max(0, t - v)} ${unit}` });
+  const d = (v, target, unit) => ({ delta: Math.max(0, target - v), deltaText: `${Math.max(0, target - v)} ${t(unit)}` });
 
   const awards = [
     // ── Sessions ──
@@ -143,17 +144,17 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
             ← {origin === "settings" ? t("Settings") : t("Progress")}
           </button>
         )}
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Trophy Room</div>
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Trophy Room")}</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-          Showing up,<br />quietly.
+          {t("Showing up, quietly.")}
         </div>
-        <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>{earned.length} of {awards.length} earned</div>
+        <div style={{ fontSize: 13, color: C.muted, marginTop: 8 }}>{t("{n} of {m} earned", { n: earned.length, m: awards.length })}</div>
       </div>
 
       {/* ── Earned ── */}
       {earned.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em", marginBottom: 6 }}>Earned · {earned.length}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em", marginBottom: 6 }}>{t("Earned")} · {earned.length}</div>
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
             {earned.map((a, i) => <AwardRow key={a.id} award={a} state="earned" first={i === 0} />)}
           </div>
@@ -163,7 +164,7 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
       {/* ── Next up ── */}
       {nextUp.length > 0 && (
         <div style={{ marginBottom: 28 }}>
-          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em", marginBottom: 6 }}>Next up · {nextUp.length}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em", marginBottom: 6 }}>{t("Next up")} · {nextUp.length}</div>
           <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 16, overflow: "hidden" }}>
             {nextUp.map((a, i) => <AwardRow key={a.id} award={a} state="next" first={i === 0} />)}
           </div>
@@ -174,9 +175,9 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
       {horizon.length > 0 && (
         <div>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>Far horizon · {horizon.length} hidden</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>{t("Far horizon")} · {t("{n} hidden", { n: horizon.length })}</div>
             <button onClick={() => setShowHorizon(s => !s)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: C.emerald, fontFamily: "inherit", padding: 0 }}>
-              {showHorizon ? "Hide" : "Reveal all"}
+              {showHorizon ? t("Hide") : t("Reveal all")}
             </button>
           </div>
           {showHorizon && (

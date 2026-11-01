@@ -1,8 +1,10 @@
 import { Component } from "react";
-import { C } from "./tokens.js";
+import { t } from "./i18n.js";
 
 // Catches unhandled render errors anywhere in the tree.
 // Must be a class component — React requires it for error boundaries.
+// UAT R4: Dutch first (i18n reads jf_lang from localStorage, no React state needed) and on
+// the app's fonts and tokens through the .jf-orphan classes.
 export default class ErrorBoundary extends Component {
   constructor(props) {
     super(props);
@@ -20,31 +22,15 @@ export default class ErrorBoundary extends Component {
   render() {
     if (!this.state.error) return this.props.children;
     return (
-      <div style={{
-        minHeight: "100vh", background: "var(--bg, #020617)", display: "flex",
-        alignItems: "center", justifyContent: "center", padding: 24,
-      }}>
-        <div style={{
-          width: "100%", maxWidth: 380, background: "rgba(var(--overlay-rgb),0.04)",
-          border: "1px solid rgba(var(--overlay-rgb),0.08)", borderRadius: 24,
-          padding: 32, textAlign: "center",
-        }}>
-          <div style={{ fontSize: 36, marginBottom: 16 }}>⚠️</div>
-          <div style={{ fontSize: 18, fontWeight: 900, color: "var(--text, #f8fafc)", marginBottom: 10 }}>
-            Something went wrong
+      <div className="jf-orphan jf-orphan--boundary">
+        <div className="jf-orphan__card jf-orphan__card--center">
+          <div className="jf-orphan__icon">⚠️</div>
+          <div className="jf-orphan__title">{t("Something went wrong")}</div>
+          <div className="jf-orphan__text">
+            {t("An unexpected error occurred. Your data is safe — reload to continue.")}
           </div>
-          <div style={{ fontSize: 13, color: "var(--muted, #64748b)", lineHeight: 1.6, marginBottom: 24 }}>
-            An unexpected error occurred. Your data is safe — reload to continue.
-          </div>
-          <button
-            onClick={() => window.location.reload()}
-            style={{
-              background: "#10b981", border: "none", borderRadius: 14,
-              color: C.onAccent, fontWeight: 900, fontSize: 14, padding: "12px 28px",
-              cursor: "pointer",
-            }}
-          >
-            Reload app
+          <button className="jf-orphan__btn jf-orphan__btn--solid" onClick={() => window.location.reload()}>
+            {t("Reload app")}
           </button>
         </div>
       </div>
