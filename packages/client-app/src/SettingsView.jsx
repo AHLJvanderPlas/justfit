@@ -766,7 +766,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         }}
                       >
                         <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
-                        <span style={{ fontSize: 10, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
+                        <span style={{ fontSize: 11, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
                       </button>
                     );
                   })}
@@ -899,7 +899,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     return (
                       <div style={{ marginBottom: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 16 }}>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
                           <div style={{ flex: 1, height: 1, background: C.border }} />
                         </div>
                         {presetDefs.map(({ key, label }) => (
@@ -1015,9 +1015,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, true); setEquipDragItem(null); setEquipDropZone(null); }}
                       style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                         {t("Your equipment")}
-                        <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                        <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                           {planEquipment.filter((v) => v !== "none").length}
                         </span>
                       </div>
@@ -1055,9 +1055,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, false); setEquipDragItem(null); setEquipDropZone(null); }}
                       style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: equipDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
                     >
-                      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                         {t("Not in use")}
-                        <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                        <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                           {ALL_EQUIPMENT.filter((e) => !planEquipment.includes(e.value)).length}
                         </span>
                       </div>
@@ -1122,9 +1122,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, true); setSportDragItem(null); setSportDropZone(null); }}
                         style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
                       >
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                           {t("Your sports")}
-                          <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                          <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                             {(sportPrefs.sports ?? []).length}
                           </span>
                         </div>
@@ -1162,9 +1162,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, false); setSportDragItem(null); setSportDropZone(null); }}
                         style={{ borderRadius: 14, padding: "12px 14px", border: `1.5px dashed ${sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.3)" : C.border}`, background: sportDropZone === "inactive" ? "rgba(var(--overlay-rgb),0.04)" : "transparent", transition: "border-color 0.15s, background 0.15s" }}
                       >
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                           {t("Not in use")}
-                          <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 10, fontWeight: 800 }}>
+                          <span style={{ background: "rgba(var(--overlay-rgb),0.06)", color: C.muted, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                             {ALL_SPORTS.filter((s) => !(sportPrefs.sports ?? []).includes(s.id)).length}
                           </span>
                         </div>
@@ -1304,7 +1304,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 20 }}>Enter your test result to calculate your new FTP.</div>
 
               <div style={{ marginBottom: 16 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Test type</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Test type</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {TEST_TYPES.map(t => (
                     <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: ftpTestType === t.v ? C.emerald : C.muted }}>
@@ -1315,7 +1315,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               </div>
 
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
                   {selected?.hint ?? 'Enter watts'}
                 </div>
                 <input
@@ -1910,7 +1910,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && (<>
       {/* ── Known Injuries ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Known Injuries")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -1954,7 +1954,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Body profile — you sub-view ──────────────────────── */}
       {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Your profile")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -2424,7 +2424,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "account" && (<>
         {/* ── Subscription section ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Abonnement</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Abonnement</div>
           <Glass style={{ padding: 24 }}>
             {(() => {
               // Lazy-load subscription data when this section first renders
@@ -2521,7 +2521,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           }
           return (
             <div style={{ marginBottom: 32 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Early Access</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Early Access</div>
               <Glass style={{ padding: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -2552,7 +2552,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* ── Referral section ── */}
         {!!prefs.email && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Geef een vriend een cadeau</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Geef een vriend een cadeau</div>
             <Glass style={{ padding: 24 }}>
               {(() => {
                 if (!referralData && !referralLoading) {
@@ -2619,7 +2619,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         )}
 
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
           <Glass style={{ padding: 24 }}>
             {/* UAT R5 — a guest has no email: one row that opens the guest-convert flow, no Resend / Enter code */}
             {prefs.email === null ? (
@@ -2684,7 +2684,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "privacy" && (<>
         {/* ── Privacy Centre header ── */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t("Privacy Centre")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t("Privacy Centre")}</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
             {t("JustFit stores only what is needed to run your training. Your data is never sold and never used for advertising. Below is an honest account of what we hold and who can see it.")}
           </div>
@@ -2692,7 +2692,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── What we store ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("What we store")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("What we store")}</div>
           <Glass style={{ padding: 0 }}>
             {[
               { label: t("Identity"), detail: t("Email address, display name"), purpose: t("Account login and essential notifications"), visible: t("JustFit only") },
@@ -2705,7 +2705,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div key={row.label} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.label}</div>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: row.trainer ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: row.trainer ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
                     {row.trainer ? t("Trainer visible") : t("Private")}
                   </div>
                 </div>
@@ -2722,7 +2722,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* ── Trainer visibility (only when connected to a gym) ── */}
         {prefs.gym_name && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Trainer visibility")}</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Trainer visibility")}</div>
             <Glass style={{ padding: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>{t("Connected")}: {prefs.gym_name}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
@@ -2737,11 +2737,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── Integration data (Strava) ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Integration data")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Integration data")}</div>
           <Glass style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Strava</div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.emerald : C.subtle, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.emerald : C.subtle, textTransform: "uppercase" }}>
                 {prefs.strava_connected ? t("Connected") : t("Not connected")}
               </div>
             </div>
@@ -2756,7 +2756,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── Data controls ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Your controls")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Your controls")}</div>
           <Glass style={{ padding: 24 }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Export your data")}</div>
@@ -2793,7 +2793,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Integrations ──────────────────────────────────────────────────── */}
       {subView === "coach" && stravaAvailable && (
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Integrations")}
         </div>
         <Glass style={{ padding: 20 }}>
@@ -2870,7 +2870,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 </div>
                 {(stravaSyncResult.recent ?? []).map((a, i) => (
                   <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", borderTop: i === 0 ? "none" : `1px solid rgba(var(--overlay-rgb),0.04)`, background: i % 2 === 0 ? "rgba(var(--overlay-rgb),0.02)" : "transparent" }}>
-                    <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(252,76,2,0.12)", color: "#FC4C02", flexShrink: 0 }}>{SPORT_LABEL[a.category] ?? a.category}</span>
+                    <span style={{ fontSize: 11, fontWeight: 800, padding: "2px 6px", borderRadius: 6, background: "rgba(252,76,2,0.12)", color: "#FC4C02", flexShrink: 0 }}>{SPORT_LABEL[a.category] ?? a.category}</span>
                     <span style={{ fontSize: 12, color: C.text, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{a.name}</span>
                     <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{fmtDate(a.date)}</span>
                     {a.duration_sec > 0 && <span style={{ fontSize: 11, color: C.muted, flexShrink: 0 }}>{fmtDur(a.duration_sec)}</span>}
@@ -2921,7 +2921,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           {/* Strava Brand Guidelines: attribution is required wherever Strava
               content is shown, kept visually separate from the JustFit brand. */}
           <div style={{ marginTop: 14, paddingTop: 10, borderTop: `1px solid ${C.border}`, display: "flex", alignItems: "center", gap: 6 }}>
-            <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", color: C.muted, textTransform: "uppercase" }}>Powered by</span>
+            <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: C.muted, textTransform: "uppercase" }}>Powered by</span>
             <svg width="42" height="11" viewBox="0 0 92 24" fill="none" aria-label="Strava">
               <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116z" fill="#FC4C02" />
               <path d="M11.094 13.828l2.525-4.977 2.524 4.977h2.948L15.619 6H13.62l-4.952 10.172h2.426z" fill="#FC4C02" opacity="0.85" />
@@ -2939,12 +2939,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* Push notifications */}
         {'Notification' in window && 'serviceWorker' in navigator && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
             <Glass style={{ padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Dagelijkse trainingsherinnering</div>
                 {!effectiveIsPro && (
-                  <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
+                  <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
                 )}
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>Ontvang een melding als je je training voor vandaag nog niet hebt gedaan.</div>
@@ -2972,7 +2972,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {passkeySupported && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
               Security
             </div>
             <Glass style={{ padding: 20 }}>
@@ -3013,7 +3013,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
         {/* ── Appearance ── */}
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Appearance")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -3105,7 +3105,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "privacy" && (<>
       {/* ── Feedback ── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Feedback")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -3154,7 +3154,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* ── Information ─────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Information")}
         </div>
         <Glass style={{ padding: 20 }}>
@@ -3183,7 +3183,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Your body — only shown to female users, you sub-view ── */}
       {subView === "you" && prefs.sex === "female" && (bodyMode === "pregnant" || bodyMode === "postnatal") && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Your body")}
           </div>
 
@@ -3627,7 +3627,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       <p
         style={{
-          fontSize: 10,
+          fontSize: 11,
           fontWeight: 700,
           letterSpacing: "0.1em",
           color: C.subtle,

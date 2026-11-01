@@ -1,5 +1,4 @@
 // Bottom navigation. Moved out of App.jsx (F4); a plain import — it is always on screen.
-import { C } from "./tokens.js";
 import { Icons } from "./icons.jsx";
 import { t } from "./i18n.js";
 
@@ -7,14 +6,14 @@ const COACH_NAV_ITEM = {
   id: "coach",
   label: "Coach",
   icon: (a, dot) => (
-    <div style={{ position: "relative" }}>
+    <div className="jf-nav__icon">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
         <path d="M16 3.13a4 4 0 0 1 0 7.75" />
       </svg>
-      {dot && <span style={{ position: "absolute", top: -2, right: -2, width: 7, height: 7, borderRadius: "50%", background: "var(--accent)", border: `1.5px solid ${C.bg}` }} />}
+      {dot && <span className="jf-nav__dot" />}
     </div>
   ),
 };
@@ -83,59 +82,18 @@ export default function Nav({ view, setView, hasTrainer, coachDot }) {
   const items = hasTrainer
     ? [...NAV_ITEMS.slice(0, 3), COACH_NAV_ITEM, NAV_ITEMS[3]]
     : NAV_ITEMS;
+  // UAT R6 — the nav is laid out from --nav-h (styles.css); .jf-page pads every view by the
+  // same number, so the last row of any screen scrolls fully above it.
   return (
-    <nav
-      style={{
-        position: "fixed",
-        bottom: 0,
-        left: 0,
-        right: 0,
-        background: "rgba(var(--bg-rgb),0.92)",
-        borderTop: `1px solid ${C.border}`,
-        backdropFilter: "blur(20px)",
-        zIndex: 50,
-        paddingBottom: "max(16px, env(safe-area-inset-bottom))",
-      }}
-    >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-around",
-          alignItems: "center",
-          padding: "10px 8px 0",
-          maxWidth: 600,
-          margin: "0 auto",
-        }}
-      >
+    <nav className="jf-nav">
+      <div className={`jf-nav__row${items.length > 4 ? " jf-nav__row--5" : ""}`}>
         {items.map((item) => {
           const active = view === item.id;
           return (
-            <button
-              key={item.id}
-              onClick={() => setView(item.id)}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 5,
-                padding: "8px 16px",
-                background: "none",
-                border: "none",
-                cursor: "pointer",
-              }}
-            >
+            <button key={item.id} type="button" onClick={() => setView(item.id)} aria-current={active ? "page" : undefined}
+              className={`jf-nav__item${active ? " jf-nav__item--on" : ""}`}>
               {item.id === "coach" ? item.icon(active, coachDot) : item.icon(active)}
-              <span
-                style={{
-                  fontSize: 9,
-                  fontWeight: 900,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                  color: active ? C.emerald : C.muted,
-                }}
-              >
-                {t(item.label)}
-              </span>
+              <span className="jf-nav__label">{t(item.label)}</span>
             </button>
           );
         })}

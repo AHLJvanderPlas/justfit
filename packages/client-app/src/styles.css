@@ -344,7 +344,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* UAT release 3 — Voortgang: the week pill is neutral until it has earned a verdict, and one
    quiet line stands in for the insight blocks that wait for three sessions. */
 .jf-weekpill {
-  font-size: 10px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px;
   border-radius: 999px; color: var(--muted); background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.14);
 }
 .jf-weekpill--on-track { color: var(--accent); background: var(--accent-dim); border-color: var(--accent-border); }
@@ -362,7 +362,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-weekstrip__day--done { background: rgba(var(--accent-rgb), 0.06); border-color: rgba(var(--accent-rgb), 0.2); }
 .jf-weekstrip__day--today { background: var(--accent-dim); border-color: var(--accent-border); }
 .jf-weekstrip__day--sel { outline: 2px solid var(--accent); outline-offset: 1px; }
-.jf-weekstrip__name { font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+.jf-weekstrip__name { font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .jf-weekstrip__num { font-size: 15px; font-weight: 900; color: var(--text); }
 .jf-weekstrip__day--today .jf-weekstrip__name, .jf-weekstrip__day--today .jf-weekstrip__num { color: var(--accent); }
 .jf-weekstrip__day--future .jf-weekstrip__num { color: var(--subtle); }
@@ -401,7 +401,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Completed-session card: recorded afterwards, not trained in the app. */
 .jf-logged-tag {
   display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 6px; vertical-align: 1px;
-  font-size: 9px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
+  font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase;
   color: var(--muted); border: 1px solid rgba(var(--overlay-rgb), 0.14);
 }
 .jf-logged-note {
@@ -501,7 +501,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* "Mijn trainingen" card on the Coach tab (MyTrainings.jsx MyTrainingsCard). */
 .jf-mt { margin-bottom: 28px; }
-.jf-mt__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.jf-mt__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .jf-mt__panel { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 28px; padding: 16px 18px; }
 .jf-mt__empty { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
 .jf-mt__item { padding: 12px 0; }
@@ -544,7 +544,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* coach-dcp R1 — Settings → Coaches → NORMEN: the writer of military_coach.dcp. */
 .jf-norm { margin-bottom: 28px; padding-bottom: 24px; border-bottom: 1px solid rgba(var(--overlay-rgb), 0.08); }
-.jf-norm__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.jf-norm__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .jf-norm__panel { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; padding: 16px 18px; }
 .jf-norm__keuring { font-size: 13px; font-weight: 700; color: var(--text); padding-bottom: 12px; margin-bottom: 12px; border-bottom: 1px solid rgba(var(--overlay-rgb), 0.08); }
 .jf-norm__row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -578,7 +578,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
    no inline style; everything below replaces ~170 style={{ }} props. */
 .jf-dc { display: flex; flex-direction: column; }
 .jf-dc__section { margin-bottom: 28px; }
-.jf-dc__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+.jf-dc__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .jf-dc__card { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; padding: 18px; }
 .jf-dc__path-head { display: flex; align-items: center; gap: 10px; color: var(--accent); }
 .jf-dc__path-name { font-family: "Barlow Condensed", "Oswald", system-ui, sans-serif; font-size: 28px; font-weight: 900; line-height: 1.05; color: var(--text); text-transform: uppercase; }
@@ -669,7 +669,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* coach-dcp R2 — Voortgang → WAAR STA IK: one card per norm (keuring, DCP), and the
    same cards on the Coach view. Bars are SVG with presentation attributes (no style). */
 .jf-wsi { margin-bottom: 24px; }
-.jf-wsi__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32); margin-bottom: 12px; }
+.jf-wsi__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32); margin-bottom: 12px; }
 .jf-norm-card { padding: 20px; margin-bottom: 12px; }
 .jf-norm-card__head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 4px; }
 .jf-norm-card__title { font-size: 15px; font-weight: 900; color: var(--text); }
@@ -691,7 +691,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-norm-card__tick { fill: rgba(var(--overlay-rgb), 0.45); }
 .jf-norm-card__tick--soft { fill: rgba(var(--overlay-rgb), 0.25); }
 .jf-norm-card__hint { font-size: 11px; color: var(--muted); margin-top: 5px; line-height: 1.45; }
-.jf-norm-card__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 10px; color: var(--muted); margin-top: 12px; }
+.jf-norm-card__legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; color: var(--muted); margin-top: 12px; }
 .jf-norm-card__legend span { display: inline-flex; align-items: center; gap: 5px; }
 .jf-norm-card__legend i { width: 10px; height: 3px; border-radius: 2px; display: inline-block; }
 .jf-norm-card__legend .is-below { background: var(--rose); }
@@ -714,7 +714,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* coach-dcp R2 — the ONE coach pill on the Today card (the "ADD-ON" pill is gone). */
 .jf-coach-pill {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px;
-  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
   font-variant-numeric: tabular-nums; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border);
 }
 
@@ -836,7 +836,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   background: var(--accent-dim); border: 2px solid var(--accent-border);
 }
 .jf-orphan__eyebrow {
-  font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
+  font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase;
   color: var(--muted); margin-bottom: 8px;
 }
 .jf-orphan__title {
@@ -863,7 +863,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* UAT R5 — the "Specialistische coaching" card on Today (was inline-styled in Dashboard). */
 .jf-cc { background: rgba(var(--overlay-rgb), 0.03); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; }
-.jf-cc__eyebrow { font-size: 10.5px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.jf-cc__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
 .jf-cc__title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 4px; }
 .jf-cc__body { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
 .jf-cc__actions { display: flex; gap: 10px; }
@@ -946,3 +946,316 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-set__row-title { font-size: 14px; font-weight: 900; color: var(--accent); }
 .jf-set__row-sub { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+/* ══ UAT release 6 — small phones and the first five minutes ═══════════════════════════════ */
+
+/* One height for the bottom nav. The nav is laid out from it, and every scrolling view's
+   bottom padding is computed from it (.jf-page), so the last row scrolls fully above the
+   nav on every screen — no per-view numbers. */
+:root {
+  --nav-h: 58px;
+  --nav-safe: max(12px, env(safe-area-inset-bottom));
+  --nav-total: calc(var(--nav-h) + var(--nav-safe) + 1px);
+}
+.jf-page {
+  max-width: 760px; margin: 0 auto;
+  padding: max(40px, calc(env(safe-area-inset-top) + 16px)) 20px calc(var(--nav-total) + 24px);
+}
+.jf-nav {
+  position: fixed; bottom: 0; left: 0; right: 0; z-index: 50;
+  background: rgba(var(--bg-rgb), 0.92); border-top: 1px solid rgba(var(--overlay-rgb), 0.08);
+  -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px);
+  padding-bottom: var(--nav-safe);
+}
+.jf-nav__row { display: flex; align-items: stretch; height: var(--nav-h); max-width: 600px; margin: 0 auto; padding: 0 4px; }
+.jf-nav__item {
+  flex: 1 1 0; min-width: 0; min-height: 44px; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: none; border: none; cursor: pointer; font-family: inherit;
+}
+/* 11 px floor (builder v1.4) with tight tracking: "INSTELLINGEN" fits a 320 px screen. */
+.jf-nav__label {
+  max-width: 100%; font-size: 11px; font-weight: 800; letter-spacing: 0; line-height: 13px;
+  text-transform: uppercase; white-space: nowrap; color: var(--muted);
+}
+.jf-nav__item--on .jf-nav__label { color: var(--accent); }
+.jf-nav__icon { position: relative; display: flex; }
+.jf-nav__dot { position: absolute; top: -2px; right: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 1.5px solid var(--bg); }
+
+/* Today: the session title shrinks with the screen instead of clipping ("CARDIOVERBRAN"). */
+.jf-today__title {
+  font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-weight: 900;
+  font-size: clamp(28px, 10.5vw, 42px); line-height: 0.95; letter-spacing: -0.005em; text-transform: uppercase;
+  color: var(--text); overflow-wrap: anywhere;
+}
+.jf-today__title--accent { color: var(--accent); }
+.jf-today__eyebrow {
+  font-family: "Inter Tight", "Inter", system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
+  text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32);
+}
+
+/* Every sheet's close "×" is a 44 px target — the box itself, not only its hit area. */
+.jf-sheet-close, .jf-sheet__head .jf-icon-btn {
+  position: relative; width: 44px; height: 44px; min-width: 44px; border-radius: 12px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; cursor: pointer; font-family: inherit; font-size: 18px; line-height: 1;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.05); color: var(--muted);
+}
+
+/* The mood row on Today — the day's check-in in one tap. */
+.jf-mood {
+  margin-bottom: 14px; padding: 14px; border-radius: 18px;
+  background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-mood__q { font-size: 15px; font-weight: 800; color: var(--text); margin-bottom: 10px; }
+.jf-mood__row { display: flex; gap: 8px; }
+.jf-mood__btn {
+  flex: 1 1 0; min-width: 0; min-height: 64px; padding: 8px 4px; border-radius: 14px; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  font-size: 12px; font-weight: 700; line-height: 1.2; text-align: center;
+  border: 1px solid rgba(var(--overlay-rgb), 0.1); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-mood__btn--1 { color: var(--danger); }
+.jf-mood__btn--3 { color: var(--accent); border-color: var(--accent-border); }
+.jf-mood__btn:disabled { opacity: 0.6; cursor: wait; }
+.jf-mood__more {
+  display: block; width: 100%; min-height: 44px; margin-top: 4px; background: none; border: none; cursor: pointer; font-family: inherit;
+  font-size: 12px; color: var(--muted);
+}
+.jf-mood__more-cta { color: var(--accent); font-weight: 700; }
+
+/* WorkoutView — the timed set. Neutral until Start; on a short screen (568 px) the Start
+   control sits above the fixed action bar. */
+.jf-timer { text-align: center; }
+.jf-timer__count {
+  font-size: 84px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; font-variant-numeric: tabular-nums;
+  margin-bottom: 20px; transition: color 0.3s; color: var(--text);
+}
+.jf-timer__count--idle { color: rgba(var(--overlay-rgb), 0.55); }
+.jf-timer__count--run { color: var(--accent); }
+.jf-timer__count--warn { color: var(--amber); }
+.jf-timer__count--danger { color: var(--danger-strong); animation: pulse 0.8s infinite; }
+.jf-timer__track { height: 6px; max-width: 320px; margin: 0 auto 24px; border-radius: 3px; overflow: hidden; background: rgba(var(--overlay-rgb), 0.08); }
+.jf-timer__fill { display: block; width: 100%; height: 100%; border: none; border-radius: 3px; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent); }
+.jf-timer__fill::-webkit-progress-bar { background: transparent; }
+.jf-timer__fill::-webkit-progress-value { background: currentColor; border-radius: 3px; transition: width 1s linear; }
+.jf-timer__fill::-moz-progress-bar { background: currentColor; border-radius: 3px; }
+.jf-timer__fill--idle { color: rgba(var(--overlay-rgb), 0.3); }
+.jf-timer__fill--warn { color: var(--amber); }
+.jf-timer__fill--danger { color: var(--danger-strong); }
+.jf-timer__start {
+  width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; cursor: pointer; font-family: inherit;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+  background: var(--accent-dim); border: 2px solid var(--accent-border); color: var(--accent);
+}
+.jf-timer__start-label { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
+.jf-timer__early {
+  min-height: 48px; padding: 14px 32px; border-radius: 16px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
+  background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
+}
+.jf-wo-working { max-width: 560px; margin: 0 auto; padding: 24px 20px 120px; display: flex; flex-direction: column; gap: 20px; }
+@media (max-height: 700px) {
+  .jf-wo-working { padding-top: 14px; gap: 12px; }
+  .jf-timer__count { font-size: 60px; margin-bottom: 10px; }
+  .jf-timer__track { margin-bottom: 12px; }
+  .jf-timer__start { width: 84px; height: 84px; gap: 4px; }
+}
+
+/* Onboarding (OnboardingModal.jsx). */
+.jf-ob {
+  position: fixed; inset: 0; z-index: 190; display: flex; align-items: center; justify-content: center; padding: 16px;
+  background: rgba(var(--bg-rgb), 0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+}
+.jf-ob__card {
+  width: 100%; max-width: 480px; max-height: 94dvh; display: flex; flex-direction: column; overflow: hidden;
+  background: var(--sheet); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 28px; box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
+}
+.jf-ob__progress { height: 3px; background: var(--subtle); }
+.jf-ob__bar { display: block; width: 100%; height: 3px; border: none; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent); }
+.jf-ob__bar::-webkit-progress-bar { background: transparent; }
+.jf-ob__bar::-webkit-progress-value { background: var(--accent); transition: width 0.3s; }
+.jf-ob__bar::-moz-progress-bar { background: var(--accent); }
+.jf-ob__body { padding: 24px 22px 18px; overflow-y: auto; }
+.jf-ob__step { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+.jf-ob__badge {
+  width: 44px; height: 44px; margin-bottom: 18px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
+  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+}
+.jf-ob__title { font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -0.02em; margin-bottom: 6px; line-height: 1.2; }
+.jf-ob__lead { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
+.jf-ob__list { list-style: none; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
+.jf-ob__li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text); line-height: 1.5; }
+.jf-ob__tick { color: var(--accent); font-weight: 900; flex-shrink: 0; }
+.jf-ob__fine { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
+.jf-ob__note {
+  margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; font-size: 12px; line-height: 1.5;
+  color: var(--warning); background: var(--amber-dim); border: 1px solid var(--amber-border);
+}
+.jf-ob__goals { display: flex; flex-direction: column; gap: 8px; }
+.jf-ob__goal {
+  width: 100%; min-height: 56px; padding: 10px 14px; border-radius: 16px; text-align: left; cursor: pointer; font-family: inherit;
+  display: flex; align-items: center; gap: 12px;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03);
+}
+.jf-ob__goal--on { border-color: var(--accent-border); background: var(--accent-dim); }
+.jf-ob__goal-icon {
+  flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--overlay-rgb), 0.05); color: var(--muted);
+}
+.jf-ob__goal--on .jf-ob__goal-icon { background: rgba(var(--accent-rgb), 0.2); color: var(--accent); }
+.jf-ob__goal-title { display: block; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
+.jf-ob__goal--on .jf-ob__goal-title { color: var(--accent); }
+.jf-ob__goal-sub { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
+.jf-ob__label {
+  display: block; margin: 18px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--label); text-transform: uppercase;
+}
+.jf-ob__label--gap { margin-top: 20px; }
+.jf-ob__opt-hint { font-weight: 500; text-transform: none; letter-spacing: 0; color: var(--muted); }
+.jf-ob__paths { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.jf-ob__path {
+  min-width: 0; min-height: 88px; padding: 10px 8px; border-radius: 16px; cursor: pointer; font-family: inherit; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 4px;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
+}
+.jf-ob__path--on { border-color: var(--accent-border); background: var(--accent-dim); }
+.jf-ob__path-icon { font-size: 16px; color: var(--accent); }
+.jf-ob__path--locked .jf-ob__path-icon, .jf-ob__path--locked .jf-ob__path-name { color: var(--muted); }
+.jf-ob__path-name {
+  max-width: 100%; font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 17px; font-weight: 800;
+  line-height: 1.05; text-transform: uppercase; color: var(--text); overflow-wrap: anywhere;
+}
+.jf-ob__path-line { font-size: 11px; color: var(--muted); line-height: 1.35; }
+.jf-ob__input {
+  width: 96px; min-height: 44px; padding: 10px 14px; border-radius: 12px; outline: none; font-family: inherit; font-size: 15px; font-weight: 700;
+  background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
+}
+.jf-ob__input--full { width: 100%; margin-bottom: 4px; }
+.jf-ob__grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.jf-ob__stack { display: flex; flex-direction: column; gap: 8px; }
+.jf-ob__opt {
+  min-height: 44px; padding: 10px 12px; border-radius: 14px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; text-align: left;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-ob__grid2 .jf-ob__opt { text-align: center; }
+.jf-ob__opt--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__opt--row { display: flex; flex-direction: column; gap: 2px; color: var(--text); }
+.jf-ob__opt--split { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--text); }
+.jf-ob__opt-title { font-size: 14px; }
+.jf-ob__opt--on .jf-ob__opt-title { color: var(--accent); }
+.jf-ob__opt-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
+.jf-ob__hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
+.jf-ob__measure { display: flex; gap: 8px; align-items: center; }
+.jf-ob__unit {
+  min-width: 56px; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 900;
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+}
+.jf-ob__cycle { margin-top: 18px; padding: 16px; border-radius: 20px; border: 1px solid var(--accent-border); background: rgba(var(--accent-rgb), 0.04); }
+.jf-ob__cycle-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 15px; font-weight: 900; color: var(--text); }
+.jf-ob__cycle-text { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
+.jf-ob__done { margin-top: 14px; padding: 8px 12px; border-radius: 10px; font-size: 12px; color: var(--accent); background: rgba(var(--accent-rgb), 0.08); }
+.jf-ob__chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.jf-ob__chip {
+  min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-ob__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__primary { margin-left: 6px; font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
+/* Session length: four per row, each wider than 40 px and 44 px tall. */
+.jf-ob__times { display: grid; grid-template-columns: repeat(4, minmax(48px, 1fr)); gap: 8px; }
+.jf-ob__time {
+  min-height: 44px; padding: 8px 0; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 800;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-ob__time--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__foot { padding: 0 22px 20px; display: flex; flex-direction: column; gap: 4px; }
+.jf-ob__row { display: flex; gap: 10px; }
+.jf-ob__btn {
+  flex: 1; min-height: 48px; padding: 12px; border-radius: 16px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
+}
+.jf-ob__btn--grow2 { flex: 2; }
+.jf-ob__btn--ghost { background: transparent; }
+.jf-ob__btn--soft { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); font-weight: 800; }
+.jf-ob__btn--solid { border: none; background: var(--accent); color: var(--on-accent); font-weight: 900; }
+.jf-ob__btn--main {
+  flex: 2; border: none; background: var(--accent); color: var(--on-accent); font-size: 15px; font-weight: 900;
+  box-shadow: 0 8px 32px rgba(var(--accent-rgb), 0.35);
+}
+.jf-ob__btn--main:disabled { opacity: 0.7; cursor: wait; }
+.jf-ob__skip { min-height: 44px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--muted); }
+
+/* The sport path follow-up (PathDetails.jsx) — onboarding and PathChoiceModal. */
+.jf-path__chips { display: flex; flex-wrap: wrap; gap: 10px; }
+.jf-path__chip {
+  min-height: 44px; padding: 10px 18px; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 800;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
+}
+.jf-path__chip--grow { flex: 1; padding: 10px 8px; font-size: 12px; }
+.jf-path__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-path__list { display: flex; flex-direction: column; gap: 8px; }
+.jf-path__pair { display: flex; gap: 8px; margin-bottom: 4px; }
+.jf-path__pair .jf-path__row { flex: 1; }
+.jf-path__row {
+  min-height: 56px; padding: 12px 14px; border-radius: 14px; cursor: pointer; font-family: inherit; text-align: left;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
+}
+.jf-path__row--on { border-color: var(--accent-border); background: var(--accent-dim); }
+.jf-path__row-title { display: block; font-size: 14px; font-weight: 800; color: var(--text); }
+.jf-path__row--on .jf-path__row-title { color: var(--accent); }
+.jf-path__row-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
+.jf-path__tick { color: var(--accent); font-size: 16px; }
+.jf-path__label { margin: 14px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--label); text-transform: uppercase; }
+.jf-path__label:first-child { margin-top: 0; }
+.jf-path__date {
+  width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px; outline: none; font-family: inherit; font-size: 14px;
+  background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
+}
+
+/* PathChoiceModal — "Wijzig pad" and existing users without a path. */
+.jf-pathmodal {
+  position: fixed; inset: 0; z-index: 80; overflow-y: auto; display: flex; flex-direction: column; background: var(--bg);
+  padding: max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 48px;
+}
+.jf-pathmodal__inner { max-width: 520px; width: 100%; margin: 0 auto; }
+.jf-pathmodal__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+.jf-pathmodal__title {
+  font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-weight: 800; font-size: clamp(36px, 13vw, 52px);
+  line-height: 1.05; letter-spacing: -0.005em; color: var(--text); margin: 0 0 16px;
+}
+.jf-pathmodal__lead { font-size: 16px; color: var(--muted); line-height: 1.5; margin-bottom: 28px; }
+.jf-pathmodal__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 28px; }
+.jf-pathmodal__tile {
+  min-width: 0; min-height: 140px; padding: 18px 16px; border-radius: 20px; cursor: pointer; font-family: inherit; text-align: left;
+  display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
+  background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-pathmodal__icon { font-size: 22px; color: var(--accent); }
+.jf-pathmodal__name {
+  font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 16px; font-weight: 800; line-height: 1.2;
+  white-space: pre-line; color: var(--text);
+}
+.jf-pathmodal__tile--locked .jf-pathmodal__icon, .jf-pathmodal__tile--locked .jf-pathmodal__name { color: var(--muted); }
+.jf-pathmodal__line { font-size: 12px; color: var(--muted); line-height: 1.4; }
+.jf-pathmodal__foot { font-size: 12px; color: var(--subtle); line-height: 1.6; }
+.jf-pathmodal__back { min-height: 44px; margin-bottom: 16px; padding: 0; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--muted); }
+.jf-pathmodal__h2 {
+  font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 32px; font-weight: 800; line-height: 0.95;
+  color: var(--text); margin-bottom: 8px;
+}
+.jf-pathmodal__ask { font-size: 15px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+.jf-pathmodal__form { margin-bottom: 32px; }
+.jf-pathmodal__save {
+  width: 100%; min-height: 48px; padding: 14px 0; border-radius: 14px; cursor: pointer; font-family: inherit; font-weight: 900; font-size: 15px;
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+}
+.jf-pathmodal__save:disabled { cursor: not-allowed; opacity: 0.6; }
+
+/* Voortgang trajectory: week numbers under the bars (HTML — the SVG stretches). */
+.jf-traj__weeks { display: flex; margin-top: 4px; }
+.jf-traj__wk { flex: 1 1 0; min-width: 0; text-align: center; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 800; letter-spacing: -0.02em; color: rgba(100, 116, 139, 0.6); }
+.jf-traj__wk--now { color: var(--accent); }
+
+/* Today title by its longest word: a 13–17 letter Dutch word ("CARDIOVERBRANDING") fits a 320 px card. */
+.jf-today__title--long { font-size: clamp(24px, 8vw, 36px); }
+.jf-today__title--xlong { font-size: clamp(20px, 6.4vw, 30px); }
+/* Five tabs (a trainer adds Coach): the condensed display face keeps "INSTELLINGEN" in 64 px. */
+.jf-nav__row--5 .jf-nav__label { font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 13px; font-weight: 800; letter-spacing: 0.02em; }

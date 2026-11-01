@@ -77,7 +77,7 @@ export const display = (size, weight = 800) => ({
 
 export const eyebrow = {
   fontFamily: C.font.body,
-  fontSize: 10.5,
+  fontSize: 11,
   fontWeight: 600,
   letterSpacing: "0.16em",
   textTransform: "uppercase",

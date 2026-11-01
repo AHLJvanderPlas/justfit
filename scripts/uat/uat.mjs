@@ -1,6 +1,9 @@
 // UAT runner — 30 personas × their first-week flows, against the local build on :8788.
 // Usage: node scripts/uat/uat.mjs <personaId> [...]   (no args = all). Output: .uat-out/<id>/{NN-*.png, log.json}
 // Needs the local server: npx wrangler pages dev packages/client-app/dist --port 8788 --persist-to .wrangler/e2e-state (see e2e/).
+// Gate (UAT release 6): personas marked `gate: true` (p01-sanne, p11-peter, p30-erik) must show 0 clipped titles,
+// 0 text under 11 px (award names excepted), ≤ 10 taps from "Doorgaan zonder account" / signup to the first Today
+// card with a session, no page or console errors, no crash and no failed flow. Any gated failure → exit code 1.
 import { chromium, devices } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { PERSONAS } from './personas.mjs';
@@ -19,15 +22,36 @@ class Run {
   tap() { if (this.flow) this.flow.taps += 1; }
   async audit(page, screen) {
     const a = await page.evaluate(() => {
-      const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none'; };
+      const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0'; };
       const ctrls = [...document.querySelectorAll('button, a, input, [role=button]')].filter(vis);
       const small = ctrls.filter((el) => { const r = el.getBoundingClientRect(); return (r.height < 40 || r.width < 40) && r.top < innerHeight && r.bottom > 0; }).map((el) => ({ text: (el.innerText || el.getAttribute('aria-label') || el.placeholder || el.tagName).trim().slice(0, 40), w: Math.round(el.getBoundingClientRect().width), h: Math.round(el.getBoundingClientRect().height) }));
+      // Text under 11 px anywhere on the page (not only the viewport — screenshots are full-page), at its RENDERED
+      // size: SVG text is scaled by its viewBox. Award names are exempt by design (data-award-name).
       const tiny = []; const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-      let node; while ((node = walker.nextNode())) { const t = node.textContent.trim(); if (t.length < 2) continue; const el = node.parentElement; if (!el || !vis(el)) continue; const fs = parseFloat(getComputedStyle(el).fontSize); const r = el.getBoundingClientRect(); if (fs < 11 && r.top < innerHeight && r.bottom > 0) tiny.push({ text: t.slice(0, 40), px: fs }); }
+      let node; while ((node = walker.nextNode())) {
+        const t = node.textContent.trim(); if (t.length < 2) continue; const el = node.parentElement; if (!el || !vis(el)) continue;
+        if (el.closest('[data-award-name]')) continue;
+        let fs = parseFloat(getComputedStyle(el).fontSize);
+        if (el instanceof SVGElement && el.getScreenCTM) { const m = el.getScreenCTM(); if (m) fs *= Math.hypot(m.a, m.b); }
+        if (fs < 10.95) tiny.push({ text: t.slice(0, 40), px: Math.round(fs * 10) / 10 });
+      }
+      // Clipped titles: a heading or display-sized line whose text is wider than its box, or that runs off the screen.
+      const clipped = [];
+      for (const el of document.querySelectorAll('h1, h2, h3, [class*="title"], [data-testid$="title"], div, span')) {
+        if (!vis(el)) continue;
+        const own = [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim().length > 1); if (!own) continue;
+        const fs = parseFloat(getComputedStyle(el).fontSize);
+        const titleLike = /^H[1-3]$/.test(el.tagName) || /title/.test(el.className?.baseVal ?? el.className ?? '') || fs >= 20;
+        if (!titleLike) continue;
+        const r = el.getBoundingClientRect();
+        const overflowX = el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0;
+        const offScreen = r.right > innerWidth + 1 || r.left < -1;
+        if (overflowX || offScreen) clipped.push({ text: el.textContent.trim().slice(0, 40), px: fs, sw: el.scrollWidth, cw: el.clientWidth });
+      }
       const overflow = document.documentElement.scrollWidth > innerWidth + 1;
       const nav = document.querySelector('nav, [class*="nav"], footer'); const navTop = nav ? nav.getBoundingClientRect().top : innerHeight;
       const underNav = ctrls.filter((el) => { const r = el.getBoundingClientRect(); return nav && !nav.contains(el) && r.top < innerHeight && r.bottom > navTop && r.top < navTop && r.bottom - navTop > 8; }).map((el) => (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 40));
-      return { small: small.slice(0, 12), smallCount: small.length, tiny: tiny.slice(0, 8), tinyCount: tiny.length, overflow, underNav: underNav.slice(0, 6), vw: innerWidth, vh: innerHeight };
+      return { small: small.slice(0, 12), smallCount: small.length, tiny: tiny.slice(0, 8), tinyCount: tiny.length, clipped: clipped.slice(0, 6), clippedCount: clipped.length, overflow, underNav: underNav.slice(0, 6), vw: innerWidth, vh: innerHeight };
     });
     this.log.audits.push({ screen, flow: this.flow?.name ?? null, ...a });
   }
@@ -39,7 +63,23 @@ async function click(run, loc, label, timeout = 12_000) {
 }
 async function fill(run, loc, value, label) { try { await loc.first().fill(value, { timeout: 8000 }); run.tap(); return true; } catch { run.fail(`cannot fill "${label}"`); return false; } }
 const btn = (page, s) => page.getByRole('button', { name: re(s) });
+// A person does not tap an option that is already selected: skip it when aria-pressed is true.
+async function choose(run, loc, label) { const el = loc.first(); if (!(await visible(el, 800))) { run.note(`option "${label}" not found`); return false; } if ((await el.getAttribute('aria-pressed')) === 'true') return true; return click(run, el, label); }
+// Scroll to the end and check that no control is left behind the fixed nav (the bottom padding is --nav-total).
+async function scrollEndCheck(run, page, name) {
+  const under = await page.evaluate(async () => {
+    window.scrollTo(0, document.documentElement.scrollHeight); await new Promise((r) => setTimeout(r, 250));
+    const nav = document.querySelector('nav'); if (!nav) return [];
+    const navTop = nav.getBoundingClientRect().top;
+    const out = [...document.querySelectorAll('button, a, input, [role=button]')].filter((el) => { const r = el.getBoundingClientRect(); return !nav.contains(el) && r.height > 0 && r.bottom > navTop + 1 && r.top < innerHeight; }).map((el) => (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 40));
+    window.scrollTo(0, 0); return out;
+  });
+  run.log.audits.push({ screen: `${name}-scrolled-end`, flow: run.flow?.name ?? null, underNavAtEnd: under, small: [], tiny: [], clipped: [], underNav: [] });
+  if (under.length) run.note(`under the nav at the end of ${name}: ${under.join(' | ')}`);
+}
 const visible = async (loc, ms = 1500) => loc.first().isVisible({ timeout: ms }).catch(() => false);
+// isVisible() does not wait; this does (a fresh plan takes a few seconds).
+const waitVisible = async (loc, ms) => loc.first().waitFor({ state: 'visible', timeout: ms }).then(() => true).catch(() => false);
 async function dismissSheets(page) { for (let i = 0; i < 2; i++) { const close = page.locator('.jf-sheet__head .jf-icon-btn'); if (await visible(close, 300)) { await close.first().click().catch(() => {}); } } }
 
 async function crashed(run, page, where) {
@@ -64,64 +104,87 @@ async function leaveWorkout(run, page) {
 }
 
 // ── flows ────────────────────────────────────────────────────────────────────
+const GOAL_KEYS = ['fat_loss', 'strength', 'health', 'mobility', 'pregnancy'];
 export async function flowSignup(run, page) {
-  const p = run.p; run.start('signup+onboarding');
+  const p = run.p; run.start('signup');
   await page.goto('/login.html');
   await run.shot(page, 'login');
-  if (p.guest) {
-    // "Continue without account" only exists under the CREATE ACCOUNT tab (finding U8)
-    if (!(await visible(page.locator('#guest-btn'), 500))) { await click(run, page.locator('#tab-signup'), 'signup tab (to reach guest)'); run.note('guest option hidden under CREATE ACCOUNT tab'); }
-    await run.shot(page, 'login-signup-tab');
-    if (!(await click(run, page.locator('#guest-btn'), 'guest'))) return run.end();
-  } else {
+  if (!p.guest) {
     await click(run, page.locator('#tab-signup'), 'signup tab');
     await fill(run, page.locator('#email'), `uat-${p.id}-${Date.now()}@justfit.cc`, 'email');
     await fill(run, page.locator('#password'), 'uat-test-pw', 'password');
     await click(run, page.locator('#accept-check'), 'accept');
-    await click(run, page.locator('#submit-btn'), 'submit');
   }
+  run.end();
+  // UAT R6 — counted from "Doorgaan zonder account" / the signup submit to the first Today card with a session.
+  run.start('onboarding');
+  if (p.guest) { await run.shot(page, 'login-guest'); if (!(await click(run, page.locator('#guest-btn'), 'guest'))) return run.end(); }
+  else if (!(await click(run, page.locator('#submit-btn'), 'submit'))) return run.end();
   await page.waitForURL('/', { timeout: 20_000 }).catch(() => run.fail('no redirect to app'));
   await page.waitForTimeout(1200);
   await run.shot(page, 'onboarding-0-waiver');
-  if (!(await click(run, btn(page, 'I Agree|Akkoord|Ga akkoord'), 'I Agree'))) return run.end();
+  if (!(await click(run, btn(page, 'I Agree|Akkoord'), 'I Agree'))) return run.end();
   await page.waitForTimeout(400);
   await run.shot(page, 'onboarding-1-goal');
-  const goalIdx = p.goalIdx ?? 0;
-  const goalCards = page.locator('button').filter({ hasText: re('General Health|Build Strength|Lose Weight|Build Muscle|Endurance|Mobility|Algemene|Kracht|Afvallen|Spieren|Uithoudings|Mobiliteit|Pregnan|Zwanger') });
-  if (await visible(goalCards.nth(goalIdx))) { await goalCards.nth(goalIdx).click(); run.tap(); } else run.note('goal cards not found by text; skipping choice');
-  const next = async () => { const c = btn(page, '^(Continue|Doorgaan|Verder|Volgende)'); if (await visible(c, 800)) { await click(run, c, 'Continue'); return; } const s = btn(page, 'Skip this step|Sla deze stap over|Overslaan'); if (await visible(s, 800)) await click(run, s, 'Skip'); };
-  await next();
-  await page.waitForTimeout(300); await run.shot(page, 'onboarding-2-about-you');
+  const next = async () => { const c = btn(page, '^(Continue|Doorgaan)$'); if (await visible(c, 800)) return click(run, c, 'Continue'); run.fail('no Continue button'); return false; };
+  const path = p.path ?? 'general';
+  if (path === 'general') {
+    const goal = p.goal ?? GOAL_KEYS[p.goalIdx ?? 2] ?? 'health';
+    if (!(await click(run, page.locator(`[data-goal="${goal}"]`), `goal ${goal}`))) return run.end();
+  } else {
+    if (!(await click(run, page.locator(`[data-path="${path}"]`), `path ${path}`))) return run.end();
+    await page.waitForTimeout(400); await run.shot(page, `onboarding-1b-${path}`);
+    if (path === 'running') await choose(run, page.locator('button').filter({ hasText: re('^10\\s*km$') }), '10 km');
+    if (path === 'cycling') await choose(run, page.locator('button').filter({ hasText: re('Build fitness|Conditie') }), 'sub-goal');
+    if (path === 'military') {
+      await choose(run, page.locator('button').filter({ hasText: re('^Keuring') }), 'Keuring');
+      const date = page.locator('input[type=date]'); if (await visible(date, 800)) { await date.first().fill(new Date(Date.now() + 70 * 86_400_000).toISOString().slice(0, 10)); run.tap(); }
+    }
+    if (!(await next())) return run.end();
+  }
+  await page.waitForTimeout(400); await run.shot(page, 'onboarding-2-about-you');
   if (p.name) await fill(run, page.getByPlaceholder(re('What should we call you|Hoe mogen we je noemen')), p.name, 'name');
-  const sexBtn = page.locator('button').filter({ hasText: re(p.sex === 'female' ? '^(Female|Vrouw)$' : '^(Male|Man)$') });
-  if (await visible(sexBtn, 600)) { await sexBtn.first().click(); run.tap(); }
-  await next();
-  await page.waitForTimeout(300); await run.shot(page, 'onboarding-3-fitness');
-  const expCards = page.locator('button').filter({ hasText: re('Beginner|Intermediate|Advanced|Gemiddeld|Gevorderd') });
-  if (await visible(expCards.nth(p.expIdx ?? 0), 600)) { await expCards.nth(p.expIdx ?? 0).click(); run.tap(); }
-  await next();
-  await page.waitForTimeout(300); await run.shot(page, 'onboarding-4-equipment-time');
-  for (const eq of (p.equipment ?? [])) { const c = page.locator('button').filter({ hasText: re(eq) }); if (await visible(c, 500)) { await c.first().click(); run.tap(); } else run.note(`equipment chip "${eq}" not found`); }
-  if (p.minutes) { const m = page.locator('button').filter({ hasText: re(`^${p.minutes}\\s*(m|min)?$`) }); if (await visible(m, 500)) { await m.first().click(); run.tap(); } }
-  await next();
-  await page.waitForTimeout(300); await run.shot(page, 'onboarding-5-sports');
-  const finish = btn(page, 'Start Training|Start met trainen|Begin'); if (await visible(finish, 800)) await click(run, finish, 'Start Training'); else await next();
-  await page.waitForTimeout(800);
+  await choose(run, page.locator('button').filter({ hasText: re(p.sex === 'female' ? '^(Female|Vrouw)$' : '^(Male|Man)$') }), 'sex');
+  await choose(run, page.locator('.jf-ob__opt--row').nth(p.expIdx ?? 0), 'experience');
+  if (!(await next())) return run.end();
+  await page.waitForTimeout(400); await run.shot(page, 'onboarding-3-equipment-time');
+  for (const eq of (p.equipment ?? [])) await choose(run, page.locator('.jf-ob__opt').filter({ hasText: re(eq) }), `equipment ${eq}`);
+  if (p.minutes) await choose(run, page.locator('.jf-ob__time').filter({ hasText: re(`^${p.minutes}\\s*(m|min)?$`) }), `${p.minutes} min`);
+  if (!(await click(run, btn(page, 'Start Training|Start met trainen'), 'Start Training'))) return run.end();
+  // The first Today card with a session — and no path modal after onboarding (the goal was asked once).
+  const card = btn(page, 'START SESSI|Herstelmodus|Recovery Mode');
+  if (!(await waitVisible(card, 30_000))) run.fail('no Today card with a session after onboarding');
+  if (await visible(page.locator('.jf-pathmodal'), 1500)) run.fail('the path modal reappeared after onboarding');
+  run.note(`onboarding → Today in ${run.flow.taps} taps; mood row=${await visible(page.getByTestId('mood-row'), 300)}`);
+  await run.shot(page, 'today-first');
+  await crashed(run, page, 'after onboarding');
   run.end();
 }
 
 export async function flowCheckin(run, page, signals = [], detail = null) {
   run.start('check-in');
   await page.waitForTimeout(800);
-  const mood = btn(page, '^(Good|Goed|Okay|Gaat wel|Not great|Niet zo goed)$');
-  if (!(await visible(mood, 4000))) { run.note('check-in sheet not shown'); return run.end(); }
-  await run.shot(page, 'checkin-1-mood');
-  await click(run, btn(page, run.p.mood ?? '^(Good|Goed)$'), 'mood');
+  const row = page.getByTestId('mood-row');
+  const moodRe = run.p.mood ?? '^(Good|Goed)$';
+  if (!signals.length && !detail) {
+    // UAT R6 — the day's check-in is one tap on the mood row on Today.
+    if (!(await waitVisible(row, 8000))) { run.note('mood row not shown'); return run.end(); }
+    await run.shot(page, 'checkin-mood-row');
+    await click(run, row.getByRole('button', { name: re(moodRe) }), 'mood');
+    await page.waitForTimeout(1500);
+    return run.end();
+  }
+  // Signals: the sheet, from the mood row's "Meer vertellen" (or the header Check-in).
+  const more = (await visible(row, 3000)) ? row.getByRole('button', { name: re('Tell more|Meer vertellen') }) : btn(page, '^CHECK-IN$');
+  if (!(await click(run, more, 'open check-in sheet'))) return run.end();
+  await page.waitForTimeout(500); await run.shot(page, 'checkin-1-mood');
+  const sheet = page.getByTestId('checkin-sheet');   // the mood row stays under the sheet: scope every tap
+  await click(run, btn(sheet, moodRe), 'mood');
   await page.waitForTimeout(300); await run.shot(page, 'checkin-2-signals');
-  for (const s of signals) { const c = btn(page, s); if (await visible(c, 800)) await click(run, c, s); else run.fail(`signal chip "${s}" not found`); }
-  await click(run, btn(page, 'Apply|Toepassen'), 'Apply');
+  for (const s of signals) { const c = btn(sheet, s); if (await visible(c, 800)) await click(run, c, s); else run.fail(`signal chip "${s}" not found`); }
+  await click(run, btn(sheet, 'Apply|Toepassen'), 'Apply');
   await page.waitForTimeout(400);
-  if (detail) { await run.shot(page, 'checkin-3-detail'); for (const d of detail) { const c = btn(page, d); if (await visible(c, 800)) await click(run, c, d); } const ap = btn(page, 'Apply|Toepassen'); if (await visible(ap, 800)) await click(run, ap, 'Apply detail'); }
+  if (detail) { await run.shot(page, 'checkin-3-detail'); for (const d of detail) { const c = btn(sheet, d); if (await visible(c, 800)) await click(run, c, d); } const ap = btn(sheet, 'Apply|Toepassen'); if (await visible(ap, 800)) await click(run, ap, 'Apply detail'); }
   await page.waitForTimeout(1500);
   run.end();
 }
@@ -129,7 +192,7 @@ export async function flowCheckin(run, page, signals = [], detail = null) {
 export async function flowPath(run, page, path) {
   run.start('path-choice');
   const card = btn(page, path === 'running' ? 'RUNNING|HARDLOPEN' : path === 'cycling' ? 'CYCLING|FIETSEN' : path === 'military' ? 'MILITARY|MILITAIR' : 'GENERAL|ALGEMENE');
-  if (!(await visible(card, 8000))) { run.note('path modal not shown'); return run.end(); }
+  if (!(await visible(page.locator('.jf-pathmodal'), 3000)) || !(await visible(card, 1000))) { run.note('path modal not shown (the path is chosen in onboarding)'); return run.end(); }
   await run.shot(page, 'path-modal');
   await click(run, card, path);
   await page.waitForTimeout(500);
@@ -152,9 +215,10 @@ export async function flowPath(run, page, path) {
 export async function flowToday(run, page) {
   run.start('today');
   const start = btn(page, 'START SESSI|Herstelmodus|Recovery Mode|Complete the daily|check-in');
-  if (!(await visible(start, 30_000))) run.fail('Today card did not settle');
+  if (!(await waitVisible(start, 30_000))) run.fail('Today card did not settle');
   await page.waitForTimeout(600);
   await run.shot(page, 'today', true);
+  await scrollEndCheck(run, page, 'today');
   const whyNot = btn(page, "Lukt dit niet|Can't do this");
   const own = btn(page, 'Eigen training|Own training');
   run.note(`Today: start=${await visible(btn(page, 'START SESSI'), 300)} own=${await visible(own, 300)} whyNot=${await visible(whyNot, 300)} coachCard=${await visible(btn(page, 'Bekijk je coach|View your coach'), 300)}`);
@@ -181,7 +245,16 @@ export async function flowWorkout(run, page, { complete = false, maxExercises = 
     if (await visible(tapZone, 200) && !tapped) { await tapZone.first().click(); await tapZone.first().click(); run.tap(); run.tap(); tapped = true; }
     if (await visible(allDone, 200)) { await allDone.first().click(); run.tap(); sets += 1; if (sets === 1) { await page.waitForTimeout(700); await run.shot(page, 'workout-rest'); } continue; }
     if (await visible(skipRest, 200)) { await skipRest.first().click(); run.tap(); continue; }
-    const startTimer = btn(page, '^(Start|Start timer)$'); if (await visible(startTimer, 200)) { await startTimer.first().click(); run.tap(); timers += 1; if (timers === 1) { await page.waitForTimeout(800); await run.shot(page, 'workout-timer'); } continue; }
+    const startTimer = btn(page, '^(Start|Start timer)$'); if (await visible(startTimer, 200)) {
+      if (timers === 0) {
+        // UAT R6 (D9) — before Start: neutral countdown, and the Start control above the fixed action bar.
+        await run.shot(page, 'workout-timer-idle');
+        const fit = await page.evaluate(() => { const b = document.querySelector('.jf-timer__start'); const bar = document.querySelector('.jf-wo-bar'); const c = document.querySelector('.jf-timer__count'); if (!b) return null; return { startBottom: Math.round(b.getBoundingClientRect().bottom), barTop: bar ? Math.round(bar.getBoundingClientRect().top) : innerHeight, idle: !!c && c.className.includes('--idle'), text: c?.textContent }; });
+        if (fit && fit.startBottom > fit.barTop) run.fail(`timed set: Start (bottom ${fit.startBottom}) under the action bar (top ${fit.barTop})`);
+        if (fit && !fit.idle) run.fail(`timed set: countdown "${fit.text}" is not neutral before Start`);
+        if (fit) run.note(`timed set before Start: "${fit.text}" idle=${fit.idle}, Start bottom ${fit.startBottom} ≤ bar ${fit.barTop}`);
+      }
+      await startTimer.first().click(); run.tap(); timers += 1; if (timers === 1) { await page.waitForTimeout(800); await run.shot(page, 'workout-timer'); } continue; }
     const early = btn(page, 'Done early|Vroeg klaar|Eerder klaar'); if (await visible(early, 200)) { await early.first().click(); run.tap(); continue; }
     await page.waitForTimeout(250);
   }
@@ -250,7 +323,7 @@ export async function flowOwnTraining(run, page, kind) {
 export async function flowNav(run, page, tab, name) {
   run.start(`view:${name}`);
   await crashed(run, page, `before ${name}`);
-  if (await click(run, btn(page, `^${tab}$`), tab)) { await page.waitForTimeout(1000); await run.shot(page, name, true); }
+  if (await click(run, btn(page, `^${tab}$`), tab)) { await page.waitForTimeout(1000); await run.shot(page, name, true); await scrollEndCheck(run, page, name); }
   run.end();
 }
 
@@ -259,7 +332,7 @@ export async function flowSettings(run, page, sub, actions = []) {
   await crashed(run, page, `before settings:${sub}`);
   await click(run, btn(page, '^(INSTELLINGEN|SETTINGS)$'), 'Instellingen');
   await page.waitForTimeout(600);
-  if (run.flow.screens === 0) await run.shot(page, 'settings-landing');
+  if (run.flow.screens === 0) { await run.shot(page, 'settings-landing'); await scrollEndCheck(run, page, 'settings-landing'); }
   const rowBtn = page.getByRole('button', { name: re(sub) });
   const row = (await visible(rowBtn, 800)) ? rowBtn.first() : page.getByText(re(sub)).first();
   if (!(await click(run, row, sub))) return run.end();
@@ -342,10 +415,30 @@ const STEPS = {
   sqlReturn: flowSqlReturn,
 };
 
+// ── gate (UAT release 6) ───────────────────────────────────────────────────
+const TAP_LIMIT = 10;
+export function gateResult(log) {
+  const audits = log.audits ?? [];
+  const clipped = audits.flatMap((a) => (a.clipped ?? []).map((c) => `${a.screen}: "${c.text}"`));
+  const tiny = audits.flatMap((a) => (a.tiny ?? []).map((t) => `${a.screen}: "${t.text}" ${t.px}px`));
+  const underNavAtEnd = audits.flatMap((a) => (a.underNavAtEnd ?? []).map((u) => `${a.screen}: "${u}"`));
+  const onboarding = log.flows.find((f) => f.name === 'onboarding');
+  const notes = log.flows.flatMap((f) => f.notes.map((n) => `${f.name}: ${n}`)).concat(log.notes ?? []);
+  const errors = notes.filter((n) => /PAGEERROR|CONSOLE|CRASH/.test(n));
+  const failed = log.flows.filter((f) => !f.ok).map((f) => `${f.name}: ${f.notes.filter((n) => n.startsWith('FAIL')).join(' · ')}`);
+  const checks = {
+    'clipped titles': clipped, 'text < 11 px': tiny, 'controls under the nav at the end of a page': underNavAtEnd,
+    [`onboarding taps ≤ ${TAP_LIMIT}`]: !onboarding ? ['no onboarding flow'] : onboarding.taps > TAP_LIMIT ? [`${onboarding.taps} taps`] : [],
+    'page/console errors': errors, 'failed flows': failed,
+  };
+  return { taps: onboarding?.taps ?? null, checks, pass: Object.values(checks).every((v) => v.length === 0) };
+}
+
 // ── main ─────────────────────────────────────────────────────────────────────
 const ids = process.argv.slice(2);
 const list = ids.length ? PERSONAS.filter((p) => ids.includes(p.id)) : PERSONAS;
 const browser = await chromium.launch();
+const gated = [];
 for (const p of list) {
   const run = new Run(p);
   console.log(`\n=== ${p.id} — ${p.who}`);
@@ -364,5 +457,15 @@ for (const p of list) {
     writeFileSync(`${run.dir}log.json`, JSON.stringify(run.log, null, 1));
     await ctx.close();
   }
+  if (p.gate) gated.push({ id: p.id, ...gateResult(run.log) });
 }
 await browser.close();
+if (gated.length) {
+  console.log('\n=== UAT gate (release 6) ===');
+  for (const g of gated) {
+    console.log(`${g.pass ? 'PASS' : 'FAIL'}  ${g.id}  onboarding taps=${g.taps}`);
+    for (const [name, list] of Object.entries(g.checks)) console.log(`   ${list.length ? '✗' : '✓'} ${name}${list.length ? `: ${list.length}` : ''}${list.length ? '\n      ' + list.slice(0, 8).join('\n      ') : ''}`);
+  }
+  writeFileSync(`${OUT}gate.json`, JSON.stringify(gated, null, 1));
+  process.exitCode = gated.every((g) => g.pass) ? 0 : 1;
+}

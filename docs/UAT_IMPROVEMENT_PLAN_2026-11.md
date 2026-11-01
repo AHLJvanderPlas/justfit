@@ -133,6 +133,10 @@ shown once per account (`seen`), then gone, "Niet voor mij" persists. Style ceil
    p01-sanne` with the DOM audit asserting 0 clipped titles, 0 text < 11 px outside award names, and
    the tap count of the onboarding flow ≤ 10.
 
+Status: built on branch `uat-r6` (not deployed). Onboarding → first Today card in 8 taps for all
+three gate personas (was 14–17 plus two modals); gate green; vitest 544 + shared 20, smoke 103,
+e2e 30; inline styles 1890 → 1749, App.jsx 1769. Details in CLAUDE.md "UAT release 6".
+
 ## Not in this plan, on purpose
 - The RPE 1–10 slider stays (it is one tap to save and the number feeds the score).
 - The 6-step onboarding is folded, not removed: the equipment and time questions are what make the

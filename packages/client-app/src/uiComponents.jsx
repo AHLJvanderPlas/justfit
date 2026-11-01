@@ -8,7 +8,7 @@ export const AdaptationChip = ({ label }) => (
       display: "inline-flex",
       alignItems: "center",
       gap: 5,
-      fontSize: 10,
+      fontSize: 11,
       fontWeight: 800,
       letterSpacing: "0.06em",
       textTransform: "uppercase",

@@ -16,6 +16,8 @@ import { logout } from "./authHelpers.js";
 import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
 import { completedInfo, readExtra, writeExtra, isRetryable, execPayload, execArgs, saveOwnExtra } from "./ownTraining.js";
 import { applyPathChoice } from "./pathApply.js";
+import { onboardingReplan } from "./pathPrefs.js";
+import { autoOpenCheckin, buildCheckinPayload, defaultTimeBudget, lastLocation, QUICK_CHECKIN_KEY } from "./checkinQuick.js";
 import { pregnancyWeek, pregnancyMilestone, postnatalDays, postnatalMilestone, postnatalLabel } from "./bodyBanner.js";   // UAT R3 — one source for the banner numbers
 import { loadEntitlement, entitlementSettled } from "./entitlement.js";
 
@@ -540,8 +542,11 @@ export default function App() {
   }, []);
 
 
-  const handleOnboardingComplete = () => {
+  const handleOnboardingComplete = (result = {}) => {
     setShowOnboarding(false);
+    // UAT R6 — the path was chosen on the goal step; today's check-in is the mood row on Today.
+    localStorage.setItem(QUICK_CHECKIN_KEY, today);
+    if (onboardingReplan({ firstRun: !onboardingReady, savedIntent: result.intent })) handlePathChoiceComplete(result.intent);
     // Fetch fresh profile before advancing — ensures checkin_mode and all prefs are server-accurate
     api.getProfile(token).then((data) => {
       if (data?.exists) {
@@ -763,17 +768,10 @@ export default function App() {
     // checkinModeRef and isProRef are set in handleProfileLoaded before onboardingReady is set —
     // avoids stale closure without making this effect re-trigger on every prefs change.
     const mode = checkinModeRef.current ?? "once_a_day";
-    const alreadyCheckedInToday = localStorage.getItem("jf_checkin_date") === today;
-    const willShowCheckIn =
-      mode === "every_time" ||
-      (mode === "once_a_day" && !alreadyCheckedInToday);
-
-    if (mode === "every_time") {
-      setShowCheckIn(true);
-    } else if (mode === "once_a_day" && !alreadyCheckedInToday) {
-      setShowCheckIn(true);
-    }
-    // "manual" — never auto-show
+    // "manual" never auto-shows; on the onboarding day the mood row on Today is the check-in (UAT R6).
+    const willShowCheckIn = autoOpenCheckin({ mode, today,
+      checkedInDate: localStorage.getItem("jf_checkin_date"), quickDate: localStorage.getItem(QUICK_CHECKIN_KEY) });
+    if (willShowCheckIn) setShowCheckIn(true);
 
     if (!willShowCheckIn) {
       // No check-in modal — load existing plan or generate from settings only
@@ -1148,9 +1146,7 @@ export default function App() {
       }}
     >
 
-      <div
-        style={{ maxWidth: 760, margin: "0 auto", padding: "max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 120px" }}
-      >
+      <div className="jf-page">
         {!inWorkout && !inBonusWorkout && (
           <header
             style={{
@@ -1208,7 +1204,7 @@ export default function App() {
                 onClick={() => setShowCheckIn(true)}
                 style={{
                   display: "flex", alignItems: "center", gap: 8,
-                  padding: "9px 18px", borderRadius: 14, fontSize: 12, fontWeight: 900,
+                  padding: "9px 18px", minHeight: 44, borderRadius: 14, fontSize: 12, fontWeight: 900,
                   letterSpacing: "0.06em", textTransform: "uppercase",
                   background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
                   color: C.muted, cursor: "pointer",
@@ -1345,7 +1341,7 @@ export default function App() {
                           </div>
                         )}
                         <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 700, color: C.warning, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                          <div style={{ fontSize: 11, fontWeight: 700, color: C.warning, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
                             Van je trainer{msg.gym_name ? ` · ${msg.gym_name}` : ""}
                           </div>
                           <div style={{ fontSize: 14, color: C.text, lineHeight: 1.5 }}>{msg.text}</div>
@@ -1383,6 +1379,7 @@ export default function App() {
                     onTemplateSaved={handleTemplateSaved}
                     onUseTemplate={handleUseTemplate}
                     onCheckIn={() => setShowCheckIn(true)}
+                    onQuickCheckin={(feeling) => handleCheckIn(buildCheckinPayload({ feeling, location: lastLocation(), timeBudget: defaultTimeBudget(prefs) }))}
                     prefs={prefs}
                     planError={planError}
                     onRetryPlan={handleRetryPlan}
@@ -1558,15 +1555,7 @@ export default function App() {
             isPro={isPro}
             sex={prefs.sex}
             cycle={prefs.cycle}
-            defaultTimeBudget={(() => {
-              const fallback = prefs.session_duration_min ?? 45;
-              if (prefs.preferences?.schedule_advanced) {
-                const dayKey = ['sun','mon','tue','wed','thu','fri','sat'][new Date().getDay()];
-                const scheduled = prefs.preferences?.weekly_schedule?.[dayKey];
-                return (scheduled != null && scheduled > 0) ? scheduled : fallback;
-              }
-              return fallback;
-            })()}
+            defaultTimeBudget={defaultTimeBudget(prefs)}
             lastCheckin={lastCheckin}
             onMarkChronic={handleMarkChronic}
           />
@@ -1575,7 +1564,7 @@ export default function App() {
 
       {showOnboarding && (
         <Suspense fallback={null}>
-          <OnboardingModal token={token} prefs={prefs} onComplete={handleOnboardingComplete} onBack={logout} />
+          <OnboardingModal token={token} prefs={prefs} onComplete={handleOnboardingComplete} onBack={logout} isPro={isPro} entitlementKnown={entitlement === "known"} />
         </Suspense>
       )}
 

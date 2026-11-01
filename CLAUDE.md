@@ -1361,6 +1361,33 @@ None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) s
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-01 — UAT release 6: small phones and the first five minutes (branch `uat-r6`, not deployed)
+
+- **Onboarding fold**: the goal step asks the path too (five general goals = Algemeen; Hardlopen /
+  Fietsen / Militair cards with their short follow-up, `PathDetails.jsx`); experience moved into
+  "Over jou", sports into "Materiaal en tijd" — 4 steps (5 with a sport path), a goal tap answers
+  the step. The path is saved through `pathPrefs.savePath` — the exact call PathChoiceModal makes —
+  so the modal no longer follows onboarding (it stays for "Wijzig pad" and accounts without a
+  path). A re-done onboarding that changes the path replans via `applyPathChoice` (D3). Fietsen
+  locks only for a known not-Pro (`pathLocked`, D5). Onboarding is now Dutch (`t()`).
+- **First check-in on Today**: after onboarding the user lands on Today with a session; the mood
+  row ("Hoe voel je je?", `MoodRow.jsx`) sends the sheet's "mood → Toepassen" payload
+  (`checkinQuick.buildCheckinPayload`, now also used by the sheet) through `handleCheckIn` —
+  stored, plan built/adapted once (D4). "Meer vertellen →" opens the sheet. The sheet does not
+  auto-open on the onboarding day (`jf_quick_checkin`, `autoOpenCheckin`).
+- **320 px**: `--nav-h` lays out the nav (`.jf-nav*`, 11 px labels; condensed face with 5 tabs) and
+  pads every view (`.jf-page`); Today title `clamp()` + a step down for 11+/15+ letter words
+  (`titleFit.js`); timed set neutral until Start (`timerFace.js`) and compact on short screens;
+  sheet closes 44 px (`.jf-sheet-close`); 11 px text floor everywhere (inline + CSS); Voortgang
+  week numbers are HTML (the SVG stretched them to 7 px).
+- **UAT gate**: `node scripts/uat/uat.mjs p11-peter p30-erik p01-sanne` exits 1 on a clipped title,
+  text < 11 px (award names exempt), > 10 onboarding taps, a page/console error, a failed flow or a
+  control left under the nav at the end of a page. Result: 8 taps each, all checks green.
+- vitest 520 → **544**; smoke 102 → **103** (`scripts/uatR6.scan.mjs`); e2e 29 → **30**. Inline
+  styles 1890 → **1749**, App.jsx 1780 → **1769** (both ceilings lowered).
+- Noticed, not fixed: a guest who reloads after onboarding meets the "Updated policies" terms gate
+  (guests never accept terms at signup).
+
 ### Shipped 2026-11-01 — UAT release 5: Settings that grow with the user
 
 - **Jij** keeps profile, body mode, injuries, language and appearance (the duplicate "Weergave" /

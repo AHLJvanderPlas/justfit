@@ -11,6 +11,7 @@ import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 import { t, useLang, getLang, exerciseName } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
 import { stopSummary } from "./sessionOutcome.js";
+import { timerFace } from "./timerFace.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -642,7 +643,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                     <div style={{ marginBottom: 28 }}>
                       {portable.length > 0 && (
                         <div style={{ marginBottom: stationary.length > 0 ? 14 : 0 }}>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Grab these')}</div>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Grab these')}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             {portable.map(eq => <Chip key={eq} eq={eq} />)}
                           </div>
@@ -650,7 +651,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       )}
                       {stationary.length > 0 && (
                         <div>
-                          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Make sure this is set up')}</div>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t('Make sure this is set up')}</div>
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                             {stationary.map(eq => <Chip key={eq} eq={eq} />)}
                           </div>
@@ -661,7 +662,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 })()}
 
                 {/* Exercise list */}
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Your session')}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Your session')}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {exercises.map((s, i) => {
                     const instr = s.instructions_json ? JSON.parse(s.instructions_json) : null;
@@ -673,7 +674,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: firstStep ? 8 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                             <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                              <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
+                              <span style={{ fontSize: 11, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
                             </div>
                             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{exerciseName(s)}</span>
                           </div>
@@ -905,7 +906,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card 1: Equipment (only when needed) ── */}
               {(exEquip.length > 0 || showMatHint) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Equipment')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Equipment')}</div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {exEquip.map(eq => (
                       <span key={eq} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
@@ -924,7 +925,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: Muscles targeted ── */}
               {hasMuscles && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>{t('Muscles targeted')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 12 }}>{t('Muscles targeted')}</div>
                   <div style={{ display: "flex", justifyContent: "center" }}>
                     <Suspense fallback={null}>
                       <MuscleMap primary={muscles.primary} secondary={muscles.secondary} gender={gender} size={180} showLabels={false} primaryColor={accentHex} secondaryColor={`${accentHex}50`} />
@@ -935,7 +936,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               {/* ── Card 2: Instructions — highlighted like today card ── */}
               <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(var(--bg-rgb),0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Instructions')}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Instructions')}</div>
 
                 {/* Pregnancy / postnatal alert at top of instructions */}
                 {(pregnancyNote || postnatalNote) && (
@@ -950,7 +951,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   {paddedSteps.map((step, i) => (
                     <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
                       <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                        <span style={{ fontSize: 10, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
+                        <span style={{ fontSize: 11, fontWeight: 900, color: C.emerald }}>{i + 1}</span>
                       </div>
                       <p style={{ fontSize: 15, fontWeight: 600, color: C.text, lineHeight: 1.6, margin: 0 }}>{step}</p>
                     </div>
@@ -966,7 +967,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card 3: Your target today (level-specific, interval structure, or derived fallback) ── */}
               {(targetCardText || derivedTargetText) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--accent-rgb),0.08)", border: "1px solid rgba(var(--accent-rgb),0.3)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
                     {targetCardText ? t('Your target · {level}', { level: t(expLevel.charAt(0).toUpperCase() + expLevel.slice(1)) }) : t('Your target today')}
                   </div>
                   <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText ?? derivedTargetText}</p>
@@ -980,7 +981,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card 4: Why (general cues, or derived fallback) ── */}
               {(cleanCues.length > 0 || derivedWhy) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Why this helps')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.muted, textTransform: "uppercase", marginBottom: 10 }}>{t('Why this helps')}</div>
                   {cleanCues.length > 0 ? (
                     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                       {cleanCues.map((cue, i) => (
@@ -999,7 +1000,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: BMI pace guidance (cardio, BMI ≥ 30 only) ── */}
               {bmiNote && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(245,158,11,0.06)", border: "1px solid rgba(245,158,11,0.25)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.warning, textTransform: "uppercase", marginBottom: 8 }}>{t('Pace guidance')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.warning, textTransform: "uppercase", marginBottom: 8 }}>{t('Pace guidance')}</div>
                   <p style={{ fontSize: 13, fontWeight: 600, color: C.warning, margin: 0, lineHeight: 1.6 }}>{bmiNote}</p>
                 </div>
               )}
@@ -1007,7 +1008,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {/* ── Card: Weight & rep strategy (weighted exercises only) ── */}
               {cur.coaching_note && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.3)" }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>{t('Weight & rep strategy')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>{t('Weight & rep strategy')}</div>
                   <p style={{ fontSize: 14, fontWeight: 600, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{cur.coaching_note}</p>
                 </div>
               )}
@@ -1029,7 +1030,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
         {/* ── WORKING PHASE ── */}
         {phase === "working" && cur && (
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 120px", display: "flex", flexDirection: "column", gap: 20 }}>
+          <div className="jf-wo-working">
             <div style={{ textAlign: "center" }}>
               <div style={{ fontSize: 13, fontWeight: 900, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
                 {t('Set {current} of {total}', { current: currentSet, total: totalSets })}
@@ -1124,31 +1125,24 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             )}
 
             {isTimeBased ? (
-              /* ── Time-based exercise ── */
+              /* ── Time-based exercise — neutral until Start, ramp only while running (UAT R6, timerFace.js) ── */
               (() => {
                 const totalDur = adjustedDuration ?? cur.target_duration_sec ?? 30;
-                const timerColor = timerRemaining <= 5 ? C.dangerStrong : timerRemaining <= 10 ? C.amber : C.emerald;
+                const face = timerFace({ running: timerRunning, remaining: timerRemaining, total: totalDur });
                 return (
-                  <div style={{ textAlign: "center" }}>
-                    <div style={{ fontSize: 84, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: timerColor, fontVariantNumeric: "tabular-nums", marginBottom: 20, transition: "color 0.3s", animation: timerRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
-                      {String(Math.floor(timerRemaining / 60)).padStart(1, "0")}:{String(timerRemaining % 60).padStart(2, "0")}
-                    </div>
-                    <div style={{ height: 6, background: "rgba(var(--overlay-rgb),0.08)", borderRadius: 3, overflow: "hidden", maxWidth: 320, margin: "0 auto 24px" }}>
-                      <div style={{ height: "100%", width: `${totalDur > 0 ? ((totalDur - timerRemaining) / totalDur) * 100 : 0}%`, background: timerColor, borderRadius: 3, transition: "width 1s linear, background 0.3s" }} />
+                  <div className="jf-timer" data-testid="timed-set">
+                    <div className={`jf-timer__count jf-timer__count--${face.tone}`}>{face.text}</div>
+                    <div className="jf-timer__track">
+                      <progress className={`jf-timer__fill jf-timer__fill--${face.tone}`} max={totalDur} value={timerRunning ? totalDur - timerRemaining : 0} aria-hidden="true" />
                     </div>
                     {!timerRunning ? (
-                      <button
-                        onClick={() => { timerTotalRef.current = totalDur; setTimerRemaining(totalDur); setTimerRunning(true); }}
-                        style={{ width: 120, height: 120, borderRadius: "50%", background: C.emeraldDim, border: `2px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 6, margin: "0 auto" }}
-                      >
-                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
-                        <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase" }}>{t('Start')}</span>
+                      <button type="button" className="jf-timer__start"
+                        onClick={() => { timerTotalRef.current = totalDur; setTimerRemaining(totalDur); setTimerRunning(true); }}>
+                        <svg width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="5 3 19 12 5 21 5 3" /></svg>
+                        <span className="jf-timer__start-label">{t('Start')}</span>
                       </button>
                     ) : (
-                      <button
-                        onClick={() => { setTimerRunning(false); handleSetDone(totalDur - timerRemaining); }}
-                        style={{ padding: "14px 32px", borderRadius: 16, fontWeight: 700, fontSize: 15, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
-                      >
+                      <button type="button" className="jf-timer__early" onClick={() => { setTimerRunning(false); handleSetDone(totalDur - timerRemaining); }}>
                         {t('\u25a0 Done early')}
                       </button>
                     )}
@@ -1257,7 +1251,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             )}
 
             {/* Bottom actions */}
-            <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px max(24px, env(safe-area-inset-bottom))" }}>
+            <div className="jf-wo-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px max(24px, env(safe-area-inset-bottom))" }}>
               <div style={{ maxWidth: 528, margin: "0 auto", display: "flex", gap: 10 }}>
                 <button
                   onClick={handleSkipExercise}
@@ -1328,7 +1322,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   />
                 </svg>
                 <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 2 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>{t('REST')}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: C.muted, letterSpacing: "0.14em", textTransform: "uppercase" }}>{t('REST')}</div>
                   <div style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, fontVariantNumeric: "tabular-nums", color: restColor, transition: "color 0.4s", animation: restRemaining <= 5 ? "pulse 0.8s infinite" : "none" }}>
                     {String(Math.floor(restRemaining / 60)).padStart(1, "0")}:{String(restRemaining % 60).padStart(2, "0")}
                   </div>
@@ -1451,7 +1445,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       onClick={() => { setRpeValue(n); navigator.vibrate?.(12); }}
                       style={{ width: n === rpeValue ? 28 : 20, height: n === rpeValue ? 28 : 20, borderRadius: "50%", background: n === rpeValue ? cfg.color : "rgba(var(--overlay-rgb),0.08)", border: n === rpeValue ? `2px solid ${cfg.color}` : `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", flexShrink: 0 }}
                     >
-                      {n === rpeValue && <span style={{ fontSize: 9, fontWeight: 900, color: C.onStatus }}>{n}</span>}
+                      {n === rpeValue && <span style={{ fontSize: 11, fontWeight: 900, color: C.onStatus }}>{n}</span>}
                     </div>
                   );
                 })}

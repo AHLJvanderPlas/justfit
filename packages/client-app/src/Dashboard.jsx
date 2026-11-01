@@ -21,6 +21,9 @@ import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFi
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
 import { OwnTrainingLine, ExtraDoneCard } from "./EigenTraining.jsx";
 import { ownLine } from "./ownTraining.js";
+import MoodRow from "./MoodRow.jsx";
+import { titleFitClass } from "./titleFit.js";
+import { quickCheckinVisible, readCheckinDate, todayISO } from "./checkinQuick.js";
 
 // ─── MESSAGE COMPONENTS ────────────────────────────────────────────────────────
 /**
@@ -94,7 +97,7 @@ function BlockingSafetyBanner({ text, cta }) {
         borderLeft: "3px solid #f59e0b",
       }}
     >
-      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 6 }}>
+      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 6 }}>
         {t("Health & Safety")}
       </div>
       <p style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
@@ -246,7 +249,7 @@ function splitTitle(name) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
+export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, onQuickCheckin, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
   const lang = useLang();
   const intensityColor = {
     low: C.successSoft,
@@ -368,11 +371,17 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         }
         return (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ ...mono(10), color: "var(--accent)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
-            {coachText && <div style={{ ...mono(10), color: C.muted, letterSpacing: "0.1em", marginTop: 2 }}>{coachText}</div>}
+            <div style={{ ...mono(11), color: "var(--accent)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
+            {coachText && <div style={{ ...mono(11), color: C.muted, letterSpacing: "0.1em", marginTop: 2 }}>{coachText}</div>}
           </div>
         );
       })()}
+
+      {/* ── UAT R6 — today's check-in, inline: one tap on the mood row (checkinQuick.js) ── */}
+      {onQuickCheckin && !isGenerating && quickCheckinVisible({ mode: prefs?.preferences?.checkin_mode, today: todayISO(),
+        checkedInDate: readCheckinDate(), todayCompleted, hasPlan: !!plan }) && (
+        <MoodRow onPick={onQuickCheckin} onMore={onCheckIn} />
+      )}
 
       {/* ── Session area ───────────────────────────── */}
       {todayCompleted ? (
@@ -410,7 +419,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               <>
                 {/* Session eyebrow + coach pill in top-right */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</div>
+                  <div className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</div>
                   {(() => {
                     const milA = !!(prefs?.preferences?.military_coach?.active);
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
@@ -432,38 +441,38 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 </div>
                 {/* Session name — hero size; line2 in accent colour */}
                 <div style={{ marginBottom: 10 }}>
-                  <div style={{ ...display(42, 900), color: C.text, lineHeight: 0.95, textTransform: "uppercase" }}>{line1}</div>
-                  {line2 && <div style={{ ...display(42, 900), color: "var(--accent)", lineHeight: 0.95, textTransform: "uppercase" }}>{line2}</div>}
+                  <h2 className={`jf-today__title ${titleFitClass(line1, line2)}`} data-testid="today-title">{line1}</h2>
+                  {line2 && <div className={`jf-today__title jf-today__title--accent ${titleFitClass(line1, line2)}`}>{line2}</div>}
                 </div>
                 {/* Coach / program badges */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                   {plan?.authored_by_user && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {t("Own session")}
                     </span>
                   )}
                   {Array.isArray(plan?.pinned) && plan.pinned.length > 0 && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {t("{n} pinned", { n: plan.pinned.length })}
                     </span>
                   )}
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {t(plan.run_program.session_type ?? "Run Day")} · Week {plan.run_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {t(plan.cycling_program.session_type ?? "Cycling")} · Week {plan.cycling_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cross_training_run && (
-                    <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       {t("Cross-Training · Level {n}", { n: plan.cross_training_run.level })}
                     </span>
                   )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       <MilitaryIcon size={10} />
                       {t(({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military')}
                       {plan.military_program.is_base_build ? ` · ${t("Base build")}` : ` · W${plan.military_program.week}`}
@@ -555,7 +564,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 {/* W4.1 — advisory notes stay with a user-authored session */}
                 {plan.authored_by_user && (plan.safety_notes?.length ?? 0) > 0 && (
                   <div style={{ marginBottom: 14, padding: "10px 14px", borderRadius: 12, background: C.amberDim, border: `1px solid ${C.amberBorder}` }}>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>{t("Coach advice")}</div>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>{t("Coach advice")}</div>
                     {plan.safety_notes.map((n, i) => {
                       const name = n.step_index != null ? exerciseName(plan.steps?.[n.step_index]) || null : null;
                       const label = RULE_LABELS[n.code];
@@ -684,16 +693,16 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <MilitaryIcon size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
                     {trackLabel} · {t(...lvl.line)}
-                    {lvl.measured && overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
+                    {lvl.measured && overperforming && <span style={{ fontSize: 11, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
                   </div>
                   {sessionLabel && (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Today: {x}", { x: sessionLabel })}{mp?.march_kg ? ` · ${t("{kg} kg march", { kg: mp.march_kg })}` : ""}</div>
                   )}
                   {cooperBenchmark && (
-                    <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>{cooperBenchmark}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{cooperBenchmark}</div>
                   )}
                   {/* Block progress hairline */}
                   {(() => {
@@ -706,13 +715,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                         <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                         </div>
-                        <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("BLOCK {b} OF 6", { b: ((bn - 1) % 6) + 1 })}</div>
+                        <div style={{ ...mono(11), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("BLOCK {b} OF 6", { b: ((bn - 1) % 6) + 1 })}</div>
                       </div>
                     );
                   })()}
                 </div>
                 {(isPostAssess || isBaseBuild || milMode === 'fit' || isCalibration || isDeload || isTaper) && (
-                  <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
+                  <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
                     background: (milMode === 'fit' || isBaseBuild) ? "rgba(16,185,129,0.12)" : isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
                     color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? C.warning : isDeload ? C.emerald : "var(--accent)",
                   }}>
@@ -736,14 +745,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <Icons.run size={20} c={C.emerald} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Run Coach")}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Run Coach")}</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("{km}km Plan · Week {w} of {total}", { km: rc.target_km, w: rc.week ?? 1, total: totalWeeks })}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Session {a} of {b} this week", { a: rc.session_in_week ?? 0, b: 3 })}</div>
                 <div style={{ marginTop: 8 }}>
                   <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, ((rc.week ?? 1) / totalWeeks) * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
-                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("WEEK {w} OF {total}", { w: rc.week ?? 1, total: totalWeeks })}</div>
+                  <div style={{ ...mono(11), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("WEEK {w} OF {total}", { w: rc.week ?? 1, total: totalWeeks })}</div>
                 </div>
               </div>
               {canExportRunTcx && (
@@ -755,7 +764,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     const slug = sessionName.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                     triggerFileDownload(tcx, `${slug}_${new Date().toISOString().slice(0, 10)}.tcx`, 'application/vnd.garmin.tcx+xml');
                   }}
-                  style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" }}
+                  style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" }}
                 >
                   ↓ TCX
                 </button>
@@ -773,14 +782,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             const crossRunSteps = plan?.steps?.filter(s => s.target_duration_sec) ?? [];
             const canExportCrossRunTcx = crossRunSteps.length > 0;
             const dateStr = new Date().toISOString().slice(0, 10);
-            const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
+            const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
             return (
               <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <Icons.run size={20} c={C.emerald} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach — Cross-Training")}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach — Cross-Training")}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("Run · Level {n}", { n: level })}</div>
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("{n} cross-training runs completed", { n: cc.run_sessions_total ?? 0 })}</div>
                 </div>
@@ -818,7 +827,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <Icons.cycle size={20} c={C.emerald} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach")}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach")}</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("Week {n}", { n: cc.week ?? 1 })}{cc.unit === 'hr' ? ` · ${t('HR-based')}` : ftpEntered(cc) ? ` · FTP ${cc.ftp_watts}W` : ""}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Session {a} of {b} this week", { a: cc.session_in_week ?? 0, b: cc.cycling_days_per_week ?? 3 })}</div>
                 {sessionTypeLabel && (
@@ -828,7 +837,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, ccWeekInCycle / 7 * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
-                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {ccWeekInCycle} VAN 7 · {ccPhaseLabel.toUpperCase()}</div>
+                  <div style={{ ...mono(11), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {ccWeekInCycle} VAN 7 · {ccPhaseLabel.toUpperCase()}</div>
                 </div>
               </div>
               {canExportTcx && (() => {
@@ -838,7 +847,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 const hasTarget = !!(ftpW || hrMax);   // TCX / ERG need a power or HR target
                 const slug = cycStep.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                 const dateStr = new Date().toISOString().slice(0, 10);
-                const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 10, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
+                const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
                 return (
                   <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
                     {hasTarget && <button onClick={() => triggerFileDownload(generateCyclingTcx(cycStep.name, intervals, ftpW, hrMax), `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml')} style={btnStyle}>↓ TCX</button>}
@@ -869,7 +878,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <GoalIcon value={goal.value} size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
                 <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t(goal.label)}</div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t(GOAL_FOCUS[goal.value] ?? 'Consistent daily movement')}</div>
               </div>
@@ -889,7 +898,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             const status = weekStatusFor(i);
             return (
               <div key={i} style={{ textAlign: "center" }}>
-                <div style={{ ...eyebrow, fontSize: 9, color: C.faint, marginBottom: 6 }}>{d}</div>
+                <div style={{ ...eyebrow, fontSize: 11, color: C.faint, marginBottom: 6 }}>{d}</div>
                 <div style={{
                   height: 36, borderRadius: 10,
                   background: status === "today" ? "var(--accent)" : C.bgCard,
@@ -908,7 +917,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {/* ── Weekly outcome summary ──────────────────── */}
       <Glass style={{ padding: "14px 20px", marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 6 }}>{t("This week")}</div>
+          <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("This week")}</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
         </div>
         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>

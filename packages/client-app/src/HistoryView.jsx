@@ -227,34 +227,32 @@ function TrajectoryChart({ history, accentHex }) {
   const maxCount = Math.max(...counts, 1);
   const sorted = [...counts].sort((a, b) => a - b);
   const median = sorted[Math.floor(sorted.length / 2)];
-  const W = 300, barArea = 88, labelH = 16, H = barArea + labelH;
+  const W = 300, barArea = 88, H = barArea;
+  // Week numbers are HTML under the bars, not SVG text: the chart stretches (preserveAspectRatio
+  // none), which squeezed 7-unit labels to ~6 px on a 320 px phone (UAT R6, 11 px floor).
   return (
-    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
-      {median > 0 && (
-        <line x1={0} y1={barArea - (median / maxCount) * barArea} x2={W} y2={barArea - (median / maxCount) * barArea}
-          style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
-      )}
-      {weeks.map((wk, i) => {
-        const count = counts[i];
-        const isCurrent = wk === currentWeek;
-        const gap = W / weeks.length;
-        const bw = gap * 0.6;
-        const x = i * gap + (gap - bw) / 2;
-        const bh = count > 0 ? Math.max(4, (count / maxCount) * barArea) : 2;
-        const y = barArea - bh;
-        return (
-          <g key={wk}>
-            <rect x={x} y={y} width={bw} height={bh} rx={2}
-              fill={isCurrent ? accentHex : "rgba(var(--overlay-rgb),0.18)"} />
-            <text x={x + bw / 2} y={H - 1} textAnchor="middle"
-              fontSize={7} fontWeight="800" fontFamily="monospace"
-              fill={isCurrent ? accentHex : "rgba(100,116,139,0.45)"}>
-              {wk.split("-W")[1]}
-            </text>
-          </g>
-        );
-      })}
-    </svg>
+    <>
+      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+        {median > 0 && (
+          <line x1={0} y1={barArea - (median / maxCount) * barArea} x2={W} y2={barArea - (median / maxCount) * barArea}
+            style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
+        )}
+        {weeks.map((wk, i) => {
+          const count = counts[i];
+          const isCurrent = wk === currentWeek;
+          const gap = W / weeks.length;
+          const bw = gap * 0.6;
+          const x = i * gap + (gap - bw) / 2;
+          const bh = count > 0 ? Math.max(4, (count / maxCount) * barArea) : 2;
+          return <rect key={wk} x={x} y={barArea - bh} width={bw} height={bh} rx={2} fill={isCurrent ? accentHex : "rgba(var(--overlay-rgb),0.18)"} />;
+        })}
+      </svg>
+      <div className="jf-traj__weeks" aria-hidden="true">
+        {weeks.map((wk) => (
+          <span key={wk} className={`jf-traj__wk${wk === currentWeek ? " jf-traj__wk--now" : ""}`}>{wk.split("-W")[1]}</span>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -329,7 +327,7 @@ function RecordsPanel() {
               <div style={{ fontSize: 15, fontWeight: 900, color: C.emerald, fontVariantNumeric: "tabular-nums" }}>
                 {r.e1rm} kg
               </div>
-              <div style={{ fontSize: 9.5, color: C.subtle, fontWeight: 600, letterSpacing: "0.1em",
+              <div style={{ fontSize: 11, color: C.subtle, fontWeight: 600, letterSpacing: "0.1em",
                 textTransform: "uppercase" }}>{t("est. 1RM")}</div>
             </div>
             {canOpen && (
@@ -434,10 +432,10 @@ function RecoveryPanel({ recovery, gender }) {
 
       {trained && mostFatigued?.length > 0 && (
         <>
-          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
             color: C.subtle, marginBottom: 2 }}>{t("Needs the most rest")}</div>
           {mostFatigued.map((x) => <Row key={x.region} {...x} />)}
-          <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
+          <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
             color: C.subtle, margin: "12px 0 2px" }}>{t("Ready to train")}</div>
           {freshest.map((x) => <Row key={x.region} {...x} />)}
         </>
@@ -831,7 +829,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
       {/* ── Weekly outcome card ── */}
       <Glass style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("THIS WEEK")}</div>
+          <div style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("THIS WEEK")}</div>
           <span className={`jf-weekpill jf-weekpill--${weeklyOutcome.verdict}`}>
             {weeklyOutcome.verdictLabel}
           </span>
@@ -843,7 +841,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               <span style={{ ...display(34), color: "var(--accent)" }}>{weeklyOutcome.done}</span>
               <span style={{ ...display(20), color: C.faint }}>/{weeklyOutcome.target}</span>
             </div>
-            <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>{t("SESSIONS")}</div>
+            <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("SESSIONS")}</div>
           </div>
           {weeklyOutcome.totalMins > 0 && (
             <div>
@@ -852,7 +850,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   ? `${Math.floor(weeklyOutcome.totalMins / 60)}h${weeklyOutcome.totalMins % 60 > 0 ? `${weeklyOutcome.totalMins % 60}m` : ""}`
                   : `${weeklyOutcome.totalMins}m`}
               </div>
-              <div style={{ ...eyebrow, fontSize: 8.5, color: C.muted, marginTop: 3 }}>{t("TRAINED")}</div>
+              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINED")}</div>
             </div>
           )}
           {/* Mini sparkline — 5 bars, rightmost = this week */}
@@ -885,7 +883,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           )}
           {/* Session type chips */}
           {weeklyOutcome.typeChips.length > 1 && weeklyOutcome.typeChips.map(chip => (
-            <span key={chip.label} style={{ fontSize: 10, fontWeight: 700, padding: "2px 9px", borderRadius: 999, background: C.bgCard2, color: C.faint, border: `1px solid ${C.border}` }}>
+            <span key={chip.label} style={{ fontSize: 11, fontWeight: 700, padding: "2px 9px", borderRadius: 999, background: C.bgCard2, color: C.faint, border: `1px solid ${C.border}` }}>
               {chip.count > 1 ? `${chip.count}× ` : ""}{t(chip.label)}
             </span>
           ))}
@@ -997,7 +995,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                    assessment writes the per-axis baseline the chart decays toward. */}
               {assessment && !normOn && (
                 <Glass style={{ padding: 20, marginBottom: 20 }}>
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 10 }}>{t("WHERE YOU ARE")}</div>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 10 }}>{t("WHERE YOU ARE")}</div>
 
                   {assessment.blocked ? (
                     <>
@@ -1044,7 +1042,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                       )}
 
                       {assessment.unmeasured_axes?.length > 0 && (
-                        <div style={{ fontSize: 10.5, color: C.subtle, marginTop: 10, lineHeight: 1.55 }}>
+                        <div style={{ fontSize: 11, color: C.subtle, marginTop: 10, lineHeight: 1.55 }}>
                           {t("Pull and mobility are estimated, not measured — no equipment-free test gives an honest reading for either.")}
                         </div>
                       )}
@@ -1058,7 +1056,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 {/* coach-dcp R2 — the general profile; the military target is an in-card toggle
                     (it was a separate "Fitness Profile … Target on" strip). */}
                 <div className="jf-radar__head">
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("TRAINING BALANCE")}</div>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("TRAINING BALANCE")}</div>
                   {sportMode === "military" && (
                     <button className={`jf-radar__toggle${showCompare ? " jf-radar__toggle--on" : ""}`} onClick={() => setShowCompare((v) => !v)} aria-pressed={showCompare}>
                       {t("Military goal")}
@@ -1109,12 +1107,12 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 <div style={{ marginTop: 16, display: "flex", gap: 20, justifyContent: "center", flexWrap: "wrap" }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                     <div style={{ width: 12, height: 3, borderRadius: 2, background: accentHex }} />
-                    <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{t("Current")}</span>
+                    <span style={{ ...eyebrow, fontSize: 11, color: C.mutedStrong }}>{t("Current")}</span>
                   </div>
                   {showCompare && (
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <div style={{ width: 12, height: 2, borderRadius: 1, background: `${accentHex}55`, borderTop: "1px dashed", borderColor: `${accentHex}55` }} />
-                      <span style={{ ...eyebrow, fontSize: 9, color: C.mutedStrong }}>{sportMode === "military" ? t("Military target") : t("Goal target")}</span>
+                      <span style={{ ...eyebrow, fontSize: 11, color: C.mutedStrong }}>{sportMode === "military" ? t("Military target") : t("Goal target")}</span>
                     </div>
                   )}
                 </div>
@@ -1166,7 +1164,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── Axis breakdown for military ── */}
           {unlocked && sportMode === "military" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -1198,7 +1196,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── Key insights + planner explanation (general mode only) ── */}
           {unlocked && sportMode === "general" && (progression.insights || plannerCopy.length > 0) && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Key Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
@@ -1210,7 +1208,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                       {pair.map(({ key, axis, score }) => (
                         <div key={key}>
-                          <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{key === "strongest" ? t("Strongest") : t("Weakest")}</div>
+                          <div style={{ fontSize: 11, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{key === "strongest" ? t("Strongest") : t("Weakest")}</div>
                           <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{axisLabel(axis)}</div>
                           <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(score) })}</div>
                         </div>
@@ -1263,7 +1261,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
           {unlocked && sportMode === "general" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
+              <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -1307,7 +1305,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             const ZCOLORS = [C.muted, accentHex, C.warning, '#f97316', C.dangerStrong];
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>
                 <Glass style={{ padding: "4px 0" }}>
                   {ZONES.map((z, i) => {
                     const wMin = Math.round(ftp * z.pctMin / 100);
@@ -1348,7 +1346,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             const avgSleep = sleepCheckins.reduce((s, c) => s + c.sleep_hours, 0) / sleepCheckins.length;
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</div>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</div>
                 <Glass style={{ padding: 16 }}>
                   <SleepTrendChart checkins={checkins} accentHex={accentHex} />
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
@@ -1382,7 +1380,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             if (!recent.length) return null;
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("RECENT SESSIONS")}</div>
+                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("RECENT SESSIONS")}</div>
                 {recent.map((session) => {
                   const steps = session.steps ?? [];
                   const mins = session.total_duration_sec ? Math.round(session.total_duration_sec / 60) : null;

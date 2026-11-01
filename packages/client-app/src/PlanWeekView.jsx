@@ -212,7 +212,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       {/* Today's plan — only when viewing current week */}
       {weekOffset === 0 && plan && plan.slot_type !== "rest" && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Today's Plan")}
           </div>
           <Glass style={{ padding: "16px 20px" }}>
@@ -244,7 +244,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {/* Coming up \u2014 hidden for past-week views */}
       {weekOffset >= 0 && <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Coming Up")}
         </div>
         {loadingUpcoming ? (
@@ -296,7 +296,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         </div>
       )}
       {history && history.length > 0 && (
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Completed Sessions")}
         </div>
       )}
@@ -398,7 +398,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         return (
                           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 5 }}>
                             {pills.map((p, pi) => (
-                              <span key={pi} style={{ fontSize: 10, fontWeight: 700, color: "#FC4C02", background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)", padding: "2px 7px", borderRadius: 6 }}>{p}</span>
+                              <span key={pi} style={{ fontSize: 11, fontWeight: 700, color: "#FC4C02", background: "rgba(252,76,2,0.08)", border: "1px solid rgba(252,76,2,0.2)", padding: "2px 7px", borderRadius: 6 }}>{p}</span>
                             ))}
                           </div>
                         );
@@ -456,7 +456,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     {hasStrava && (
-                      <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "4px 10px", borderRadius: 8 }}>
+                      <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "#FC4C02", background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", padding: "4px 10px", borderRadius: 8 }}>
                         STRAVA
                       </span>
                     )}

@@ -1,36 +1,28 @@
 // Path choice (General / Running / Cycling / Military). Moved out of App.jsx (F4); lazy.
+// Since UAT R6 a new account answers this in onboarding's goal step; the modal stays for
+// "Wijzig pad" in Settings and for existing users without a primary_intent. Both write
+// pathPrefs.js's preferences and share the follow-up form (PathDetails.jsx).
 import { useState } from "react";
-import { C, display, eyebrow } from "./tokens.js";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
+import { DEFAULT_PATH_DETAILS, PATH_INTRO, pathLocked, savePath } from "./pathPrefs.js";
+import PathDetails from "./PathDetails.jsx";
 
-// ─── PATH CHOICE ──────────────────────────────────────────────────────────────
+const START_LABEL = { running: "Start Running Coach →", cycling: "Start Cycling Coach →", military: "Start Military Coach →" };
+const TITLE = { running: "RUNNING", cycling: "CYCLING", military: "MILITARY" };
+
 export default function PathChoiceModal({ token, onComplete, isPro, entitlementKnown, onUpgrade }) {
   useLang();
   const [step, setStep] = useState("pick"); // "pick" | "running" | "cycling" | "military"
   const [saving, setSaving] = useState(false);
-  const [runKm, setRunKm] = useState(5);
-  const [cycleSubgoal, setCycleSubgoal] = useState("build_fitness");
-  const [milTrack, setMilTrack] = useState("keuring");
-  const [milMode, setMilMode] = useState("target");
-  const [milTargetDate, setMilTargetDate] = useState("");
+  const [details, setDetails] = useState(DEFAULT_PATH_DETAILS);
 
-  async function saveAndComplete(intent, extraPrefs = {}) {
+  async function saveAndComplete(intent) {
     setSaving(true);
-    try { await api.saveProfile(token, { preferences: { primary_intent: intent, ...extraPrefs } }); } catch { /* ignore */ }
+    try { await savePath(api, token, intent, details); } catch { /* ignore */ }
     setSaving(false);
     onComplete(intent);
   }
-
-  const overlay = { position: "fixed", inset: 0, background: C.bg, zIndex: 80, overflowY: "auto",
-    display: "flex", flexDirection: "column", padding: "max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 48px" };
-  const inner = { maxWidth: 520, margin: "0 auto", width: "100%" };
-  const backBtn = { background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontWeight: 700, marginBottom: 24, padding: 0 };
-  const saveBtn = (disabled) => ({
-    width: "100%", padding: "14px 0", borderRadius: 14, fontWeight: 900, fontSize: 15,
-    border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald,
-    cursor: disabled ? "not-allowed" : "pointer", opacity: disabled ? 0.6 : 1,
-  });
 
   if (step === "pick") {
     const PATHS = [
@@ -40,34 +32,31 @@ export default function PathChoiceModal({ token, onComplete, isPro, entitlementK
       { key: "military", icon: "◼", name: t("MILITARY"),         line: t("Keuring or Opleiding. We taper for you.") },
     ];
     return (
-      <div style={overlay}>
-        <div style={inner}>
-          <div style={{ ...eyebrow, color: C.emerald, marginBottom: 16 }}>{t("Welcome to JustFit.")}</div>
-          <h1 style={{ ...display(52), color: C.text, margin: "0 0 16px 0", lineHeight: 1.05 }}>{t("PICK YOUR")}<br />{t("TRAINING PATH.")}</h1>
-          <p style={{ fontSize: 16, color: C.muted, lineHeight: 1.5, marginBottom: 32 }}>
+      <div className="jf-pathmodal">
+        <div className="jf-pathmodal__inner">
+          <div className="jf-pathmodal__eyebrow">{t("Welcome to JustFit.")}</div>
+          <h1 className="jf-pathmodal__title">{t("PICK YOUR")}<br />{t("TRAINING PATH.")}</h1>
+          <p className="jf-pathmodal__lead">
             {t("We coach four kinds of athletes.")}<br />{t("You train with one coach at a time. You can change later.")}
           </p>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 28 }}>
-            {PATHS.map(p => {
-              // Lock only on a KNOWN "not Pro": a day-1 trial user must never meet the paywall (UAT D5).
-              const locked = !!entitlementKnown && !isPro && p.key === "cycling";
+          <div className="jf-pathmodal__grid">
+            {PATHS.map((p) => {
+              const locked = pathLocked(p.key, { isPro, entitlementKnown });
               return (
-                <button key={p.key}
+                <button key={p.key} type="button" className={`jf-pathmodal__tile${locked ? " jf-pathmodal__tile--locked" : ""}`}
                   onClick={() => {
                     if (locked) { onUpgrade?.(); return; }
                     if (p.key === "general") saveAndComplete("general"); else setStep(p.key);
                   }}
-                  style={{ position: "relative", display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "18px 16px", borderRadius: 20,
-                    background: C.bgCard, border: `1px solid ${locked ? C.border : C.border}`, cursor: "pointer", textAlign: "left", gap: 8, minHeight: 140 }}
                 >
-                  <span style={{ fontSize: 22, color: locked ? C.muted : "var(--accent)" }}>{locked ? "🔒" : p.icon}</span>
-                  <div style={{ ...display(16), color: locked ? C.muted : C.text, lineHeight: 1.2, whiteSpace: "pre-line" }}>{p.name}</div>
-                  <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.4 }}>{locked ? "Pro vereist" : p.line}</div>
+                  <span className="jf-pathmodal__icon">{locked ? "🔒" : p.icon}</span>
+                  <span className="jf-pathmodal__name">{p.name}</span>
+                  <span className="jf-pathmodal__line">{locked ? t("Pro required") : p.line}</span>
                 </button>
               );
             })}
           </div>
-          <div style={{ fontSize: 12, color: C.subtle, lineHeight: 1.6 }}>
+          <div className="jf-pathmodal__foot">
             {t("Privacy-first. We store only what your coach needs. Export or delete any time in Settings → Privacy.")}
           </div>
         </div>
@@ -75,122 +64,19 @@ export default function PathChoiceModal({ token, onComplete, isPro, entitlementK
     );
   }
 
-  if (step === "running") {
-    return (
-      <div style={overlay}>
-        <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("RUNNING")}</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("What distance are you training for?")}</p>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 32 }}>
-            {[5, 10, 15, 20, 30].map(km => (
-              <button key={km} onClick={() => setRunKm(km)}
-                style={{ padding: "10px 18px", borderRadius: 12, fontWeight: 800, fontSize: 14, cursor: "pointer",
-                  border: `1px solid ${runKm === km ? C.emeraldBorder : C.border}`,
-                  background: runKm === km ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                  color: runKm === km ? C.emerald : C.muted }}
-              >{km}km</button>
-            ))}
-          </div>
-          <button disabled={saving} style={saveBtn(saving)}
-            onClick={() => saveAndComplete("running", { run_coach: { enrolled: true, target_km: runKm, week: 1, session_in_week: 0 }, sport_prefs: { sports: ["running"], primary: "running" } })}
-          >{saving ? t("Saving…") : t("Start Running Coach →")}</button>
+  return (
+    <div className="jf-pathmodal">
+      <div className="jf-pathmodal__inner">
+        <button type="button" onClick={() => setStep("pick")} className="jf-pathmodal__back">{t("← Back")}</button>
+        <h2 className="jf-pathmodal__h2">{t(TITLE[step])}</h2>
+        <p className="jf-pathmodal__ask">{t(PATH_INTRO[step])}</p>
+        <div className="jf-pathmodal__form">
+          <PathDetails path={step} value={details} onChange={setDetails} />
         </div>
+        <button type="button" disabled={saving} className="jf-pathmodal__save" onClick={() => saveAndComplete(step)}>
+          {saving ? t("Saving…") : t(START_LABEL[step])}
+        </button>
       </div>
-    );
-  }
-
-  if (step === "cycling") {
-    const SUBGOALS = [
-      { id: "build_fitness", label: t("Build fitness"),  desc: t("General aerobic base") },
-      { id: "climbing",      label: t("Climbing"),       desc: t("Strength + sustained power") },
-      { id: "sprint",        label: t("Sprint"),         desc: t("Short explosive efforts") },
-      { id: "aerobic_base",  label: t("Aerobic base"),   desc: t("Zone 2 foundation") },
-      { id: "race_fitness",  label: t("Race fitness"),   desc: t("Event-ready conditioning") },
-    ];
-    return (
-      <div style={overlay}>
-        <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("CYCLING")}</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("What's your primary cycling goal?")}</p>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 32 }}>
-            {SUBGOALS.map(sg => (
-              <button key={sg.id} onClick={() => setCycleSubgoal(sg.id)}
-                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "14px 16px",
-                  borderRadius: 14, cursor: "pointer", textAlign: "left",
-                  border: `1px solid ${cycleSubgoal === sg.id ? C.emeraldBorder : C.border}`,
-                  background: cycleSubgoal === sg.id ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)" }}
-              >
-                <div>
-                  <div style={{ fontSize: 14, fontWeight: 800, color: cycleSubgoal === sg.id ? C.emerald : C.text }}>{sg.label}</div>
-                  <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{sg.desc}</div>
-                </div>
-                {cycleSubgoal === sg.id && <span style={{ color: C.emerald, fontSize: 16 }}>✓</span>}
-              </button>
-            ))}
-          </div>
-          <button disabled={saving} style={saveBtn(saving)}
-            onClick={() => saveAndComplete("cycling", { cycling_coach: { active: true, sub_goal: cycleSubgoal, week: 1 }, sport_prefs: { sports: ["cycling"], primary: "cycling" } })}
-          >{saving ? t("Saving…") : t("Start Cycling Coach →")}</button>
-        </div>
-      </div>
-    );
-  }
-
-  if (step === "military") {
-    return (
-      <div style={overlay}>
-        <div style={inner}>
-          <button onClick={() => setStep("pick")} style={backBtn}>{t("← Back")}</button>
-          <h2 style={{ ...display(32), color: C.text, marginBottom: 8 }}>{t("MILITARY")}</h2>
-          <p style={{ fontSize: 15, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>{t("Choose your track and mode.")}</p>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Track")}</div>
-            <div style={{ display: "flex", gap: 8 }}>
-              {[["keuring","Keuring",t("Physical assessment KB–K6")],["opleiding","Opleiding",t("Training programme O1–O7")]].map(([val,label,sub]) => (
-                <button key={val} onClick={() => setMilTrack(val)}
-                  style={{ flex: 1, padding: "12px 14px", borderRadius: 14, cursor: "pointer", textAlign: "left",
-                    border: `1px solid ${milTrack === val ? C.emeraldBorder : C.border}`,
-                    background: milTrack === val ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)" }}
-                >
-                  <div style={{ fontSize: 13, fontWeight: 800, color: milTrack === val ? C.emerald : C.text }}>{label}</div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{sub}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-          <div style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Mode")}</div>
-            <div style={{ display: "flex", gap: 6 }}>
-              {[["target",t("Target date")],["fit",t("Get fit")],["open",t("Open")]].map(([val,label]) => (
-                <button key={val} onClick={() => setMilMode(val)}
-                  style={{ flex: 1, padding: "10px 12px", borderRadius: 12, cursor: "pointer", fontSize: 12, fontWeight: 800,
-                    border: `1px solid ${milMode === val ? C.emeraldBorder : C.border}`,
-                    background: milMode === val ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                    color: milMode === val ? C.emerald : C.muted }}
-                >{label}</button>
-              ))}
-            </div>
-          </div>
-          {milMode === "target" && (
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Assessment date (optional)")}</div>
-              <input type="date" value={milTargetDate} onChange={e => setMilTargetDate(e.target.value)}
-                min={new Date().toISOString().slice(0, 10)}
-                style={{ width: "100%", padding: "10px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", boxSizing: "border-box" }}
-              />
-            </div>
-          )}
-          <button disabled={saving} style={saveBtn(saving)}
-            onClick={() => saveAndComplete("military", { military_coach: { active: true, track: milTrack, mode: milMode,
-              cluster_current: milTrack === "keuring" ? 0 : 1, cluster_target: 3,
-              target_date: milTargetDate || null, block_session_index: 0, block_number: 1, enrolled_at_ms: Date.now() } })}
-          >{saving ? t("Saving…") : t("Start Military Coach →")}</button>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }

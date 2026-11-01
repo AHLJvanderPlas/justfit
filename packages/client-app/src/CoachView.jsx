@@ -392,7 +392,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <GoalIcon value={currentGoal.value} size={20} />
             </div>
             <div>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
               <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>{t(currentGoal.label)}</div>
               <span style={{ display: "inline-block", marginTop: 3, padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
                 {t(exp.label)}
@@ -426,7 +426,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                   </div>
                   <div>
-                    <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>{t("Running Coach")}</div>
+                    <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>{t("Running Coach")}</div>
                     <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("{km}km programme", { km: rc.target_km })}</div>
                   </div>
                 </div>
@@ -445,9 +445,9 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const next = sessionInWeek === s.n - 1;
                   return (
                     <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? "var(--accent-dim)" : next ? "rgba(var(--overlay-rgb),0.05)" : "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${done ? "var(--accent-border)" : next ? C.border : "rgba(var(--overlay-rgb),0.04)"}` }}>
-                      <div style={{ fontSize: 9, fontWeight: 900, color: done ? "var(--accent)" : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
-                      <div style={{ fontSize: 9, color: done ? "var(--accent)" : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
-                      {done && <div style={{ fontSize: 9, color: "var(--accent)" }}>✓</div>}
+                      <div style={{ fontSize: 11, fontWeight: 900, color: done ? "var(--accent)" : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
+                      <div style={{ fontSize: 11, color: done ? "var(--accent)" : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
+                      {done && <div style={{ fontSize: 11, color: "var(--accent)" }}>✓</div>}
                     </div>
                   );
                 })}
@@ -482,8 +482,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 })}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 10, color: C.subtle }}>{t("Week {w}", { w: 1 })}</span>
-                <span style={{ fontSize: 10, color: C.subtle }}>{t("Week {w}", { w: totalWeeks })}</span>
+                <span style={{ fontSize: 11, color: C.subtle }}>{t("Week {w}", { w: 1 })}</span>
+                <span style={{ fontSize: 11, color: C.subtle }}>{t("Week {w}", { w: totalWeeks })}</span>
               </div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {[["var(--accent)", t("Completed")], ["rgba(var(--accent-rgb),0.6)", t("Current (week {w})", { w: week })], [C.border, t("Upcoming")]].map(([bg, label]) => (
@@ -589,7 +589,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const blockWeek = ((weekNumber - 1) % 7) + 1;
                   const phase = blockWeek <= 2 ? "BASE" : blockWeek <= 5 ? "BUILD" : blockWeek === 6 ? "RECOVERY" : "PEAK";
                   return (
-                    <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, fontSize: 10, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
+                    <div style={{ display: "inline-block", marginTop: 6, padding: "2px 8px", borderRadius: 6, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted, letterSpacing: "0.06em" }}>
                       {t(phase)}
                     </div>
                   );
@@ -621,11 +621,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   <polyline points={ctlPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--accent)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--accent)" }}>
                     <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" /></svg>
                     CTL fitness
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: C.warning }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: C.warning }}>
                     <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
                     ATL fatigue
                   </div>
@@ -633,7 +633,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div style={{ display: "flex", gap: 8 }}>
                   {[{ label: 'CTL', value: pmcLatest.ctl, color: "var(--accent)" }, { label: 'ATL', value: pmcLatest.atl, color: C.warning }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
                     <div key={label} style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px", textAlign: "center" }}>
-                      <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 2 }}>{label}</div>
+                      <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
                       <div style={{ ...mono(13), color, fontWeight: 700 }}>{value.toFixed(0)}</div>
                     </div>
                   ))}
@@ -647,7 +647,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             )}
             {ftpSparkN >= 2 && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</div>
+                <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</div>
                 <svg viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
                   <polyline points={ftpPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   {ftpHistory.map((h, i) => {
@@ -657,7 +657,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   })}
                 </svg>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
-                  <div style={{ fontSize: 10, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
+                  <div style={{ fontSize: 11, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
                   <div style={{ ...mono(11), color: "var(--accent)", fontWeight: 700 }}>{t("{w} W current", { w: ftpHistory[ftpSparkN - 1].ftp_watts })}</div>
                 </div>
               </div>
@@ -673,7 +673,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               ];
               return (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ ...eyebrow, fontSize: 9, color: C.muted, marginBottom: 8 }}>{t("POWER ZONES")}</div>
+                  <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 8 }}>{t("POWER ZONES")}</div>
                   {ZONES.map(z => (
                     <div key={z.n} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
                       <div style={{ fontSize: 11, color: C.muted }}>Z{z.n} · {z.name}</div>
@@ -758,7 +758,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* KeuringReadinessCard — open/fit mode */}
             {mode !== 'target' && track === 'keuring' && (lastCooper || weakest) && (
               <Glass style={{ padding: 16, marginBottom: 12 }}>
-                <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>{t("Cooper reference")}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>{t("Cooper reference")}</div>
                 {lastCooper ? (
                   <div style={{ fontSize: 13, color: C.text, marginBottom: weakest ? 10 : 0 }}>
                     {t("Last Cooper:")} <strong>{lastCooper.toLocaleString("nl-NL")} m</strong>
@@ -793,7 +793,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   <MilitaryIcon size={20} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")} · {trackLabel}</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")} · {trackLabel}</div>
                   {/* coach-dcp R2 (fix 8) — the self-declared level is a goal, not a result. */}
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text, lineHeight: 1.2 }}>
                     {t(...lvlLabel.line)}
@@ -822,11 +822,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         border: isTarget ? `1px solid ${accentHex}` : "none",
                         transition: "background 0.3s ease",
                       }} />
-                      <span style={{ fontSize: 9, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
                         {milClL(track, lvl)}
                       </span>
-                      {isCurrent && <span style={{ fontSize: 8, color: accentHex, fontWeight: 900 }}>{t("NOW")}</span>}
-                      {isTarget && !isCurrent && <span style={{ fontSize: 8, color: C.muted, fontWeight: 700 }}>{t("GOAL")}</span>}
+                      {isCurrent && <span style={{ fontSize: 11, color: accentHex, fontWeight: 900 }}>{t("NOW")}</span>}
+                      {isTarget && !isCurrent && <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{t("GOAL")}</span>}
                     </div>
                   );
                 })}
@@ -837,7 +837,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             </Glass>
             {/* Coach Insights */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Coach Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
@@ -845,7 +845,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   <>
                     <div style={{ display: "flex", gap: 10, marginBottom: 16, flexWrap: "wrap" }}>
                       <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("Cooper test")}</div>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("Cooper test")}</div>
                         {cooperBenchmark
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper.toLocaleString("nl-NL")} m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{cooperLevel ? t("({level} level)", { level: milClL(track, cooperLevel) }) : t("Below K1")}</span></div>
                           : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("No test recorded")}</div>}
@@ -858,7 +858,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         )}
                       </div>
                       <div style={{ flex: 1, minWidth: 120, padding: "12px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
-                        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("March weight")}</div>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("March weight")}</div>
                         {maxOwnedKg !== null
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{t("max")}</span></div>
                           : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("Not set")}</div>}
@@ -955,7 +955,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             >
               Berichten
               {unreadCount > 0 && (
-                <span style={{ position: "absolute", top: 6, right: 8, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: C.onAccent, fontSize: 9, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{unreadCount}</span>
+                <span style={{ position: "absolute", top: 6, right: 8, minWidth: 16, height: 16, borderRadius: 8, background: 'var(--accent)', color: C.onAccent, fontSize: 11, fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center", padding: "0 4px" }}>{unreadCount}</span>
               )}
             </button>
             {/* Wissel van trainer button — hide if only 1 trainer or pending switch */}
@@ -981,7 +981,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           {/* ── Geplande sessies ── */}
           {clientSessions && clientSessions.length > 0 && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 12 }}>GEPLANDE SESSIES</div>
+              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>GEPLANDE SESSIES</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {clientSessions.map(s => {
                   const isPast = s.starts_at_ms < nowMs;
@@ -1041,7 +1041,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           {/* ── Open groepslessen ── */}
           {availableSessions && availableSessions.length > 0 && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 12 }}>OPEN GROEPSLESSEN</div>
+              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>OPEN GROEPSLESSEN</div>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {availableSessions.map(s => {
                   const isFull = s.max_capacity !== null && s.enrolled_count >= s.max_capacity;
@@ -1072,7 +1072,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         </div>
                       )}
                       {s.max_capacity !== null && (
-                        <div style={{ fontSize: 10, color: C.muted }}>{s.enrolled_count} / {s.max_capacity} ingeschreven</div>
+                        <div style={{ fontSize: 11, color: C.muted }}>{s.enrolled_count} / {s.max_capacity} ingeschreven</div>
                       )}
                     </div>
                   );
@@ -1086,7 +1086,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
             return (
               <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ ...eyebrow, fontSize: 10, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
+                <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {clientPackages.map(p => {
                     const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
@@ -1208,7 +1208,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>
                     {t.display_name ?? "Trainer"}
-                    {t.is_assigned && <span style={{ marginLeft: 6, fontSize: 10, color: "var(--accent)", fontWeight: 900 }}>JOUW</span>}
+                    {t.is_assigned && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--accent)", fontWeight: 900 }}>JOUW</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", fontSize: 11, color: C.muted }}>
                     {availDot(t.availability_status)}
@@ -1405,7 +1405,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
                 {trainer?.display_name ?? "Trainer"} — Berichten
               </div>
-              <button onClick={() => setMsgSheet(false)} style={{ background: "none", border: "none", color: C.muted, fontSize: 18, cursor: "pointer", padding: 4 }}>✕</button>
+              <button type="button" onClick={() => setMsgSheet(false)} aria-label={t("Close")} className="jf-sheet-close">✕</button>
             </div>
             <div style={{ flex: 1, overflowY: "auto", padding: "0 16px 12px", display: "flex", flexDirection: "column", gap: 8 }}>
               {msgLoading && <div style={{ fontSize: 13, color: C.muted, textAlign: "center", marginTop: 24 }}>Laden…</div>}
@@ -1417,7 +1417,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   <div style={{ maxWidth: "78%", padding: "10px 13px", borderRadius: m.is_mine ? "16px 16px 4px 16px" : "16px 16px 16px 4px", background: m.is_mine ? 'var(--accent)' : C.bgCard, border: m.is_mine ? "none" : `1px solid ${C.border}`, fontSize: 13, color: m.is_mine ? C.onAccent : C.text, lineHeight: 1.5 }}>
                     {m.body}
                   </div>
-                  <div style={{ fontSize: 10, color: C.muted, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 3, paddingLeft: 4, paddingRight: 4 }}>
                     {(() => { const d = new Date(m.sent_at_ms); return `${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`; })()}
                   </div>
                 </div>

@@ -195,7 +195,7 @@ export default function TrainersPanel() {
       )}
       {connectStep === 1 && (
         <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(var(--overlay-rgb),0.04)', border: `1px solid ${C.border}` }}>
-          <p style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 12 }}>ENTER TRAINER CODE</p>
+          <p style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>ENTER TRAINER CODE</p>
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
             Ask your trainer for their code (format: FIT-XXXXXX) or paste a full invite link.
           </p>
@@ -230,7 +230,7 @@ export default function TrainersPanel() {
       )}
       {connectStep === 2 && connectGymInfo && (
         <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(16,185,129,0.05)', border: `1px solid ${C.emeraldBorder}` }}>
-          <p style={{ ...eyebrow, fontSize: 9.5, color: C.emerald, marginBottom: 12 }}>CONFIRM CONNECTION</p>
+          <p style={{ ...eyebrow, fontSize: 11, color: C.emerald, marginBottom: 12 }}>CONFIRM CONNECTION</p>
           <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{connectGymInfo.trainer_name}</p>
           <p style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 16 }}>{connectGymInfo.gym_name}</p>
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
@@ -272,7 +272,7 @@ export default function TrainersPanel() {
       )}
 
       {/* Intake form */}
-      <div style={{ marginTop: 24, marginBottom: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
+      <div style={{ marginTop: 24, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
         Health Intake
       </div>
       <Glass style={{ padding: 20 }}>
@@ -341,7 +341,7 @@ export default function TrainersPanel() {
       {/* ── Trainer instellingen (only shown when connected to a gym) ── */}
       {isInGym && (
         <>
-          <div style={{ marginTop: 28, marginBottom: 8, fontSize: 10, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
+          <div style={{ marginTop: 28, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
             Jouw trainer
           </div>
           <Glass style={{ padding: 20 }}>

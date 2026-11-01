@@ -106,7 +106,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
                 style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "18px 16px", borderRadius: 20, cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                   border: `1px solid ${active ? "var(--accent-border, rgba(16,185,129,0.3))" : C.border}`,
                   background: active ? "rgba(var(--accent-rgb),0.08)" : C.bgCard }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: active ? "var(--accent)" : C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: active ? "var(--accent)" : C.muted, textTransform: "uppercase", marginBottom: 10 }}>
                   {card.label}
                 </div>
                 {card.strike && (
@@ -117,7 +117,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{card.sub}</div>
                 {card.badge && card.badge !== "beste deal" && (
-                  <div style={{ marginTop: 10, fontSize: 10, fontWeight: 900, color: C.warning, background: "rgba(245,158,11,0.12)", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  <div style={{ marginTop: 10, fontSize: 11, fontWeight: 900, color: C.warning, background: "rgba(245,158,11,0.12)", padding: "3px 8px", borderRadius: 6, textTransform: "uppercase", letterSpacing: "0.08em" }}>
                     {card.badge}
                   </div>
                 )}

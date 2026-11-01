@@ -3,41 +3,10 @@
 import { useState } from "react";
 import { C, display, mono } from "./tokens.js";
 import { t } from "./i18n.js";
+import { SadFace, NeutralFace, HappyFace } from "./MoodRow.jsx";
+import { buildCheckinPayload } from "./checkinQuick.js";
 
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
-
-function SadFace({ size = 44 }) {
-  return (
-    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="20" cy="20" r="17" />
-      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
-      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
-      <path d="M 11 28 Q 20 21 29 28" />
-    </svg>
-  );
-}
-
-function NeutralFace({ size = 44 }) {
-  return (
-    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="20" cy="20" r="17" />
-      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
-      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
-      <line x1="13" y1="26" x2="27" y2="26" />
-    </svg>
-  );
-}
-
-function HappyFace({ size = 44 }) {
-  return (
-    <svg viewBox="0 0 40 40" width={size} height={size} fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="20" cy="20" r="17" />
-      <circle cx="13" cy="16" r="2" fill="currentColor" stroke="none" />
-      <circle cx="27" cy="16" r="2" fill="currentColor" stroke="none" />
-      <path d="M 11 24 Q 20 33 29 24" />
-    </svg>
-  );
-}
 
 export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
   const bodyMode = cycle?.mode ?? "standard";
@@ -71,39 +40,10 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
   const hasPain = chips.includes("pain");
   const needsStep3 = hasPain || bodyMode === "pregnant" || bodyMode === "postnatal";
 
+  // One payload builder for the sheet and the mood row on Today (UAT R6, checkinQuick.js).
   const buildAndSave = () => {
-    const moodMap = {
-      1: { mood: 2, stress: 8, motivation: 2 },
-      2: { mood: 6, stress: 5, motivation: 5 },
-      3: { mood: 9, stress: 2, motivation: 9 },
-    };
-    const m = moodMap[feeling] ?? moodMap[2];
     try { localStorage.setItem("jf_last_location", location); } catch { /* private mode */ }
-    onSave({
-      mood: m.mood,
-      stress: m.stress,
-      energy: chips.includes("low_energy") ? 3 : 5,
-      sleep_hours: chips.includes("poor_sleep") ? 4 : null,
-      checkin_json: {
-        no_clothing: false,
-        no_gear: false,
-        no_time: chips.includes("zero_time"),
-        equipment_profile_id: location,
-        // Kept in sync for older cached clients and any consumer still reading it.
-        gym_today: location === "gym",
-        traveling: false,
-        recovery_mode: chips.includes("taking_easy"),
-        pain_level: hasPain ? 3 : 0,
-        pain_scope: hasPain ? painScope : null,
-        pain_areas: hasPain ? painAreas : [],
-        period_today: chips.includes("period"),
-        free_text: freeText,
-        motivation: m.motivation,
-        time_budget: defaultTimeBudget,
-        pregnancy_signals: pregnancySignals,
-        postnatal_signals: postnatalSignals,
-      },
-    });
+    onSave(buildCheckinPayload({ feeling, chips, location, freeText, painScope, painAreas, pregnancySignals, postnatalSignals, timeBudget: defaultTimeBudget }));
   };
 
   const handleStep2Apply = () => {
@@ -140,19 +80,16 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
   const dotCount = needsStep3 ? 3 : 2;
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
+    <div data-testid="checkin-sheet" style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
       {/* Width-constrained row so the sheet matches app card width on desktop */}
       <div style={{ display: "flex", justifyContent: "center" }}>
       <div style={{ background: C.sheet, borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
 
         {/* Drag handle + close */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 20px 4px" }}>
-          <div style={{ width: 32 }} />
+          <div style={{ width: 44 }} />
           <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle }} />
-          <button
-            onClick={onClose}
-            style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 18, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontFamily: "inherit" }}
-          >×</button>
+          <button type="button" onClick={onClose} aria-label={t("Close")} className="jf-sheet-close">×</button>
         </div>
 
         {/* Step dots */}
@@ -200,7 +137,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
               </div>
               {/* ── C-F9: where are you training today ── */}
               <div style={{ paddingTop: 16 }}>
-                <div style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.subtle, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.subtle, marginBottom: 8 }}>
                   {t("Where are you training?")}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -264,7 +201,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {hasPain && (
                 <div style={{ marginTop: 16, marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("Pain detail")}</div>
+                  <div style={{ ...mono(11), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("Pain detail")}</div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
                       <button
@@ -310,7 +247,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {bodyMode === "pregnant" && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: C.warningBright, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your body today?")}</div>
+                  <div style={{ ...mono(11), color: C.warningBright, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your body today?")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {[
                       { key: "nausea",            label: t("Feeling nauseous"),  sub: t("We'll keep it very gentle") },
@@ -340,7 +277,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {bodyMode === "postnatal" && (
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ ...mono(10), color: "rgba(251,191,36,0.8)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your recovery today?")}</div>
+                  <div style={{ ...mono(11), color: "rgba(251,191,36,0.8)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("How is your recovery today?")}</div>
                   <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                     {[
                       { key: "heaviness",     label: t("Feeling pelvic heaviness"), sub: t("We'll reduce load and impact")  },

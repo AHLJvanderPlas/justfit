@@ -19,7 +19,7 @@ function AwardRow({ award, state, first }) {
         {state === "earned" ? <Ic size={20} c="var(--accent)" /> : state === "next" ? <Ic size={20} c={C.muted} /> : <Icons.lock size={16} c={C.subtle} />}
       </div>
       <div>
-        <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase", color: state === "locked" ? C.subtle : C.text }}>{award.title}</div>
+        <div data-award-name="" style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 17, fontWeight: 900, lineHeight: 1.1, textTransform: "uppercase", color: state === "locked" ? C.subtle : C.text }}>{award.title}</div>
         <div style={{ fontSize: 12, color: C.muted, marginTop: 3 }}>
           {state === "earned" && t("Earned")}
           {state === "next" && (award.deltaText ? t("{what} to go", { what: award.deltaText }) : award.req)}
@@ -144,7 +144,7 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
             ← {origin === "settings" ? t("Settings") : t("Progress")}
           </button>
         )}
-        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Trophy Room")}</div>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Trophy Room")}</div>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
           {t("Showing up, quietly.")}
         </div>

@@ -15,6 +15,7 @@ import { PERSIST } from './global-setup.js';
 
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
+import { finishOnboarding, checkInToday } from './helpers.js';
 const CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');   // repo root, not a hardcoded path
 
 /** Sign up a fresh user via UI, return {email, password}. Token lands in localStorage. */
@@ -29,12 +30,9 @@ async function signupFresh(page, suffix = '') {
   await page.locator('#accept-check').check();
   await page.locator('#submit-btn').click();
   await page.waitForURL('/');
-  // Skip onboarding
-  await page.getByRole('button', { name: /I Agree/ }).click();
-  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
-  // Skip check-in
-  await page.getByRole('button', { name: 'Good' }).click();
-  await page.getByRole('button', { name: 'Apply →' }).click();
+  // Onboarding (general path by default) → Today → the mood row's one-tap check-in (UAT R6)
+  await finishOnboarding(page);
+  await checkInToday(page);
   return { email, password };
 }
 
@@ -66,11 +64,8 @@ test('guest mode — Settings → Account shows "Add email", no Resend', async (
   await page.locator('#guest-btn').click();
   await page.waitForURL('/');
   await expect(page.getByText('Add your email to keep your data').first()).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('button', { name: /I Agree/ }).click();
-  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
-  await page.getByRole('button', { name: 'Good' }).click();
-  await page.getByRole('button', { name: 'Apply →' }).click();
-  await page.getByRole('button', { name: /GENERAL/i }).click();
+  await finishOnboarding(page);
+  await checkInToday(page);
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: /^Account/ }).click();
   await expect(page.getByRole('button', { name: /^Add email/ })).toBeVisible({ timeout: 10_000 });
@@ -126,15 +121,9 @@ test('consent gate — blocks Coach tab then clears after signing', async ({ pag
   await page.locator('#submit-btn').click();
   await page.waitForURL('/');
 
-  // Complete onboarding + check-in
-  await page.getByRole('button', { name: /I Agree/ }).click();
-  for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
-  await page.getByRole('button', { name: 'Good' }).click();
-  await page.getByRole('button', { name: 'Apply →' }).click();
-
-  // PathChoiceModal appears after onboarding when primary_intent is unset — pick General
-  await expect(page.getByRole('button', { name: /GENERAL/i })).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('button', { name: /GENERAL/i }).click();
+  // Complete onboarding (the path is the goal step's default, general) + the mood-row check-in
+  await finishOnboarding(page);
+  await checkInToday(page);
 
   // Capture userId to set up fixture membership
   const userId = await page.evaluate(() => localStorage.getItem('jf_user_id'));

@@ -239,7 +239,7 @@ export function MetricCurve({ data, initialPeriod = 90, height = 168 }) {
             <b style={{ fontFamily: C.font.mono, fontVariantNumeric: "tabular-nums" }}>
               {fmtValue(pts[active].value, unit)}{unit === "kg" ? " kg" : ""}
             </b>
-            <span style={{ color: C.muted, display: "block", fontSize: 10.5 }}>
+            <span style={{ color: C.muted, display: "block", fontSize: 11 }}>
               {fmtDate(pts[active].at_ms)}
               {pts[active].decayed ? ` · ${t("no training — score fades on its own")}` : ""}
             </span>

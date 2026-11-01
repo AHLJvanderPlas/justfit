@@ -322,7 +322,12 @@ node scripts/uat/aggregate.mjs           # table, failures, errors, audit → .u
 python3 scripts/uat/sheet.py             # three contact sheets → .uat-out/sheet-*.png (needs Pillow)
 ```
 
-The runner is deliberately not part of `npm run release`: it is a review instrument, not a gate.
+The runner is deliberately not part of `npm run release`. Since UAT release 6 the personas marked
+`gate: true` (p01-sanne, p11-peter, p30-erik) are a gate of their own: `node scripts/uat/uat.mjs
+p11-peter p30-erik p01-sanne` exits 1 on a clipped title, text under 11 px, more than 10 onboarding
+taps, a page/console error, a failed flow or a control under the nav at the end of a page
+(`.uat-out/gate.json`). The path is chosen in onboarding (`path:` on the persona), and the check-in is
+the mood row on Today (the sheet only for personas with signals).
 After the D1–D5 fixes, the expected result is 0 app failures and a coach card on the coached
 personas' Today (the runner's `coachCard` probe looks for "Bekijk je coach"; widen it if the card's
 label changes).

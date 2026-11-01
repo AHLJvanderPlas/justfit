@@ -767,7 +767,10 @@ fi
 # 1955 → 1890 (2026-11-01): UAT release 5 — Jij lost its planner block (the five small editors and
 # the Geavanceerd chrome are .jf-adv*), the duplicate cycle card, the language toggle and the
 # guest-email block; the Today coaching card is .jf-cc*; the landing language control .jf-set*.
-STYLE_CEILING=1890
+# 1890 → 1749 (2026-11-01): UAT release 6 — onboarding (.jf-ob*), the path modal and its follow-up
+# (.jf-pathmodal* / .jf-path*), the nav (.jf-nav*), the page container (.jf-page), the timed set
+# (.jf-timer*) and the Today title moved to classes.
+STYLE_CEILING=1749
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1491,7 +1494,8 @@ fi
 # measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
 PLAN_CEILING=3688
 # 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
-APP_CEILING=1780
+# 2026-11-01 (UAT release 6): App.jsx 1780 → 1769 — the check-in time budget moved to checkinQuick.js, the page container to .jf-page.
+APP_CEILING=1769
 POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
 APP_NOW=$(wc -l < packages/client-app/src/App.jsx | tr -d " ")
@@ -1671,6 +1675,17 @@ if [ -z "$R5_OUT" ]; then
   ok "UAT R5: no Opslaan · <doel> button, one Appearance + one Cycle tracking, Geavanceerd closed, guest button on both tabs, CoachingCard"
 else
   fail "UAT R5: $R5_OUT"
+fi
+
+# ── UAT R6 — small phones and the first five minutes (offline source scan) ──
+# No text under 11 px; the nav and every page share --nav-h; nav labels ≥ 11 px and items ≥ 44 px;
+# sheet closes are 44 px boxes; one check-in payload for the sheet and the mood row; onboarding and
+# the path modal store the path through the same call. Rules and reasons: scripts/uatR6.scan.mjs.
+R6_OUT=$(node scripts/uatR6.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$R6_OUT" ]; then
+  ok "UAT R6: 11 px text floor, one nav height for nav + pages, 44 px nav items and sheet closes, one check-in payload, one path writer"
+else
+  fail "UAT R6: $R6_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

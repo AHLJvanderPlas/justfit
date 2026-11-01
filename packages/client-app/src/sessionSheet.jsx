@@ -36,7 +36,7 @@ export function Sheet({ title, sub = null, label, onClose, padded = false, sheet
             {title}
             {sub && <span className="jf-sheet__sub">{sub}</span>}
           </div>
-          <button type="button" aria-label={t("Close")} onClick={onClose} className="jf-icon-btn">×</button>
+          <button type="button" aria-label={t("Close")} onClick={onClose} className="jf-icon-btn jf-sheet-close">×</button>
         </div>
         {children}
       </div>

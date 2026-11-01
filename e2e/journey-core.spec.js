@@ -27,19 +27,32 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
   await expect.poll(() => page.evaluate(() => navigator.serviceWorker.getRegistration().then((r) => !!r)),
     { timeout: 15_000, message: '/sw.js should be registered after load' }).toBe(true);
 
-  // ── Onboarding (skip everything) ───────────────────────────────────────
+  // ── Onboarding (UAT R6): the goal step holds the path; skipping it keeps General ───────
   await page.getByRole('button', { name: /I Agree/ }).click();
-  for (let i = 0; i < 5; i++) {
-    await page.getByRole('button', { name: 'Skip this step' }).click();
-  }
+  await expect(page.locator('[data-path="running"]')).toBeVisible();     // the sport paths sit in the goal step
+  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
 
-  // ── Daily check-in ──────────────────────────────────────────────────────
-  await page.getByRole('button', { name: 'Good' }).click();
-  await page.getByRole('button', { name: 'Apply →' }).click();
+  // ── Today first, no path modal, no check-in sheet: the mood row is the day's check-in ──
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.jf-pathmodal')).toHaveCount(0);
+  await expect(page.getByTestId('checkin-sheet')).toHaveCount(0);
+  const profile = await (await page.request.get('/api/profile')).json();
+  expect(profile.preferences?.primary_intent, 'onboarding stores the path (general by default)').toBe('general');
+  // A reload on the onboarding day still does not push the sheet in front of Today.
+  await page.reload();
+  const row = page.getByTestId('mood-row');
+  await expect(row).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('checkin-sheet')).toHaveCount(0);
+  await expect(page.locator('.jf-pathmodal')).toHaveCount(0);
 
-  // PathChoiceModal appears after onboarding when primary_intent is unset — pick General
-  await expect(page.getByRole('button', { name: /GENERAL/i })).toBeVisible({ timeout: 10_000 });
-  await page.getByRole('button', { name: /GENERAL/i }).click();
+  // ── Daily check-in: one tap. Stored (D4) and today's plan rebuilt with it (trial = Pro) ──
+  const savedCheckin = page.waitForRequest((r) => r.url().includes('/api/checkin') && r.method() === 'POST');
+  const replanned = page.waitForRequest((r) => r.url().includes('/api/plan') && r.method() === 'POST' && !!JSON.parse(r.postData() ?? '{}').checkin);
+  await row.getByRole('button', { name: 'Not great' }).click();
+  const stored = JSON.parse((await savedCheckin).postData());
+  expect(stored.stress, 'the mood row sends the sheet\'s numbers ("Not great" → stress 8)').toBe(8);
+  expect(JSON.parse((await replanned).postData()).checkin.stress).toBe(8);
+  await expect(row).toHaveCount(0);
 
   // ── Today's plan ──────────────────────────────────────────────────────
   const startSession = page.getByRole('button', { name: /START SESSION/ });
@@ -93,9 +106,10 @@ test('check-in "Taking it easy" → Today is a recovery session, kept through a 
   // (a) The check-in, on a day that already has a plan: the Pro branch replans it. The free
   //     adapt path would keep the stored session (its trace gains adapt:free_tier, never R559).
   await page.getByRole('button', { name: 'Check-in' }).click();
-  await page.getByRole('button', { name: 'Good' }).click();
-  await page.getByRole('button', { name: 'Taking it easy' }).click();
-  await page.getByRole('button', { name: 'Apply →' }).click();
+  const sheet = page.getByTestId('checkin-sheet');
+  await sheet.getByRole('button', { name: 'Good' }).click();
+  await sheet.getByRole('button', { name: 'Taking it easy' }).click();
+  await sheet.getByRole('button', { name: 'Apply →' }).click();
   await expect.poll(async () => { const p = await stored(); return r559(p) && p.intensity; },
     { timeout: 30_000, message: 'the check-in should replan today as a recovery session (R559, low)' }).toBe('low');
   await expect(page.getByText('LOW', { exact: true }).first()).toBeVisible({ timeout: 20_000 });

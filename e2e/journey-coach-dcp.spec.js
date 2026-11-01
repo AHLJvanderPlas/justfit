@@ -132,18 +132,10 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
 });
 
 test('coach-dcp (g) — the coach programme card on Today opens the Coach view', async ({ page }) => {
-  await signupFresh(page, '-coachcard', {
-    beforeCheckIn: async (p) => {
-      // Onboarding has saved its profile once the check-in sheet is up; write after it.
-      await expect(p.getByRole('button', { name: 'Good' })).toBeVisible();
-      const res = await p.request.post('/api/profile', { data: { preferences: {
-        primary_intent: 'running',
-        run_coach: { enrolled: true, target_km: 5, week: 1, session_in_week: 0 },
-        sport_prefs: { sports: ['running'], primary: 'running' },
-      } } });
-      expect(res.ok()).toBe(true);
-    },
-  });
+  // UAT R6 — Running is picked on onboarding's goal step (5 km, the follow-up's default), so the
+  // first stored plan is the coach's and no path modal follows.
+  await signupFresh(page, '-coachcard', { path: 'running' });
+  await expect(page.locator('.jf-pathmodal')).toHaveCount(0);
   // Dutch from here; a reload also reads the new primary intent (no path-choice modal).
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'nl'));
   await page.reload();
@@ -168,9 +160,10 @@ test('coach-dcp (h) — Waar sta ik: the keuring card, and the level only once m
   };
   const mil = { active: true, track: 'keuring', mode: 'target', cluster_current: 1, cluster_target: 3,
     target_date: inDays(60), block_session_index: 0, block_number: 1, pack_weights_available_kg: [10, 15] };
+  // UAT R6 — Militair on the goal step; then this test's exact coach state (cluster 1, pack weights, date).
   await signupFresh(page, '-waarstaik', {
-    beforeCheckIn: async (p) => {
-      await expect(p.getByRole('button', { name: 'Good' })).toBeVisible();
+    path: 'military',
+    afterOnboarding: async (p) => {
       const res = await p.request.post('/api/profile', { data: { sex: 'male', preferences: { primary_intent: 'military', military_coach: mil } } });
       expect(res.ok()).toBe(true);
     },
@@ -214,12 +207,18 @@ test('coach-dcp (h) — Waar sta ik: the keuring card, and the level only once m
 // the generic session, no coach card, and Settings showed the old goal as the path.
 test('path choice applies without a reload — Running → coach card on Today, RUNNING in Goal & coach (UAT D3)', async ({ page }) => {
   await signupFresh(page, '-runpath');
+  // UAT R6 — onboarding stored General; "Change path" in Settings is the modal's home now.
+  await expect(page.locator('.jf-pathmodal')).toHaveCount(0);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: /^Goal & coach/ }).click();
+  await page.getByRole('button', { name: 'Change path →' }).click();
   const running = page.getByRole('button', { name: /RUNNING/ });
   await expect(running).toBeVisible({ timeout: 10_000 });
   await running.click();
   await page.getByRole('button', { name: '5km', exact: true }).click();
   await page.getByRole('button', { name: 'Start Running Coach →' }).click();
   // No reload from here on.
+  await page.getByRole('button', { name: 'Today', exact: true }).click();
   await expect(page.getByRole('button', { name: /View your coach/ })).toBeVisible({ timeout: 30_000 });
   await expect(page.getByTestId('coach-pill')).toHaveText(/^Running · 5km$/i);
   await waitForStoredPlan(page);
@@ -227,4 +226,20 @@ test('path choice applies without a reload — Running → coach card on Today, 
   await page.getByRole('button', { name: 'Settings' }).click();
   await page.getByRole('button', { name: /^Goal & coach/ }).click();
   await expect(page.locator('.jf-dc__path-name')).toHaveText(/^Running · 5 km$/i, { timeout: 10_000 });
+});
+
+// UAT R6 — the goal is asked once: a path chosen in onboarding is stored exactly as the modal
+// stores it, and the modal never appears afterwards (not even after a reload).
+test('onboarding fold — Running on the goal step: stored like the modal, coach card on Today, no path modal after reload', async ({ page }) => {
+  await signupFresh(page, '-obrun', { path: 'running', checkin: false });
+  const prefs = (await (await page.request.get('/api/profile')).json()).preferences;
+  expect(prefs.primary_intent).toBe('running');
+  expect(prefs.run_coach).toMatchObject({ enrolled: true, target_km: 5, week: 1, session_in_week: 0 });
+  expect(prefs.sport_prefs).toMatchObject({ sports: ['running'], primary: 'running' });
+  await expect(page.getByRole('button', { name: /View your coach/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByTestId('mood-row')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
+  await expect(page.locator('.jf-pathmodal')).toHaveCount(0);
+  await expect(page.getByTestId('checkin-sheet')).toHaveCount(0);
 });
