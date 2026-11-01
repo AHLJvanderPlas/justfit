@@ -1356,7 +1356,16 @@ Calculated server-side from executions table:
 
 ## Known Bugs to Fix
 
-None currently. 🟢
+Found by the 30-persona UAT of 2026-11-01 (`docs/UAT_PERSONAS_2026-11.md`, defects D1–D5; rerun with
+`node scripts/uat/uat.mjs`):
+
+| # | Severity | Bug | Where |
+|---|---|---|---|
+| D1 | P0 | "← Annuleren" in a session crashes to the error boundary: `Glass` is used but not imported (since `c50810a`, 2026-05-20). Lint does not check JSX tag names; no e2e cancels a session. | `WorkoutView.jsx:517` |
+| D2 | P1 | CSP `worker-src 'none'` blocks `/sw.js`: the service worker never installs (since `fdd8884`), so Pro push cannot subscribe and there is no offline shell. | `public/_headers` |
+| D3 | P1 | A path choice (Hardlopen/Fietsen/Militair) is saved but not applied until reload: Today not replanned, no coach card, Doel & coach shows the old goal. | `App.jsx:588` |
+| D4 | P1 | The check-in Apply branches on `prefs.isPro`, which is always false since F8: every check-in takes the free adapt path; recovery mode, sleep, energy and stress never change intensity or selection; the Pro replan branch is dead code. | `App.jsx:840` |
+| D5 | P1 | A day-1 trial user is locked out of Fietsen and sent to a paywall that says "Je hebt al een actief abonnement": the entitlement is only fetched after an existing profile loads. | `App.jsx:552`, `PathChoiceModal.jsx:52` |
 
 ### Shipped 2026-11-01 — coach-dcp release 2: one place, one picture, one language (plan complete)
 
