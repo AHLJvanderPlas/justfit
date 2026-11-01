@@ -1358,6 +1358,27 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-11-01 — session builder v1.4 (plan §4): one row for numbers; reachable controls
+
+- Both sheets enter numbers the same way: `SetRow` in `sessionSheet.jsx` — `[sets] × [value]
+  @ [rest] s`, 44 px fields, numeric keypad, the number selected on focus. Samenstellen has
+  exactly one row per exercise; shorthand "3x12" fills sets 3 / value 12; a second group is
+  the error "In Samenstellen geldt één waarde voor alle sets" and disables Starten. The
+  steppers are gone (smoke guards they stay gone). `targetRow` in `logSession.js` is the pure,
+  clamped parser (sets 1–10, reps 1–100, duration 5–7200, rest 0–600); the read-back line
+  "3 sets · 12 reps · 45 s rust ≈ 4 min" shows exactly what is sent.
+- Reps / Tijd chip pair replaces the 10 px link; card chrome is "⋯" (Omhoog / Omlaag behind
+  it) and "×", both 44 px, in both sheets.
+- Accessibility: `--label` token (72 % ink, ≈ 9:1) for labels that carry meaning; no sheet
+  text below 11 px; `.jf-chip` / `.jf-icon-btn` carry a 44 px hit area without changing
+  their look; the sheet closes on Escape and focuses its title on open. Smoke **A1** scans
+  `styles.css` for both rules.
+- Smoke 92 → **94**; e2e 14 (journey (a) now types values and asserts "1 × 5 reps" in
+  WorkoutView); `logSession.test.mjs` 15. Ratchets unchanged. Commit c07cd60.
+- Known flake, not fixed here: journey (a)'s bootstrap polls up to 15 s for the stored plan
+  id and timed out once in the release run (passed on rerun). Harden by waiting for the
+  app's own POST /api/plan instead of polling.
+
 ### Shipped 2026-11-01 — session builder v1.3 (plan §3): a browsable library, in Dutch too
 
 - The picker (`sessionSheet.jsx` + `exerciseSearch.js`) is one pipeline: category + kit
