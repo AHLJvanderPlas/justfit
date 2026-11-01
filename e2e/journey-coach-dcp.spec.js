@@ -50,6 +50,17 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
   await expect(page.getByText('Your path', { exact: true })).toBeVisible();
   await expect(page.getByText('You train with one coach at a time. Standards apply separately.')).toBeVisible();
   await expect(page.getByText('Training days', { exact: true })).toBeVisible();
+  // ANDERE COACHES: a row opens that coach's own block with its activate button, and closes
+  // again. (Military: a fresh free user without running shoes sees "Add running shoes" in the
+  // running block instead of its activate button.)
+  const milRow = page.getByRole('button', { name: 'Military', exact: true });
+  await expect(milRow).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByRole('button', { name: /^Activate · Military Coach/ })).toHaveCount(0);
+  await milRow.click();
+  await expect(milRow).toHaveAttribute('aria-expanded', 'true');
+  await expect(page.getByRole('button', { name: /^Activate · Military Coach · K3$/ })).toBeVisible();
+  await milRow.click();
+  await expect(page.getByRole('button', { name: /^Activate · Military Coach/ })).toHaveCount(0);
   await expect(page.getByText('Standards', { exact: true })).toBeVisible();
   const toggle = page.getByRole('button', { name: 'DCP standard · standing' });
   await expect(toggle).toBeDisabled();                        // no birth year yet

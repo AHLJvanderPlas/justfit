@@ -41,3 +41,22 @@ export function plannerLines({ scores = {}, targets = {}, chartMode, goal }, lab
   if (CHART_NOTE[chartMode]) out.push([CHART_NOTE[chartMode]]);
   return out;
 }
+
+/**
+ * The Doelfit card's sentence, by goal key. /api/progression sends
+ * goal_profile.description as an English string (GOAL_TARGET_PROFILES in
+ * functions/api/progression.js); the client keys on goal_profile.goal instead so
+ * the sentence can be Dutch. An unknown goal falls back to the generic sentence.
+ */
+export const GOAL_DESCRIPTIONS = {
+  health: 'A balanced all-round base across all movements.',
+  strength: 'High power across all major movement patterns.',
+  fat_loss: 'Strong conditioning engine with a solid movement base.',
+  muscle_gain: 'Focused hypertrophy stimulus across major muscle groups.',
+  endurance: 'Aerobic engine first, supported by leg and core endurance.',
+  mobility: 'Mobility and flexibility as the primary training focus.',
+  military: 'Military prep: conditioning and legs-heavy, with strong push and core.',
+};
+export function goalDescription(goal) {
+  return GOAL_DESCRIPTIONS[goal] ?? 'How close your current profile matches your goal.';
+}

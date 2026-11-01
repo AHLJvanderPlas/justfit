@@ -12,7 +12,8 @@ import { WaarStaIk } from "./normCards.jsx";
 import { anyNormOn } from "./keuringNorms.js";
 import { dcpMeasurePlanned } from "./dcpUi.js";
 import { axisLabel } from "./messagePolicy.js";
-import { insightLines, plannerLines } from "./progressCopy.js";
+import { insightLines, plannerLines, goalDescription } from "./progressCopy.js";
+import { activeCoachOf, pathGoal } from "./coachPath.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -883,7 +884,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         </div>
         {/* Goal insight */}
         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6, borderTop: `1px solid ${C.border}`, paddingTop: 12 }}>
-          <span style={{ fontWeight: 700, color: C.text }}>{t("Goal: {goal}", { goal: t(GOAL_LABELS_MAP[goal] ?? goal.replace(/_/g, " ")) })} — </span>
+          <span style={{ fontWeight: 700, color: C.text }}>{t("Goal: {goal}", { goal: activeCoachOf(prefs) === "general" ? t(GOAL_LABELS_MAP[goal] ?? goal.replace(/_/g, " ")) : pathGoal(prefs, t) })} — </span>
           {t(weeklyOutcome.insight)}
         </div>
         {/* Goal-fit progress row — shown when progression data available */}
@@ -1145,7 +1146,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   ? t("How your conditioning aligns with your running target.")
                   : sportMode === "cycling"
                   ? t("How your conditioning aligns with your cycling programme.")
-                  : t(progression.goal_profile?.description ?? "How close your current profile matches your goal.")}
+                  : t(goalDescription(progression.goal_profile?.goal ?? goal))}
               </div>
             </div>
           </Glass>

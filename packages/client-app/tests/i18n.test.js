@@ -494,6 +494,13 @@ describe('v1.6 shell — dates in the reader\'s language', () => {
 // Every key this release added (Settings → Doel & coach, the WAAR STA IK cards,
 // the Coach view body, the path-choice modal, Voortgang's insight copy).
 const R2_KEYS = [
+  "A balanced all-round base across all movements.",
+  "High power across all major movement patterns.",
+  "Strong conditioning engine with a solid movement base.",
+  "Focused hypertrophy stimulus across major muscle groups.",
+  "Aerobic engine first, supported by leg and core endurance.",
+  "Mobility and flexibility as the primary training focus.",
+  "Military prep: conditioning and legs-heavy, with strong push and core.",
   "GENERAL\nFITNESS",
   "A coach picks one safe, useful session a day.",
   "RUNNING",
@@ -801,7 +808,7 @@ const R2_KEYS = [
 const R2_SAME = new Set(["Score: {n}", "KEURING {level}", "Cooper {date}", "Week {w}", "Basis", "max", "Week {w} · FTP {ftp} W", "circuit", "Cardio", "KEURING", "OPLEIDING", "Push-ups", "Pull-ups", "Push-ups · 2 min", "Sit-ups · 2 min"]);
 
 describe('coach-dcp R2 — every key has its own Dutch value', () => {
-  it('lists 302 keys', () => { expect(R2_KEYS.length).toBe(302); });
+  it('lists 309 keys', () => { expect(R2_KEYS.length).toBe(309); });
   it('non-empty, and never equal to the key', async () => {
     const { i18n } = await load('nl');
     const bad = R2_KEYS.filter((k) => {

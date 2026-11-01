@@ -1518,4 +1518,12 @@ const NL = {
   "RECOVERY": "HERSTEL",
   "PEAK": "PIEK",
   "Sprint power": "Sprintvermogen",
+  // coach-dcp R2 review — the Doelfit sentence, by goal key (progressCopy.goalDescription)
+  "A balanced all-round base across all movements.": "Een gebalanceerde basis over alle bewegingen.",
+  "High power across all major movement patterns.": "Veel kracht in alle grote bewegingspatronen.",
+  "Strong conditioning engine with a solid movement base.": "Een sterke conditie op een stevige bewegingsbasis.",
+  "Focused hypertrophy stimulus across major muscle groups.": "Gerichte groeiprikkel voor de grote spiergroepen.",
+  "Aerobic engine first, supported by leg and core endurance.": "Eerst de aerobe motor, gesteund door uithouding in benen en romp.",
+  "Mobility and flexibility as the primary training focus.": "Mobiliteit en lenigheid als belangrijkste trainingsfocus.",
+  "Military prep: conditioning and legs-heavy, with strong push and core.": "Militaire voorbereiding: veel conditie en benen, met sterk duwen en een sterke romp.",
 };

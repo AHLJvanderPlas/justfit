@@ -30,3 +30,17 @@ describe('plannerLines', () => {
     expect(plannerLines({ scores: targets, targets, chartMode: 'x' })).toEqual([]);
   });
 });
+
+import { GOAL_DESCRIPTIONS, goalDescription } from '../src/progressCopy.js';
+import { readFileSync } from 'node:fs';
+describe('goalDescription — the Doelfit sentence by goal key', () => {
+  it('every goal profile on the server has the same sentence here (so the key resolves)', () => {
+    const src = readFileSync(new URL('../../../functions/api/progression.js', import.meta.url), 'utf8');
+    const server = [...src.matchAll(/^ {2}(\w+): \{\n {4}chartMode[^\n]*\n {4}targets[^\n]*\n {4}description: '([^']+)'/gm)].map((m) => [m[1], m[2]]);
+    expect(server.length).toBe(7);
+    for (const [goal, text] of server) expect(GOAL_DESCRIPTIONS[goal]).toBe(text);
+  });
+  it('unknown goal → the generic sentence', () => {
+    expect(goalDescription('x')).toBe('How close your current profile matches your goal.');
+  });
+});

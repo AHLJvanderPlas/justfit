@@ -10,7 +10,7 @@ import { useAppShell } from "./AppShellContext.js";
 import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
 import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
-import { cycleSubGoalLabel } from "./messagePolicy.js";
+import { activeCoachOf, pathTitle } from "./coachPath.js";
 
 // ─── PASSKEY HELPERS ──────────────────────────────────────────────────────────
 const b64url = (buf) =>
@@ -280,12 +280,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   // active, else the first active coach, else the general goal. `goalSel` is the
   // general path's goal chip; `openOther` the one collapsed coach row under
   // ANDERE COACHES that is open (each coach block has its own activate button).
-  const activeCoach = (() => {
-    const intent = prefs.preferences?.primary_intent ?? null;
-    const on = { running: runCoachActive, cycling: cycleCoachActive, military: milCoachActive };
-    if (on[intent]) return intent;
-    return runCoachActive ? "running" : cycleCoachActive ? "cycling" : milCoachActive ? "military" : "general";
-  })();
+  const activeCoach = activeCoachOf(prefs);
   const [goalSel, setGoalSel] = useState(() =>
     ["running", "cycling", "military"].includes(prefs.training_goal ?? "health") ? "health" : (prefs.training_goal ?? "health")
   );
@@ -896,10 +891,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         const SESSION_LABEL = { cooper_test: "Cooper test", kracht: "strength", duurloop: "endurance run", interval: "interval run", kracht_marsen: "strength + march", circuit: "circuit", rust: "rest" };
         const COACH_NAME = { running: t("Running"), cycling: t("Cycling (Pro)"), military: t("Military"), general: t("General health") };
         const trackName = mil.track === "opleiding" ? t("Educational Fitness") : t("Physical Assessment");
-        const pathName = activeCoach === "military" ? `${t("Military")} · ${trackName}`
-          : activeCoach === "running" ? `${t("Running")} · ${rc.target_km ?? 5} km`
-          : activeCoach === "cycling" ? `${t("Cycling")} · ${cycleSubGoalLabel(cc.sub_goal ?? "build_fitness")}`
-          : t(GOALS.find(g => g.value === (prefs.training_goal ?? "health"))?.label ?? "General Health");
+        const pathName = pathTitle(prefs, t);   // the same helper as Voortgang's "Doel: …"
         const pathStatus = activeCoach === "military"
           ? [t("Block {b} of 6", { b: (((mil.block_number ?? 1) - 1) % 6) + 1 }),
              todaySession && SESSION_LABEL[todaySession] ? t("{x} today", { x: t(SESSION_LABEL[todaySession]) }) : null,
