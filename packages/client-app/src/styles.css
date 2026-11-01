@@ -11,13 +11,16 @@
    300ms tap delay. The small +/- steppers in Settings keep their 28px look —
    they are correct visually — while .jf-tap expands the actual hit area to
    44px with a centred pseudo-element. Enlarging the buttons themselves would
-   have broken layouts that are working. */
+   have broken layouts that are working.
+   v1.4 (A1): the sheets' chips and icon buttons carry the same hit area — at
+   least 44 × 44 px, never smaller than the control itself — without changing
+   their look. Smoke guards that both base rules keep it. */
 button, [role="button"] { touch-action: manipulation; }
 .jf-tap { position: relative; }
-.jf-tap::after {
+.jf-tap::after, .jf-chip::after, .jf-icon-btn::after {
   content: ""; position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  width: 44px; height: 44px;
+  width: max(100%, 44px); height: max(100%, 44px);
 }
 
 /* UX-5 — one skeleton style for every loading placeholder. */
@@ -95,6 +98,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 24px; font-weight: 900;
   letter-spacing: -0.005em; line-height: 0.95; color: var(--text); text-transform: uppercase;
 }
+/* Focus lands here on open (v1.4) for screen readers; it is not a control. */
+.jf-sheet__title:focus { outline: none; }
 .jf-sheet__sub { display: block; margin-top: 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted); text-transform: none; }
 .jf-sheet__footer {
   position: sticky; bottom: 0; padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -102,21 +107,21 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-sheet__error { font-size: 12px; color: var(--danger); margin: 4px 0 10px; }
 .jf-sheet__eyebrow {
-  font-family: "Inter Tight", "Inter", system-ui, sans-serif; font-size: 9.5px; font-weight: 600; letter-spacing: 0.16em;
-  text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32); margin-bottom: 8px;
+  font-family: "Inter Tight", "Inter", system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.16em;
+  text-transform: uppercase; color: var(--label); margin-bottom: 8px;
 }
 .jf-sheet__empty { font-size: 12px; color: var(--muted); padding: 6px 0 12px; }
 .jf-sheet__intro { font-size: 12px; line-height: 1.5; color: var(--muted); margin: 0 0 10px; }
 
 .jf-icon-btn {
-  width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
+  position: relative; width: 36px; height: 36px; border-radius: 10px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
   background: transparent; color: var(--muted); cursor: pointer; font: inherit; font-size: 15px;
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
 .jf-icon-btn:disabled { opacity: 0.35; cursor: default; }
 
 .jf-chip {
-  padding: 8px 14px; border-radius: 99px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
+  position: relative; padding: 8px 14px; border-radius: 99px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--muted);
 }
 .jf-chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
@@ -138,7 +143,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Library search (ExercisePicker) */
 .jf-pick__search { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .jf-pick__input {
-  flex: 1; min-width: 0; padding: 11px 14px; border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
+  flex: 1; min-width: 0; min-height: 44px; padding: 11px 14px; border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
   background: rgba(var(--overlay-rgb), 0.04); color: var(--text); font: inherit; font-size: 16px; outline: none;
 }
 .jf-pick__input:focus { border-color: var(--accent-border); }
@@ -153,16 +158,19 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-pick__item--on { background: var(--accent-dim); }
 .jf-pick__text { flex: 1; min-width: 0; }
 .jf-pick__name { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jf-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; letter-spacing: 0.05em; color: var(--muted); }
+.jf-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted); }
 .jf-pick__mark { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-weight: 700; color: var(--muted); }
 .jf-pick__mark--on { color: var(--accent); }
-/* v1.3 — category + kit chips (one scrolling row each), section headers, TEST marker, cap line */
-.jf-pick__chips { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; margin-bottom: 6px; }
+/* v1.3 — category + kit chips (one scrolling row each), section headers, TEST marker, cap line.
+   v1.4: a scrolling row clips its children, so it gets 9 px of padding above and below
+   for the chips' 44 px hit area, cancelled by margins — the rows sit where they did. */
+.jf-pick__chips { display: flex; gap: 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; padding: 9px 0; margin: -9px 0 -3px; }
+.jf-pick__chips + .jf-pick__chips { margin-top: -12px; }
 .jf-pick__chips::-webkit-scrollbar { display: none; }
 .jf-pick__chips .jf-chip { flex: none; padding: 5px 11px; font-size: 11px; white-space: nowrap; }
 .jf-pick__sec {
-  padding: 8px 12px 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700;
-  letter-spacing: 0.08em; text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.4);
+  padding: 8px 12px 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 700;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--label);
 }
 .jf-pick__group + .jf-pick__group { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
 .jf-pick__test { color: var(--accent); font-weight: 700; }
@@ -172,39 +180,42 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-sb-modes { display: flex; gap: 8px; margin-bottom: 12px; }
 .jf-sb-warn { font-size: 12px; color: var(--warning-soft); line-height: 1.5; margin-bottom: 8px; }
 .jf-sb-step {
-  padding: 12px; border-radius: 14px; margin-bottom: 10px;
+  padding: 10px 12px; border-radius: 14px; margin-bottom: 10px;
   background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
 }
-.jf-sb-step__head { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.jf-sb-step__head { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
 .jf-sb-step__num { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: rgba(var(--overlay-rgb), 0.32); width: 18px; }
 .jf-sb-step__name { flex: 1; min-width: 0; font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jf-sb-step { scroll-margin-bottom: 140px; }
 .jf-sb-step--new { border-color: var(--accent-border); }
 .jf-sb-hint { font-size: 12px; color: var(--warning-soft); line-height: 1.5; margin: 4px 0 8px; }
-.jf-sb-steppers { display: flex; justify-content: space-between; gap: 4px; }
-.jf-stepper { display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
-.jf-stepper__label {
-  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: 0.06em; color: var(--muted);
-  text-transform: uppercase; white-space: nowrap;
+/* v1.4 — one row (SetRow, the log sheet's classes) + one read-back line replace the
+   three steppers; the card is no taller than it was. */
+.jf-sb-step .jf-log-unit { margin-bottom: 3px; }
+.jf-sb-step__sum {
+  display: flex; justify-content: space-between; gap: 8px; margin-top: 3px; line-height: 1.2;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--label);
 }
-.jf-stepper__row { display: flex; align-items: center; gap: 3px; }
-.jf-stepper__btn {
-  width: 32px; height: 40px; border-radius: 12px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
-  background: rgba(var(--overlay-rgb), 0.06); color: var(--text); font: inherit; font-size: 18px; font-weight: 700;
-  cursor: pointer; display: flex; align-items: center; justify-content: center;
+.jf-sb-step__sum--todo { color: var(--muted); }
+.jf-sb-step__mins { color: var(--muted); white-space: nowrap; }
+.jf-sb-step__error { font-size: 12px; line-height: 1.3; color: var(--danger); margin-top: 4px; }
+/* "⋯" opens one action row: reorder as text buttons, 44 px, disabled at the ends. */
+.jf-move-row { display: flex; gap: 8px; flex-basis: 100%; margin: 2px 0 6px; }
+.jf-move-btn {
+  flex: 1; min-height: 44px; padding: 6px 12px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 700; cursor: pointer;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--text);
 }
-.jf-stepper__value { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; font-weight: 700; color: var(--text); min-width: 30px; text-align: center; }
+.jf-move-btn:disabled { opacity: 0.35; cursor: default; }
 .jf-link {
   background: none; border: none; padding: 0; cursor: pointer; color: var(--accent);
-  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px;
 }
-.jf-sb-step .jf-link { margin-top: 8px; }
 .jf-note {
   margin-top: 8px; padding: 8px 12px; border-radius: 10px;
   background: var(--amber-dim); border: 1px solid var(--amber-border);
 }
 .jf-note__head {
-  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.12em; text-transform: uppercase;
   font-weight: 700; color: var(--amber); margin-bottom: 2px;
 }
 .jf-note__text { font-size: 12px; color: var(--warning-soft); line-height: 1.5; font-weight: 600; }
@@ -268,14 +279,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* Phase 1 — the ordered list */
 .jf-log-list { margin-bottom: 12px; }
 .jf-log-item {
-  display: flex; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; margin-bottom: 6px; border-radius: 12px;
+  display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 6px 6px 6px 10px; margin-bottom: 6px; border-radius: 12px;
   background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); scroll-margin-bottom: 140px;
 }
 .jf-log-item--new { border-color: var(--accent-border); }
 .jf-log-num { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: rgba(var(--overlay-rgb), 0.32); width: 18px; flex-shrink: 0; }
 .jf-log-item__text { flex: 1; min-width: 0; }
 .jf-log-name { display: block; font-size: 14px; font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.jf-log-item__sum { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; color: var(--muted); }
+.jf-log-item__sum { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted); }
 .jf-log-footer-row { display: flex; gap: 8px; }
 .jf-log-footer-row .jf-secondary { flex: 1; }
 .jf-log-footer-row .jf-primary { flex: 1.4; }
@@ -290,7 +301,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-log-card--skipped .jf-log-name { text-decoration: line-through; color: var(--muted); }
 .jf-log-card--skipped .jf-log-card__head { margin-bottom: 4px; }
 .jf-log-unit { display: inline-flex; gap: 4px; margin-bottom: 8px; }
-.jf-log-unit .jf-chip { padding: 5px 12px; font-size: 11px; }
+.jf-log-unit .jf-chip { padding: 4px 12px; font-size: 11px; }
 .jf-log-rows { display: flex; flex-direction: column; gap: 6px; }
 .jf-log-row { display: flex; align-items: center; gap: 6px; }
 .jf-log-sym { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; color: var(--muted); flex-shrink: 0; }
@@ -304,21 +315,21 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-log-val--bad { border-color: var(--danger); }
 .jf-log-row .jf-icon-btn { width: 32px; height: 32px; margin-left: auto; }
 .jf-log-card__tools { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
-.jf-log-card__label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); }
+.jf-log-card__label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--label); }
 .jf-log-card__tools .jf-chip { padding: 6px 10px; font-size: 11px; }
 .jf-log-add { margin-left: auto; min-height: 36px; padding: 6px 14px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent); }
 .jf-log-card__sum { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: rgba(var(--overlay-rgb), 0.55); margin-top: 8px; }
 .jf-log-card__sum--todo { color: var(--muted); }
 .jf-log-card__error { font-size: 12px; color: var(--danger); margin-top: 6px; }
 .jf-log-card__hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
-.jf-log-skip { min-height: 36px; padding: 0 6px; color: var(--muted); text-decoration: underline; }
+.jf-log-skip { min-height: 36px; padding: 0 6px; font-size: 12px; color: var(--muted); text-decoration: underline; }
 .jf-log-skip--on { color: var(--accent); font-weight: 800; }
 .jf-log-card__tools--end { justify-content: flex-end; margin-top: 4px; }
 .jf-log-val::placeholder { color: var(--muted); font-weight: 400; font-size: 13px; }
 
 .jf-log-field__label {
-  display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 9px; letter-spacing: 0.06em;
-  text-transform: uppercase; color: var(--muted); margin-bottom: 4px;
+  display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em;
+  text-transform: uppercase; color: var(--label); margin-bottom: 4px;
 }
 .jf-log-block { display: block; margin: 6px 0 12px; }
 .jf-log-textarea {

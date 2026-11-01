@@ -134,6 +134,9 @@ const THEMES = {
     "--overlay-rgb":  "255,255,255",
     "--sheet":        "#0f172a",
     "--text-soft":    "#cbd5e1",
+    // v1.4 (A1) — labels that carry meaning (field labels, sheet eyebrows, picker
+    // section heads): 72 % of the overlay ink, ≈ 9:1 on the sheet. Not --muted (≈ 3.9:1).
+    "--label":        "rgba(var(--overlay-rgb),0.72)",
     "--danger":       "#f87171",
     "--warning":        "#f59e0b",
     "--warning-bright": "#fbbf24",
@@ -170,6 +173,7 @@ const THEMES = {
     "--overlay-rgb":  "0,0,0",
     "--sheet":        "#ffffff",
     "--text-soft":    "#475569",
+    "--label":        "rgba(var(--overlay-rgb),0.72)",
     "--danger":       "#dc2626",
     "--warning":        "#b45309",
     "--warning-bright": "#a16207",

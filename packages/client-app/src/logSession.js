@@ -72,6 +72,46 @@ export function rowGroups(row, unit = "reps") {
   return { groups: compressValues(parsed.values).map((g) => ({ ...g, rest })) };
 }
 
+// ── Builder targets (v1.4) ─────────────────────────────────────────────────
+// Samenstellen plans a TARGET: one value for every set. It uses the log sheet's
+// row and the same parser (rowGroups), with two differences:
+//   • one group only — "3x12" fills sets 3 and value 12; "3x3, 2x4" (two groups)
+//     is error "single_group": a target cannot say "3 of 3, then 2 of 4".
+//   • clamped, not rejected — out-of-range plain numbers snap to the builder's
+//     limits (the server's CUSTOM_STEP_LIMITS, which clamp again regardless), so
+//     the read-back line shows exactly what is sent.
+export const TARGET_LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
+const clampTo = (v, [lo, hi]) => Math.min(hi, Math.max(lo, Math.round(v)));
+
+// A builder row as typed → { sets, value, rest } (clamped) or { error }.
+// `unit` is "reps" | "sec".
+export function targetRow(row, unit = "reps") {
+  const txt = (v) => String(v ?? "").trim();
+  const setsText = txt(row?.sets);
+  const valueText = txt(row?.value);
+  const restText = txt(row?.rest);
+  if (restText !== "" && !isInt(restText)) return { error: "rest" };
+  if (valueText === "") return { error: "empty" };
+  let sets;
+  let value;
+  if (isInt(valueText)) {
+    if (!isInt(setsText)) return { error: "sets" };
+    sets = Number(setsText);
+    value = Number(valueText);
+  } else {
+    // Shorthand: the row's own sets yield to it, exactly as in the log sheet.
+    const r = rowGroups({ sets: 1, value: valueText, rest: 0 }, unit);
+    if (r.error) return { error: r.error };
+    if (r.groups.length !== 1) return { error: "single_group" };
+    ({ sets, value } = r.groups[0]);
+  }
+  return {
+    sets: clampTo(sets, TARGET_LIM.sets),
+    value: clampTo(value, unit === "sec" ? TARGET_LIM.duration : TARGET_LIM.reps),
+    rest: clampTo(restText === "" ? 0 : Number(restText), TARGET_LIM.rest),
+  };
+}
+
 // Rows → { values, rests } in stepsActualRef terms, or { error }.
 export function expandGroups(groups, unit = "reps") {
   const values = [];

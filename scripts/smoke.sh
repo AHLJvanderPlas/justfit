@@ -746,6 +746,50 @@ else
   fail "inline styles rose to $STYLE_NOW (ceiling $STYLE_CEILING) — new styling must be a CSS class, see CLAUDE.md"
 fi
 
+# ── Builder v1.4 — one row for numbers: the steppers stay gone ──────────────
+# Samenstellen had three ± steppers (9 px labels, 32 px buttons, 10 → 20 reps = ten
+# taps); v1.4 replaced them with the log sheet's typed row (sessionSheet SetRow).
+SB_STEPPER=$(grep -c "jf-stepper" packages/client-app/src/SessionBuilder.jsx || true)
+if [ "$SB_STEPPER" = "0" ] && ! grep -q "\.jf-stepper" packages/client-app/src/styles.css; then
+  ok "builder v1.4: no stepper left (SessionBuilder.jsx 0, styles.css 0)"
+else
+  fail "builder v1.4: jf-stepper is back (SessionBuilder.jsx: ${SB_STEPPER}; styles.css: $(grep -c '\.jf-stepper' packages/client-app/src/styles.css)) — numbers are typed in SetRow"
+fi
+
+# ── Builder v1.4 (A1) — reachable controls, readable labels in both sheets ──
+# Source scan of styles.css: the .jf-chip and .jf-icon-btn base rules carry a
+# 44 px hit area (position: relative + the shared .jf-tap ::after rule, or
+# min-height: 44px), and no font-size in a sheet rule (.jf-sheet*, .jf-sb-*,
+# .jf-log-*, .jf-pick__*, .jf-note*, .jf-move-*) is below 11 px.
+A1_OUT=$(node -e '
+const css = require("fs").readFileSync("packages/client-app/src/styles.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+const rules = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)].map((m) => ({ sel: m[1].trim(), body: m[2] }));
+const errs = [];
+const tap = rules.find((r) => r.sel.split(",").map((x) => x.trim()).includes(".jf-tap::after"));
+const tapSels = tap ? tap.sel.split(",").map((x) => x.trim()) : [];
+if (!tap || !/44px/.test(tap.body)) errs.push(".jf-tap::after no longer makes a 44px hit area");
+for (const cls of [".jf-chip", ".jf-icon-btn"]) {
+  const base = rules.find((r) => r.sel === cls);
+  if (!base) { errs.push(cls + " has no base rule"); continue; }
+  const minH = /min-height:\s*(4[4-9]|[5-9]\d)px/.test(base.body);
+  const hit = /position:\s*relative/.test(base.body) && tapSels.includes(cls + "::after");
+  if (!minH && !hit) errs.push(cls + " base rule has neither the .jf-tap hit area (position: relative + " + cls + "::after in the .jf-tap::after rule) nor min-height: 44px");
+}
+const scoped = /\.jf-(sheet|sb-|log-|pick__|note|move-)/;
+for (const r of rules) {
+  if (!scoped.test(r.sel)) continue;
+  for (const m of r.body.matchAll(/font-size:\s*([\d.]+)px/g)) {
+    if (Number(m[1]) < 11) errs.push(r.sel.replace(/\s+/g, " ") + " font-size " + m[1] + "px");
+  }
+}
+process.stdout.write(errs.join("; "));
+' 2>&1)
+if [ -z "$A1_OUT" ]; then
+  ok "builder v1.4 (A1): chips and icon buttons have a 44 px hit area; no sheet text below 11 px"
+else
+  fail "builder v1.4 (A1): ${A1_OUT}"
+fi
+
 # ── Builder v1.2 — the dead "Pro feature" branch stays gone ─────────────────
 # POST /api/plan exempts pins from the free cap, so `fill()` never sees `capped`;
 # the client branch and its string were dead code that promised a paywall.

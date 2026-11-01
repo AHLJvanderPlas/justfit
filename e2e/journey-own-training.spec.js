@@ -2,8 +2,9 @@
  * Journeys 11–12 (MANUAL_TRAINING_DESIGN.md phase 1): "Eigen training".
  * The gap the Oct 5 build left twice — both sheets driven for real, end to end.
  *
- *  (a) Samenstellen → (v1.3: opens on today's plan, cap line, "opdrukken" finds Push-up) → add push-up → Starten → Als extra → WorkoutView, one set
- *      completed → the done card shows the extra and asks "Plan done?", and
+ *  (a) Samenstellen → (v1.3: opens on today's plan, cap line, "opdrukken" finds Push-up) → add push-up →
+ *      (v1.4: reorder behind ⋯; TYPE sets 1 and reps 5; two groups are refused) → Starten → Als extra →
+ *      WorkoutView prescribes 1 × 5, one set completed → the done card shows the extra and asks "Plan done?", and
  *      today's stored plan is exactly what it was (acceptance 2, end to end).
  *  (b) Registreren → log push-up 3×3 for today → Today shows it completed.
  *  (c) v1.2 — save a template, then Hergebruiken → ⋯ → Bewerken (rename) → Verwijderen.
@@ -80,19 +81,39 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await addAndCheckLanded(page, 'squat', box);
   // The footer is the two-button row; the secondary one jumps to the search.
   await expect(page.getByRole('button', { name: '+ Add exercise' })).toBeVisible();
+  // v1.4 — reorder lives behind "⋯": Up / Down text buttons, disabled at the ends.
+  const names = page.locator('.jf-sb-step__name');
+  const second = await names.nth(1).textContent();
+  await page.getByRole('button', { name: `More ${second}` }).click();
+  await page.getByRole('button', { name: 'Up', exact: true }).click();
+  await expect(names.first()).toHaveText(second);
+  await expect(page.getByRole('button', { name: 'Up', exact: true })).toBeDisabled();
+  await page.getByRole('button', { name: 'Down', exact: true }).click();
+  await expect(names.nth(1)).toHaveText(second);
   // Keep push-up alone for the run: drop the other two.
-  await page.getByRole('button', { name: 'Remove' }).last().click();
-  await page.getByRole('button', { name: 'Remove' }).last().click();
+  await page.getByRole('button', { name: /^Remove / }).last().click();
+  await page.getByRole('button', { name: /^Remove / }).last().click();
   await expect(page.locator('.jf-sb-step')).toHaveCount(1);
-  await page.getByRole('button', { name: 'Sets −' }).click();
-  await page.getByRole('button', { name: 'Sets −' }).click();
+  await expect(names.first()).toHaveText('Push-up');
+
+  // v1.4 — the numbers are TYPED into the log sheet's row. A target is one value
+  // for all sets: two groups are refused with a hint, and Starten waits.
+  const reps = page.getByLabel('Reps · Push-up', { exact: true });
+  await reps.fill('3x3, 2x4');
+  await expect(page.getByText('In the builder one value applies to all sets — use e.g. 3x12')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Start now' })).toBeDisabled();
+  await page.getByLabel('Sets · Push-up', { exact: true }).fill('1');
+  await reps.fill('5');
+  await reps.blur();
+  await expect(page.locator('.jf-sb-step__sum')).toContainText('1 set · 5 reps');
   await page.getByRole('button', { name: 'Start now' }).click();
 
   // Run-mode sheet: als extra is the default (§4).
   await expect(page.getByText('How do you want to do this?')).toBeVisible();
   await page.getByRole('button', { name: /^As an extra/ }).click();
 
-  // WorkoutView — the same timers and counters as any session.
+  // WorkoutView prescribes what was typed: 1 × 5 (the overview line), set 1 of 1.
+  await expect(page.getByText('1 × 5 reps', { exact: true })).toBeVisible({ timeout: 15_000 });
   await page.getByRole('button', { name: 'Start Workout' }).click({ timeout: 15_000 });
   const sessionDone = page.getByText('Session done!');
   const tapZone = page.getByRole('button', { name: 'TAP TO COUNT REP' });
@@ -103,6 +124,8 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
     const skipRest = page.getByRole('button', { name: 'Skip rest →' });
     if (await ready.isVisible()) { await ready.click(); continue; }
     if (await allDone.isVisible()) {
+      await expect(allDone).toHaveText(/All 5 reps done/);
+      await expect(page.getByText('Set 1/1', { exact: true })).toBeVisible();
       if (!tapped && (await tapZone.isVisible())) { await tapZone.click(); await tapZone.click(); tapped = true; }
       await allDone.click();
       continue;

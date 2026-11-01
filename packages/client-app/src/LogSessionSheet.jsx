@@ -17,7 +17,7 @@ import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { t, useLang } from "./i18n.js";
 import api from "./apiClient.js";
 import { rowGroups, expandGroups, buildLogSteps, summarizeLogged, logDayLabel, restChips, LOG_MAX_SETS } from "./logSession.js";
-import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
+import { Sheet, ExercisePicker, SetRow, UnitChips, ItemActions, MoveActions } from "./sessionSheet.jsx";
 
 const MAX_ITEMS = 20;
 const parse = (s, d) => { try { return JSON.parse(s || d) ?? JSON.parse(d); } catch { return JSON.parse(d); } };
@@ -50,6 +50,7 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
   const [phase, setPhase] = useState("what");          // 'what' | 'how'
   const [items, setItems] = useState([]);
   const [lastAdded, setLastAdded] = useState(null);
+  const [menuKey, setMenuKey] = useState(null);       // the item whose ⋯ row is open
   const [note, setNote] = useState("");
   const [rpe, setRpe] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -140,14 +141,14 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
   const countFor = (ex) => items.filter((x) => x.ex.id === ex.id).length;
   // Quiet: skipping is the exception, not a second primary action on every card.
   const skipBtn = (x) => (
-    <button type="button" aria-pressed={x.skipped} className={`jf-link jf-log-skip${x.skipped ? " jf-log-skip--on" : ""}`}
+    <button type="button" aria-pressed={x.skipped} className={`jf-link jf-tap jf-log-skip${x.skipped ? " jf-log-skip--on" : ""}`}
       onClick={() => patchItem(x.key, (it) => ({ skipped: !it.skipped }))}>
       {t("Skipped")}
     </button>
   );
   const phaseBtn = (p, n, label, disabled = false) => (
     <button type="button" aria-current={phase === p ? "step" : undefined} disabled={disabled}
-      className={`jf-log-phase${phase === p ? " jf-log-phase--on" : ""}`} onClick={() => goTo(p)}>
+      className={`jf-log-phase jf-tap${phase === p ? " jf-log-phase--on" : ""}`} onClick={() => goTo(p)}>
       <span className="jf-log-phase__n">{n}</span>{label}
     </button>
   );
@@ -174,9 +175,11 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
                 <span className="jf-log-name">{x.ex.name}</span>
                 {summary(cards[i]) && <span className="jf-log-item__sum">{summary(cards[i])}</span>}
               </span>
-              <button type="button" className="jf-icon-btn" aria-label={t("Move up")} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
-              <button type="button" className="jf-icon-btn" aria-label={t("Move down")} disabled={i === items.length - 1} onClick={() => move(i, 1)}>↓</button>
-              <button type="button" className="jf-icon-btn" aria-label={t("Remove")} onClick={() => removeItem(x.key)}>×</button>
+              <ItemActions name={x.ex.name} open={menuKey === x.key}
+                onMore={() => setMenuKey((k) => (k === x.key ? null : x.key))} onRemove={() => removeItem(x.key)} />
+              {menuKey === x.key && (
+                <MoveActions first={i === 0} last={i === items.length - 1} onUp={() => move(i, -1)} onDown={() => move(i, 1)} />
+              )}
             </div>
           ))}
         </div>
@@ -212,36 +215,18 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
                 </>
               ) : (
                 <>
-                  {x.canToggle && (
-                    <div className="jf-log-unit" role="group" aria-label={t("Count in")}>
-                      {[["reps", t("Reps")], ["sec", t("Time")]].map(([u, label]) => (
-                        <button key={u} type="button" aria-pressed={x.unit === u} className={`jf-chip${x.unit === u ? " jf-chip--on" : ""}`}
-                          onClick={() => patchItem(x.key, () => ({ unit: u }))}>{label}</button>
-                      ))}
-                    </div>
-                  )}
+                  {x.canToggle && <UnitChips unit={x.unit} onChange={(u) => patchItem(x.key, () => ({ unit: u }))} />}
                   <div className="jf-log-rows">
                     {x.rows.map((r, ri) => {
                       const st = rowState(r, x.unit);
-                      const bad = !!st.error;
+                      const err = st.error;
                       return (
-                        <div key={r.key} className="jf-log-row">
-                          <input className={`jf-log-val${st.error === "sets" ? " jf-log-val--bad" : ""}`} type="text" inputMode="numeric" pattern="[0-9]*"
-                            aria-label={`${t("Sets")} ${ri + 1}`} value={r.sets} onChange={(e) => patchRow(x.key, r.key, { sets: e.target.value })} />
-                          <span className="jf-log-sym">×</span>
-                          <input className={`jf-log-val jf-log-val--value${bad && st.error !== "sets" && st.error !== "rest" ? " jf-log-val--bad" : ""}`}
-                            type="text" inputMode="decimal" aria-label={`${x.unit === "sec" ? t("Seconds") : t("Reps")} ${ri + 1}`}
-                            placeholder={x.unit === "sec" ? t("sec (unit)") : t("reps (unit)")} value={r.value}
-                            onChange={(e) => patchRow(x.key, r.key, { value: e.target.value })}
-                            onBlur={() => expandShorthand(x, r)} />
-                          {x.unit === "sec" && <span className="jf-log-sym">s</span>}
-                          <span className="jf-log-sym">@</span>
-                          <input className={`jf-log-val${st.error === "rest" ? " jf-log-val--bad" : ""}`} type="text" inputMode="numeric" pattern="[0-9]*"
-                            aria-label={`${t("Rest")} ${ri + 1}`} value={r.rest} onChange={(e) => patchRow(x.key, r.key, { rest: e.target.value })} />
-                          <span className="jf-log-sym">s</span>
-                          <button type="button" className="jf-icon-btn" aria-label={t("Remove row")} disabled={x.rows.length === 1}
-                            onClick={() => removeRow(x.key, r.key)}>×</button>
-                        </div>
+                        <SetRow key={r.key} sets={r.sets} value={r.value} rest={r.rest} unit={x.unit}
+                          errors={{ sets: err === "sets", rest: err === "rest", value: !!err && err !== "sets" && err !== "rest" }}
+                          labels={{ sets: `${t("Sets")} ${ri + 1}`, value: `${x.unit === "sec" ? t("Seconds") : t("Reps")} ${ri + 1}`, rest: `${t("Rest")} ${ri + 1}`, remove: t("Remove row") }}
+                          onChange={(f, v) => patchRow(x.key, r.key, { [f]: v })}
+                          onBlur={(f) => { if (f === "value") expandShorthand(x, r); }}
+                          showRemove removeDisabled={x.rows.length === 1} onRemove={() => removeRow(x.key, r.key)} />
                       );
                     })}
                   </div>
@@ -255,7 +240,7 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
                         </button>
                       );
                     })}
-                    <button type="button" className="jf-log-add" aria-label={t("Add a row like the last one")} onClick={() => duplicateLast(x.key)}>
+                    <button type="button" className="jf-log-add jf-tap" aria-label={t("Add a row like the last one")} onClick={() => duplicateLast(x.key)}>
                       {t("+ Row")}
                     </button>
                     {skipBtn(x)}

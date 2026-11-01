@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  expandGroups, rowGroups, compressValues, loggedStep, buildLogSteps, summarizeLogged, parseSetList, restChips,
+  expandGroups, rowGroups, compressValues, loggedStep, buildLogSteps, summarizeLogged, parseSetList, restChips, targetRow, TARGET_LIM,
 } from '../packages/client-app/src/logSession.js';
 
 test('set groups expand: 3×3 @60 + 2×4 @60 → [3,3,3,4,4] with four rests of 60', () => {
@@ -105,4 +105,36 @@ test('v1.1 — the pre-filled rest is always one of the rest chips, sorted', () 
   assert.deepEqual(restChips(60), [60, 90, 120]);
   assert.deepEqual(restChips(180), [60, 90, 120, 180]);
   assert.deepEqual(restChips(75), [60, 75, 90, 120]);
+});
+
+// ── v1.4 — the builder's row is a TARGET: one value for all sets ───────────
+test('v1.4 builder — "3x12" is one group: sets 3, value 12; the row\'s sets yield to it', () => {
+  assert.deepEqual(targetRow({ sets: '5', value: '3x12', rest: '60' }), { sets: 3, value: 12, rest: 60 });
+  assert.deepEqual(targetRow({ sets: '1', value: '3 x 12', rest: '' }), { sets: 3, value: 12, rest: 0 }, 'spaces; empty rest = 0');
+  assert.deepEqual(targetRow({ sets: '2', value: '12, 12', rest: '45' }), { sets: 2, value: 12, rest: 45 }, 'equal list = one group');
+  assert.deepEqual(targetRow({ sets: '3', value: '40', rest: '60' }, 'sec'), { sets: 3, value: 40, rest: 60 });
+});
+
+test('v1.4 builder — out-of-range numbers clamp to the builder limits (what is shown is what is sent)', () => {
+  assert.equal(targetRow({ sets: '11', value: '10', rest: '60' }).sets, 10, 'sets 11 → 10');
+  assert.equal(targetRow({ sets: '0', value: '10', rest: '60' }).sets, 1, 'sets 0 → 1');
+  assert.equal(targetRow({ sets: '3', value: '0', rest: '60' }).value, 1, 'reps 0 → 1');
+  assert.equal(targetRow({ sets: '3', value: '250', rest: '60' }).value, 100, 'reps 250 → 100');
+  assert.equal(targetRow({ sets: '3', value: '10', rest: '700' }).rest, 600, 'rest 700 → 600');
+  assert.equal(targetRow({ sets: '3', value: '2', rest: '0' }, 'sec').value, 5, 'duration 2 s → 5 s');
+  assert.deepEqual(TARGET_LIM, { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] });
+});
+
+test('v1.4 builder — two groups are not a target: "3x3, 2x4" → single_group', () => {
+  assert.deepEqual(targetRow({ sets: '3', value: '3x3, 2x4', rest: '60' }), { error: 'single_group' });
+  assert.deepEqual(targetRow({ sets: '3', value: '10, 10, 8', rest: '60' }), { error: 'single_group' });
+  // The log sheet still accepts the same text as two rows.
+  assert.equal(rowGroups({ sets: 1, value: '3x3, 2x4', rest: 60 }).groups.length, 2);
+});
+
+test('v1.4 builder — what cannot be read stays an error, never a guess', () => {
+  assert.deepEqual(targetRow({ sets: '3', value: '', rest: '60' }), { error: 'empty' });
+  assert.deepEqual(targetRow({ sets: '', value: '10', rest: '60' }), { error: 'sets' });
+  assert.deepEqual(targetRow({ sets: '3', value: '10', rest: 'abc' }), { error: 'rest' });
+  assert.ok(targetRow({ sets: '3', value: 'twelve', rest: '60' }).error);
 });

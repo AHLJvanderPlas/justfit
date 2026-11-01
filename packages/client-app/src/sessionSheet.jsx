@@ -1,11 +1,25 @@
 // Shared parts of the two exercise sheets: SessionBuilder (plan TARGETS for today)
 // and LogSessionSheet (record what was DONE on a date). Classes only — styles.css.
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { t } from "./i18n.js";
 import { ALWAYS_OWNED, CATEGORY_CHIPS, equipOf, isTest, filterLibrary, emptyMessage, chipsOnFor, sheetKit } from "./exerciseSearch.js";
 import { EQUIPMENT_OPTIONS } from "./appConstants.js";
 
+// v1.4 — Escape closes the sheet, and focus moves to its title on open so a
+// screen reader starts at the top. Focus is not trapped: the sheet is a bottom
+// sheet over a page that stays usable behind the scrim.
 export function Sheet({ title, sub = null, label, onClose, padded = false, sheetRef = null, children }) {
+  const titleRef = useRef(null);
+  useEffect(() => {
+    const el = titleRef.current;
+    // A field that asked for focus itself (autoFocus) keeps it.
+    if (el && !el.closest(".jf-sheet")?.contains(document.activeElement)) el.focus({ preventScroll: true });
+  }, []);
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === "Escape") onClose(); };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
   return (
     <div className="jf-sheet-scrim" onClick={onClose}>
       <div
@@ -18,7 +32,7 @@ export function Sheet({ title, sub = null, label, onClose, padded = false, sheet
       >
         <div className="jf-sheet__handle" />
         <div className="jf-sheet__head">
-          <div className="jf-sheet__title">
+          <div className="jf-sheet__title" ref={titleRef} tabIndex={-1}>
             {title}
             {sub && <span className="jf-sheet__sub">{sub}</span>}
           </div>
@@ -26,6 +40,73 @@ export function Sheet({ title, sub = null, label, onClose, padded = false, sheet
         </div>
         {children}
       </div>
+    </div>
+  );
+}
+
+// ── v1.4 — one row for numbers, in both sheets ──────────────────────────────
+// `[sets] × [value] @ [rest] s`: three 44 px fields, numeric keypad. The log sheet
+// renders one per set group (and "+ Rij"); the builder exactly one per exercise.
+// Parsing is the caller's (logSession.js rowGroups / targetRow) — this only shows.
+// onChange(field, text) and onBlur(field) with field "sets" | "value" | "rest";
+// errors = { sets, value, rest } booleans; labels = the three fields' aria-labels.
+export function SetRow({ sets, value, rest, unit, onChange, onBlur = null, errors = {}, showRemove = false, removeDisabled = false, onRemove = null, labels }) {
+  const cls = (f, extra = "") => `jf-log-val${extra}${errors[f] ? " jf-log-val--bad" : ""}`;
+  const field = (f) => ({
+    value: f === "sets" ? sets : f === "rest" ? rest : value,
+    onChange: (e) => onChange(f, e.target.value),
+    onBlur: onBlur ? () => onBlur(f) : undefined,
+    // One tap selects the number, so 10 → 20 is that tap and two digits.
+    onFocus: (e) => e.target.select(),
+    "aria-label": labels[f],
+    "aria-invalid": errors[f] ? true : undefined,
+  });
+  return (
+    <div className="jf-log-row">
+      <input className={cls("sets")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("sets")} />
+      <span className="jf-log-sym" aria-hidden="true">×</span>
+      {/* decimal, not numeric: the iOS numeric pad has no comma, and "10, 10, 8" is the shorthand */}
+      <input className={cls("value", " jf-log-val--value")} type="text" inputMode="decimal"
+        placeholder={unit === "sec" ? t("sec (unit)") : t("reps (unit)")} {...field("value")} />
+      {unit === "sec" && <span className="jf-log-sym" aria-hidden="true">s</span>}
+      <span className="jf-log-sym" aria-hidden="true">@</span>
+      <input className={cls("rest")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("rest")} />
+      <span className="jf-log-sym" aria-hidden="true">s</span>
+      {showRemove && (
+        <button type="button" className="jf-icon-btn" aria-label={labels.remove} disabled={removeDisabled} onClick={onRemove}>×</button>
+      )}
+    </div>
+  );
+}
+
+// Reps / Tijd — shown only where an exercise supports both. Switching converts
+// nothing: the number in the value field stays, only its unit changes.
+export function UnitChips({ unit, onChange }) {
+  return (
+    <div className="jf-log-unit" role="group" aria-label={t("Count in")}>
+      {[["reps", t("Reps")], ["sec", t("Time")]].map(([u, label]) => (
+        <button key={u} type="button" aria-pressed={unit === u} className={`jf-chip${unit === u ? " jf-chip--on" : ""}`}
+          onClick={() => onChange(u)}>{label}</button>
+      ))}
+    </div>
+  );
+}
+
+// Card chrome: "⋯" (reorder lives behind it) and "×" — both 44 px to the thumb.
+export function ItemActions({ name, open, onMore, onRemove }) {
+  return (
+    <>
+      <button type="button" className="jf-icon-btn" aria-label={t("More {name}", { name })} aria-expanded={open} onClick={onMore}>⋯</button>
+      <button type="button" className="jf-icon-btn" aria-label={t("Remove {name}", { name })} onClick={onRemove}>×</button>
+    </>
+  );
+}
+
+export function MoveActions({ first, last, onUp, onDown }) {
+  return (
+    <div className="jf-move-row">
+      <button type="button" className="jf-move-btn" disabled={first} onClick={onUp}><span aria-hidden="true">↑ </span>{t("Up")}</button>
+      <button type="button" className="jf-move-btn" disabled={last} onClick={onDown}><span aria-hidden="true">↓ </span>{t("Down")}</button>
     </div>
   );
 }

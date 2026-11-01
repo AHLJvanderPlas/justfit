@@ -11,7 +11,9 @@
 // notes, which render amber on the exercise they concern; a blocking note (R539,
 // pregnancy hard contraindication) asks for an explicit acknowledgement.
 //
-// Principle 7: one thumb, glanceable. Add, nudge, go — not a settings screen.
+// Principle 7: one thumb, glanceable. Add, type, go — not a settings screen.
+// v1.4: numbers are one row, the log sheet's (`3 × 12 @ 60 s`, sessionSheet SetRow);
+// here it is a TARGET — one value for all sets (logSession.targetRow).
 //
 // This sheet plans TARGETS for today. Recording what was DONE on a date is
 // LogSessionSheet.jsx (need C) — a different job with a different shape.
@@ -21,11 +23,12 @@ import { getDefaultRest } from "../../../functions/api/_shared/session.js";
 import { RULE_LABELS } from "./messagePolicy.js";
 import { t } from "./i18n.js";
 import api from "./apiClient.js";
-import { Sheet, ExercisePicker } from "./sessionSheet.jsx";
+import { Sheet, ExercisePicker, SetRow, UnitChips, ItemActions, MoveActions } from "./sessionSheet.jsx";
 import { ownSessionBody, checkinForAdvice, sessionName, previewOutcome } from "./ownTraining.js";
+import { targetRow, TARGET_LIM } from "./logSession.js";
 
 // Mirrors the server's CUSTOM_STEP_LIMITS; the server clamps again regardless.
-const LIM = { sets: [1, 10], reps: [1, 100], duration: [5, 7200], rest: [0, 600] };
+const LIM = TARGET_LIM;
 const MAX_STEPS = 20;
 const MAX_PINS = 3;
 
@@ -38,44 +41,43 @@ const defaultRest = (ex) => getDefaultRest(ex, "main");
 
 // One builder row. `st` is a saved template step (W4.3) when the sheet was
 // opened from "Mijn trainingen"; without it the row is pre-filled from the library.
+// `sets` / `value` / `rest` are the committed numbers customSteps is built from;
+// `draft` is the row as typed. Every valid edit commits at once, blur rewrites the
+// draft to the clamped numbers, and an unreadable draft keeps the last commit and
+// blocks Starten / opslaan until it is fixed.
+const unitOf = (s) => (s.useTime ? "sec" : "reps");
+const draftOf = ({ sets, value, rest }) => ({ sets: String(sets), value: String(value), rest: String(rest) });
+
 function rowFor(ex, key, st = null) {
   const m = parse(ex.metrics_json, "{}");
   const supports = m.supports ?? [];
   const supportsReps = supports.includes("reps");
   const useTime = st?.target_duration_sec != null ? true : st?.target_reps != null ? false : !supportsReps;
+  const nums = {
+    sets: clamp(st?.sets ?? m.fixed_sets ?? 3, LIM.sets),
+    value: useTime ? clamp(st?.target_duration_sec ?? m.base_duration_sec ?? 30, LIM.duration) : clamp(st?.target_reps ?? 10, LIM.reps),
+    rest: clamp(st?.rest_sec ?? defaultRest(ex), LIM.rest),
+  };
   return {
     key, ex,
     canToggle: supportsReps && (supports.includes("time") || !!m.base_duration_sec),
     useTime,
-    sets: clamp(st?.sets ?? m.fixed_sets ?? 3, LIM.sets),
-    reps: clamp(st?.target_reps ?? 10, LIM.reps),
-    duration: clamp(st?.target_duration_sec ?? m.base_duration_sec ?? 30, LIM.duration),
-    rest: clamp(st?.rest_sec ?? defaultRest(ex), LIM.rest),
+    ...nums,
+    draft: draftOf(nums),
+    err: null,
   };
 }
 
-function fmtSec(sec) {
-  if (sec < 60) return `${sec}s`;
-  const m = Math.floor(sec / 60), s = sec % 60;
-  return s ? `${m}:${String(s).padStart(2, "0")}` : `${m} min`;
+// The read-back line under the row: the committed numbers, in words.
+function readBack(s) {
+  const vars = { sets: s.sets, value: s.value, rest: s.rest };
+  if (s.useTime) return t(s.sets === 1 ? "1 set · {value} s · {rest} s rest" : "{sets} sets · {value} s · {rest} s rest", vars);
+  return t(s.sets === 1 ? "1 set · {value} reps · {rest} s rest" : "{sets} sets · {value} reps · {rest} s rest", vars);
 }
 
 function noteText(n) {
   const label = RULE_LABELS[n.code];
   return label ? t(label.text) : n.code;
-}
-
-function Stepper({ label, value, display: shown, onDec, onInc }) {
-  return (
-    <div className="jf-stepper">
-      <span className="jf-stepper__label">{label}</span>
-      <div className="jf-stepper__row">
-        <button type="button" aria-label={`${label} −`} onClick={onDec} className="jf-stepper__btn">−</button>
-        <span className="jf-stepper__value">{shown ?? value}</span>
-        <button type="button" aria-label={`${label} +`} onClick={onInc} className="jf-stepper__btn">+</button>
-      </div>
-    </div>
-  );
 }
 
 function NoteCard({ note }) {
@@ -121,6 +123,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
   const [dropped, setDropped] = useState(0);
   const [previewed, setPreviewed] = useState(false);   // Starten has shown its advice
   const [lastAdded, setLastAdded] = useState(null);
+  const [menuKey, setMenuKey] = useState(null);       // the card whose ⋯ row is open
   const searchRef = useRef(null);
 
   useEffect(() => {
@@ -190,6 +193,15 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
     searchRef.current?.focus({ preventScroll: true });
   };
   const patch = (key, fn) => { setSteps((s) => s.map((st) => (st.key === key ? { ...st, ...fn(st) } : st))); resetSafety(); };
+  // Typing: the draft changes; a readable draft commits its clamped numbers at once.
+  const commitDraft = (st, draft, unit = unitOf(st)) => {
+    const r = targetRow(draft, unit);
+    return r.error ? { draft, err: r.error } : { draft, err: null, sets: r.sets, value: r.value, rest: r.rest };
+  };
+  const typeField = (key, f, v) => patch(key, (st) => commitDraft(st, { ...st.draft, [f]: v }));
+  // Blur: what is on screen becomes what is sent ("3x12" → 3 and 12, 11 sets → 10).
+  const settleDraft = (key) => setSteps((s) => s.map((st) => (st.key === key && !st.err ? { ...st, draft: draftOf(st) } : st)));
+  const setUnit = (key, unit) => patch(key, (st) => ({ useTime: unit === "sec", ...commitDraft(st, st.draft, unit) }));
   const move = (i, d) => {
     setSteps((s) => {
       const j = i + d;
@@ -200,7 +212,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
     });
     resetSafety();
   };
-  const remove = (key) => { setSteps((s) => s.filter((st) => st.key !== key)); resetSafety(); };
+  const remove = (key) => { setSteps((s) => s.filter((st) => st.key !== key)); setMenuKey(null); resetSafety(); };
   const togglePin = (id) => {
     setPins((p) => (p.includes(id) ? p.filter((x) => x !== id) : p.length >= MAX_PINS ? p : [...p, id]));
     setError(null);
@@ -208,8 +220,9 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
 
   const customSteps = steps.map((s) => ({
     exercise_id: s.ex.id, sets: s.sets, rest_sec: s.rest,
-    ...(s.useTime ? { target_duration_sec: s.duration } : { target_reps: s.reps }),
+    ...(s.useTime ? { target_duration_sec: s.value } : { target_reps: s.value }),
   }));
+  const rowError = steps.some((s) => s.err);
   // The same estimator the Today card uses, so the number here is the number there.
   const estimate = steps.length ? estimateMins({ slot_type: "main", steps: customSteps }) : null;
   const budget = prefs?.session_duration_min ?? 30;
@@ -326,11 +339,11 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
         className="jf-sb-tpl__input"
       />
       <div className="jf-sb-tpl__actions">
-        <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(false)} className={chip(true, "jf-chip--tall jf-chip--grow")}>
+        <button type="button" disabled={tplBusy || !steps.length || rowError} onClick={() => saveTemplate(false)} className={chip(true, "jf-chip--tall jf-chip--grow")}>
           {tplBusy ? t("Saving…") : tpl ? t("Update template") : t("Save")}
         </button>
         {tpl && (
-          <button type="button" disabled={tplBusy || !steps.length} onClick={() => saveTemplate(true)} className={chip(false, "jf-chip--tall")}>
+          <button type="button" disabled={tplBusy || !steps.length || rowError} onClick={() => saveTemplate(true)} className={chip(false, "jf-chip--tall")}>
             {t("Save as new")}
           </button>
         )}
@@ -411,31 +424,30 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
                 <div className="jf-sb-step__head">
                   <span className="jf-sb-step__num">{i + 1}</span>
                   <span className="jf-sb-step__name">{s.ex.name}</span>
-                  <button type="button" className="jf-icon-btn" aria-label={t("Move up")} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
-                  <button type="button" className="jf-icon-btn" aria-label={t("Move down")} disabled={i === steps.length - 1} onClick={() => move(i, 1)}>↓</button>
-                  <button type="button" className="jf-icon-btn" aria-label={t("Remove")} onClick={() => remove(s.key)}>×</button>
+                  <ItemActions name={s.ex.name} open={menuKey === s.key}
+                    onMore={() => setMenuKey((k) => (k === s.key ? null : s.key))} onRemove={() => remove(s.key)} />
                 </div>
-                <div className="jf-sb-steppers">
-                  <Stepper label={t("Sets")} value={s.sets}
-                    onDec={() => patch(s.key, (st) => ({ sets: clamp(st.sets - 1, LIM.sets) }))}
-                    onInc={() => patch(s.key, (st) => ({ sets: clamp(st.sets + 1, LIM.sets) }))} />
-                  {s.useTime ? (
-                    <Stepper label={t("Time")} value={s.duration} display={fmtSec(s.duration)}
-                      onDec={() => patch(s.key, (st) => ({ duration: clamp(st.duration - (st.duration > 120 ? 30 : 5), LIM.duration) }))}
-                      onInc={() => patch(s.key, (st) => ({ duration: clamp(st.duration + (st.duration >= 120 ? 30 : 5), LIM.duration) }))} />
-                  ) : (
-                    <Stepper label={t("Reps")} value={s.reps}
-                      onDec={() => patch(s.key, (st) => ({ reps: clamp(st.reps - 1, LIM.reps) }))}
-                      onInc={() => patch(s.key, (st) => ({ reps: clamp(st.reps + 1, LIM.reps) }))} />
-                  )}
-                  <Stepper label={t("Rest")} value={s.rest} display={fmtSec(s.rest)}
-                    onDec={() => patch(s.key, (st) => ({ rest: clamp(st.rest - 15, LIM.rest) }))}
-                    onInc={() => patch(s.key, (st) => ({ rest: clamp(st.rest + 15, LIM.rest) }))} />
-                </div>
-                {s.canToggle && (
-                  <button type="button" className="jf-link" onClick={() => patch(s.key, (st) => ({ useTime: !st.useTime }))}>
-                    {s.useTime ? t("Count reps instead") : t("Use time instead")}
-                  </button>
+                {menuKey === s.key && (
+                  <MoveActions first={i === 0} last={i === steps.length - 1} onUp={() => move(i, -1)} onDown={() => move(i, 1)} />
+                )}
+                {s.canToggle && <UnitChips unit={unitOf(s)} onChange={(u) => setUnit(s.key, u)} />}
+                <SetRow sets={s.draft.sets} value={s.draft.value} rest={s.draft.rest} unit={unitOf(s)}
+                  errors={{ sets: s.err === "sets", rest: s.err === "rest", value: !!s.err && !["sets", "rest", "empty"].includes(s.err) }}
+                  labels={{ sets: `${t("Sets")} · ${s.ex.name}`, value: `${s.useTime ? t("Seconds") : t("Reps")} · ${s.ex.name}`, rest: `${t("Rest")} · ${s.ex.name}` }}
+                  onChange={(f, v) => typeField(s.key, f, v)} onBlur={() => settleDraft(s.key)} />
+                {s.err === "empty" ? (
+                  <div className="jf-sb-step__sum jf-sb-step__sum--todo">{s.useTime ? t("Fill in the seconds per set.") : t("Fill in the reps per set.")}</div>
+                ) : s.err ? (
+                  <div className="jf-sb-step__error" role="alert">
+                    {s.err === "single_group"
+                      ? t("In the builder one value applies to all sets — use e.g. 3x12")
+                      : t("Use whole numbers: sets 1–10, rest up to 600 s, or shorthand like 3x12.")}
+                  </div>
+                ) : (
+                  <div className="jf-sb-step__sum">
+                    <span>{readBack(s)}</span>
+                    <span className="jf-sb-step__mins">≈ {estimateMins({ slot_type: "main", steps: [customSteps[i]] })} min</span>
+                  </div>
                 )}
                 {notes.filter((n) => n.step_index === i).map((n, k) => <NoteCard key={k} note={n} />)}
               </div>
@@ -489,10 +501,10 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
   );
 
   // ── Footer (sticky): estimate + "+ Oefening toevoegen" and the one primary action ──
-  const canSave = mode === "build" && steps.length > 0 && !busy && (!needsAck || ack);
+  const canSave = mode === "build" && steps.length > 0 && !busy && !rowError && (!needsAck || ack);
   const canFill = mode === "pin" && pins.length > 0 && !busy;
   const primary = startMode ? (
-    <button type="button" disabled={!steps.length || busy || (previewed && needsAck && !ack)} onClick={startNow} className="jf-primary">
+    <button type="button" disabled={!steps.length || busy || rowError || (previewed && needsAck && !ack)} onClick={startNow} className="jf-primary">
       {busy ? t("Checking with the coach…") : previewed && needsAck ? t("Confirm and start") : t("Start now")}
     </button>
   ) : (
