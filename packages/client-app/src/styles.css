@@ -969,10 +969,10 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-nav__row { display: flex; align-items: stretch; height: var(--nav-h); max-width: 600px; margin: 0 auto; padding: 0 4px; }
 .jf-nav__item {
-  flex: 1 1 0; min-width: 0; min-height: 44px; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  flex: 1 1 auto; min-width: 0; min-height: 44px; padding: 6px 2px 4px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
   background: none; border: none; cursor: pointer; font-family: inherit;
 }
-/* 11 px floor (builder v1.4) with tight tracking: "INSTELLINGEN" fits a 320 px screen. */
+/* 11 px floor (builder v1.4) with tight tracking; items size to their label (flex-basis auto) so "INSTELLINGEN" (80 px) fits a 320 px screen. */
 .jf-nav__label {
   max-width: 100%; font-size: 11px; font-weight: 800; letter-spacing: 0; line-height: 13px;
   text-transform: uppercase; white-space: nowrap; color: var(--muted);
