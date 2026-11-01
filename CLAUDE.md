@@ -1361,6 +1361,29 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-01 — C-B32: the weekly training-days target places rest days
+
+- `preferences.training_days_per_week` (TRAININGSDAGEN, 1–7, validated in `/api/profile`) is the one
+  source of truth, read through `weeklyTarget()` in `functions/api/_shared/weekTarget.js`; the
+  `user_preferences.days_per_week_target` column (always 3, never chosen) is read by nothing.
+  Unset = no target = behaviour unchanged.
+- Rule (general path only; off for run/cycling/military coaches, pregnancy/postnatal, bonus, pins,
+  forced measurements, user-built sessions; R514 keeps priority). D = training days this ISO week
+  before today, T = target, R = available days left: D ≥ T → rest **R599** "Je weekdoel (Tx) is
+  gehaald — vandaag rust"; T − D ≥ R → train; on pace (D ≥ ⌈T·elapsed/available⌉) or two days
+  in a row → rest **R600**; else train. A training day = completed or stopped-with-sets, not
+  "Gewoon rusten". Both rules show under "Vandaag veranderd".
+- Deze week previews are not stored for users with a target (a stored preview became that day's
+  plan, decided on week-old history); changing the target clears engine plans from today on.
+- Week pill and Deze week count distinct training days in the ISO week against the target
+  ("d van T trainingsdagen deze week"); the chip lights nothing until chosen; tapping it clears it.
+- vitest 548 → **575**; planner matrix 50 personas × 12 properties (coach/body-mode plans
+  byte-identical with and without a target); e2e 30 → **31**. plan.js 3688 → **3686**.
+  Commit 0586323. Verified live: a guest with 2x on Sunday with 0 done → session (forced), 200.
+- Noticed, not fixed: logging a past session does not refresh today's stored plan; the
+  target-change cleanup uses the UTC date (same as coach-change cleanup); coach-change cleanup also
+  deletes user-built plans; Voortgang still labels the count "SESSIONS".
+
 ### Shipped 2026-11-01 — UAT release 6: small phones and the first five minutes (plan complete)
 
 - **Onboarding fold**: the goal step asks the path too (five general goals = Algemeen; Hardlopen /
