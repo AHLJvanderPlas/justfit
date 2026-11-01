@@ -93,7 +93,7 @@ Guards: `dutchShell.scan.mjs` extended to SettingsView (Jij), PlanWeekView, Hist
 AwardsView, the banners, ConnectScreen, ErrorBoundary, with the photographed literals; `i18n.test.js`
 asserts the new keys have Dutch values.
 
-## Release 5 — Settings that grow with the user (M)
+## Release 5 — Settings that grow with the user (M) — ✅ LIVE 2026-11-01 (bad3053 + 1ceb53f)
 
 1. **Jij** keeps: name, sex, weight/height, body mode (cycle / pregnancy / postnatal /
    perimenopause), injuries, language, appearance. **Doel & coach** gains "Geavanceerd" (collapsed):

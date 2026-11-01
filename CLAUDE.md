@@ -1361,6 +1361,27 @@ None open. 🟢 The five UAT defects (D1–D5, `docs/UAT_PERSONAS_2026-11.md`) s
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-01 — UAT release 5: Settings that grow with the user
+
+- **Jij** keeps profile, body mode, injuries, language and appearance (the duplicate "Weergave" /
+  "Cyclus bijhouden" blocks are gone). Planner settings moved to **Doel & coach → Geavanceerd**
+  (collapsed; each row one sentence + its current value, `settingsAdvanced.js`); **Materiaal**
+  stays visible as its own row.
+- Training days, session length, experience and goal chips show the stored value and **save on
+  tap** (`chipSave.js`; a failed save reverts the chip). NORMEN birth-year hint stays neutral
+  until an invalid year is typed (`dcpUi.birthYearState`).
+- **NL · EN** toggle on the Settings landing; the header wraps on 320 px screens (found by the
+  replay: on an iPhone SE the toggle overflowed, the page panned and the nav tap missed).
+- Guest: "Doorgaan zonder account" on both login tabs; guest Account shows "E-mail toevoegen".
+- "Specialistische coaching" card (`CoachingCard.jsx`, `coachingCard.js`) once per account, general
+  path only.
+- vitest 496 → **520**; smoke 101 → **102**; e2e 25 → **29**. Inline styles 1955 → **1890**
+  (ceiling lowered). Commits bad3053 + 1ceb53f. UAT runner: a failed tap now saves
+  `fail-<label>.png` and the element under the nav.
+- Noticed, not fixed: TRAININGSDAGEN (`preferences.training_days_per_week`) is saved but not read
+  by the planner (ROADMAP C-B32); the i18n key "Save · {goal}" is dead; session length is written
+  from two places.
+
 ### Shipped 2026-11-01 — UAT release 4: Dutch sweep 3, login in Dutch, orphan screens
 
 - Dutch for Settings → Jij / Account / Privacy, Deze week, Voortgang (`fmtDateShort` "zo 1 nov"),
