@@ -206,10 +206,11 @@ describe('kit chips — this sheet only', () => {
 });
 
 describe('TEST marker and context', () => {
-  it('protocol, assessment and measurable rows are marked TEST', () => {
+  it('protocol and assessment rows are marked TEST; measurable (assessable) ones are not', () => {
     expect(isTest(row('a', 'A', 'cardio', { tags: ['protocol'] }))).toBe(true);
     expect(isTest(row('a', 'A', 'cardio', { tags: ['assessment'] }))).toBe(true);
-    expect(isTest(row('a', 'A', 'strength', { tags: ['measurable'] }))).toBe(true);
+    // Push-up carries `measurable` (the self-assessment measures it); it is not a test protocol.
+    expect(isTest(row('a', 'A', 'strength', { tags: ['measurable'] }))).toBe(false);
     expect(isTest(row('a', 'A', 'strength', { tags: ['bodyweight'] }))).toBe(false);
   });
   it('pickerContextFrom: plan steps, the last 14 days of history, saved trainings', () => {

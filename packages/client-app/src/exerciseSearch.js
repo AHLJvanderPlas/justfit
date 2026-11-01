@@ -27,9 +27,11 @@ export const CATEGORY_CHIPS = [
 ];
 export const categoryGroup = (ex) => (["cardio", "mobility", "recovery"].includes(ex?.category) ? ex.category : "strength");
 
-// Test protocols go to the last section; the meta line marks measurable rows too.
+// Test protocols go to the last section and carry the TEST marker. `measurable`
+// is NOT a test: it marks ordinary exercises the self-assessment can measure
+// (Push-up, Knee Push-up, Sit-up), and labelling those TEST misled the review.
 export const isProtocol = (ex) => tagsOf(ex).some((g) => g === "protocol" || g === "assessment");
-export const isTest = (ex) => tagsOf(ex).some((g) => g === "protocol" || g === "assessment" || g === "measurable");
+export const isTest = isProtocol;
 
 // Alphabetical, digit-led names after letters ("12-Minute Cooper Test" is not where a list starts).
 const digitLed = (ex) => (/^\d/.test(ex?.name ?? "") ? 1 : 0);
