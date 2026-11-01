@@ -1358,6 +1358,28 @@ Calculated server-side from executions table:
 
 None currently. 🟢
 
+### Shipped 2026-11-01 — session builder v1.3 (plan §3): a browsable library, in Dutch too
+
+- The picker (`sessionSheet.jsx` + `exerciseSearch.js`) is one pipeline: category + kit
+  filter → query with Dutch synonyms → sectioned order → reported cap. With an empty query it
+  opens on **Vandaag in je plan · Onlangs gedaan · Uit je trainingen**, then the library by
+  category (Kracht · Cardio · Mobiliteit · Herstel, digit-led names after letters), and
+  **Tests & protocollen** last (`protocol`/`assessment` tags, marked TEST). The 40-row cap is
+  reported: "40 van 274 — zoek of kies een categorie".
+- Category chips and kit chips (from `EQUIPMENT_OPTIONS`, pre-selected from the profile,
+  sheet-local, never written back); "Toon alles" = every chip on.
+- `expandQuery`: 43 Dutch → English synonyms ("opdrukken" ranks Push-up first; a ≥5-letter
+  prefix expands while typing). `name_nl` seeding is v1.5.
+- `pickerContextFrom({ plan, history, templates, today })` builds the three id lists;
+  `GET /api/execution` history step rows now carry `exercise_id` (same statement).
+- **Migration 0123** deactivated `4-7-8-breathing` and `progressive-muscle-relaxation` (each
+  shared its name with a referenced row; 0 references anywhere live). Library: 480 active
+  rows. Seed baselines regenerated. Smoke **G2** loads the baseline and fails on any two
+  active global rows sharing a name. Ledger 124.
+- Review fix: the TEST marker excludes `measurable` (Push-up is assessable, not a protocol).
+- vitest 257 → **319**; smoke 91 → **92**; e2e 14. Ratchets unchanged (App.jsx 1800, plan.js
+  3827, onRequestPost 99, inline styles 2278). Commits 8f431dd + 95867b9 + 2e05e58.
+
 ### Shipped 2026-10-31 — session builder v1.2 (plan §2)
 
 - **Hergebruiken** rows carry the exercise names ("Push-up · Plank"), "≈ 8 min · 2
