@@ -147,6 +147,21 @@ test('needsExistingPlan: only custom_steps and bonus sessions skip the read', ()
   assert.equal(needsExistingPlan({ date: DATE, custom_steps: null }), true);
 });
 
+// C-B32 — the Deze week preview of a later day is computed, never stored, and only
+// it may name the earlier days it planned as a session (week_sim).
+test('C-B32: a preview skips the stored-plan read and carries its simulated week; nothing else does', () => {
+  assert.equal(needsExistingPlan({ date: DATE, preview: true }), false);
+  assert.equal(needsExistingPlan({ date: DATE, preview: 'yes' }), true);
+  const p = parsePlanRequest({ date: '2026-10-08', preview: true, week_sim: ['2026-10-05', '2026-10-06', '2026-10-08', '2026-10-09', 'x', '2026-10-05'] }).request;
+  assert.equal(p.isPreview, true);
+  assert.deepEqual(p.weekSim, ['2026-10-05', '2026-10-06']);   // before the date, in its window, deduplicated
+  const real = parsePlanRequest({ date: '2026-10-08', week_sim: ['2026-10-05'] }).request;
+  assert.equal(real.isPreview, false);
+  assert.deepEqual(real.weekSim, []);                          // a stored plan never trusts a simulated week
+  const own = parsePlanRequest({ date: '2026-10-08', preview: true, custom_steps: [{ exercise_id: 'a' }] }).request;
+  assert.equal(own.isPreview, false);
+});
+
 // ── parsePlanRequest ────────────────────────────────────────────────────────
 
 const err = (body) => { const r = parsePlanRequest(body); assert.ok(r.status, `expected an error for ${JSON.stringify(body)}`); return r; };

@@ -114,7 +114,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
       if (sports.length > 0) prefPayload.sport_prefs = { sports, primary: sports[0] };
       const profilePayload = {
         training_goal: goal, experience_level: experience, session_duration_min: duration,
-        days_per_week_target: 3, preferences: prefPayload, sex, cycle,
+        preferences: prefPayload, sex, cycle,
       };
       // Only include body metrics if the user provided values (avoids overwriting with null)
       if (weight_kg !== undefined) profilePayload.weight_kg = weight_kg;

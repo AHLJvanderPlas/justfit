@@ -564,7 +564,10 @@ import { runPlanner } from "./functions/api/plan.js";
 
 const errs = [];
 const src = fs.readFileSync("functions/api/plan.js", "utf8");
-const lines = src.split("\n");
+// C-B32 — the rest-day rules (R999, R599, R600) trace from _shared/weekTarget.js.
+const planLines = src.split("\n");
+const lines = [...planLines, ...fs.readFileSync("functions/api/_shared/weekTarget.js", "utf8").split("\n")];
+const where = (n) => n <= planLines.length ? "plan.js:" + n : "_shared/weekTarget.js:" + (n - planLines.length);
 const balance = (t) => [...t].reduce((n, c) => n + (c === "(" ? 1 : c === ")" ? -1 : 0), 0);
 
 // ── 1. every traced R-code is labelled or explicitly internal ──
@@ -583,7 +586,7 @@ if (traced.size < 40) errs.push("only " + traced.size + " traced rule codes foun
 const unexplained = [...traced].filter(([c]) => !RULE_LABELS[c] && !INTERNAL_RULE_CODES[c]);
 if (unexplained.length) {
   errs.push("rule(s) trace with no RULE_LABELS entry and no INTERNAL_RULE_CODES declaration: "
-    + unexplained.map(([c, ln]) => c + " (plan.js:" + ln + ")").join(", "));
+    + unexplained.map(([c, ln]) => c + " (" + where(ln) + ")").join(", "));
 }
 const bothWays = Object.keys(INTERNAL_RULE_CODES).filter(c => RULE_LABELS[c]);
 if (bothWays.length) errs.push("declared internal AND labelled: " + bothWays.join(", "));
@@ -916,7 +919,7 @@ fi
 # with the failure message and the summary never printed.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1) || true
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 44 personas x 10 properties x 60 dates hold end-to-end, nothing waived (10 = R598 delivers what it announces, taken fresh)"
+  ok "planner behaviour: 50 personas x 12 properties x 60 dates hold end-to-end, nothing waived (12 = the weekly target places rest days only when met or on pace — C-B32)"
 else
   fail "planner behaviour: ${BEHAV}"
 fi
@@ -1501,7 +1504,8 @@ fi
 # _shared/planStep.js (makePlanStep).
 # 2026-11-01 (coach-dcp R1): plan.js 3726 → 3688 — R598's due check and the
 # measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
-PLAN_CEILING=3688
+# 2026-11-01 (C-B32): plan.js 3688 → 3686 — R999 moved to _shared/weekTarget.js with the weekly target.
+PLAN_CEILING=3686
 # 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
 # 2026-11-01 (UAT release 6): App.jsx 1780 → 1769 — the check-in time budget moved to checkinQuick.js, the page container to .jf-page.
 APP_CEILING=1769

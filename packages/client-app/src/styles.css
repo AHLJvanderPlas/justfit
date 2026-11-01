@@ -385,6 +385,8 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   align-self: flex-start; min-height: 44px; padding: 0 4px; border: none; background: none; cursor: pointer;
   font: inherit; font-size: 13px; font-weight: 700; color: var(--accent); touch-action: manipulation;
 }
+/* C-B32 — Deze week counts training days against the weekly target, like the week pill. */
+.jf-weektarget { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent); }
 
 /* PlanWeekView — days in the log window with no recorded session. Quiet on purpose:
    a secondary action under the strip, never competing with today's plan. */

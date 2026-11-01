@@ -6,6 +6,8 @@
 // and the request harness (scripts/plan-override-requests.mjs) proves the
 // wiring end to end.
 
+import { sanitizeWeekSim } from './weekTarget.js';
+
 // ─── Custom-step and pin shape (W4.1 / W4.4) ───────────────────────────────
 // Also imported by my-sessions.js: a template that saves there is a template
 // that installs here.
@@ -62,7 +64,7 @@ export function parsePlanRequest(body) {
     date, checkin, completed_exercise_ids, user_profile, cycle_context, bonus_session,
     coach_sim, adapt_mode, base_plan, force_assessment,
     custom_steps, safety_ack, include_assessment, pinned_exercise_ids, session_name,
-    replace_user_plan,
+    replace_user_plan, preview, week_sim,
   } = body ?? {};
   const isCustom = _present(custom_steps);
   const hasPins  = _present(pinned_exercise_ids);
@@ -102,6 +104,11 @@ export function parsePlanRequest(body) {
       safetyAck:         safety_ack === true,
       includeAssessment: include_assessment === true,
       replaceUserPlan:   replace_user_plan === true,
+      // C-B32 — the Deze week preview of a later day: computed, returned, never
+      // stored (a stored preview would become that day's plan before the week
+      // happened). Only a preview may say which earlier days it planned to train.
+      isPreview:         preview === true && !isCustom,
+      weekSim:           preview === true && !isCustom ? sanitizeWeekSim(week_sim, date) : [],
     },
   };
 }
@@ -132,11 +139,11 @@ export function preservesUserPlan(existingRow, body) {
 
 /**
  * Whether today's stored plan can change the answer. A user-authored session
- * replaces whatever is there, and a bonus session is ephemeral and never
- * touches day_plans, so neither needs the read.
+ * replaces whatever is there, and a bonus session or a Deze week preview (C-B32)
+ * is ephemeral and never touches day_plans, so none of them needs the read.
  */
 export function needsExistingPlan(body) {
-  return !_present(body?.custom_steps) && !body?.bonus_session;
+  return !_present(body?.custom_steps) && !body?.bonus_session && body?.preview !== true;
 }
 
 /**

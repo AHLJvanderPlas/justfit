@@ -8,7 +8,9 @@ import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { logDayLabel, summarizeLogged } from "./logSession.js";
 import { pickerContextFrom } from "./exerciseSearch.js";
-import { selectedDay, dayRowKind, upcomingShown } from "./weekPlan.js";   // UAT R3 — one row, not seven
+import { selectedDay, dayRowKind, upcomingShown, previewWeekSim } from "./weekPlan.js";   // UAT R3 — one row, not seven
+import { weekOutcomeCounts } from "./weekStatus.js";
+import { weekTargetApplies, weeklyTarget } from "../../../functions/api/_shared/weekTarget.js";   // C-B32
 
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
@@ -54,6 +56,11 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
   const milActive   = prefs?.preferences?.military_coach?.active ? 1 : 0;
   const isPro = prefs?.isPro ?? false;
   const planSessionName = plan?.session_name ?? null;
+  // C-B32 — with a weekly target the preview simulates the week: each day it plans as a
+  // session counts for the next, and nothing it computes is stored as that day's plan.
+  const weekTarget = weekTargetApplies(prefs) ? weeklyTarget(prefs) : 0;
+  const todayPlanned = !!plan && plan.slot_type !== "rest";
+  const todayDone = (history ?? []).some(h => h.date === today);
 
   // Stable refs for the full coach objects used inside the upcoming-plans effect.
   // The scalars above (runEnrolled, cycleActive) control re-triggering;
@@ -76,7 +83,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
   useEffect(() => {
     if (!userId) return;
-    const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}_mc${milActive}_pro${isPro ? 1 : 0}`;
+    const cacheKey = `jf_upcoming_v4_${today}_rc${runEnrolled}_cc${cycleActive}_mc${milActive}_pro${isPro ? 1 : 0}_wt${weekTarget}`;
     const cached = sessionStorage.getItem(cacheKey);
     if (cached) {
       // Synchronous early-return cache hit: setState before async work to avoid flash of loading state.
@@ -113,7 +120,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         const coachSim = {};
         if (simRc) coachSim.run_coach = simRc;
         if (simCc) coachSim.cycling_coach = simCc;
-        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined, isPro).catch(() => null);
+        const weekOpts = weekTarget ? { preview: true, weekSim: previewWeekSim({ today, todayPlanned: todayPlanned && !todayDone, result }) } : {};
+        const p = await api.generatePlan(userId, date, null, Object.keys(coachSim).length > 0 ? coachSim : undefined, isPro, weekOpts).catch(() => null);
         result.push({ date, plan: p });
 
         if (simRc && p?.session_name?.startsWith('Running Day')) {
@@ -133,7 +141,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       setUpcomingPlans(result);
       setLoadingUpcoming(false);
     })();
-  }, [userId, today, runEnrolled, cycleActive, milActive, isPro, planSessionName, upcomingDates]);
+  }, [userId, today, runEnrolled, cycleActive, milActive, isPro, planSessionName, upcomingDates, weekTarget, todayPlanned, todayDone]);
 
   // Build 7-day window shifted by weekOffset
   const days = Array.from({ length: 7 }, (_, i) => {
@@ -170,6 +178,10 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
           </div>
         </div>
         <div style={{ fontSize: 13, color: C.muted }}>{weekOffset === 0 ? t('Your last 7 days at a glance') : weekOffset > 0 ? t('Upcoming plan preview') : t('Past week history')}</div>
+        {weekOffset === 0 && weekTarget > 0 && (() => {
+          const wk = weekOutcomeCounts(history, prefs, prefs?.training_goal, today);
+          return <div className="jf-weektarget" data-testid="week-target">{t("{done} of {target} training days this week", { done: wk.done, target: wk.target })}</div>;
+        })()}
       </div>
 
       {/* 7-day strip — tap a day to select it; ONE row below follows the selection (UAT R3) */}

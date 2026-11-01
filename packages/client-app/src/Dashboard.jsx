@@ -45,7 +45,7 @@ function WhyPlanPanel({ plan }) {
     <div key={entry.code} className="jf-why__row">
       <span className="jf-why__mark" aria-hidden="true">›</span>
       <span>
-        {entry.volume ? buildVolumeSentence(entry, t) : t(entry.text)}
+        {entry.volume ? buildVolumeSentence(entry, t) : t(entry.text, entry.vars)}
         {entry.cta && <span className="jf-why__cta"> {t(entry.cta)}</span>}
       </span>
     </div>
@@ -541,15 +541,15 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>{t("Recovery day. Rest is training.")}</p>
                     {(() => {
                       const advisories = parseRuleTrace(plan.rule_trace ?? []);
-                      const REST_CODES = ["R514", "R539", "R540"];
+                      const REST_CODES = ["R514", "R539", "R540", "R599", "R600"];   // C-B32: the weekly target
                       const whyEntry =
-                        [...advisories.blocking, ...advisories.safety].find(a => REST_CODES.includes(a.code)) ??
+                        [...advisories.blocking, ...advisories.safety, ...advisories.training].find(a => REST_CODES.includes(a.code)) ??
                         ((plan.rule_trace ?? []).some(t => t.includes("adapt:pain_rest"))
                           ? { text: t("Your check-in reported significant pain — rest is the right call today.") }
                           : null);
                       return whyEntry ? (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
-                          {t(whyEntry.text)}
+                          {t(whyEntry.text, whyEntry.vars)}
                           {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {t(whyEntry.cta)}</span>}
                         </div>
                       ) : null;

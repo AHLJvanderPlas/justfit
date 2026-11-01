@@ -200,6 +200,10 @@ export const RULE_LABELS = {
   R597: { category: 'Training adaptation', text: 'Variety check — no two exercises train the same movement today.' },
   R598: { category: 'Training adaptation', text: 'Self-measurement inside this session: max push-ups and sit-ups over two minutes.' },
   R999: { category: 'Training adaptation', text: 'Rest day — you set this weekday as a rest day.' },
+  // C-B32 — the weekly training-days target (functions/api/_shared/weekTarget.js).
+  // {n} is the target, read off the trace's "target=N" (dynamic: 'weektarget').
+  R599: { category: 'Training adaptation', text: 'Your weekly target ({n}x) is reached — rest today.', dynamic: 'weektarget' },
+  R600: { category: 'Training adaptation', text: 'Rest today — your {n} training days are spread over the week.', dynamic: 'weektarget' },
 };
 
 /**
@@ -308,6 +312,11 @@ export function parseRuleTrace(ruleTrace) {
           const dir = /direction:\s*([a-z_]+)/.exec(trace)?.[1];
           if (dir && label.variants?.[dir]) entry.text = label.variants[dir];
         }
+        if (label.dynamic === 'weektarget') {
+          const n = /target=(\d+)/.exec(trace)?.[1];
+          if (!n) continue;
+          entry.vars = { n };
+        }
         if (label.dynamic === 'volume') {
           // A dynamic advisory with no parsable numbers says nothing, so it is
           // dropped rather than rendered with empty placeholders.
@@ -365,6 +374,7 @@ export const TODAY_RULE_CODES = new Set([
   'R520', 'R521', 'R522', 'R523', 'R535', 'R536',
   'R558', 'R559', 'R562', 'R563', 'R564', 'R565', 'R592', 'R598',
   'R556', 'R557', 'R568', 'R570', 'R571', 'R572', 'R574', 'R575', 'R576', 'R577',
+  'R599', 'R600',   // C-B32 — today is a rest day because of the weekly target
 ]);
 export const STRUCTURAL_RULE_CODES = new Set([
   'R500', 'R502', 'R518', 'R519', 'R524', 'R525', 'R550', 'R551', 'R552', 'R553', 'R554',
@@ -441,6 +451,8 @@ const SENTENCE_VARIANTS = {
   R545: "Low-impact cardio today — protecting your joints while building capacity.",
   R546: "Walk-run intervals — the safe way to build running capacity.",
   R598: "Self-measurement in today's session — max push-ups and sit-ups.",
+  R599: "Weekly target reached — today is a rest day.",
+  R600: "Rest day — your training days are spread over the week.",
   R526: "Perimenopause mode — intensity capped at moderate, session adapted for hormonal fluctuation.",
   R568: "Polarised training day — alternating Zone 2 and high-intensity work.",
   R560: "Session biased toward your primary sport.",
@@ -453,7 +465,7 @@ const SENTENCE_VARIANTS = {
 // pain rest day and the clearance gate come first. Progression structure (R551,
 // R553) never carries the card: it was "the reason" on day one for everyone.
 const SENTENCE_SEVERITY_ORDER = [
-  'R514', 'R539',
+  'R514', 'R539', 'R599', 'R600',
   'R535', 'R536', 'R559', 'R558', 'R511', 'R512', 'R513', 'R517', 'R510', 'R516', 'R515', 'R563', 'R565',
   'R598', 'R556', 'R557', 'R568',
   'R540', 'R541', 'R534', 'R532', 'R530', 'R545', 'R546', 'R555', 'R526',

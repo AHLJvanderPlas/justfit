@@ -10,6 +10,7 @@ import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, frontMeasure
 import { musclesFromJson } from './_shared/muscles.js';
 import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec, roundTo5Sec } from './_shared/session.js';
+import { applyRestDays, weekTargetApplies, TRAINED_DAYS_SQL, trainedDaysFrom } from './_shared/weekTarget.js';   // C-B32
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
 // Re-exported for existing importers (the request harnesses import them from here).
@@ -175,14 +176,14 @@ export async function onRequestPost({ request, env }) {
 
     const plan = runPlanner(date, effectiveCheckin, allExercises, prefs, allTemplates, req.completed_exercise_ids, bodyProfile, resolvedCycleContext, pregnancyContext, bonus_session, history.progressionState, isPro, cyclingWorkouts, history.cyclingTsb, history.cyclingSessionsLast7, history.runSessionsLast7, history.crossRunsLast7, militaryTemplateItems, runPrograms, {
       forceAssessment: req.forceAssessment,
-      pinnedIds: req.pinnedIds,
+      pinnedIds: req.pinnedIds, trainedDates: [...history.trainedDates, ...req.weekSim],   // C-B32
     });
     _attachAssignedProgram(plan, history.assignedProgramRow);
 
     // Bonus plans are ephemeral — don't save to day_plans to avoid the
     // (user_id, date) unique index conflict with today's regular plan.
     // Return a generated id so the execution can still reference it.
-    const bonusId = bonus_session ? crypto.randomUUID() : null;
+    const bonusId = (bonus_session || req.isPreview) ? crypto.randomUUID() : null;   // C-B32: a preview is not today's plan
     if (bonusId) {
       return Response.json({ ok: true, saved: false, plan: { id: bonusId, ...plan } });
     }
@@ -464,7 +465,7 @@ async function _loadTrainingHistory(env, user_id, date, prefs, bonus_session) {
   let cyclingSessionsLast7 = 0;
   let runSessionsLast7 = 0;
   let crossRunsLast7 = 0;
-  let assignedProgramRow = null;
+  let assignedProgramRow = null, trainedDates = [];
   const isCyclingCoachActive = !!(prefs?.preferences?.cycling_coach?.active);
   const isRunCoachActive = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
   const isCrossTrainActive = !!(isCyclingCoachActive && prefs?.preferences?.cycling_coach?.run_cross_training);
@@ -509,8 +510,10 @@ async function _loadTrainingHistory(env, user_id, date, prefs, bonus_session) {
             LIMIT 1
           `).bind(date, user_id, date, date, user_id).first()
         : Promise.resolve(null),
+      weekTargetApplies(prefs) ? env.DB.prepare(TRAINED_DAYS_SQL).bind(user_id, trainedDaysFrom(date), date).all() : Promise.resolve(null),   // C-B32
     ];
-    const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult] = await Promise.all(fetches);
+    const [progRow, lastExRow, tssResult, cyclingCountRow, runCountRow, crossRunCountRow, assignedProgramResult, trainedRows] = await Promise.all(fetches);
+    trainedDates = (trainedRows?.results ?? []).map(r => r.date);
     assignedProgramRow = assignedProgramResult ?? null;
     if (progRow) {
       progressionState = {
@@ -529,7 +532,7 @@ async function _loadTrainingHistory(env, user_id, date, prefs, bonus_session) {
     runSessionsLast7 = runCountRow?.cnt ?? 0;
     crossRunsLast7 = crossRunCountRow?.cnt ?? 0;
   }
-  return { progressionState, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, assignedProgramRow };
+  return { progressionState, cyclingTsb, cyclingSessionsLast7, runSessionsLast7, crossRunsLast7, assignedProgramRow, trainedDates };
 }
 
 // ------------------------------------------------------------------
@@ -1418,6 +1421,7 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     isStandardMode, inSpecialMode,
 
     blockedWeekdays: new Set(prefs?.preferences?.blocked_weekdays ?? []),
+    trainedDates: Array.isArray(opts.trainedDates) ? opts.trainedDates : null,   // C-B32, _shared/weekTarget.js
 
     pool, poolGuards, intensity, slot_type: 'main',
     volumeMultiplier: 1.0,
@@ -1527,14 +1531,8 @@ function _takeVaried(list, count, ctx, keepIds = null) {
 function _applySafetyPolicies(ctx) {
   const { checkIn, exercises, prefs, date, pregnancyContext, bmi, expLevel } = ctx;
 
-  // R999 — Preferred rest day (blocked_weekdays)
-  if (!ctx.bonusSession && ctx.blockedWeekdays.size > 0) {
-    const dow = new Date(date + 'T12:00:00Z').getDay(); // 0=Sun…6=Sat
-    if (ctx.blockedWeekdays.has(dow)) {
-      ctx.slot_type = 'rest';
-      ctx.trace.push(`R999 — Preferred rest day (weekday ${dow} blocked) → rest session`);
-    }
-  }
+  // R999 (blocked weekday) and R599/R600 (C-B32 weekly target) — _shared/weekTarget.js
+  applyRestDays(ctx);
   const _primaryIntent0 = prefs?.preferences?.primary_intent ?? null;
   const isMilCoachActive = !!(prefs?.preferences?.military_coach?.active)
     && (_primaryIntent0 === null || _primaryIntent0 === 'military');

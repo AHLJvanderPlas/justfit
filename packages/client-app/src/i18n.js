@@ -788,6 +788,11 @@ const NL = {
   'Variety check — no two exercises train the same movement today.': 'Variatiecheck — geen twee oefeningen die vandaag dezelfde beweging trainen.',
   'Self-measurement inside this session: max push-ups and sit-ups over two minutes.': 'Zelfmeting in deze sessie: maximaal aantal push-ups en sit-ups in twee minuten.',
   'Rest day — you set this weekday as a rest day.': 'Rustdag — je hebt deze weekdag als rustdag ingesteld.',
+  // C-B32 — the weekly training-days target (R599 / R600)
+  'Your weekly target ({n}x) is reached — rest today.': 'Je weekdoel ({n}x) is gehaald — vandaag rust.',
+  'Rest today — your {n} training days are spread over the week.': 'Vandaag rust — je {n} trainingsdagen worden over de week verdeeld.',
+  'Weekly target reached — today is a rest day.': 'Weekdoel gehaald — vandaag is een rustdag.',
+  'Rest day — your training days are spread over the week.': 'Rustdag — je trainingsdagen worden over de week verdeeld.',
 
   // R519 — one accumulated volume sentence, composed from the factors the planner
   // actually applied (messagePolicy.buildVolumeSentence). {reasons} is joined with 'and'.
@@ -1424,6 +1429,10 @@ const NL = {
   "Other coaches": "Andere coaches",
   "You train with one coach at a time. Standards apply separately.": "Je traint met één coach tegelijk. Normen gelden los daarvan.",
   "Training days": "Trainingsdagen",
+  "Rest days are planned around {n} training days a week. Tap again to remove the target.": "De planner plant rustdagen rond {n} trainingsdagen per week. Tik nog eens om het doel te wissen.",
+  "No weekly target — the planner plans a session every day.": "Geen weekdoel — de planner plant elke dag een sessie.",
+  "Your coach programme sets your training days.": "Je coachprogramma bepaalt je trainingsdagen.",
+  "{done} of {target} training days this week": "{done} van {target} trainingsdagen deze week",
   "Session length": "Sessieduur",
   "Cycling (Pro)": "Fietsen (Pro)",
   "Block {b} of 6": "Blok {b} van 6",

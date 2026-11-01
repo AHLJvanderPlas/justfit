@@ -17,7 +17,7 @@ import { insightLines, plannerLines, goalDescription } from "./progressCopy.js";
 import { activeCoachOf, pathGoal } from "./coachPath.js";
 import { showedUp } from "./sessionOutcome.js";   // UAT R2 — a stopped session with sets done counts
 import { insightsUnlocked, strongestWeakest } from "./progressGate.js";   // UAT R3 — the insight blocks wait for data
-import { weekPill, weekdayMondayFirst } from "./weekStatus.js";
+import { weekPill, weekdayMondayFirst, weekOutcomeCounts } from "./weekStatus.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -716,18 +716,9 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
   // ── Weekly outcome ──────────────────────────────────────────────────────
   const weeklyOutcome = (() => {
-    const cutoff = new Date(nowMs); cutoff.setDate(cutoff.getDate() - 6);
-    const lastEnd = new Date(nowMs); lastEnd.setDate(lastEnd.getDate() - 7);
-    const lastStart = new Date(nowMs); lastStart.setDate(lastStart.getDate() - 13);
-    const cutoffStr   = cutoff.toISOString().slice(0, 10);
-    const lastEndStr  = lastEnd.toISOString().slice(0, 10);
-    const lastStartStr = lastStart.toISOString().slice(0, 10);
-    const thisWeek = history.filter(h => h.date >= cutoffStr);
-    const lastWeek = history.filter(h => h.date >= lastStartStr && h.date <= lastEndStr);
-    const targetMap = { health: 3, strength: 4, muscle_gain: 4, fat_loss: 4, endurance: 5, mobility: 3 };
-    const target = targetMap[goal] ?? 3;
-    const done = thisWeek.length;
-    const trend = done - lastWeek.length;
+    // C-B32 — the ISO week (Mon–Sun) and its training days, against the user's weekly
+    // target (the goal's number when none is set): the same count the planner uses.
+    const { thisWeek, target, done, trend } = weekOutcomeCounts(history, prefs, goal, new Date(nowMs).toISOString().slice(0, 10));
     const rated = thisWeek.filter(h => h.perceived_exertion != null);
     const avgPE = rated.length ? rated.reduce((s, h) => s + h.perceived_exertion, 0) / rated.length : null;
     const exertionLabel = avgPE == null ? null : avgPE >= 7 ? "Tough week" : avgPE <= 4 ? "Light week" : "Well-paced";

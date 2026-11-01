@@ -5,6 +5,7 @@ import { CURRENT_TERMS_VERSION, CURRENT_PRIVACY_VERSION } from './_shared/legalV
 
 import { getUser } from './_shared/auth.js';
 import { normalizeDcp } from './_shared/military.js';
+import { WEEK_TARGET_KEY, WEEK_TARGET_RANGE } from './_shared/weekTarget.js';
 
 function calculateCyclePhase(lastPeriodStart, cycleLengthDays, today) {
   if (!lastPeriodStart) return null;
@@ -234,6 +235,7 @@ export async function onRequestPost({ request, env }) {
     const experience_level_f     = experience_level     ?? existingRow?.experience_level     ?? 'beginner';
     const intensity_pref_f       = intensity_pref       ?? existingRow?.intensity_pref       ?? 5;
     const session_duration_min_f = session_duration_min ?? existingRow?.session_duration_min ?? 30;
+    // Legacy column, read by nothing: the weekly target is preferences.training_days_per_week (C-B32).
     const days_per_week_target_f = days_per_week_target ?? existingRow?.days_per_week_target ?? 3;
 
     // For preferences: shallow merge body into existing so unrelated keys are preserved
@@ -324,6 +326,25 @@ export async function onRequestPost({ request, env }) {
         return Response.json({ error: 'Invalid blocked_weekdays' }, { status: 400 });
       }
       preferences.blocked_weekdays = [...new Set(bw)]; // deduplicate
+    }
+
+    // C-B32 — the weekly training-days target: an integer in range, or null (no target).
+    if (preferences?.[WEEK_TARGET_KEY] !== undefined && preferences[WEEK_TARGET_KEY] !== null) {
+      const n = Number(preferences[WEEK_TARGET_KEY]);
+      if (!Number.isInteger(n) || n < WEEK_TARGET_RANGE[0] || n > WEEK_TARGET_RANGE[1]) {
+        return Response.json({ error: 'Invalid training_days_per_week' }, { status: 400 });
+      }
+      preferences[WEEK_TARGET_KEY] = n;
+    }
+    // A new target moves the rest days, so the engine's stored plans from today on
+    // are stale. A session the user wrote is theirs and stays (W4.1).
+    if ((existingParsed?.[WEEK_TARGET_KEY] ?? null) !== (preferences?.[WEEK_TARGET_KEY] ?? null)) {
+      try {
+        await env.DB.prepare("DELETE FROM day_plans WHERE user_id = ? AND date >= ? AND COALESCE(generated_by, '') != 'user'")
+          .bind(user.userId, new Date().toISOString().slice(0, 10)).run();
+      } catch (e) {
+        console.error('profile: plan invalidation (weekly target) failed', e);
+      }
     }
 
     // ── Invalidate today's plan when the coach changes ────────────────────────

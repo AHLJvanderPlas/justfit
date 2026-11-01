@@ -21,6 +21,7 @@ import { runPlanner, movementFamily, isLongContinuousCardio, continuousCardioCap
   CUSTOM_STEP_LIMITS, USER_PLAN_TRACE } from '../functions/api/plan.js';
 import { estimateMins } from '../packages/client-app/src/planUtils.js';
 import { RULE_LABELS, INTERNAL_RULE_CODES, parseVolumeTrace } from '../packages/client-app/src/messagePolicy.js';
+import { isoWeekStart, isoWeekday, addDays } from '../functions/api/_shared/weekTarget.js';   // dates only — the decision is asserted below, not imported
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -47,6 +48,8 @@ const exercises = rows.map((r, i) => ({
 const PENDING = new Set();
 
 const DAY = 86400000;
+// C-B32 — every day of the plan date's ISO week before it (the persona trained daily).
+const EVERY_DAY = (date) => { const out = []; for (let d = isoWeekStart(date); d < date; d = addDays(d, 1)) out.push(d); return out; };
 const TODAY = '2026-10-02';                       // a Friday; nothing is weekday-gated except R999
 const todayMs = new Date(TODAY + 'T12:00:00Z').getTime();
 const daysAgo = (n) => new Date(todayMs - n * DAY).toISOString().slice(0, 10);
@@ -107,6 +110,7 @@ const build = (p, date = TODAY) => {
       ...(p.militaryCoach ? { military_coach: p.militaryCoach } : {}),
       ...(p.runCoach ? { run_coach: p.runCoach } : {}),
       ...(p.cyclingCoach ? { cycling_coach: p.cyclingCoach } : {}),
+      ...(p.weeklyTarget ? { training_days_per_week: p.weeklyTarget } : {}),
     },
   };
   const progression = p.noProgression ? null : {
@@ -125,7 +129,10 @@ const build = (p, date = TODAY) => {
     // A military persona may name its programme-template rows (the DB path, R573a),
     // which the live handler loads from program_template_items for strength days.
     p.militaryTemplate ? p.militaryTemplate.map(slug => exercises[Number(idOf(slug).slice(2))]) : null, null,
-    { ...(p.opts ?? {}), ...(p.pins ? { pinnedIds: p.pins.map(slug => idOf(slug)) } : {}) },
+    { ...(p.opts ?? {}), ...(p.pins ? { pinnedIds: p.pins.map(slug => idOf(slug)) } : {}),
+      // C-B32 — the live handler always passes the training days it loaded; the
+      // harness passes them when a persona states its history.
+      ...(p.trainedFor ? { trainedDates: p.trainedFor(date) } : {}) },
   ];
 };
 const plan = (p, date = TODAY) => runPlanner(...build(p, date));
@@ -353,13 +360,27 @@ const PERSONAS = [
   { id: 'pin-pregnant-t2', sex: 'female', pregnancyContext: { mode: 'pregnant', week: 20, trimester: 2 },
     pins: ['burpee', 'glute-bridge', 'wall-push-up'], pinsRemoved: ['burpee', 'glute-bridge'],
     forbid: { tags: ['high_impact', 'valsalva', 'inversion', 'crunch', 'supine', 'prone'] } }, // R532, R531 over pins
+
+  // ── C-B32 — the weekly training-days target (R599 / R600) ──
+  // `trainedFor(date)` is the persona's training history as the handler would load
+  // it. EVERY_DAY trained each day of the week so far, so the target is met early:
+  // 2x and 3x rest from Tuesday (R600 pace on Tuesday, R599 from Wednesday / Thursday),
+  // 5x from Wednesday (two in a row, then pace, then met). Property `week-target`
+  // asserts the rule's contract on every date; `expectRest` pins the weekday.
+  { id: 'week-2x-trained-daily', weeklyTarget: 2, trainedFor: EVERY_DAY, expectRest: (d) => isoWeekday(d) >= 2 },
+  { id: 'week-3x-trained-daily', weeklyTarget: 3, trainedFor: EVERY_DAY, expectRest: (d) => isoWeekday(d) >= 2 },
+  { id: 'week-5x-trained-daily', weeklyTarget: 5, trainedFor: EVERY_DAY, expectRest: (d) => isoWeekday(d) >= 3 },
+  // Nothing done yet: a target never takes a session away from someone who is behind.
+  { id: 'week-3x-nothing-done', weeklyTarget: 3, trainedFor: () => [] },
+  // No target: the same daily history changes nothing — never a rest day.
+  { id: 'week-unset-trained-daily', trainedFor: EVERY_DAY },
 ];
 
 // ── Assertions ───────────────────────────────────────────────────────────────
 const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
-  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s'];
+  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s', 'week-target'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -438,8 +459,9 @@ for (const p of PERSONAS) {
     // Persona-level expectations, so a persona cannot silently stop being the
     // thing it claims to be — a pregnancy test that quietly returns a rest day
     // would pass every property below while testing nothing.
-    if (p.expectRest && !isRest) notes.add(`expected a rest session, got ${out.slot_type}`);
-    if (!p.expectRest && isRest) notes.add('unexpected rest session — this persona no longer exercises the rules it was built for');
+    const wantRest = typeof p.expectRest === 'function' ? p.expectRest(DATE) : !!p.expectRest;
+    if (wantRest && !isRest) notes.add(`expected a rest session, got ${out.slot_type}`);
+    if (!wantRest && isRest) notes.add('unexpected rest session — this persona no longer exercises the rules it was built for');
     if (p.expectSlot && out.slot_type !== p.expectSlot) notes.add(`expected slot ${p.expectSlot}, got ${out.slot_type}`);
     if (p.expectIntensity && out.intensity !== p.expectIntensity) notes.add(`expected intensity ${p.expectIntensity}, got ${out.intensity}`);
     if (p.expectAssessment && out.assessment_planned !== true) notes.add('R598 did not schedule the due measurement');
@@ -652,6 +674,28 @@ for (const p of PERSONAS) {
         before.length ? `measurement taken tired: ${before.map(st => st.exercise_slug).join(', ')} before a max-effort set — the two sets go first, after warm-ups only`
           : `R598 ${traced ? 'traced' : 'silent'}, assessment_planned=${out.assessment_planned === true}, ${me.length} max-effort step(s) [${[...kinds].join(', ')}] — announced must mean dcp_pushups + dcp_situps in the session`);
     }
+
+    // ── 11. The weekly target places rest days, and only when it should (C-B32) ──
+    // Read off the session and the persona's own history: target met → rest + R599;
+    // R599 only when met, R600 only when not; no target (or a coach) → neither code
+    // and no target line, ever.
+    {
+      const r599 = trace.some(t => t.startsWith('R599')), r600 = trace.some(t => t.startsWith('R600'));
+      const line = trace.some(t => t.startsWith('Weekdoel'));
+      const coach = !!(p.runCoach || p.cyclingCoach || p.militaryCoach?.active);
+      const applies = !!p.weeklyTarget && !coach && !p.pregnancyContext?.mode?.match(/^(pregnant|postnatal)$/);
+      if (!applies) {
+        say('week-target', (r599 || r600 || line) ? 'FAIL' : 'PASS',
+          (r599 || r600 || line) ? `weekly-target rule fired for a persona it must not touch: ${trace.filter(t => /^(R599|R600|Weekdoel)/.test(t)).join(' | ')}` : 'not in scope');
+      } else {
+        const mon = isoWeekStart(DATE);
+        const done = new Set((p.trainedFor?.(DATE) ?? []).filter(d => d >= mon && d < DATE)).size;
+        const met = done >= p.weeklyTarget;
+        const bad = met ? (!isRest || !r599) : (r599 || (r600 && !isRest));
+        say('week-target', bad ? 'FAIL' : 'PASS',
+          bad ? `${done}/${p.weeklyTarget} done: slot ${out.slot_type}, R599=${r599}, R600=${r600}` : `${done}/${p.weeklyTarget} done → ${isRest ? (r599 ? 'R599 rest' : 'R600 rest') : 'session'}`);
+      }
+    }
   }  // ── end of the date sweep ──
 
   // Decided 2026-10-04: an unmeasured user is allowed 20 min of continuous
@@ -709,6 +753,41 @@ for (const p of PERSONAS) {
 
   const forced = plan({ ...dcpPrefs({ ...DCP, last: { pushups: 30, situps: 40, at_ms: todayMs } }), opts: { forceAssessment: true } });
   check(forced.assessment_planned === true, 'a forced assessment was ignored');
+
+  // C-B32 — a weekly target leaves every coach and every pregnancy/postnatal day
+  // exactly as it was: same persona, same daily history, with and without the
+  // target, every date, byte-identical plans. And the rule must actually fire for
+  // the general twin somewhere, or this compares two untouched plans and checks nothing.
+  {
+    const strip = (o) => JSON.stringify({ ...o, rule_trace: (o.rule_trace ?? []).filter(t => !String(t).startsWith('Weekdoel')) });
+    const owners = PERSONAS.filter(x => ['running-coach-wk6', 'cycling-coach-build', 'military-k3-strength',
+      'military-k3-march', 'pregnant-t2', 'postnatal-rebuilding'].includes(x.id));
+    check(owners.length === 6, `C-B32 invariance: expected 6 owner personas, found ${owners.length}`);
+    for (const base of owners) {
+      const diff = DATES.find(d => strip(plan({ ...base, trainedFor: EVERY_DAY }, d)) !== strip(plan({ ...base, trainedFor: EVERY_DAY, weeklyTarget: 2 }, d)));
+      check(!diff, `C-B32: a 2x target changed ${base.id}'s plan on ${diff} — coaches and body modes own their schedule`);
+    }
+    const fired = DATES.filter(d => plan({ weeklyTarget: 2, trainedFor: EVERY_DAY }, d).slot_type === 'rest').length;
+    check(fired > 0, 'C-B32: the general twin never got a rest day — the invariance check compares nothing');
+
+    // Following the plan from a fresh Monday lands exactly on the target, every week,
+    // and up to 4x never three training days in a row. Each day is planned for real.
+    for (const target of [2, 3, 4, 5]) {
+      const trained = [];
+      let pattern = '';
+      for (let i = 0; i < 28; i++) {
+        const d = addDays('2026-10-05', i);   // a Monday
+        const out = plan({ weeklyTarget: target, trainedFor: () => [...trained] }, d);
+        if (out.slot_type !== 'rest') trained.push(d);
+        pattern += out.slot_type === 'rest' ? '.' : 'T';
+      }
+      for (let w = 0; w < 4; w++) {
+        const n = [...pattern.slice(w * 7, w * 7 + 7)].filter(c => c === 'T').length;
+        check(n === target, `C-B32: ${target}x followed for a week trained ${n} days (${pattern.slice(w * 7, w * 7 + 7)})`);
+      }
+      if (target <= 4) check(!/TTT/.test(pattern), `C-B32: ${target}x scheduled three training days in a row (${pattern})`);
+    }
+  }
 
   // R525 — sex-neutral since F8 (2026-10-04). The mobility top-up fired for
   // female users only, with no recorded reason; it now applies to everyone by

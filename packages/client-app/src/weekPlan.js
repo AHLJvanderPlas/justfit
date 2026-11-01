@@ -31,3 +31,13 @@ export function upcomingShown(list, expanded) {
   const rows = Array.isArray(list) ? list : [];
   return expanded ? rows : rows.slice(0, UPCOMING_PREVIEW);
 }
+
+/**
+ * C-B32 — the training days the Deze week preview assumes before the day it asks
+ * about: today when today's plan is a session not yet done, plus every earlier
+ * preview day that came back as a session. `result` is [{ date, plan }] so far.
+ */
+export function previewWeekSim({ today, todayPlanned, result }) {
+  const days = (result ?? []).filter(r => r?.plan && r.plan.slot_type !== 'rest').map(r => r.date);
+  return todayPlanned ? [today, ...days] : days;
+}

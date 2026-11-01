@@ -127,7 +127,9 @@ const api = {
 
   // pathChange: only from the path modal's save (src/pathApply.js) — the server
   // lets it past the free daily cap once, as reason path_change (UAT D3).
-  async generatePlan(userId, date, checkin, coachSim, isPro, { replaceUserPlan = false, pathChange = false } = {}) {
+  // preview / weekSim: only from Deze week's preview of later days (C-B32) — not stored,
+  // and weekSim lists the earlier preview days that were planned as a session.
+  async generatePlan(userId, date, checkin, coachSim, isPro, { replaceUserPlan = false, pathChange = false, preview = false, weekSim = null } = {}) {
     let res, data;
     try {
       res = await fetch("/api/plan", {
@@ -135,7 +137,7 @@ const api = {
         headers: { "Content-Type": "application/json" },
         // replace_user_plan is only ever sent from an explicit, confirmed user
         // action (WhyNotModal); every automatic call leaves a user-authored plan alone.
-        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro, replace_user_plan: replaceUserPlan || undefined, path_change: pathChange || undefined }),
+        body: JSON.stringify({ user_id: userId, date, checkin, coach_sim: coachSim ?? undefined, is_pro: !!isPro, replace_user_plan: replaceUserPlan || undefined, path_change: pathChange || undefined, preview: preview || undefined, week_sim: weekSim?.length ? weekSim : undefined }),
       });
       data = await res.json();
     } catch {

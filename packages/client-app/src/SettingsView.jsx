@@ -14,6 +14,7 @@ import { activeCoachOf, pathTitle } from "./coachPath.js";
 import { advancedRows } from "./settingsAdvanced.js";
 import { runChipSave, chipStatusText } from "./chipSave.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
+import { weeklyTarget, WEEK_TARGET_KEY } from "../../../functions/api/_shared/weekTarget.js";   // C-B32 — the one source
 
 const GuestConvertModal = lazy(() => import("./GuestConvertModal.jsx"));   // UAT R5 — "E-mail toevoegen" for a guest
 
@@ -407,7 +408,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           training_goal: ['fat_loss','muscle_gain','endurance','strength','health','mobility','mixed'].includes(prefs.training_goal) ? prefs.training_goal : 'health',
           experience_level: prefs.experience_level ?? "beginner",
           session_duration_min: planDuration,
-          days_per_week_target: prefs.days_per_week_target ?? 3,
           preferences: { ...(prefs.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule, blocked_weekdays: blockedWeekdays },
         });
         onUpdate((p) => ({ ...p, session_duration_min: planDuration, preferences: { ...(p.preferences ?? {}), available_equipment: planEquipment, weekly_schedule: weeklySchedule, checkin_mode: checkinMode, time_overhead: timeOverhead, schedule_advanced: showAdvancedSchedule, blocked_weekdays: blockedWeekdays } }));
@@ -1806,14 +1806,18 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         const blockFor = (id) => id === "running" ? runBlock() : id === "cycling" ? cycleBlock() : id === "military" ? milBlock() : generalBlock(false);
         const others = ["running", "cycling", "military", "general"].filter(id => id !== activeCoach);
-        const daysPerWeek = pref.training_days_per_week ?? 3;
+        // C-B32 — the chip shows the stored target and nothing when none is set (the planner
+        // then plans every day). Tapping the lit chip again removes the target.
+        const daysPerWeek = weeklyTarget(prefs);
         const sessionMins = prefs.session_duration_min ?? 45;
-        const handleDays = (n) => {
-          const prev = pref.training_days_per_week;
+        const handleDays = (tapped) => {
+          const prev = pref[WEEK_TARGET_KEY] ?? null;
+          const n = tapped === daysPerWeek ? null : tapped;
           return chipTap("days", {
-            apply: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), training_days_per_week: n } })),
-            revert: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), training_days_per_week: prev } })),
-            persist: () => api.saveProfile(token, { preferences: { training_days_per_week: n } }),   // the server merges preferences key by key
+            apply: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), [WEEK_TARGET_KEY]: n } })),
+            revert: () => onUpdate((p) => ({ ...p, preferences: { ...(p.preferences ?? {}), [WEEK_TARGET_KEY]: prev } })),
+            persist: () => api.saveProfile(token, { preferences: { [WEEK_TARGET_KEY]: n } }),   // the server merges preferences key by key
+            after: () => clearPlanCache(),   // the server dropped its stored plans; the preview follows
           });
         };
         const handleMins = (m) => {
@@ -1878,7 +1882,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div className="jf-dc__days">
                 {[2, 3, 4, 5].map(n => <button key={n} className={`jf-dc__day${daysPerWeek === n ? " jf-dc__day--on" : ""}`} aria-pressed={daysPerWeek === n} onClick={() => handleDays(n)}>{n}x</button>)}
               </div>
-              {chipLine("days")}
+              {chipLine("days") ?? <div className="jf-dc__rule">{activeCoach !== "general" ? t("Your coach programme sets your training days.")
+                : daysPerWeek ? t("Rest days are planned around {n} training days a week. Tap again to remove the target.", { n: daysPerWeek })
+                : t("No weekly target — the planner plans a session every day.")}</div>}
             </div>
             <div className="jf-dc__section">
               <div className="jf-dc__eyebrow">{t("Session length")}</div>
