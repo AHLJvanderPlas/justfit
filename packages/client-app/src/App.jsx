@@ -1239,7 +1239,7 @@ export default function App() {
                   <path d="M19 3v4" />
                   <path d="M21 5h-4" />
                 </svg>
-                Recalibrate
+                {t("Recalibrate")}
               </button>
             )}
           </header>

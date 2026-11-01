@@ -13,6 +13,8 @@ async function load(lang) {
     i18n: await import('../src/i18n.js'),
     own: await import('../src/ownTraining.js'),
     meta: await import('../src/templateMeta.js'),
+    policy: await import('../src/messagePolicy.js'),
+    utils: await import('../src/planUtils.js'),
   };
 }
 afterEach(() => vi.unstubAllGlobals());
@@ -71,5 +73,374 @@ describe('its callers', () => {
   });
   it('templateNames from a server that sent no Dutch names', async () => {
     expect((await load('nl')).meta.templateNames({ step_names: ['Push-up'] })).toBe('Push-up');
+  });
+});
+
+// ─── Builder v1.6 — a Dutch shell around the sheets ───────────────────────────
+// Every key the Today card, WorkoutView and the Coach header strip resolve through
+// t(). Each must have a Dutch value, and that value must not be the key (a
+// copy-paste would pass a "non-empty" check and ship English).
+const V16_KEYS = [
+  "TODAY",
+  "DAY {n}",
+  "NO SESSION",
+  "{n} moves",
+  "+ {n} more",
+  "START SESSION",
+  "Recovery Mode Active",
+  "Why this plan?",
+  "THIS WEEK",
+  "This week",
+  "Recovery day. Rest is training.",
+  "Designing your session...",
+  "You built this session yourself — it counts like any other.",
+  "Today's session: {name}.",
+  "Your check-in reported significant pain — rest is the right call today.",
+  "Your session is kept gentle until you confirm exercise clearance with your healthcare provider.",
+  "Update clearance in Settings when you're cleared.",
+  "Health & Safety",
+  "Your daily plan is ready.",
+  "users can regenerate.",
+  "Complete the daily check-in to generate today's session.",
+  "{sets} × {dur} run",
+  "Run Day",
+  "Cross-Training · Level {n}",
+  "Cycling",
+  "LOW",
+  "MODERATE",
+  "HIGH",
+  "Rest day",
+  "Micro session",
+  "Full session",
+  "{n} sessions this week — let's get started.",
+  "Goal hit — {done} of {target} sessions done. Bonus available.",
+  "One more to hit your weekly goal.",
+  "{done} of {target} done — {remaining} to go.",
+  "Lose weight & feel better",
+  "Build strength & muscle",
+  "Improve overall fitness",
+  "Boost energy & manage stress",
+  "Build muscle",
+  "Build endurance",
+  "MILITARY COACH",
+  "RUNNING COACH",
+  "CYCLING COACH",
+  "{km}km programme · Week {w}",
+  "Training goal",
+  "General Health",
+  "Build Strength",
+  "Lose Weight",
+  "Build Muscle",
+  "Endurance",
+  "Mobility & Flex",
+  "Beginner",
+  "Intermediate",
+  "Advanced",
+  "Balanced movement & consistency",
+  "Calorie burn & metabolic conditioning",
+  "Progressive strength overload",
+  "Maximum force & compound lifts",
+  "Aerobic capacity & stamina",
+  "Flexibility, range of motion & recovery",
+  "Full-body variety across all domains",
+  "Consistent daily movement",
+  "Military Coach",
+  "Physical Assessment",
+  "Educational Fitness",
+  "↑ {x} target",
+  "Today: {x}",
+  "{kg} kg march",
+  "Below K1",
+  "BLOCK {b} OF 6",
+  "Fit target",
+  "Base build",
+  "On-ramp",
+  "Taper",
+  "Endurance Run",
+  "Strength + March",
+  "Interval Run",
+  "Intervals",
+  "Run Coach",
+  "{km}km Plan · Week {w} of {total}",
+  "Session {a} of {b} this week",
+  "WEEK {w} OF {total}",
+  "Cycle Coach — Cross-Training",
+  "Cycle Coach",
+  "Run · Level {n}",
+  "{n} cross-training runs completed",
+  "HR-based",
+  "Zone 2 — aerobic base",
+  "Sweet Spot — sub-threshold",
+  "Threshold — FTP work",
+  "VO2max — high intensity",
+  "Anaerobic — sprint power",
+  "Intervals — power development",
+  "SPECIALIST COACHING",
+  "Want a structured training programme?",
+  "Add Running, Cycling, or Military coaching as an add-on alongside your current goal.",
+  "Explore coaches →",
+  "Not for me",
+  "Updated how you're feeling?",
+  "Check in →",
+  "Consistency score: {prev} → {score}",
+  "Log extra activity",
+  "Log it →",
+  "Activity logged",
+  "Bonus session — minutes?",
+  "No plan generated",
+  "Try again",
+  "Report sent",
+  "Sending…",
+  "Send report",
+  "Could not reach the plan engine. This is usually a temporary connection issue — check your signal and try again.",
+  "The plan engine returned an unexpected error on the server.",
+  "No exercises matched your current equipment and injury settings. Try adjusting your profile in Settings.",
+  "An unknown error occurred during plan generation.",
+  "~{n} min incl. {m}m overhead",
+  "{n} reps",
+  "Keep original",
+  "Add a note (optional)",
+  "Barely any effort",
+  "Zone 1 · Recovery pace",
+  "Zone 2 · Comfortable, conversational",
+  "Zone 3 · Breathing harder",
+  "Zone 4–5 · Pushing your limits",
+  "Zone 5+ · At or near your limit",
+  "Run {a} · Walk {b} · × {n} rounds",
+  "Your target · {level}",
+  "Pelvic Floor",
+  "Core & Abs",
+  "Active Recovery",
+  "Flexibility & Joint Health",
+  "Cardiovascular System",
+  "Chest & Triceps",
+  "Back & Biceps",
+  "Legs & Glutes",
+  "Shoulders",
+  "Core & Stability",
+  "Full Body Strength",
+  "Start at a pace where you can hold a full conversation. If breathing becomes laboured, slow down or pause — that's not a setback, it's the right call.",
+  "Keep your pace conversational — you should be able to speak short sentences throughout. Progress comes from consistency, not from pushing to breathless today.",
+  "Hold at mild tension — not pain. Breathe into the stretch on each exhale.",
+  "Keep the movement passive. Focus on releasing tension, not working through it.",
+  "Steady effort — you should be able to speak a sentence but feel the work. Zone 2 is where fat burns.",
+  "Zone 2 — conversational pace you can sustain. This builds your aerobic engine.",
+  "Conversational pace throughout. Steady and sustainable beats hard and short.",
+  "Last 2 reps of each set should feel genuinely hard. If they don't, that's your signal to add load next session.",
+  "Control the movement, keep rest short (45–60s). Strength work is metabolic — treat it that way.",
+  "Complete all sets with good form. One quality rep builds more than three sloppy ones.",
+  "Focus on the movement, not the clock. Quality over speed.",
+  "Supports muscle recovery and keeps you ready for your next session.",
+  "Maintains joint range of motion and helps prevent injury over time.",
+  "Trains your heart and lungs — the base that makes every other exercise feel easier.",
+  "A strong core and stable pelvis protect your spine and improve every other movement.",
+  "Bodyweight strength builds movement quality and control before adding load.",
+  "Progressive strength training increases muscle, improves bone density, and raises your resting metabolism.",
+  "Consistent movement in this pattern builds the physical capacity your goal requires.",
+  "Running shoes",
+  "Trail shoes / hiking boots",
+  "Yoga mat",
+  "Resistance bands",
+  "Jump rope",
+  "Foam roller",
+  "Kettlebell",
+  "Pull-up bar",
+  "Adjustable bench",
+  "Stability ball",
+  "Ankle weights",
+  "Barbell",
+  "Weight plates",
+  "Push-up handles",
+  "Medicine ball",
+  "Fitness tracker",
+  "Road / racing bike",
+  "Mountain bike",
+  "Indoor bike trainer",
+  "Stationary bike",
+  "Rowing machine",
+  "Suspension trainer",
+  "Step platform",
+  "Power tower",
+  "Punching bag",
+  "Smith machine",
+  "Elliptical trainer",
+  "Home squat rack",
+  "Cable machine",
+  "Lat pulldown",
+  "Seated row machine",
+  "Chest press machine",
+  "Pec deck / fly machine",
+  "Leg press",
+  "Leg curl machine",
+  "Leg extension machine",
+  "Flat bench",
+  "Dip station / parallel bars",
+  "EZ curl bar",
+  "Multi-gym / home gym station",
+  "Bench press rack",
+  "Burn Session",
+  "Fat Loss Circuit",
+  "Metabolic Boost",
+  "Cardio Burn",
+  "Build Session",
+  "Hypertrophy Block",
+  "Strength & Size",
+  "Muscle Focus",
+  "Endurance Push",
+  "Aerobic Block",
+  "Cardio Session",
+  "Stamina Work",
+  "Strength Session",
+  "Power Block",
+  "Heavy Work",
+  "Strength Focus",
+  "Mobility Flow",
+  "Flexibility Session",
+  "Movement Practice",
+  "Stretch & Recover",
+  "Daily Training",
+  "Health Session",
+  "Full Body",
+  "Balanced Session",
+  "Full Body Circuit",
+  "Mixed Training",
+  "Variety Session",
+  "All-Round Work",
+  "Military Training",
+  "Soldier Prep",
+  "Combat Fitness",
+  "Military Conditioning",
+  "Mobility Session",
+  "Five minutes for you",
+  "Strong & supported",
+  "Today's movement",
+  "A gentle moment",
+  "Rebuilding your foundation",
+  "Today's recovery",
+  "Active Rest",
+  "Micro Session",
+  "Recovery day",
+  "Cooper Test · Block {n} · {x}",
+  "Military · {x} · Block {n}",
+  "Running Day · Week {n} · {x}",
+  "Cycling Day · Week {n} · {x}",
+  "Cross-Training Run · Level {n}",
+  "Zone 2 Run",
+  "Strength & March",
+  "Assessment",
+  "Recalibrate",
+  "General health",
+  "Consistent daily training",
+  "Block {b} of 6 · Session {s} of 4",
+  "Week {w} of {total} · Session {s} of 3",
+  "Week {w} · Session {s} of {total}",
+  "{km}km goal",
+  "Active",
+  "MILITARY · {x}",
+  "RUNNING · {km}km",
+  "CYCLING · WEEK {w}",
+];
+// Loanwords that are the same word in Dutch.
+const SAME_IN_DUTCH = new Set(["Beginner", "Kettlebell", "Power tower", "Lat pulldown"]);
+
+describe('v1.6 shell — every key has its own Dutch value', () => {
+  it('lists 258 keys', () => { expect(V16_KEYS.length).toBe(258); });
+  it('non-empty, and never equal to the key', async () => {
+    const { i18n } = await load('nl');
+    const bad = V16_KEYS.filter((k) => {
+      const nl = i18n.t(k);
+      return !nl || (nl === k && !SAME_IN_DUTCH.has(k));
+    });
+    expect(bad).toEqual([]);
+  });
+  it('the English reader gets the key back, placeholders filled', async () => {
+    const { i18n } = await load('en');
+    expect(i18n.t('{n} moves', { n: 6 })).toBe('6 moves');
+    expect(i18n.t('START SESSION')).toBe('START SESSION');
+  });
+  it('the photographed strings read as the brief says', async () => {
+    const { i18n } = await load('nl');
+    expect(i18n.t('{n} moves', { n: 6 })).toBe('6 oefeningen');
+    expect(i18n.t('+ {n} more', { n: 3 })).toBe('+ 3 meer');
+    expect(i18n.t('START SESSION')).toBe('START SESSIE');
+    expect(i18n.t('Start Workout')).toBe('Start training');
+    expect(i18n.t('Recalibrate').toUpperCase()).toBe('HERIJKEN');
+    expect(i18n.t('Why this plan?')).toBe('Waarom dit plan?');
+    expect(i18n.t('THIS WEEK')).toBe('DEZE WEEK');
+    expect(i18n.t('Improve overall fitness').toUpperCase()).not.toBe('IMPROVE OVERALL FITNESS');
+  });
+  it('training-science terms stay English in both languages', async () => {
+    const { i18n } = await load('nl');
+    for (const term of ['FTP', 'TSS', 'RPE', 'VO2max', 'CTL', 'ATL', 'TSB']) expect(i18n.t(term)).toBe(term);
+  });
+});
+
+describe('v1.6 shell — engine session names', () => {
+  it('t("Health Session") is "Gezondheidssessie" in Dutch, unchanged in English', async () => {
+    expect((await load('nl')).i18n.t('Health Session')).toBe('Gezondheidssessie');
+    expect((await load('en')).i18n.t('Health Session')).toBe('Health Session');
+  });
+  it('sessionTitle: fixed names, parameterised names, and a name the user typed', async () => {
+    const nl = (await load('nl')).policy;
+    expect(nl.sessionTitle('Balanced Session')).toBe('Gebalanceerde sessie');
+    expect(nl.sessionTitle('Fat Loss Circuit')).toBe('Vetverbrandingscircuit');
+    expect(nl.sessionTitle('Micro Session')).toBe('Microsessie');
+    expect(nl.sessionTitle('Military \u00b7 Strength & March \u00b7 Block 3')).toBe('Militair \u00b7 Kracht & mars \u00b7 Blok 3');
+    expect(nl.sessionTitle('Running Day \u00b7 Week 2 \u00b7 Intervals')).toBe('Hardloopdag \u00b7 Week 2 \u00b7 Intervallen');
+    expect(nl.sessionTitle('Cross-Training Run \u00b7 Level 2')).toBe('Crosstraining-run \u00b7 Niveau 2');
+    expect(nl.sessionTitle('Mijn training')).toBe('Mijn training');
+    expect(nl.sessionTitle(undefined)).toBeUndefined();
+    const en = (await load('en')).policy;
+    expect(en.sessionTitle('Military \u00b7 Circuit \u00b7 Block 3')).toBe('Military \u00b7 Circuit \u00b7 Block 3');
+  });
+  it('every goal-name the planner can emit has a Dutch value', async () => {
+    const { i18n } = await load('nl');
+    const names = [
+      'Burn Session', 'Fat Loss Circuit', 'Metabolic Boost', 'Cardio Burn', 'Build Session', 'Hypertrophy Block', 'Strength & Size', 'Muscle Focus',
+      'Endurance Push', 'Aerobic Block', 'Cardio Session', 'Stamina Work', 'Strength Session', 'Power Block', 'Heavy Work', 'Strength Focus',
+      'Mobility Flow', 'Flexibility Session', 'Movement Practice', 'Stretch & Recover', 'Daily Training', 'Health Session', 'Full Body', 'Balanced Session',
+      'Full Body Circuit', 'Mixed Training', 'Variety Session', 'All-Round Work', 'Military Training', 'Soldier Prep', 'Combat Fitness', 'Military Conditioning',
+      'Active Rest', 'Micro Session', 'Five minutes for you', 'Strong & supported', "Today's movement", 'A gentle moment', 'Rebuilding your foundation', "Today's recovery",
+    ];
+    expect(names.filter((n) => i18n.t(n) === n)).toEqual([]);
+  });
+});
+
+describe('v1.6 shell — intensity and slot words, one translation for both screens', () => {
+  it('intensityLabel: LAAG / GEMIDDELD / HOOG in Dutch', async () => {
+    const { intensityLabel } = (await load('nl')).policy;
+    expect(intensityLabel('low')).toBe('LAAG');
+    expect(intensityLabel('moderate')).toBe('GEMIDDELD');
+    expect(intensityLabel('high')).toBe('HOOG');
+  });
+  it('intensityLabel: LOW / MODERATE / HIGH in English', async () => {
+    const { intensityLabel } = (await load('en')).policy;
+    expect(intensityLabel('low')).toBe('LOW');
+    expect(intensityLabel('moderate')).toBe('MODERATE');
+    expect(intensityLabel('HIGH')).toBe('HIGH');
+  });
+  it('an unknown or missing level never crashes', async () => {
+    const { intensityLabel } = (await load('nl')).policy;
+    expect(intensityLabel('extreme')).toBe('EXTREME');
+    expect(intensityLabel(undefined)).toBe('');
+  });
+  it('slotLabel', async () => {
+    expect((await load('nl')).policy.slotLabel('rest')).toBe('Rustdag');
+    expect((await load('en')).policy.slotLabel('micro')).toBe('Micro session');
+    expect((await load('nl')).policy.slotLabel('whatever')).toBe('whatever');
+  });
+});
+
+describe('v1.6 shell — dates in the reader\'s language', () => {
+  const d = new Date(2026, 10, 1); // Sunday 1 Nov 2026
+  it('the strip: "SUN \u00b7 NOV 1" in English, "zo \u00b7 1 nov" in Dutch', async () => {
+    const { fmtDayStrip } = (await load('nl')).utils;
+    expect(fmtDayStrip(d, 'en')).toBe('SUN \u00b7 NOV 1');
+    expect(fmtDayStrip(d, 'nl')).toBe('zo \u00b7 1 nov');
+  });
+  it('the week letters, Monday first', async () => {
+    const { weekdayLetters } = (await load('nl')).utils;
+    expect(weekdayLetters('en').join(' ')).toBe('M T W T F S S');
+    expect(weekdayLetters('nl').join(' ')).toBe('M D W D V Z Z');
   });
 });

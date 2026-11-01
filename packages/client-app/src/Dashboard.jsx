@@ -8,10 +8,10 @@ import { C, display, eyebrow, mono } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
 import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
-import { milClL, formatExDuration, estimateMins } from "./planUtils.js";
+import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import api from "./apiClient.js";
-import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS } from "./messagePolicy.js";
-import { t, exerciseName } from "./i18n.js";
+import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle } from "./messagePolicy.js";
+import { t, useLang, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
 import { OwnTrainingLine, ExtraDoneCard, SaveAsTemplate } from "./EigenTraining.jsx";
@@ -31,7 +31,8 @@ const ACTIVITY_DURATIONS = [15, 20, 30, 45, 60, 90];
 
 // ─── DONE CARD ────────────────────────────────────────────────────────────────
 function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone, onOwnTraining, canSaveTemplate, onTemplateSaved }) {
-  const sessionLabel = completedSession?.name ?? "Session";
+  useLang();
+  const sessionLabel = completedSession?.name ? sessionTitle(completedSession.name) : t("Session");
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const scoreBump = score > prevScore;
   const beforeNight = new Date().getHours() < 23;
@@ -65,7 +66,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
 
       {scoreBump && (
         <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: 16 }}>
-          Consistency score: {prevScore} → {score}
+          {t("Consistency score: {prev} → {score}", { prev: prevScore, score })}
         </div>
       )}
       {!scoreBump && <div style={{ marginBottom: 16 }} />}
@@ -74,15 +75,15 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
       {canSaveTemplate && <SaveAsTemplate defaultName={completedSession?.name} steps={completedSession?.own_steps} onSaved={onTemplateSaved} />}
       <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
 
-      <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>Want more?</div>
+      <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>{t("Want more?")}</div>
 
       {/* Log extra activity — always expanded */}
       {!logDone ? (
         <div style={{ marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Log extra activity</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>{t("Log extra activity")}</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
             {ACTIVITY_TYPES.map(a => (
-              <button key={a.label} onClick={() => setLogType(a)} style={chipStyle(logType?.label === a.label)}>{a.label}</button>
+              <button key={a.label} onClick={() => setLogType(a)} style={chipStyle(logType?.label === a.label)}>{t(a.label)}</button>
             ))}
           </div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
@@ -95,17 +96,17 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
             onClick={() => { onLogActivity(logType.value, logDuration); setLogDone(true); }}
             style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(var(--overlay-rgb),0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : C.onAccent }}
           >
-            Log it →
+            {t("Log it →")}
           </button>
         </div>
       ) : (
-        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>✓ Activity logged</div>
+        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>✓ {t("Activity logged")}</div>
       )}
 
       {/* Bonus session */}
       {!bonusDone && beforeNight && (
         <div>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>Bonus session — minutes?</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>{t("Bonus session — minutes?")}</div>
           <div style={{ display: "flex", gap: 8 }}>
             {[10, 15, 20, 30].map(m => (
               <button key={m} onClick={() => onBonusSession(m)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
@@ -127,6 +128,7 @@ function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSe
  * Renders groups: Safety adaptations | Training adaptations | Suggested actions.
  */
 function WhyPlanPanel({ plan }) {
+  useLang();
   const advisories = parseRuleTrace(plan?.rule_trace);
 
   const hasContent =
@@ -185,7 +187,7 @@ function WhyPlanPanel({ plan }) {
         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
           <polyline points="6 9 12 15 18 9" />
         </svg>
-        Why this plan?
+        {t("Why this plan?")}
       </button>
 
       {open && (
@@ -229,6 +231,7 @@ function WhyPlanPanel({ plan }) {
  * Always visible (role="alert"), not dismissible.
  */
 function BlockingSafetyBanner({ text, cta }) {
+  useLang();
   return (
     <div
       role="alert"
@@ -242,7 +245,7 @@ function BlockingSafetyBanner({ text, cta }) {
       }}
     >
       <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.amber, marginBottom: 6 }}>
-        Health &amp; Safety
+        {t("Health & Safety")}
       </div>
       <p style={{ fontSize: 12, color: C.warningSoft, fontWeight: 600, lineHeight: 1.6, margin: 0 }}>
         {text}
@@ -265,9 +268,10 @@ const PLAN_ERROR_MESSAGES = {
 };
 
 function PlanErrorCard({ planError, onRetry, token, prefs }) {
+  useLang();
   const [reportSent, setReportSent] = useState(false);
   const [reportSending, setReportSending] = useState(false);
-  const msg = PLAN_ERROR_MESSAGES[planError.code] ?? PLAN_ERROR_MESSAGES["PLAN-ERR"];
+  const msg = t(PLAN_ERROR_MESSAGES[planError.code] ?? PLAN_ERROR_MESSAGES["PLAN-ERR"]);
 
   const handleReport = async () => {
     setReportSending(true);
@@ -289,7 +293,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
       <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
         <div style={{ width: 38, height: 38, borderRadius: "50%", background: "rgba(239,68,68,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>⚠</div>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>No plan generated</div>
+          <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{t("No plan generated")}</div>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: C.dangerStrong, fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
         </div>
       </div>
@@ -306,14 +310,14 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
           onClick={onRetry}
           style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: "1px solid rgba(var(--overlay-rgb),0.1)", background: "rgba(var(--overlay-rgb),0.06)", color: C.text, cursor: "pointer" }}
         >
-          Try again
+          {t("Try again")}
         </button>
         <button
           disabled={reportSent || reportSending}
           onClick={handleReport}
           style={{ flex: 1, padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${reportSent ? "rgba(74,222,128,0.3)" : "rgba(239,68,68,0.3)"}`, background: reportSent ? "rgba(74,222,128,0.08)" : "rgba(239,68,68,0.08)", color: reportSent ? "#4ade80" : C.dangerStrong, cursor: reportSent ? "default" : "pointer", opacity: reportSending ? 0.6 : 1, transition: "color 0.2s, border-color 0.2s, background 0.2s" }}
         >
-          {reportSent ? "Report sent ✓" : reportSending ? "Sending…" : "Send report"}
+          {reportSent ? `${t("Report sent")} ✓` : reportSending ? t("Sending…") : t("Send report")}
         </button>
       </div>
     </div>
@@ -383,7 +387,7 @@ function iconKeyFor(ex) {
 
 // Split session name into two display lines
 function splitTitle(name) {
-  if (!name) return ["NO SESSION", ""];
+  if (!name) return [t("NO SESSION"), ""];
   const upper = name.toUpperCase();
   if (upper.length <= 12) return [upper, ""];
   const i = upper.indexOf(" ", 8);
@@ -393,6 +397,7 @@ function splitTitle(name) {
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
+  const lang = useLang();
   const intensityColor = {
     low: C.successSoft,
     moderate: C.emerald,
@@ -429,17 +434,15 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
     const done = (history ?? []).filter(h => h.date >= cutoffStr).length;
     const remaining = Math.max(0, target - done);
     let message;
-    if (done === 0) message = `${target} sessions this week — let's get started.`;
-    else if (done >= target) message = `Goal hit — ${done} of ${target} sessions done. Bonus available.`;
-    else if (remaining === 1) message = `One more to hit your weekly goal.`;
-    else message = `${done} of ${target} done — ${remaining} to go.`;
+    if (done === 0) message = t("{n} sessions this week — let's get started.", { n: target });
+    else if (done >= target) message = t("Goal hit — {done} of {target} sessions done. Bonus available.", { done, target });
+    else if (remaining === 1) message = t("One more to hit your weekly goal.");
+    else message = t("{done} of {target} done — {remaining} to go.", { done, target, remaining });
     return { done, target, message };
   })();
 
   // ── Date line ────────────────────────────────────────────────────────────
-  const dateLine = new Date()
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })
-    .toUpperCase().replace(",", " ·");
+  const dateLine = fmtDayStrip(new Date(), lang);
 
   // ── Streak ────────────────────────────────────────────────────────────────
   const historyDates = useMemo(() => new Set((history ?? []).map(h => h.date)), [history]);
@@ -468,7 +471,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
   };
 
   // ── Derived plan helpers ──────────────────────────────────────────────────
-  const [line1, line2] = splitTitle(plan?.session_name);
+  const [line1, line2] = splitTitle(plan?.session_name ? sessionTitle(plan.session_name) : null);
 
   return (
     <div>
@@ -502,16 +505,16 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         if (milA) {
           const track = pref.military_coach?.track ?? "keuring";
           const lvl   = milClL(track, pref.military_coach?.cluster_current ?? 0);
-          goalText  = "MILITARY COACH";
+          goalText  = t("MILITARY COACH");
           coachText = `${track === "keuring" ? "Keuring" : "Opleiding"} · ${lvl}`;
         } else if (rcA) {
-          goalText  = "RUNNING COACH";
-          coachText = `${pref.run_coach.target_km}km programme · Week ${pref.run_coach.week ?? 1}`;
+          goalText  = t("RUNNING COACH");
+          coachText = t("{km}km programme · Week {w}", { km: pref.run_coach.target_km, w: pref.run_coach.week ?? 1 });
         } else if (ccA) {
-          goalText  = "CYCLING COACH";
+          goalText  = t("CYCLING COACH");
           coachText = `${(pref.cycling_coach.sub_goal ?? "build_fitness").replace(/_/g, " ")} · Week ${pref.cycling_coach.week ?? 1}`;
         } else {
-          goalText  = (GOAL_LABELS[prefs?.training_goal ?? "health"] ?? "Improve overall fitness").toUpperCase();
+          goalText  = t(GOAL_LABELS[prefs?.training_goal ?? "health"] ?? "Improve overall fitness").toUpperCase();
           coachText = null;
         }
         return (
@@ -552,22 +555,22 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     </div>
                   </div>
                 ))}
-                <p style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginTop: 14, textAlign: "center" }}>Designing your session...</p>
+                <p style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginTop: 14, textAlign: "center" }}>{t("Designing your session...")}</p>
               </div>
             ) : plan ? (
               <>
                 {/* Session eyebrow + coach pill in top-right */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>TODAY · DAY {(history ?? []).length + 1}</div>
+                  <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</div>
                   {(() => {
                     const milA = !!(prefs?.preferences?.military_coach?.active);
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
                     const ccA  = !!(prefs?.preferences?.cycling_coach?.active && !prefs?.preferences?.cycling_coach?.completed);
                     if (!milA && !rcA && !ccA) return null;
                     const tagLabel = milA
-                      ? `Military · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
-                      : rcA ? `Running · ${prefs.preferences.run_coach.target_km}km`
-                      : `Cycling · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
+                      ? `${t("Military")} · ${milClL(prefs.preferences.military_coach.track ?? 'keuring', prefs.preferences.military_coach.cluster_current ?? prefs.preferences.military_coach.cluster_target ?? 0)}`
+                      : rcA ? `${t("Running")} · ${prefs.preferences.run_coach.target_km}km`
+                      : `${t("Cycling")} · Week ${prefs.preferences.cycling_coach.week ?? 1}`;
                     return (
                       <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
                         <div style={{ display: "inline-flex", alignItems: "center", gap: 4, ...mono(), fontSize: 10, fontWeight: 700, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--accent)", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", padding: "3px 9px", borderRadius: 99 }}>
@@ -599,34 +602,34 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   )}
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
-                      {plan.run_program.session_type ?? "Run Day"} · Week {plan.run_program.week}
+                      {t(plan.run_program.session_type ?? "Run Day")} · Week {plan.run_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
-                      {plan.cycling_program.session_type ?? "Cycling"} · Week {plan.cycling_program.week}
+                      {t(plan.cycling_program.session_type ?? "Cycling")} · Week {plan.cycling_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cross_training_run && (
                     <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
-                      Cross-Training · Level {plan.cross_training_run.level}
+                      {t("Cross-Training · Level {n}", { n: plan.cross_training_run.level })}
                     </span>
                   )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
                     <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
                       <MilitaryIcon size={10} />
-                      {({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military'}
-                      {plan.military_program.is_base_build ? ' · Base build' : ` · W${plan.military_program.week}`}
+                      {t(({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military')}
+                      {plan.military_program.is_base_build ? ` · ${t("Base build")}` : ` · W${plan.military_program.week}`}
                     </span>
                   )}
                 </div>
                 {/* Coach sentence — rationale below the hero title */}
                 {(() => {
                   const sentence = plan.authored_by_user
-                    ? "You built this session yourself — it counts like any other."
+                    ? t("You built this session yourself — it counts like any other.")
                     : deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard', plan.slot_type ?? '');
                   const fallback = plan.slot_type !== 'rest' && plan.session_name
-                    ? `Today's session: ${plan.session_name.toLowerCase()}.`
+                    ? t("Today's session: {name}.", { name: sessionTitle(plan.session_name).toLowerCase() })
                     : null;
                   const text = sentence ?? fallback;
                   return text ? (
@@ -642,13 +645,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     <span style={{ ...mono(11), color: C.faint, margin: "0 8px" }}>|</span>
                   )}
                   {(plan.steps?.length ?? 0) > 0 && (
-                    <span style={{ ...mono(11), color: C.mutedStrong }}>{plan.steps.length} moves</span>
+                    <span style={{ ...mono(11), color: C.mutedStrong }}>{t("{n} moves", { n: plan.steps.length })}</span>
                   )}
                   {plan.intensity && (plan.steps?.length ?? 0) > 0 && (
                     <span style={{ ...mono(11), color: C.faint, margin: "0 8px" }}>|</span>
                   )}
                   {plan.intensity && (
-                    <span style={{ ...mono(11), color: ic, textTransform: "uppercase" }}>{plan.intensity}</span>
+                    <span style={{ ...mono(11), color: ic, textTransform: "uppercase" }}>{intensityLabel(plan.intensity)}</span>
                   )}
                 </div>
                 {/* Exercise list — first 3 steps with icons */}
@@ -670,7 +673,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                         <span style={{ ...mono(11), color: C.muted }}>
                           {(() => {
                             const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
-                            if (isRunInterval && s.sets > 1 && s.target_duration_sec) return `${s.sets} × ${formatExDuration(s.target_duration_sec)} run`;
+                            if (isRunInterval && s.sets > 1 && s.target_duration_sec) return t("{sets} × {dur} run", { sets: s.sets, dur: formatExDuration(s.target_duration_sec) });
                             if (s.target_reps) return `${s.sets} × ${s.target_reps}`;
                             return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
                           })()}
@@ -680,13 +683,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     ))}
                     {plan.steps.length > 3 && (
                       <div style={{ padding: "8px 14px", fontSize: 11, color: C.muted }}>
-                        + {plan.steps.length - 3} more · {plan.steps.slice(3, 6).map(s => exerciseName(s).toLowerCase()).join(", ")}
+                        {t("+ {n} more", { n: plan.steps.length - 3 })} · {plan.steps.slice(3, 6).map(s => exerciseName(s).toLowerCase()).join(", ")}
                       </div>
                     )}
                   </div>
                 ) : plan.slot_type === "rest" ? (
                   <div style={{ marginBottom: 16 }}>
-                    <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>Recovery day. Rest is training.</p>
+                    <p style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>{t("Recovery day. Rest is training.")}</p>
                     {(() => {
                       const advisories = parseRuleTrace(plan.rule_trace ?? []);
                       const REST_CODES = ["R514", "R539", "R540"];
@@ -738,7 +741,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     cursor: plan.slot_type === "rest" ? "not-allowed" : "pointer",
                   }}
                 >
-                  {plan.slot_type === "rest" ? "Recovery Mode Active" : <>START SESSION <Icons.arrowRight size={20} c={C.onAccent} /></>}
+                  {plan.slot_type === "rest" ? t("Recovery Mode Active") : <>{t("START SESSION")} <Icons.arrowRight size={20} c={C.onAccent} /></>}
                 </button>
                 {/* MANUAL_TRAINING_DESIGN §2 — "Eigen training · Lukt dit niet?". A rest day
                     is advice too: someone who wants to move anyway can, from "Eigen training". */}
@@ -751,9 +754,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 {!todayCompleted && <OwnSessionAssessmentOffer plan={plan} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
-                    Je dagelijkse plan staat klaar.{" "}
+                    {t("Your daily plan is ready.")}{" "}
                     <span onClick={onUpgrade} style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 700 }}>Pro</span>
-                    {" "}gebruikers kunnen opnieuw genereren.
+                    {" "}{t("users can regenerate.")}
                   </div>
                 )}
               </>
@@ -761,7 +764,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", textAlign: "center", gap: 12, padding: "32px 0" }}>
                 <Icons.target size={40} c={C.muted} />
                 <p style={{ fontSize: 14, color: C.muted, fontWeight: 500, lineHeight: 1.5 }}>
-                  Complete the daily check-in to<br />generate today's session.
+                  {t("Complete the daily check-in to generate today's session.")}
                 </p>
                 <OwnTrainingLine whyNot={false} onOwn={onOwnTraining} />
               </div>
@@ -783,8 +786,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           <WhyPlanPanel plan={plan} />
           {hasBlockingSafety(plan.rule_trace) && (
             <BlockingSafetyBanner
-              text="Your session is kept gentle until you confirm exercise clearance with your healthcare provider."
-              cta="Update clearance in Settings when you're cleared."
+              text={t("Your session is kept gentle until you confirm exercise clearance with your healthcare provider.")}
+              cta={t("Update clearance in Settings when you're cleared.")}
             />
           )}
         </>
@@ -807,21 +810,21 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           const mp       = plan?.military_program;
           const clusterTarget  = mil.cluster_target ?? (track === 'keuring' ? 0 : 1);
           const clusterCurrent = mp?.cluster_current ?? mil.cluster_current ?? clusterTarget;
-          const sessionLabel = mp?.session_type ? ({
+          const sessionLabel = mp?.session_type ? t(({
             cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run',
             interval: 'Interval Run', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest',
-          })[mp.session_type] ?? mp.session_type : null;
+          })[mp.session_type] ?? mp.session_type) : null;
           const isCalibration   = mp?.is_calibration_week;
           const isDeload        = mp?.is_deload_week;
           const isTaper         = mp?.is_taper_week;
           const isPostAssess    = mp?.is_post_assessment;
           const isBaseBuild     = mp?.is_base_build;
           const milMode         = mp?.mode ?? mil.mode ?? 'target';
-          const trackLabel      = track === 'keuring' ? 'Physical Assessment' : 'Educational Fitness';
+          const trackLabel      = track === 'keuring' ? t('Physical Assessment') : t('Educational Fitness');
           const overperforming  = clusterCurrent > clusterTarget;
           const lastCooper = mp?.last_cooper_distance_m ?? mil.last_cooper_distance_m ?? null;
           const cooperBenchmark = lastCooper ? (
-            lastCooper < 1800 ? `${lastCooper}m · Below K1` :
+            lastCooper < 1800 ? `${lastCooper}m · ${t("Below K1")}` :
             lastCooper < 2000 ? `${lastCooper}m · K1` :
             lastCooper < 2200 ? `${lastCooper}m · K2` :
             lastCooper < 2400 ? `${lastCooper}m · K3` :
@@ -835,13 +838,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <MilitaryIcon size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Military Coach</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
                     {trackLabel} · {milClL(track, clusterCurrent)}
-                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>↑ {milClL(track, clusterTarget)} target</span>}
+                    {overperforming && <span style={{ fontSize: 10, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
                   </div>
                   {sessionLabel && (
-                    <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Today: {sessionLabel}{mp?.march_kg ? ` · ${mp.march_kg} kg march` : ""}</div>
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Today: {x}", { x: sessionLabel })}{mp?.march_kg ? ` · ${t("{kg} kg march", { kg: mp.march_kg })}` : ""}</div>
                   )}
                   {cooperBenchmark && (
                     <div style={{ fontSize: 10, color: C.muted, marginTop: 1 }}>Cooper: {cooperBenchmark}</div>
@@ -857,7 +860,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                         <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                           <div style={{ height: "100%", width: `${pct}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                         </div>
-                        <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>BLOCK {((bn - 1) % 6) + 1} OF 6</div>
+                        <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("BLOCK {b} OF 6", { b: ((bn - 1) % 6) + 1 })}</div>
                       </div>
                     );
                   })()}
@@ -867,7 +870,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     background: (milMode === 'fit' || isBaseBuild) ? "rgba(16,185,129,0.12)" : isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
                     color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? C.warning : isDeload ? C.emerald : "var(--accent)",
                   }}>
-                    {milMode === 'fit' ? "Fit target" : isBaseBuild ? "Base build" : isPostAssess ? "Open" : isCalibration ? "On-ramp" : isDeload ? "Deload" : "Taper"}
+                    {milMode === 'fit' ? t("Fit target") : isBaseBuild ? t("Base build") : isPostAssess ? t("Open") : isCalibration ? t("On-ramp") : isDeload ? t("Deload") : t("Taper")}
                   </span>
                 )}
               </div>
@@ -886,14 +889,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <Icons.run size={20} c={C.emerald} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Run Coach</div>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{rc.target_km}km Plan · Week {rc.week ?? 1} of {totalWeeks}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {rc.session_in_week ?? 0} of 3 this week</div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Run Coach")}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("{km}km Plan · Week {w} of {total}", { km: rc.target_km, w: rc.week ?? 1, total: totalWeeks })}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Session {a} of {b} this week", { a: rc.session_in_week ?? 0, b: 3 })}</div>
                 <div style={{ marginTop: 8 }}>
                   <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
                     <div style={{ height: "100%", width: `${Math.min(100, ((rc.week ?? 1) / totalWeeks) * 100)}%`, background: "var(--accent)", borderRadius: 2, transition: "width 0.6s" }} />
                   </div>
-                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>WEEK {rc.week ?? 1} OF {totalWeeks}</div>
+                  <div style={{ ...mono(9), color: C.faint, marginTop: 3, letterSpacing: "0.08em" }}>{t("WEEK {w} OF {total}", { w: rc.week ?? 1, total: totalWeeks })}</div>
                 </div>
               </div>
               {canExportRunTcx && (
@@ -928,9 +931,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <Icons.run size={20} c={C.emerald} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach — Cross-Training</div>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Run · Level {level}</div>
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{cc.run_sessions_total ?? 0} cross-training runs completed</div>
+                  <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach — Cross-Training")}</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t("Run · Level {n}", { n: level })}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("{n} cross-training runs completed", { n: cc.run_sessions_total ?? 0 })}</div>
                 </div>
                 {canExportCrossRunTcx && (
                   <button
@@ -964,11 +967,11 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <Icons.cycle size={20} c={C.emerald} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Cycle Coach</div>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? 'HR-based' : `FTP ${cc.ftp_watts ?? 200}W`}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3} this week</div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Cycle Coach")}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>Week {cc.week ?? 1} · {cc.unit === 'hr' ? t('HR-based') : `FTP ${cc.ftp_watts ?? 200}W`}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Session {a} of {b} this week", { a: cc.session_in_week ?? 0, b: cc.cycling_days_per_week ?? 3 })}</div>
                 {sessionTypeLabel && (
-                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{ccPhaseShort} · {sessionTypeLabel}</div>
+                  <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{ccPhaseShort} · {t(sessionTypeLabel)}</div>
                 )}
                 <div style={{ marginTop: 8 }}>
                   <div style={{ height: 3, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 2, overflow: "hidden" }}>
@@ -1013,13 +1016,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 <GoalIcon value={goal.value} size={22} />
               </div>
               <div>
-                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>Training goal</div>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{goal.label}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{GOAL_FOCUS[goal.value] ?? 'Consistent daily movement'}</div>
+                <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t(goal.label)}</div>
+                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t(GOAL_FOCUS[goal.value] ?? 'Consistent daily movement')}</div>
               </div>
             </div>
             <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-              {exp.label}
+              {t(exp.label)}
             </span>
           </Glass>
         );
@@ -1027,9 +1030,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
 
       {/* ── Weekly grid ─────────────────────────────── */}
       <Glass style={{ padding: "16px 20px", marginBottom: 16 }}>
-        <div style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>THIS WEEK</div>
+        <div style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>{t("THIS WEEK")}</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
-          {["M", "T", "W", "T", "F", "S", "S"].map((d, i) => {
+          {weekdayLetters(lang).map((d, i) => {
             const status = weekStatusFor(i);
             return (
               <div key={i} style={{ textAlign: "center" }}>
@@ -1052,7 +1055,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {/* ── Weekly outcome summary ──────────────────── */}
       <Glass style={{ padding: "14px 20px", marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 6 }}>This week</div>
+          <div style={{ ...eyebrow, fontSize: 9.5, color: C.muted, marginBottom: 6 }}>{t("This week")}</div>
           <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
         </div>
         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
@@ -1076,9 +1079,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           <div style={{ background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 16, padding: "16px 18px", marginBottom: 16 }}>
             <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: 12 }}>
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ ...eyebrow, color: "var(--accent)", marginBottom: 6 }}>SPECIALIST COACHING</div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.4, marginBottom: 4 }}>Want a structured training programme?</div>
-                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>Add Running, Cycling, or Military coaching as an add-on alongside your current goal.</div>
+                <div style={{ ...eyebrow, color: "var(--accent)", marginBottom: 6 }}>{t("SPECIALIST COACHING")}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: C.text, lineHeight: 1.4, marginBottom: 4 }}>{t("Want a structured training programme?")}</div>
+                <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{t("Add Running, Cycling, or Military coaching as an add-on alongside your current goal.")}</div>
               </div>
             </div>
             <div style={{ display: "flex", gap: 10 }}>
@@ -1086,13 +1089,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 onClick={() => onNavigateCoach?.()}
                 style={{ flex: 1, padding: "10px 0", borderRadius: 12, fontWeight: 800, fontSize: 12, cursor: "pointer", background: "var(--accent-dim)", border: "1px solid var(--accent-border)", color: "var(--accent)" }}
               >
-                Explore coaches →
+                {t("Explore coaches →")}
               </button>
               <button
                 onClick={() => localStorage.setItem("jf_coach_discovery_dismissed", "1")}
                 style={{ padding: "10px 14px", borderRadius: 12, fontWeight: 700, fontSize: 12, cursor: "pointer", background: "transparent", border: `1px solid ${C.border}`, color: C.muted }}
               >
-                Not for me
+                {t("Not for me")}
               </button>
             </div>
           </div>
@@ -1103,7 +1106,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {!todayCompleted && onCheckIn && (
         <div style={{ textAlign: "center", marginBottom: 16 }}>
           <button onClick={onCheckIn} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, fontFamily: "inherit" }}>
-            Updated how you're feeling? <span style={{ color: "var(--accent)", fontWeight: 700 }}>Check in →</span>
+            {t("Updated how you're feeling?")} <span style={{ color: "var(--accent)", fontWeight: 700 }}>{t("Check in →")}</span>
           </button>
         </div>
       )}

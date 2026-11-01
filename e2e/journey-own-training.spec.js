@@ -270,6 +270,12 @@ test('own training (e) — Dutch exercise names on Today, in the picker and in W
   await expect(page.getByText(dutchOnly.name_nl, { exact: true }).first()).toBeVisible({ timeout: 30_000 });
   if (dutchOnly.name_nl !== dutchOnly.name) await expect(page.getByText(dutchOnly.name, { exact: true })).toHaveCount(0);
 
+  // v1.6 — the shell around the sheets is Dutch too: the primary button, the eyebrow, the week card.
+  await expect(page.getByRole('button', { name: 'START SESSIE' })).toBeVisible();
+  await expect(page.getByRole('button', { name: /START SESSION/ })).toHaveCount(0);
+  await expect(page.getByText(/^VANDAAG · DAG \d+$/)).toBeVisible();
+  await expect(page.getByText('DEZE WEEK', { exact: true })).toBeVisible();
+
   await page.getByRole('button', { name: 'Eigen training' }).click();
   await page.getByRole('button', { name: /^Samenstellen/ }).click();
   await page.getByPlaceholder('Zoek oefeningen…').fill('opdrukken');
@@ -283,6 +289,7 @@ test('own training (e) — Dutch exercise names on Today, in the picker and in W
 
   // WorkoutView: the overview lists it, the instruction header names it — in Dutch.
   await expect(page.getByText('Opdrukken', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
-  await page.getByRole('button', { name: 'Start workout' }).click({ timeout: 15_000 });
+  await expect(page.getByRole('button', { name: 'Start training', exact: true })).toBeVisible({ timeout: 15_000 });
+  await page.getByRole('button', { name: 'Start training', exact: true }).click();
   await expect(page.locator('h1')).toHaveText('Opdrukken', { timeout: 10_000 });
 });

@@ -32,6 +32,23 @@ export function fmtDateNL(ms) {
   return `${days[d.getDay()]} ${d.getDate()} ${months[d.getMonth()]} · ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
 }
 
+// Builder v1.6 — the Today card's date strip and the week grid's day letters, in
+// the reader's language. English keeps "SUN \u00b7 NOV 1"; Dutch reads "zo \u00b7 1 nov".
+export function fmtDayStrip(date = new Date(), lang = 'nl') {
+  const nl = lang !== 'en';
+  const parts = new Intl.DateTimeFormat(nl ? 'nl-NL' : 'en-US', { weekday: 'short', month: 'short', day: 'numeric' }).formatToParts(date);
+  const get = (type) => (parts.find((p) => p.type === type)?.value ?? '').replace(/\.$/, '');
+  return nl
+    ? `${get('weekday')} \u00b7 ${get('day')} ${get('month')}`
+    : `${get('weekday')} \u00b7 ${get('month')} ${get('day')}`.toUpperCase();
+}
+
+// Monday-first single letters: "M T W T F S S" / "M D W D V Z Z".
+export function weekdayLetters(lang = 'nl') {
+  const fmt = new Intl.DateTimeFormat(lang === 'en' ? 'en-US' : 'nl-NL', { weekday: 'narrow' });
+  return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i))).map((l) => l.toUpperCase()); // 2024-01-01 is a Monday
+}
+
 // Format a duration in seconds to a compact human-readable string
 export function formatExDuration(sec) {
   if (!sec) return null;

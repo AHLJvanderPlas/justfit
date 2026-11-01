@@ -15,7 +15,7 @@
 import { useState, lazy, Suspense } from "react";
 import { t, useLang, exerciseName } from "./i18n.js";
 import api from "./apiClient.js";
-import { RULE_LABELS } from "./messagePolicy.js";
+import { RULE_LABELS, sessionTitle } from "./messagePolicy.js";
 import { Sheet } from "./sessionSheet.jsx";
 import { TemplatePickList } from "./MyTrainings.jsx";
 import { runModeChoice, ownSessionBody, checkinForAdvice, sourceRefFor, templateSteps } from "./ownTraining.js";
@@ -237,7 +237,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
       return <Sheet title={t("Own training")} onClose={onClose} padded>{status}{error && back(backTo)}</Sheet>;
     }
     const replaceHint = choice.restDay ? t("Replaces today's rest day.")
-      : choice.planName ? t("Replaces \"{name}\" for today.", { name: choice.planName }) : t("Replaces today's session.");
+      : choice.planName ? t("Replaces \"{name}\" for today.", { name: sessionTitle(choice.planName) }) : t("Replaces today's session.");
     const rowClass = (mode) => `jf-own-row${choice.defaultMode === mode ? " jf-own-row--default" : ""}`;
     return (
       <Sheet title={t("How do you want to do this?")} onClose={onClose} padded>

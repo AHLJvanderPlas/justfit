@@ -211,13 +211,13 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   const primary = pref.primary_intent ?? (milA ? "military" : rcA ? "running" : ccA ? "cycling" : "general");
 
   const coachLabel = primary === 'military' && milA
-    ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
-    : primary === 'running' && rcA ? `RUNNING · ${pref.run_coach.target_km}km`
-    : primary === 'cycling' && ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
+    ? t("MILITARY · {x}", { x: milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) })
+    : primary === 'running' && rcA ? t("RUNNING · {km}km", { km: pref.run_coach.target_km })
+    : primary === 'cycling' && ccA ? t("CYCLING · WEEK {w}", { w: pref.cycling_coach.week ?? 1 })
     : primary === 'general' ? t("GENERAL HEALTH")
-    : milA ? `MILITARY · ${milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0)}`
-    : rcA ? `RUNNING · ${pref.run_coach.target_km}km`
-    : ccA ? `CYCLING · WEEK ${pref.cycling_coach.week ?? 1}`
+    : milA ? t("MILITARY · {x}", { x: milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) })
+    : rcA ? t("RUNNING · {km}km", { km: pref.run_coach.target_km })
+    : ccA ? t("CYCLING · WEEK {w}", { w: pref.cycling_coach.week ?? 1 })
     : t("GENERAL HEALTH");
 
   const activeCoaches = [milA && "military", rcA && "running", ccA && "cycling"].filter(Boolean);
@@ -233,10 +233,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   };
 
   const intents = [
-    { id: "military", label: "Military", headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : t("Not enrolled"), available: milA },
-    { id: "running",  label: "Running",  headline: rcA ? `${pref.run_coach.target_km}km goal` : t("Not enrolled"), available: rcA },
-    { id: "cycling",  label: "Cycling",  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? "Active"}` : t("Not enrolled"), available: ccA },
-    { id: "general",  label: "General health", headline: "Consistent daily training", available: true },
+    { id: "military", label: t("Military"), headline: milA ? milClL(pref.military_coach.track ?? "keuring", pref.military_coach.cluster_current ?? 0) : t("Not enrolled"), available: milA },
+    { id: "running",  label: t("Running"),  headline: rcA ? t("{km}km goal", { km: pref.run_coach.target_km }) : t("Not enrolled"), available: rcA },
+    { id: "cycling",  label: t("Cycling"),  headline: ccA ? `${pref.cycling_coach.sub_goal?.replace(/_/g, " ") ?? t("Active")}` : t("Not enrolled"), available: ccA },
+    { id: "general",  label: t("General health"), headline: t("Consistent daily training"), available: true },
   ];
 
   const mp = plan?.military_program;
@@ -316,17 +316,17 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         </div>
         {primary === 'military' && milA && mp && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            Block {((mp.block_number ?? 1) - 1) % 6 + 1} of 6 · Session {mp.block_session_index ?? 0} of 4
+            {t("Block {b} of 6 \u00b7 Session {s} of 4", { b: ((mp.block_number ?? 1) - 1) % 6 + 1, s: mp.block_session_index ?? 0 })}
           </div>
         )}
         {primary === 'running' && rcA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            Week {rc.week ?? 1} of {({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8} · Session {rc.session_in_week ?? 0} of 3
+            {t("Week {w} of {total} \u00b7 Session {s} of 3", { w: rc.week ?? 1, total: ({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8, s: rc.session_in_week ?? 0 })}
           </div>
         )}
         {primary === 'cycling' && ccA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            Week {cc.week ?? 1} · Session {cc.session_in_week ?? 0} of {cc.cycling_days_per_week ?? 3}
+            {t("Week {w} \u00b7 Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week ?? 0, total: cc.cycling_days_per_week ?? 3 })}
           </div>
         )}
       </div>

@@ -1500,6 +1500,17 @@ else
   fail "plan.js onRequestPost is ${POST_NOW:-not found} lines (ceiling $POST_CEILING) — parsing and decisions belong in _shared/planRequest.js, loading and persistence in the stage functions below the handler"
 fi
 
+# ── v1.6 — a Dutch shell around the sheets (offline source scan) ─────────────
+# The strings the assessment photographed (X1: "TODAY · DAY 1", "START SESSION",
+# "Why this plan?", "THIS WEEK", "RECALIBRATE" …) may only appear inside a t()
+# call in Dashboard / WorkoutView / CoachView (and the Recalibrate button in App).
+if DS_OUT=$(node scripts/dutchShell.scan.mjs 2>&1); then
+  ok "Dutch shell: $DS_OUT"
+else
+  echo "$DS_OUT" | sed 's/^/      /'
+  fail "Dutch shell: an English literal sits outside t() (node scripts/dutchShell.scan.mjs)"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 

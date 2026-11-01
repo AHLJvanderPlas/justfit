@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { C } from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
 import { musclesFor, formatExDuration, estimateMins } from "./planUtils.js";
+import { intensityLabel, sessionTitle } from "./messagePolicy.js";
 import { whyParts } from "../../../functions/api/_shared/exerciseWhy.js";
 import { REGION_LABELS_NL, REGION_LABELS_EN } from "../../../functions/api/_shared/muscles.js";
 import { ALL_EQUIPMENT } from "./appConstants.js";
@@ -585,7 +586,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <button onClick={onBack} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
                   {t('← Back')}
                 </button>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{plan.session_name}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{sessionTitle(plan.session_name)}</div>
                 <div style={{ minWidth: 56 }} />
               </div>
             </div>
@@ -596,13 +597,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
                 {/* Session headline */}
                 <div style={{ marginBottom: 28 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{plan.session_name}</div>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{sessionTitle(plan.session_name)}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} {t('exercises')}</span>
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
-                    {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>~{totalMinsOv} min{ovMins > 0 ? ` incl. ${ovMins}m overhead` : ""}</span>}
+                    {totalMinsOv && <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{ovMins > 0 ? t("~{n} min incl. {m}m overhead", { n: totalMinsOv, m: ovMins }) : `~${totalMinsOv} min`}</span>}
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />
-                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: C.successSoft, moderate: C.emerald, high: C.amber }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{plan.intensity}</span>
+                    <span style={{ fontSize: 12, fontWeight: 800, color: { low: C.successSoft, moderate: C.emerald, high: C.amber }[plan.intensity] ?? C.emerald, textTransform: "uppercase", letterSpacing: "0.08em" }}>{intensityLabel(plan.intensity)}</span>
                   </div>
                 </div>
 
@@ -613,7 +614,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   const stationary = allEquipment.filter(e => stationaryIds.has(e));
                   const Chip = ({ eq }) => (
                     <span style={{ padding: "6px 14px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                      {ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ")}
+                      {t(ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " "))}
                     </span>
                   );
                   return (
@@ -659,7 +660,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                             {isRunInterval
                               ? `${s.sets} × ${s.target_duration_sec}/${metricsRestSec}`
                               : s.target_reps
-                                ? `${s.sets} × ${s.target_reps} reps`
+                                ? `${s.sets} × ${t("{n} reps", { n: s.target_reps })}`
                                 : `${s.sets} × ${formatExDuration(s.target_duration_sec)}`}
                           </span>
                         </div>
@@ -749,21 +750,21 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           // Derive muscle/body target from category + tags + name (no DB change needed)
           const deriveTarget = () => {
             const n = (cur.name ?? "").toLowerCase();
-            if (tags.includes("pelvic_floor")) return "Pelvic Floor";
-            if (tags.includes("crunch") || n.includes("crunch") || n.includes("sit-up") || n.includes("sit up")) return "Core & Abs";
-            if (cur.category === "recovery") return "Active Recovery";
-            if (cur.category === "mobility") return "Flexibility & Joint Health";
-            if (cur.category === "cardio") return "Cardiovascular System";
-            if (n.includes("push") || n.includes("press") || n.includes("chest") || n.includes("dip") || n.includes("tricep")) return "Chest & Triceps";
-            if (n.includes("pull") || n.includes("row") || n.includes("back") || n.includes("bicep") || n.includes("curl") || n.includes("lat")) return "Back & Biceps";
-            if (n.includes("squat") || n.includes("lunge") || n.includes("leg") || n.includes("glute") || n.includes("hip") || n.includes("deadlift") || n.includes("rdl")) return "Legs & Glutes";
-            if (n.includes("shoulder") || n.includes("lateral") || n.includes("overhead") || n.includes("ohp")) return "Shoulders";
-            if (n.includes("plank") || n.includes("core") || n.includes("bridge") || n.includes("hollow") || n.includes("rotation") || n.includes("twist")) return "Core & Stability";
-            if (tags.includes("strength")) return "Full Body Strength";
+            if (tags.includes("pelvic_floor")) return t("Pelvic Floor");
+            if (tags.includes("crunch") || n.includes("crunch") || n.includes("sit-up") || n.includes("sit up")) return t("Core & Abs");
+            if (cur.category === "recovery") return t("Active Recovery");
+            if (cur.category === "mobility") return t("Flexibility & Joint Health");
+            if (cur.category === "cardio") return t("Cardiovascular System");
+            if (n.includes("push") || n.includes("press") || n.includes("chest") || n.includes("dip") || n.includes("tricep")) return t("Chest & Triceps");
+            if (n.includes("pull") || n.includes("row") || n.includes("back") || n.includes("bicep") || n.includes("curl") || n.includes("lat")) return t("Back & Biceps");
+            if (n.includes("squat") || n.includes("lunge") || n.includes("leg") || n.includes("glute") || n.includes("hip") || n.includes("deadlift") || n.includes("rdl")) return t("Legs & Glutes");
+            if (n.includes("shoulder") || n.includes("lateral") || n.includes("overhead") || n.includes("ohp")) return t("Shoulders");
+            if (n.includes("plank") || n.includes("core") || n.includes("bridge") || n.includes("hollow") || n.includes("rotation") || n.includes("twist")) return t("Core & Stability");
+            if (tags.includes("strength")) return t("Full Body Strength");
             return null;
           };
           // Prefer DB-seeded values (migration 0055); fall back to derived
-          const muscleTarget = instr?.muscle_target ?? deriveTarget();
+          const muscleTarget = instr?.muscle_target ? t(instr.muscle_target) : deriveTarget();
           const muscles = musclesFor(cur);
           const hasMuscles = muscles.primary.length > 0 || muscles.secondary.length > 0;
           const gender = prefs?.sex === "female" ? "female" : "male";
@@ -776,8 +777,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             if (bmi < 30) return null;
             const isCardio = cur.category === 'cardio' || tags.includes('cardio');
             if (!isCardio) return null;
-            if (bmi >= 35) return "Start at a pace where you can hold a full conversation. If breathing becomes laboured, slow down or pause — that's not a setback, it's the right call.";
-            return "Keep your pace conversational — you should be able to speak short sentences throughout. Progress comes from consistency, not from pushing to breathless today.";
+            if (bmi >= 35) return t("Start at a pace where you can hold a full conversation. If breathing becomes laboured, slow down or pause — that's not a setback, it's the right call.");
+            return t("Keep your pace conversational — you should be able to speak short sentences throughout. Progress comes from consistency, not from pushing to breathless today.");
           })();
 
           // Interval structure: detected by slug for run/walk intervals
@@ -790,7 +791,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             return s > 0 ? `${m}:${String(s).padStart(2,'0')}` : `${m} min`;
           };
           const intervalStructureText = isRunInterval && cur.sets > 1 && cur.target_duration_sec
-            ? `Run ${formatIntervalTime(cur.target_duration_sec)} · Walk ${formatIntervalTime(cur.rest_sec)} · × ${cur.sets} rounds`
+            ? t("Run {a} \u00b7 Walk {b} \u00b7 \u00d7 {n} rounds", { a: formatIntervalTime(cur.target_duration_sec), b: formatIntervalTime(cur.rest_sec), n: cur.sets })
             : null;
 
           // Final "Your target" content — prefer level-specific cue, fall back to interval structure
@@ -800,19 +801,19 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           const derivedTargetText = (() => {
             if (targetCardText) return null;
             const goal = prefs?.training_goal ?? 'health';
-            if (cur.category === 'mobility') return "Hold at mild tension — not pain. Breathe into the stretch on each exhale.";
-            if (cur.category === 'recovery') return "Keep the movement passive. Focus on releasing tension, not working through it.";
+            if (cur.category === 'mobility') return t("Hold at mild tension — not pain. Breathe into the stretch on each exhale.");
+            if (cur.category === 'recovery') return t("Keep the movement passive. Focus on releasing tension, not working through it.");
             if (cur.category === 'cardio' || tags.includes('cardio')) {
-              if (goal === 'fat_loss') return "Steady effort — you should be able to speak a sentence but feel the work. Zone 2 is where fat burns.";
-              if (goal === 'endurance') return "Zone 2 — conversational pace you can sustain. This builds your aerobic engine.";
-              return "Conversational pace throughout. Steady and sustainable beats hard and short.";
+              if (goal === 'fat_loss') return t("Steady effort — you should be able to speak a sentence but feel the work. Zone 2 is where fat burns.");
+              if (goal === 'endurance') return t("Zone 2 — conversational pace you can sustain. This builds your aerobic engine.");
+              return t("Conversational pace throughout. Steady and sustainable beats hard and short.");
             }
             if (cur.category === 'strength' || tags.includes('strength') || cur.category === 'mixed') {
-              if (goal === 'strength' || goal === 'muscle_gain') return "Last 2 reps of each set should feel genuinely hard. If they don't, that's your signal to add load next session.";
-              if (goal === 'fat_loss') return "Control the movement, keep rest short (45–60s). Strength work is metabolic — treat it that way.";
-              return "Complete all sets with good form. One quality rep builds more than three sloppy ones.";
+              if (goal === 'strength' || goal === 'muscle_gain') return t("Last 2 reps of each set should feel genuinely hard. If they don't, that's your signal to add load next session.");
+              if (goal === 'fat_loss') return t("Control the movement, keep rest short (45–60s). Strength work is metabolic — treat it that way.");
+              return t("Complete all sets with good form. One quality rep builds more than three sloppy ones.");
             }
-            return "Focus on the movement, not the clock. Quality over speed.";
+            return t("Focus on the movement, not the clock. Quality over speed.");
           })();
 
           // General cues = non-level-specific cues shown in "Why this helps".
@@ -830,13 +831,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           const derivedWhy = (() => {
             if (cleanCues.length > 0) return null;
             if (instr?.why) return instr.why;
-            if (cur.category === 'recovery') return "Supports muscle recovery and keeps you ready for your next session.";
-            if (cur.category === 'mobility') return "Maintains joint range of motion and helps prevent injury over time.";
-            if (cur.category === 'cardio') return "Trains your heart and lungs — the base that makes every other exercise feel easier.";
-            if (tags.includes('core') || tags.includes('pelvic_floor')) return "A strong core and stable pelvis protect your spine and improve every other movement.";
-            if (tags.includes('bodyweight')) return "Bodyweight strength builds movement quality and control before adding load.";
-            if (cur.category === 'strength') return "Progressive strength training increases muscle, improves bone density, and raises your resting metabolism.";
-            return "Consistent movement in this pattern builds the physical capacity your goal requires.";
+            if (cur.category === 'recovery') return t("Supports muscle recovery and keeps you ready for your next session.");
+            if (cur.category === 'mobility') return t("Maintains joint range of motion and helps prevent injury over time.");
+            if (cur.category === 'cardio') return t("Trains your heart and lungs — the base that makes every other exercise feel easier.");
+            if (tags.includes('core') || tags.includes('pelvic_floor')) return t("A strong core and stable pelvis protect your spine and improve every other movement.");
+            if (tags.includes('bodyweight')) return t("Bodyweight strength builds movement quality and control before adding load.");
+            if (cur.category === 'strength') return t("Progressive strength training increases muscle, improves bone density, and raises your resting metabolism.");
+            return t("Consistent movement in this pattern builds the physical capacity your goal requires.");
           })();
 
           return (
@@ -881,7 +882,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                     {exEquip.map(eq => (
                       <span key={eq} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
-                        {ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " ")}
+                        {t(ALL_EQUIPMENT.find(e => e.value === eq)?.label ?? eq.replace(/_/g, " "))}
                       </span>
                     ))}
                     {showMatHint && (
@@ -939,7 +940,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               {(targetCardText || derivedTargetText) && (
                 <div style={{ borderRadius: 20, padding: "16px 20px", background: "rgba(var(--accent-rgb),0.08)", border: "1px solid rgba(var(--accent-rgb),0.3)" }}>
                   <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
-                    {targetCardText ? t('Your target · {level}', { level: expLevel.charAt(0).toUpperCase() + expLevel.slice(1) }) : t('Your target today')}
+                    {targetCardText ? t('Your target · {level}', { level: t(expLevel.charAt(0).toUpperCase() + expLevel.slice(1)) }) : t('Your target today')}
                   </div>
                   <p style={{ fontSize: 15, fontWeight: 700, color: C.emerald, margin: 0, lineHeight: 1.6 }}>{targetCardText ?? derivedTargetText}</p>
                   {/* For intervals: also show pace guidance from level-specific cue if we're showing the structure */}
@@ -1041,7 +1042,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
                   {isTimeBased
                     ? `${adjustedDuration ?? cur.target_duration_sec ?? 30}s`
-                    : `${targetReps} reps`}
+                    : t("{n} reps", { n: targetReps })}
                 </div>
                 {adjustLabel && (
                   <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2, transition: "opacity 0.3s" }}>
@@ -1371,11 +1372,11 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               return { label: t("Too heavy"), sub: t("Reduce weight or reps next session"), color: C.dangerStrong };
             }
             // Cardio / general
-            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? "Zone 1 · Recovery pace" : "Barely any effort", color: C.info };
-            if (v <= 4) return { label: t("Easy"), sub: isCardio ? "Zone 2 · Comfortable, conversational" : t("Low effort \u2014 could do much more"), color: C.emerald };
-            if (v <= 6) return { label: t("Moderate"), sub: isCardio ? "Zone 3 · Breathing harder" : t("Good effort"), color: "#84cc16" };
-            if (v <= 8) return { label: t("Hard"), sub: isCardio ? "Zone 4\u20135 · Pushing your limits" : t("Near your limit"), color: C.amber };
-            return { label: t("Maximum"), sub: isCardio ? "Zone 5+ · At or near your limit" : t("Max effort \u2014 could not have done more"), color: C.dangerStrong };
+            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? t("Zone 1 · Recovery pace") : t("Barely any effort"), color: C.info };
+            if (v <= 4) return { label: t("Easy"), sub: isCardio ? t("Zone 2 · Comfortable, conversational") : t("Low effort \u2014 could do much more"), color: C.emerald };
+            if (v <= 6) return { label: t("Moderate"), sub: isCardio ? t("Zone 3 · Breathing harder") : t("Good effort"), color: "#84cc16" };
+            if (v <= 8) return { label: t("Hard"), sub: isCardio ? t("Zone 4\u20135 · Pushing your limits") : t("Near your limit"), color: C.amber };
+            return { label: t("Maximum"), sub: isCardio ? t("Zone 5+ · At or near your limit") : t("Max effort \u2014 could not have done more"), color: C.dangerStrong };
           };
 
           const rpeConfig = getRpeConfig(rpeValue);
@@ -1514,7 +1515,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 onClick={() => setShowAlternatives(false)}
                 style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontWeight: 700, fontSize: 14, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
               >
-                Keep original
+                {t("Keep original")}
               </button>
             </div>
           </div>

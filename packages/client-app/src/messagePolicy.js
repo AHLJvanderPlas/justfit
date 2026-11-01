@@ -10,6 +10,8 @@
  *  system_error       — dedicated error card + retry action
  */
 
+import { t } from './i18n.js';
+
 // ── Rule code → severity bucket ──────────────────────────────────────────────
 export const RULE_POLICY = {
   // blocking_safety
@@ -439,4 +441,40 @@ export function deriveChipLabel(ruleTrace, sessionNotes) {
   if (notesLower.includes('bmi'))                         return 'Adapted for you';
   if (sessionNotes)                                       return 'Adapted today';
   return null;
+}
+
+// ── Builder v1.6 — words the Today card and WorkoutView share ─────────────────
+// Keys are the English words (i18n.js holds the Dutch). Resolved at render, never
+// at module load, because the language can change at runtime.
+export const INTENSITY_LABELS = { low: 'LOW', moderate: 'MODERATE', high: 'HIGH' };
+export const SLOT_LABELS = { rest: 'Rest day', micro: 'Micro session', main: 'Full session' };
+
+export function intensityLabel(level) {
+  const key = INTENSITY_LABELS[String(level ?? '').toLowerCase()];
+  return key ? t(key) : String(level ?? '').toUpperCase();
+}
+
+export function slotLabel(slot) {
+  const key = SLOT_LABELS[slot];
+  return key ? t(key) : String(slot ?? '');
+}
+
+// The engine's session names. The fixed ones are keys of their own; the ones with
+// a number in them are matched here and translated through a key with placeholders.
+// Anything else (a template name the user typed, "Mijn training") passes through.
+const NAME_PATTERNS = [
+  [/^Cooper Test \u00b7 Block (\d+) \u00b7 (.+)$/, 'Cooper Test \u00b7 Block {n} \u00b7 {x}', (m) => ({ n: m[1], x: t(m[2]) })],
+  [/^Military \u00b7 (.+) \u00b7 Block (\d+)$/, 'Military \u00b7 {x} \u00b7 Block {n}', (m) => ({ n: m[2], x: t(m[1]) })],
+  [/^Running Day \u00b7 Week (\d+) \u00b7 (.+)$/, 'Running Day \u00b7 Week {n} \u00b7 {x}', (m) => ({ n: m[1], x: t(m[2]) })],
+  [/^Cycling Day \u00b7 Week (\d+) \u00b7 (.+)$/, 'Cycling Day \u00b7 Week {n} \u00b7 {x}', (m) => ({ n: m[1], x: t(m[2]) })],
+  [/^Cross-Training Run \u00b7 Level (\d+)$/, 'Cross-Training Run \u00b7 Level {n}', (m) => ({ n: m[1] })],
+];
+
+export function sessionTitle(name) {
+  if (!name) return name;
+  for (const [re, key, vars] of NAME_PATTERNS) {
+    const m = re.exec(name);
+    if (m) return t(key, vars(m));
+  }
+  return t(name);
 }
