@@ -215,7 +215,6 @@ const NL = {
   '{n} of {total} exercises': '{n} van {total} oefeningen',
   'Set {current}/{total}': 'Set {current}/{total}',
   'Quit workout?': 'Training stoppen?',
-  "Your progress won't be saved.": 'Je voortgang wordt niet opgeslagen.',
   'Resume': 'Doorgaan',
   'Quit': 'Stoppen',
   'Tip: disable auto-lock in Phone Settings to keep your screen on.': 'Tip: zet automatisch vergrendelen uit in Telefooninstellingen om je scherm aan te houden.',
@@ -657,22 +656,28 @@ const NL = {
     'Volume verminderd \u2014 kortademigheid gemeld.',
   'Gentle postnatal movement \u2014 rebuilding from the ground up.':
     'Zachte postnatale beweging \u2014 opnieuw opbouwen van de grond af.',
-  'Pelvic floor work prioritised in today\u2019s session.':
+  "Pelvic floor work prioritised in today's session.":
     'Bekkenbodemoefeningen geprioriteerd in de sessie van vandaag.',
-  'Intensity capped for this trimester \u2014 adapted for pregnancy.':
-    'Intensiteit begrensd voor dit trimester \u2014 aangepast voor zwangerschap.',
-  'High-impact exercises removed \u2014 adapted for pregnancy.':
-    'Hoge-impact oefeningen verwijderd \u2014 aangepast voor zwangerschap.',
+  // UAT release 2 — the pregnancy prefix is added by deriveCoachSentence, so these
+  // no longer repeat it ("… — adapted for pregnancy — … adapted for pregnancy").
+  'Intensity capped for this trimester.': 'Intensiteit begrensd voor dit trimester.',
+  'High-impact exercises are left out.': 'Oefeningen met hoge impact blijven weg.',
+  "Pelvic floor work added to today's session.": 'Bekkenbodemoefeningen toegevoegd aan de sessie van vandaag.',
+  'Intensity eased \u2014 a low-mood day calls for something kinder.':
+    'Intensiteit omlaag \u2014 een dag met weinig zin vraagt om iets vriendelijkers.',
+  'Session adjusted around your pain areas \u2014 stop if anything feels sharp.':
+    'Sessie aangepast rond je pijnplekken \u2014 stop als iets scherp aanvoelt.',
+  "Self-measurement in today's session \u2014 max push-ups and sit-ups.":
+    'Zelfmeting in de sessie van vandaag \u2014 maximaal opdrukken en sit-ups.',
+  // body-mode fallback lines (coachLine) — the part after the prefix
+  'Steady, safe movement for today.': 'Rustig en veilig bewegen vandaag.',
+  'Gentle movement to rebuild your strength.': 'Zacht bewegen om je kracht weer op te bouwen.',
   'Joint-load exercises filtered around your reported pain areas.':
     'Gewrichtsbelastende oefeningen gefilterd rond je gerapporteerde pijngebieden.',
   'Low-impact cardio today \u2014 protecting your joints while building capacity.':
     'Lage-impact cardio vandaag \u2014 gewrichten beschermen terwijl je capaciteit opbouwt.',
   'Walk-run intervals \u2014 the safe way to build running capacity.':
     'Loop-ren intervallen \u2014 de veilige manier om hardloopcapaciteit op te bouwen.',
-  'Mobility added \u2014 it\u2019s been a while since your last flexibility session.':
-    'Mobiliteit toegevoegd \u2014 het is een tijdje geleden sinds je laatste flexibiliteitssessie.',
-  'Weakest fitness area targeted \u2014 balanced development over time.':
-    'Zwakste fitnessgebied gericht \u2014 gebalanceerde ontwikkeling over tijd.',
   'Perimenopause mode \u2014 intensity capped at moderate, session adapted for hormonal fluctuation.':
     'Perimenopauze modus \u2014 intensiteit begrensd op matig, sessie aangepast voor hormonale schommelingen.',
   'Polarised training day \u2014 alternating Zone 2 and high-intensity work.':
@@ -1530,4 +1535,19 @@ const NL = {
   "Trial active": "Proefperiode actief",
   "{n} day of free Pro access left": "Nog {n} dag gratis Pro toegang",
   "{n} days of free Pro access left": "Nog {n} dagen gratis Pro toegang",
+  // ── UAT release 2 — Today diet ───────────────────────────────────────────────
+  "Easy session": "Rustige sessie",
+  "Changed today": "Vandaag aangepast",
+  "Always on": "Altijd van kracht",
+  "More ({n})": "Meer ({n})",
+  "DCP measurement · max in {m} min": "DCP-meting · max in {m} min",
+  "Consistency score: {score}": "Consistentiescore: {score}",
+  "Bonus session": "Bonussessie",
+  "Activity": "Activiteit",
+  "Minutes": "Minuten",
+  "Stopped after {n} of {m} exercises": "Gestopt na {n} van {m} oefeningen",
+  "Stop and save": "Stoppen en bewaren",
+  "Discard": "Weggooien",
+  "Stop and save keeps the sets you did and counts today. Discard throws this session away.": "Stoppen en bewaren houdt de sets die je deed en telt vandaag mee. Weggooien gooit deze sessie weg.",
+  "No set done yet, so there is nothing to save.": "Nog geen set gedaan, dus er valt niets te bewaren.",
 };

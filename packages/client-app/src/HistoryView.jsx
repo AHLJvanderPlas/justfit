@@ -14,6 +14,7 @@ import { dcpMeasurePlanned } from "./dcpUi.js";
 import { axisLabel } from "./messagePolicy.js";
 import { insightLines, plannerLines, goalDescription } from "./progressCopy.js";
 import { activeCoachOf, pathGoal } from "./coachPath.js";
+import { showedUp } from "./sessionOutcome.js";   // UAT R2 — a stopped session with sets done counts
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -22,7 +23,7 @@ const MetricCurve = lazy(() => import("./MetricCurve.jsx").then(m => ({ default:
 
 // ─── SHARE PROGRESS ───────────────────────────────────────────────────────────
 async function shareProgressImage(history, streak, accentHex) {
-  const completed = history.filter(h => h.status === "completed");
+  const completed = history.filter(showedUp);
 
   // Build 12-week bar data
   const weekCounts = {};
@@ -148,7 +149,7 @@ function getIsoWeek(dateStr) {
 }
 
 function computeStreak(history) {
-  const dates = new Set(history.filter(h => h.status === "completed").map(h => h.date));
+  const dates = new Set(history.filter(showedUp).map(h => h.date));
   if (!dates.size) return 0;
   let streak = 0;
   const d = new Date();
@@ -164,7 +165,7 @@ function computeStreak(history) {
 }
 
 function trajectorySentence(history) {
-  const completed = history.filter(h => h.status === "completed");
+  const completed = history.filter(showedUp);
   const now = new Date();
   const weekKeys = [];
   for (let i = 4; i >= 1; i--) {
@@ -187,7 +188,7 @@ function trajectorySentence(history) {
 function weeklyOutcomeSentence(history) {
   const now = new Date();
   const thisWeekKey = getIsoWeek(now.toISOString().slice(0, 10));
-  const completed = history.filter(h => h.status === "completed");
+  const completed = history.filter(showedUp);
   const thisWeekCount = completed.filter(h => getIsoWeek(h.date) === thisWeekKey).length;
 
   const trailingCounts = [];
@@ -207,7 +208,7 @@ function weeklyOutcomeSentence(history) {
 }
 
 function TrajectoryChart({ history, accentHex }) {
-  const completed = history.filter(h => h.status === "completed");
+  const completed = history.filter(showedUp);
   const weekCounts = {};
   completed.forEach(h => { const wk = getIsoWeek(h.date); weekCounts[wk] = (weekCounts[wk] || 0) + 1; });
   const now = new Date();
@@ -750,7 +751,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
       if (!sparkWeeks.includes(wk)) sparkWeeks.push(wk);
     }
     const allWeekCounts = {};
-    history.filter(h => h.status === "completed").forEach(h => { const wk = getIsoWeek(h.date); allWeekCounts[wk] = (allWeekCounts[wk] || 0) + 1; });
+    history.filter(showedUp).forEach(h => { const wk = getIsoWeek(h.date); allWeekCounts[wk] = (allWeekCounts[wk] || 0) + 1; });
     const sparkCounts = sparkWeeks.map(wk => allWeekCounts[wk] ?? 0);
 
     // Total minutes trained this week
@@ -766,7 +767,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
   })();
 
   const streak = computeStreak(history);
-  const completedCount = history.filter(h => h.status === "completed").length;
+  const completedCount = history.filter(showedUp).length;
 
   return (
     <div>
@@ -1369,7 +1370,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
           {/* ── Recent sessions ── */}
           {(() => {
-            const recent = history.filter(h => h.status === "completed").slice(0, 5);
+            const recent = history.filter(showedUp).slice(0, 5);
             if (!recent.length) return null;
             return (
               <div style={{ marginBottom: 20 }}>

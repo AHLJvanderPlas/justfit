@@ -81,6 +81,12 @@ test('check-in "Taking it easy" → Today is a recovery session, kept through a 
     return row?.plan_json ? { ...JSON.parse(row.plan_json), id: row.id } : row;   // id: stored, not in-memory
   };
   const r559 = (plan) => (plan?.rule_trace ?? []).some((t) => /R559/.test(t));
+  // (a) UAT release 2 — "Why this plan?" is closed on the first view of Today (it used to
+  //     open by itself with 10–15 bullets).
+  const why = page.getByRole('button', { name: 'Why this plan?' });
+  await expect(why).toBeVisible();
+  await expect(why).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.getByTestId('why-panel')).toHaveCount(0);
   await waitForStoredPlan(page);
   expect(r559(await stored()), 'no recovery mode before the check-in says so').toBe(false);
 
@@ -93,8 +99,15 @@ test('check-in "Taking it easy" → Today is a recovery session, kept through a 
   await expect.poll(async () => { const p = await stored(); return r559(p) && p.intensity; },
     { timeout: 30_000, message: 'the check-in should replan today as a recovery session (R559, low)' }).toBe('low');
   await expect(page.getByText('LOW', { exact: true }).first()).toBeVisible({ timeout: 20_000 });
-  const why = page.getByRole('button', { name: 'Why this plan?' });
-  if ((await why.getAttribute('aria-expanded')) !== 'true') await why.click();
+  // (b) UAT release 2 — the coach sentence names the check-in rule, not the goal line, and
+  //     the title follows the session ("EASY SESSION", not the goal-based name).
+  const coach = page.getByTestId('coach-sentence');
+  await expect(coach).toHaveText('Taking it easy today — mobility and recovery only.', { timeout: 20_000 });
+  await expect(coach).not.toHaveText(/Today's session:/);
+  await expect(page.getByText('EASY SESSION', { exact: true })).toBeVisible();
+  await expect(why).toHaveAttribute('aria-expanded', 'false');
+  await why.click();
+  await expect(page.getByTestId('why-panel').getByText('Changed today')).toBeVisible();
   await expect(page.getByText('Recovery mode — low intensity, mobility and recovery exercises only.')).toBeVisible();
 
   // (b) Changing the path regenerates WITHOUT a check-in (path_change, UAT D3); the

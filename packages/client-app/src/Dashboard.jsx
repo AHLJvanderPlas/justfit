@@ -3,7 +3,7 @@
 // prop, as it does for CoachView. App starts the import at module scope (like
 // WorkoutView) because this is the first screen, so the chunk loads in
 // parallel with first render instead of after it.
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
@@ -11,214 +11,61 @@ import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
-import { parseRuleTrace, hasBlockingSafety, deriveCoachSentence, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, coachSentenceT, cycleSubGoalLabel } from "./messagePolicy.js";
+import { parseRuleTrace, hasBlockingSafety, classifyAdvisories, coachLine, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, cycleSubGoalLabel } from "./messagePolicy.js";
+import { dcpTodayMeta } from "./dcpUi.js";
+import DoneCard from "./DoneCard.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { generateCyclingTcx, triggerFileDownload, generateZwoFile, generateErgFile, generateRunningTcx } from "./exportUtils.js";
 import { OwnSessionAssessmentOffer } from "./MyTrainings.jsx";
-import { OwnTrainingLine, ExtraDoneCard, SaveAsTemplate } from "./EigenTraining.jsx";
+import { OwnTrainingLine, ExtraDoneCard } from "./EigenTraining.jsx";
 import { ownLine } from "./ownTraining.js";
-
-// ─── LOG ACTIVITY MODAL ───────────────────────────────────────────────────────
-const ACTIVITY_TYPES = [
-  { label: "Run",   value: "run"   },
-  { label: "Walk",  value: "walk"  },
-  { label: "Cycle", value: "bike"  },
-  { label: "Swim",  value: "mixed" },
-  { label: "Sport", value: "mixed" },
-  { label: "Other", value: "mixed" },
-];
-
-const ACTIVITY_DURATIONS = [15, 20, 30, 45, 60, 90];
-
-// ─── DONE CARD ────────────────────────────────────────────────────────────────
-function DoneCard({ score, prevScore, completedSession, onLogActivity, onBonusSession, bonusDone, onOwnTraining, canSaveTemplate, onTemplateSaved }) {
-  useLang();
-  const sessionLabel = completedSession?.name ? sessionTitle(completedSession.name) : t("Session");
-  const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
-  const scoreBump = score > prevScore;
-  const beforeNight = new Date().getHours() < 23;
-  const [logType, setLogType] = useState(null);
-  const [logDuration, setLogDuration] = useState(null);
-  const [logDone, setLogDone] = useState(false);
-
-  const chipStyle = (active) => ({
-    padding: "8px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer",
-    border: active ? `1px solid ${C.emeraldBorder}` : `1px solid ${C.border}`,
-    background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-    color: active ? C.emerald : C.muted,
-  });
-
-  return (
-    <div style={{ padding: 28, display: "flex", flexDirection: "column", gap: 0, background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.12) 0%, rgba(var(--bg-rgb),0.8) 60%)", border: "1px solid rgba(var(--accent-rgb),0.4)", borderRadius: 20 }}>
-      {/* Checkmark */}
-      <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-        <div style={{ width: 52, height: 52, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, boxShadow: "0 0 20px rgba(var(--accent-rgb),0.25)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
-        </div>
-        <div>
-          <div style={{ fontSize: 20, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{t("Session Complete")}</div>
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 3 }}>
-            {sessionLabel}{mins ? ` · ${mins} min` : ""}
-          </div>
-        </div>
-      </div>
-
-      <div style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 6 }}>{t("Great work. You showed up today.")}</div>
-
-      {scoreBump && (
-        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: 16 }}>
-          {t("Consistency score: {prev} → {score}", { prev: prevScore, score })}
-        </div>
-      )}
-      {!scoreBump && <div style={{ marginBottom: 16 }} />}
-
-      {/* §6 — a session the user wrote, not started from a saved training */}
-      {canSaveTemplate && <SaveAsTemplate defaultName={completedSession?.name} steps={completedSession?.own_steps} onSaved={onTemplateSaved} />}
-      <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
-
-      <div style={{ fontSize: 12, fontWeight: 800, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 14 }}>{t("Want more?")}</div>
-
-      {/* Log extra activity — always expanded */}
-      {!logDone ? (
-        <div style={{ marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>{t("Log extra activity")}</div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
-            {ACTIVITY_TYPES.map(a => (
-              <button key={a.label} onClick={() => setLogType(a)} style={chipStyle(logType?.label === a.label)}>{t(a.label)}</button>
-            ))}
-          </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginBottom: 12 }}>
-            {ACTIVITY_DURATIONS.map(d => (
-              <button key={d} onClick={() => setLogDuration(d)} style={chipStyle(logDuration === d)}>{d}m</button>
-            ))}
-          </div>
-          <button
-            disabled={!logType || !logDuration}
-            onClick={() => { onLogActivity(logType.value, logDuration); setLogDone(true); }}
-            style={{ width: "100%", padding: "12px 0", borderRadius: 12, fontSize: 13, fontWeight: 900, cursor: (!logType || !logDuration) ? "not-allowed" : "pointer", border: "none", background: (!logType || !logDuration) ? "rgba(var(--overlay-rgb),0.06)" : C.emerald, color: (!logType || !logDuration) ? C.muted : C.onAccent }}
-          >
-            {t("Log it →")}
-          </button>
-        </div>
-      ) : (
-        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginBottom: (!bonusDone && beforeNight) ? 20 : 0 }}>✓ {t("Activity logged")}</div>
-      )}
-
-      {/* Bonus session */}
-      {!bonusDone && beforeNight && (
-        <div>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", textTransform: "uppercase", color: C.muted, marginBottom: 10 }}>{t("Bonus session — minutes?")}</div>
-          <div style={{ display: "flex", gap: 8 }}>
-            {[10, 15, 20, 30].map(m => (
-              <button key={m} onClick={() => onBonusSession(m)} style={{ flex: 1, padding: "12px 0", borderRadius: 12, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald }}>
-                {m}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      <OwnTrainingLine whyNot={false} onOwn={onOwnTraining} />
-    </div>
-  );
-}
 
 // ─── MESSAGE COMPONENTS ────────────────────────────────────────────────────────
 /**
- * Collapsible "Why this plan?" panel — shows below session header, above exercise list.
- * Auto-expands the first time it's seen (tracked in localStorage).
- * Renders groups: Safety adaptations | Training adaptations | Suggested actions.
+ * "Why this plan?" — closed until tapped (UAT release 2; it used to open on the
+ * first view of each day with 10–15 bullets). Inside: the rules that changed
+ * TODAY first, then the standing safety and body-mode ones, then the engine's
+ * structure behind "More" (messagePolicy.classifyAdvisories decides which is which).
  */
 function WhyPlanPanel({ plan }) {
   useLang();
-  const advisories = parseRuleTrace(plan?.rule_trace);
-
-  const hasContent =
-    advisories.safety.length > 0 ||
-    advisories.training.length > 0 ||
-    advisories.suggested.length > 0;
-
-  // date is more stable than id: plan IDs change on regeneration, date stays the same day
-  const panelKey = `jf_whypanel_${plan?.date ?? plan?.id ?? "default"}`;
-  // Auto-expand on first view per day; collapsed by default after that
-  const [open, setOpen] = useState(() => !localStorage.getItem(panelKey));
-
-  useEffect(() => {
-    if (!localStorage.getItem(panelKey)) localStorage.setItem(panelKey, "1");
-  }, [panelKey]);
-
-  if (!hasContent) return null;
-
-  const sectionLabel = (text) => (
-    <div style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: C.muted, marginTop: 10, marginBottom: 4 }}>
-      {t(text)}
-    </div>
-  );
+  const groups = classifyAdvisories(plan?.rule_trace, plan?.steps ?? null);
+  const [open, setOpen] = useState(false);
+  const [more, setMore] = useState(false);
+  if (!groups.today.length && !groups.standing.length && !groups.more.length) return null;
 
   // R519 carries numbers, so its sentence is composed from the factors the planner
   // actually applied; every other advisory is a fixed label. Both go through t().
-  const advisoryRow = (entry) => (
-    <div key={entry.code} style={{ display: "flex", alignItems: "flex-start", gap: 8, paddingBottom: 5 }}>
-      <span style={{ color: C.emerald, flexShrink: 0, marginTop: 1 }}>›</span>
-      <span style={{ fontSize: 12, color: C.subtle, lineHeight: 1.5 }}>
+  const row = (entry) => (
+    <div key={entry.code} className="jf-why__row">
+      <span className="jf-why__mark" aria-hidden="true">›</span>
+      <span>
         {entry.volume ? buildVolumeSentence(entry, t) : t(entry.text)}
-        {entry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {t(entry.cta)}</span>}
+        {entry.cta && <span className="jf-why__cta"> {t(entry.cta)}</span>}
       </span>
     </div>
   );
 
   return (
-    <div style={{ marginBottom: 14 }}>
-      <button
-        onClick={() => setOpen((o) => !o)}
-        aria-expanded={open}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 6,
-          background: "none",
-          border: "none",
-          padding: 0,
-          cursor: "pointer",
-          fontSize: 11,
-          fontWeight: 700,
-          color: C.muted,
-          marginBottom: open ? 8 : 0,
-        }}
-      >
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+    <div className="jf-why">
+      <button type="button" className="jf-why__toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
+        <svg className={`jf-why__chev${open ? " jf-why__chev--open" : ""}`} width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
           <polyline points="6 9 12 15 18 9" />
         </svg>
         {t("Why this plan?")}
       </button>
-
       {open && (
-        <div
-          role="status"
-          style={{
-            background: "rgba(var(--overlay-rgb),0.03)",
-            border: `1px solid ${C.border}`,
-            borderRadius: 14,
-            padding: "12px 14px",
-          }}
-        >
-          {advisories.safety.length > 0 && (
+        <div className="jf-why__panel" role="status" data-testid="why-panel">
+          {groups.today.length > 0 && <div className="jf-why__label">{t("Changed today")}</div>}
+          {groups.today.map(row)}
+          {groups.standing.length > 0 && <div className="jf-why__label">{t("Always on")}</div>}
+          {groups.standing.map(row)}
+          {groups.more.length > 0 && (
             <>
-              {sectionLabel("Safety adaptation")}
-              {advisories.safety.map(advisoryRow)}
-            </>
-          )}
-
-          {advisories.training.length > 0 && (
-            <>
-              {sectionLabel("Training adaptation")}
-              {advisories.training.map(advisoryRow)}
-            </>
-          )}
-
-          {advisories.suggested.length > 0 && (
-            <>
-              {sectionLabel("Suggested action")}
-              {advisories.suggested.map(advisoryRow)}
+              <button type="button" className="jf-why__more" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+                {t("More ({n})", { n: groups.more.length })}
+              </button>
+              {more && groups.more.map(row)}
             </>
           )}
         </div>
@@ -472,7 +319,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
   };
 
   // ── Derived plan helpers ──────────────────────────────────────────────────
-  const [line1, line2] = splitTitle(plan?.session_name ? sessionTitle(plan.session_name) : null);
+  const [line1, line2] = splitTitle(plan?.session_name ? sessionTitle(plan.session_name, plan) : null);
 
   return (
     <div>
@@ -621,18 +468,10 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     </span>
                   )}
                 </div>
-                {/* Coach sentence — rationale below the hero title */}
+                {/* Coach sentence — the reason that changed today; the goal line is the fallback (UAT R2) */}
                 {(() => {
-                  const sentence = plan.authored_by_user
-                    ? t("You built this session yourself — it counts like any other.")
-                    : deriveCoachSentence(plan.rule_trace, plan.session_notes, cycle?.mode ?? 'standard', plan.slot_type ?? '');
-                  const fallback = plan.slot_type !== 'rest' && plan.session_name
-                    ? t("Today's session: {name}.", { name: sessionTitle(plan.session_name).toLowerCase() })
-                    : null;
-                  const text = sentence ?? fallback;
-                  return text ? (
-                    <div style={{ fontSize: 15, lineHeight: 1.5, color: C.textSoft, maxWidth: '34ch', marginBottom: 14 }}>{coachSentenceT(text)}</div>
-                  ) : null;
+                  const text = coachLine(plan, cycle?.mode ?? 'standard');
+                  return text ? <div className="jf-today__coach" data-testid="coach-sentence">{text}</div> : null;
                 })()}
                 {/* Session meta: time / moves / intensity */}
                 <div style={{ display: "flex", alignItems: "center", gap: 0, marginBottom: 14 }}>
@@ -670,6 +509,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                         </span>
                         <span style={{ ...mono(11), color: C.muted }}>
                           {(() => {
+                            if (s.max_effort) return t(...dcpTodayMeta(s));
                             const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
                             if (isRunInterval && s.sets > 1 && s.target_duration_sec) return t("{sets} × {dur} run", { sets: s.sets, dur: formatExDuration(s.target_duration_sec) });
                             if (s.target_reps) return `${s.sets} × ${s.target_reps}`;
@@ -743,7 +583,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 </button>
                 {/* MANUAL_TRAINING_DESIGN §2 — "Eigen training · Lukt dit niet?". A rest day
                     is advice too: someone who wants to move anyway can, from "Eigen training". */}
-                <OwnTrainingLine whyNot={ownLine({ plan, todayCompleted }).whyNot} onOwn={onOwnTraining} onWhyNot={onWhyNot} />
+                <OwnTrainingLine buttons whyNot={ownLine({ plan, todayCompleted }).whyNot} onOwn={onOwnTraining} onWhyNot={onWhyNot} />
                 {/* §9 — a session the user wrote is not the military block's session. */}
                 {plan.authored_by_user && prefs?.preferences?.military_coach?.active && (
                   <div className="jf-own-note">{t("Your own session does not count as a session of your military block.")}</div>

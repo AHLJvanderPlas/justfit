@@ -89,6 +89,13 @@ describe('acceptance 5 — a session started from a template records source_ref'
   it('the queued form keeps it', () => {
     const args = ['u', null, 'd', [], 60, 5, 'bonus', null, 'n', 'template:t'];
     expect(execPayload(args).sourceRef).toBe('template:t');
+    // UAT release 2 — an 11th slot, the stop summary; absent → null.
+    expect(execArgs(execPayload(args))).toEqual([...args, null]);
+  });
+  it('a queued "Stop and save" keeps its stop summary (UAT release 2)', () => {
+    const stop = { exercises_done: 1, exercises_total: 4 };
+    const args = ['u', 'p', 'd', [], 60, null, 'workout', null, null, null, stop];
+    expect(execPayload(args).stop).toEqual(stop);
     expect(execArgs(execPayload(args))).toEqual(args);
   });
 });

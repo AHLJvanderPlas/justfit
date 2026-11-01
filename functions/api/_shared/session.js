@@ -22,6 +22,16 @@ export function getDefaultRest(exercise, slotType) {
   return 60;
 }
 
+// Timed targets move in 5 s steps (UAT D6): volume scaling turned a 40 s hold into
+// "2 × 32s", which reads as noise. 32 → 30, 23 → 25, 48 → 50; never below 5 s.
+// Applied where the planner SCALES a duration — fixed protocol windows (the 2-min
+// DCP set, the Cooper 12 min, name-declared minutes) are never passed through it.
+export function roundTo5Sec(sec) {
+  const n = Number(sec);
+  if (!Number.isFinite(n) || n <= 0) return sec;
+  return Math.max(5, Math.round(n / 5) * 5);
+}
+
 // Session time in seconds: work + rest per set, no rest after the very last set.
 export function estimateSessionSec(steps) {
   return steps.reduce((s, step, i) => {

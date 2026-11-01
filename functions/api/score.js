@@ -1,4 +1,8 @@
 import { getAuthUserId } from './_shared/auth.js';
+import { SHOWED_UP_SQL } from './_shared/sessionOutcome.js';
+
+// UAT release 2 — Principle 1: a session stopped and saved with at least one
+// completed set counts as showing up that day (SHOWED_UP_SQL), like a completed one.
 
 export async function onRequestGet({ request, env }) {
   try {
@@ -10,7 +14,7 @@ export async function onRequestGet({ request, env }) {
       SELECT date, execution_type, perceived_exertion
       FROM executions 
       WHERE user_id = ? 
-        AND status = 'completed'
+        AND ${SHOWED_UP_SQL}
         AND date >= date('now', '-7 days')
       ORDER BY date DESC
     `).bind(user_id).all();
@@ -27,7 +31,7 @@ export async function onRequestGet({ request, env }) {
     // Streak bonus — fetch last 28 days
     const streakResult = await env.DB.prepare(`
       SELECT DISTINCT date FROM executions
-      WHERE user_id = ? AND status = 'completed'
+      WHERE user_id = ? AND ${SHOWED_UP_SQL}
       ORDER BY date DESC LIMIT 28
     `).bind(user_id).all();
 

@@ -10,7 +10,7 @@ import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 import { t, useLang, getLang, exerciseName } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
-import { Glass } from "./uiComponents.jsx";
+import { stopSummary } from "./sessionOutcome.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -76,6 +76,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const [adjustedReps, setAdjustedReps] = useState(null);
   const [adjustedDuration, setAdjustedDuration] = useState(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [stopping, setStopping] = useState(false);   // UAT release 2 — "Stop and save" in flight
   const [tapFlash, setTapFlash] = useState(false); // visual flash on rep tap
   const [adjustLabel, setAdjustLabel] = useState(""); // "Adjusted to N reps" toast
   const adjustLabelTimerRef = useRef(null);
@@ -396,6 +397,15 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     }
   }
 
+  // UAT release 2 — a safe stop: the sets done are saved through the same onComplete
+  // path, with the stop summary as its 5th argument (status 'abandoned' server-side).
+  function handleStopAndSave(stop) {
+    if (stopping) return;
+    setStopping(true);
+    const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
+    onComplete(durationSec, null, stepsActualRef.current, sessionNotes.trim() || null, stop);
+  }
+
   function handleFinishSession(perceivedExertion) {
     const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
     onComplete(durationSec, perceivedExertion, stepsActualRef.current, sessionNotes.trim() || null);
@@ -513,22 +523,31 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   return (
     <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 50, display: "flex", flexDirection: "column", overflow: "hidden", paddingTop: "env(safe-area-inset-top)" }}>
       {/* Cancel confirmation overlay */}
-      {showCancel && (
-        <div style={{ position: "absolute", inset: 0, background: "rgba(var(--bg-rgb),0.9)", zIndex: 10, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-          <Glass style={{ padding: 32, maxWidth: 320, width: "100%", textAlign: "center" }}>
-            <div style={{ fontSize: 20, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t('Quit workout?')}</div>
-            <p style={{ fontSize: 14, color: C.muted, marginBottom: 28, lineHeight: 1.5 }}>{t("Your progress won't be saved.")}</p>
-            <div style={{ display: "flex", gap: 12 }}>
-              <button onClick={() => setShowCancel(false)} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}>
-                {t('Resume')}
-              </button>
-              <button onClick={onBack} style={{ flex: 1, padding: "14px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(239,68,68,0.15)", border: "1px solid rgba(239,68,68,0.3)", color: C.dangerStrong, cursor: "pointer" }}>
-                {t('Quit')}
+      {showCancel && (() => {
+        // Read at open: the ref holds every set done so far. No set yet → nothing to
+        // keep, so only Resume + Quit (the old behaviour) are offered.
+        const stop = stopSummary(stepsActualRef.current);
+        const canSave = stop.exercises_done > 0;
+        return (
+          <div className="jf-stop-scrim">
+            <div className="jf-stop" role="dialog" aria-modal="true" aria-labelledby="jf-stop-title">
+              <div className="jf-stop__title" id="jf-stop-title">{t('Quit workout?')}</div>
+              <p className="jf-stop__text">{canSave
+                ? t('Stop and save keeps the sets you did and counts today. Discard throws this session away.')
+                : t('No set done yet, so there is nothing to save.')}</p>
+              <button type="button" className="jf-stop__btn" onClick={() => setShowCancel(false)}>{t('Resume')}</button>
+              {canSave && (
+                <button type="button" className="jf-stop__btn jf-stop__btn--save" disabled={stopping} onClick={() => handleStopAndSave(stop)}>
+                  {t('Stop and save')}
+                </button>
+              )}
+              <button type="button" className={`jf-stop__btn ${canSave ? "jf-stop__btn--quiet" : "jf-stop__btn--danger"}`} disabled={stopping} onClick={onBack}>
+                {canSave ? t('Discard') : t('Quit')}
               </button>
             </div>
-          </Glass>
-        </div>
-      )}
+          </div>
+        );
+      })()}
 
       {/* Wake lock fallback — non-intrusive hint if screen lock can't be prevented */}
       {wakeLockDenied && ["instruction","working","resting"].includes(phase) && (
@@ -588,7 +607,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <button onClick={onBack} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
                   {t('← Back')}
                 </button>
-                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{sessionTitle(plan.session_name)}</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{sessionTitle(plan.session_name, plan)}</div>
                 <div style={{ minWidth: 56 }} />
               </div>
             </div>
@@ -599,7 +618,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
                 {/* Session headline */}
                 <div style={{ marginBottom: 28 }}>
-                  <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{sessionTitle(plan.session_name)}</div>
+                  <div style={{ fontSize: 26, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 6 }}>{sessionTitle(plan.session_name, plan)}</div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                     <span style={{ fontSize: 13, color: C.muted, fontWeight: 600 }}>{exercises.length} {t('exercises')}</span>
                     <span style={{ width: 3, height: 3, borderRadius: "50%", background: C.subtle, display: "inline-block" }} />

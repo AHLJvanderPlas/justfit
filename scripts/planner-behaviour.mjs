@@ -359,7 +359,7 @@ const PERSONAS = [
 const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
-  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery'];
+  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -525,6 +525,18 @@ for (const p of PERSONAS) {
         mute.length ? `step(s) with neither reps nor duration: ${mute.map(s => s.exercise_slug).join(', ')}`
           : outOfRange.length ? `rep target outside the 3–30 clamp: ${outOfRange.map(s => `${s.exercise_slug}×${s.target_reps}`).join(', ')}`
           : `${steps.length} step(s) prescribed`);
+    }
+
+    // ── 4b. Timed targets move in 5 s steps (UAT release 2, D6) ──
+    // Volume scaling once printed "2 × 32s" / "1 × 23s"; roundTo5Sec (_shared/
+    // session.js) rounds every scaled duration, and the fixed protocol windows
+    // (DCP 2 min, Cooper 12 min, name-declared minutes) are whole minutes already.
+    // Read off the session, so a scaler that bypasses the helper fails here.
+    {
+      const odd = steps.filter(s => s.target_duration_sec != null && s.target_duration_sec % 5 !== 0);
+      say('timed-5s', odd.length ? 'FAIL' : 'PASS',
+        odd.length ? `timed target not a multiple of 5 s: ${odd.map(s => `${s.exercise_slug} ${s.target_duration_sec}s`).join(', ')}`
+          : 'every timed target is a multiple of 5 s');
     }
 
     // ── 5. One exercise per movement family (R597) ──

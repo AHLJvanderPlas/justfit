@@ -342,8 +342,82 @@ export function hasBlockingSafety(ruleTrace) {
   return ruleTrace.some((t) => t.includes('R539'));
 }
 
+// ── UAT release 2 — what changed today, and what is always so ────────────────
+//
+// The why-panel opened by default with 10–15 bullets, most of them engine
+// structure ("Sessie opgebouwd rond je progressieprofiel", "Variatiecheck"), and
+// the coach sentence could be a rule that fires every day (R516 "Bodyweight only
+// today" for a user with dumbbells, R546 run-walk intervals above a push session).
+// One classification now serves both:
+//   today    — fired TODAY because of something the user said or did: the
+//              check-in (R510–R517, R535/R536), pain (R514, R562–R565), the cycle
+//              day (R520–R523), a break (R558), recovery mode (R559), the coach's
+//              programme (R556/R557/R568/R570–R577) and a due measurement (R598).
+//   standing — true every day but a statement about safety or the body mode
+//              (pregnancy, postnatal, BMI, running safety). Shown, after today's.
+//   more     — engine structure: goal, experience, progression profile, variety,
+//              mobility maintenance, Defensie filter … behind "More".
+//   hidden   — a trace line that changed nothing the label claims (R510 "Normal
+//              session", R516 "Equipment filter from profile", run-walk wording
+//              with no run in the session).
+export const TODAY_RULE_CODES = new Set([
+  'R510', 'R511', 'R512', 'R513', 'R514', 'R515', 'R516', 'R517',
+  'R520', 'R521', 'R522', 'R523', 'R535', 'R536',
+  'R558', 'R559', 'R562', 'R563', 'R564', 'R565', 'R592', 'R598',
+  'R556', 'R557', 'R568', 'R570', 'R571', 'R572', 'R574', 'R575', 'R576', 'R577',
+]);
+export const STRUCTURAL_RULE_CODES = new Set([
+  'R500', 'R502', 'R518', 'R519', 'R524', 'R525', 'R550', 'R551', 'R552', 'R553', 'R554',
+  'R560', 'R561', 'R590', 'R591', 'R593', 'R594', 'R595', 'R596', 'R597',
+]);
+// R519 is today's only when a situational factor is among its reasons.
+const STRUCTURAL_VOLUME_REASONS = new Set(['experience', 'bodyweight', 'bodyweight_up', 'floor']);
+
+const _tagsOf = (s) => { try { return JSON.parse(s?.tags_json || '[]'); } catch { return []; } };
+const _hasRunStep = (steps) => steps.some(s => _tagsOf(s).some(t => t === 'run_interval' || t === 'run_continuous' || t === 'running'));
+const _hasCardioStep = (steps) => steps.some(s => s.category === 'cardio' || _tagsOf(s).includes('cardio'));
+
+/**
+ * Which group one rule belongs to today. `lines` are the trace lines carrying the
+ * code; `steps` the session (null = unknown, nothing is hidden for lack of it).
+ * Returns 'today' | 'standing' | 'more' | 'hidden'.
+ */
+export function ruleKind(code, lines = [], steps = null, entry = null) {
+  const text = lines.join(' | ');
+  if (code === 'R510') return /micro|no_time|Short session/i.test(text) || !/Normal session/.test(text) ? 'today' : 'hidden';
+  if (code === 'R516') {
+    if (/no_gear|traveling/.test(text)) return 'today';
+    if (/Equipment filter from profile/.test(text)) return 'hidden';
+    return /profile equipment=none/.test(text) ? 'more' : 'today';
+  }
+  if (code === 'R519' && entry?.volume) {
+    return entry.volume.reasons.length && entry.volume.reasons.every(r => STRUCTURAL_VOLUME_REASONS.has(r)) ? 'more' : 'today';
+  }
+  if (steps && (code === 'R546' || code === 'R555') && !_hasRunStep(steps)) return 'hidden';
+  if (steps && code === 'R545' && !_hasCardioStep(steps)) return 'hidden';
+  if (TODAY_RULE_CODES.has(code)) return 'today';
+  if (STRUCTURAL_RULE_CODES.has(code)) return 'more';
+  return 'standing';
+}
+
+/**
+ * The why-panel's groups: { blocking, today, standing, more }, each a list of
+ * parseRuleTrace entries. Within a group the order is parseRuleTrace's (safety,
+ * then training, then suggested action).
+ */
+export function classifyAdvisories(ruleTrace, steps = null) {
+  const parsed = parseRuleTrace(ruleTrace);
+  const out = { blocking: parsed.blocking, today: [], standing: [], more: [] };
+  const lines = (code) => (ruleTrace ?? []).map(String).filter(t => t.includes(code));
+  for (const entry of [...parsed.safety, ...parsed.training, ...parsed.suggested]) {
+    const kind = ruleKind(entry.code, lines(entry.code), steps, entry);
+    if (kind !== 'hidden') out[kind].push(entry);
+  }
+  return out;
+}
+
 // ── Coach sentence ────────────────────────────────────────────────────────────
-// Warm plain-language sentences for the highest-severity rule in rule_trace.
+// Warm plain-language sentences, one per rule that can carry the Today card.
 const SENTENCE_VARIANTS = {
   R558: "We're easing you back in — volume capped to 75% after your break.",
   R559: "Taking it easy today — mobility and recovery only.",
@@ -351,6 +425,7 @@ const SENTENCE_VARIANTS = {
   R512: "Volume reduced — your energy was low at check-in.",
   R513: "Mobility session today — a high-stress day calls for something calmer.",
   R514: "Rest day — you reported pain. Recovery is part of the work.",
+  R517: "Intensity eased — a low-mood day calls for something kinder.",
   R510: "Micro session — adapted to the time you have.",
   R516: "Bodyweight only today — no kit needed.",
   R515: "Quiet, low-impact session — no gym clothes required.",
@@ -358,13 +433,14 @@ const SENTENCE_VARIANTS = {
   R536: "Volume eased — breathlessness reported.",
   R540: "Gentle postnatal movement — rebuilding from the ground up.",
   R541: "Pelvic floor work prioritised in today's session.",
-  R530: "Intensity capped for this trimester — adapted for pregnancy.",
-  R532: "High-impact exercises removed — adapted for pregnancy.",
+  R530: "Intensity capped for this trimester.",
+  R532: "High-impact exercises are left out.",
+  R534: "Pelvic floor work added to today's session.",
   R563: "Joint-load exercises filtered around your reported pain areas.",
+  R565: "Session adjusted around your pain areas — stop if anything feels sharp.",
   R545: "Low-impact cardio today — protecting your joints while building capacity.",
   R546: "Walk-run intervals — the safe way to build running capacity.",
-  R553: "Mobility added — it's been a while since your last flexibility session.",
-  R551: "Weakest fitness area targeted — balanced development over time.",
+  R598: "Self-measurement in today's session — max push-ups and sit-ups.",
   R526: "Perimenopause mode — intensity capped at moderate, session adapted for hormonal fluctuation.",
   R568: "Polarised training day — alternating Zone 2 and high-intensity work.",
   R560: "Session biased toward your primary sport.",
@@ -373,29 +449,38 @@ const SENTENCE_VARIANTS = {
   R555: "Safe run/walk intervals matched to your current conditioning level.",
 };
 
+// Release 2 — what the user told us today outranks every standing rule; only a
+// pain rest day and the clearance gate come first. Progression structure (R551,
+// R553) never carries the card: it was "the reason" on day one for everyone.
 const SENTENCE_SEVERITY_ORDER = [
-  'R514', 'R539', 'R533', 'R532', 'R542', 'R531',
-  'R535', 'R536', 'R537', 'R540', 'R541', 'R543', 'R544',
-  'R558', 'R559', 'R511', 'R512', 'R513', 'R545', 'R546',
-  'R516', 'R515', 'R510', 'R563', 'R565',
-  'R526',
-  'R520', 'R521', 'R522', 'R523', 'R524', 'R525',
-  'R553', 'R551', 'R556', 'R555', 'R568', 'R560', 'R561', 'R557',
+  'R514', 'R539',
+  'R535', 'R536', 'R559', 'R558', 'R511', 'R512', 'R513', 'R517', 'R510', 'R516', 'R515', 'R563', 'R565',
+  'R598', 'R556', 'R557', 'R568',
+  'R540', 'R541', 'R534', 'R532', 'R530', 'R545', 'R546', 'R555', 'R526',
+  'R561', 'R560',
 ];
 
 /**
  * Derive a single plain-language coach sentence from rule_trace.
- * Returns a string or null if no notable adaptation is active.
+ * Returns a string or null if no notable adaptation is active. `steps` (the
+ * session) makes the sentence agree with it: a run-walk sentence needs a run.
  */
-export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standard', slotType = '') {
-  const traceStr = (ruleTrace ?? []).join(' ');
+export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standard', slotType = '', steps = null) {
+  const trace = (ruleTrace ?? []).map(String);
   // On rest days, skip training-specific rules that don't apply (e.g. "Bodyweight only today")
   const restSkip = slotType === 'rest'
-    ? new Set(['R516','R515','R510','R511','R512','R513','R524','R525','R553','R551','R560','R561','R557','R563','R565','R558','R520','R521','R522','R523','R555','R556','R568'])
+    ? new Set(['R516','R515','R510','R511','R512','R513','R517','R524','R525','R553','R551','R560','R561','R557','R563','R565','R558','R520','R521','R522','R523','R555','R556','R568','R598','R534','R532','R530','R545','R546'])
     : null;
-  const order = restSkip ? SENTENCE_SEVERITY_ORDER.filter(c => !restSkip.has(c)) : SENTENCE_SEVERITY_ORDER;
-  const top = order.find(code => traceStr.includes(code));
-  if (!top || !SENTENCE_VARIANTS[top]) return null;
+  const top = SENTENCE_SEVERITY_ORDER.find((code) => {
+    if (restSkip?.has(code) || !SENTENCE_VARIANTS[code]) return false;
+    const lines = trace.filter(t => t.includes(code));
+    if (!lines.length) return false;
+    // R510 carries the card only for a micro session; "Short session" is no news.
+    if (code === 'R510' && !/micro|no_time/i.test(lines.join(' ')) && /session/i.test(lines.join(' '))) return false;
+    const kind = ruleKind(code, lines, steps);
+    return kind !== 'hidden' && !(code === 'R516' && kind !== 'today');
+  });
+  if (!top) return null;
 
   let sentence = SENTENCE_VARIANTS[top];
   const skipBodyPrefix = ['R535', 'R536', 'R537', 'R540', 'R541', 'R542', 'R543', 'R544'];
@@ -404,6 +489,29 @@ export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standar
     if (bodyMode === 'postnatal') sentence = 'Postnatal-safe — ' + sentence.charAt(0).toLowerCase() + sentence.slice(1);
   }
   return sentence;
+}
+
+// When no rule carries the card: a body-mode line for pregnancy / postnatal (their
+// session names — "Today's movement" — made "Today's session: today's movement."),
+// else the goal line built from the session's own title.
+const BODY_FALLBACK = {
+  pregnant:  'Adapted for pregnancy — steady, safe movement for today.',
+  postnatal: 'Postnatal-safe — gentle movement to rebuild your strength.',
+};
+
+/**
+ * The Today card's coach line, translated: the user's own session, the rule that
+ * changed today, the body-mode line, or the goal line. Null on a rest day with
+ * nothing to say.
+ */
+export function coachLine(plan, bodyMode = 'standard') {
+  if (!plan) return null;
+  if (plan.authored_by_user) return t("You built this session yourself — it counts like any other.");
+  const sentence = deriveCoachSentence(plan.rule_trace, plan.session_notes, bodyMode, plan.slot_type ?? '', plan.steps ?? null);
+  if (sentence) return coachSentenceT(sentence);
+  if (plan.slot_type === 'rest') return null;
+  if (BODY_FALLBACK[bodyMode]) return coachSentenceT(BODY_FALLBACK[bodyMode]);
+  return plan.session_name ? t("Today's session: {name}.", { name: sessionTitle(plan.session_name, plan).toLowerCase() }) : null;
 }
 
 /**
@@ -470,7 +578,16 @@ const NAME_PATTERNS = [
   [/^Cross-Training Run \u00b7 Level (\d+)$/, 'Cross-Training Run \u00b7 Level {n}', (m) => ({ n: m[1] })],
 ];
 
-export function sessionTitle(name) {
+// Release 2 — the title follows the session. A recovery day read "CARDIOVERBRANDING"
+// above "Rustig aan vandaag — alleen mobiliteit en herstel": with the plan passed
+// in, recovery mode (R559) or a recovery/mobility slot reads "Easy session" and a
+// rest day "Recovery". A coach's programme name and a name the user typed stay.
+const EASY_SLOTS = new Set(['recovery', 'mobility']);
+export function sessionTitle(name, plan = null) {
+  if (plan && !plan.authored_by_user && !plan.military_program && !plan.run_program && !plan.cycling_program) {
+    if (plan.slot_type === 'rest') return t('Recovery');
+    if (EASY_SLOTS.has(plan.slot_type) || (plan.rule_trace ?? []).some(x => String(x).includes('R559'))) return t('Easy session');
+  }
   if (!name) return name;
   for (const [re, key, vars] of NAME_PATTERNS) {
     const m = re.exec(name);

@@ -671,3 +671,99 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 10px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
   font-variant-numeric: tabular-nums; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border);
 }
+
+/* ── UAT release 2 — Today diet ─────────────────────────────────────────────── */
+/* The coach sentence under the hero title (Dashboard). */
+.jf-today__coach { font-size: 15px; line-height: 1.5; color: var(--text-soft); max-width: 34ch; margin-bottom: 14px; }
+/* "Eigen training" · "Lukt dit niet?" — two ghost buttons under START SESSIE. */
+.jf-today__alt { display: flex; gap: 8px; margin-top: 10px; }
+.jf-today__alt-btn {
+  flex: 1; min-height: 44px; padding: 10px 12px; border-radius: 14px; cursor: pointer; font: inherit;
+  font-size: 13px; font-weight: 700; color: var(--text-soft); background: transparent;
+  border: 1px solid rgba(var(--overlay-rgb), 0.14);
+}
+.jf-today__alt-btn:hover { color: var(--text); border-color: rgba(var(--overlay-rgb), 0.24); }
+
+/* "Waarom dit plan?" — closed by default; today first, structure behind "Meer". */
+.jf-why { margin-bottom: 14px; }
+.jf-why__toggle {
+  display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; min-height: 32px;
+  cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
+}
+.jf-why__chev { transition: transform 0.2s; }
+.jf-why__chev--open { transform: rotate(180deg); }
+.jf-why__panel {
+  margin-top: 8px; padding: 12px 14px; border-radius: 14px;
+  background: rgba(var(--overlay-rgb), 0.03); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-why__label {
+  font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; color: var(--label);
+  margin: 10px 0 4px;
+}
+.jf-why__label:first-child { margin-top: 0; }
+.jf-why__row { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 5px; font-size: 12px; line-height: 1.5; color: var(--subtle); }
+.jf-why__mark { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
+.jf-why__cta { color: var(--accent); font-weight: 700; }
+.jf-why__more {
+  display: block; margin: 8px 0 4px; padding: 6px 0; min-height: 32px; background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
+}
+
+/* The done card (DoneCard.jsx): three controls by default. */
+.jf-done {
+  padding: 28px; display: flex; flex-direction: column; border-radius: 20px;
+  background: linear-gradient(135deg, rgba(var(--accent-rgb), 0.12) 0%, rgba(var(--bg-rgb), 0.8) 60%);
+  border: 1px solid rgba(var(--accent-rgb), 0.4);
+}
+.jf-done__head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+.jf-done__check {
+  width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
+  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+  box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.25);
+}
+.jf-done__titles { min-width: 0; }
+.jf-done__title { font-size: 20px; font-weight: 900; color: var(--text); letter-spacing: -0.02em; }
+.jf-done__sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
+.jf-done__praise { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.jf-done__score { font-size: 13px; color: var(--muted); font-weight: 700; margin-bottom: 16px; }
+.jf-done__score--up { color: var(--accent); }
+.jf-done__actions { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
+.jf-done__row {
+  display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 12px 14px;
+  border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
+  color: var(--text); font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; text-align: left;
+}
+.jf-done__link {
+  align-self: flex-start; min-height: 44px; padding: 10px 2px; background: none; border: none; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--accent);
+}
+.jf-done__logged { font-size: 13px; color: var(--accent); font-weight: 700; padding: 12px 2px; }
+.jf-done__bonus { padding: 2px 0 6px; }
+.jf-done__bonus-chips { display: flex; gap: 8px; }
+.jf-done__bonus-chip {
+  flex: 1; min-height: 44px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 900; cursor: pointer;
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+}
+.jf-done__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+.jf-done__save { margin-bottom: 4px; }
+
+/* WorkoutView — "Training stoppen?": Doorgaan · Stoppen en bewaren · Weggooien. */
+.jf-stop-scrim {
+  position: absolute; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center; padding: 24px;
+  background: rgba(var(--bg-rgb), 0.9);
+}
+.jf-stop {
+  width: 100%; max-width: 340px; padding: 28px 24px; border-radius: 28px; text-align: center;
+  background: var(--sheet); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.jf-stop__title { font-size: 20px; font-weight: 900; color: var(--text); }
+.jf-stop__text { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 10px; }
+.jf-stop__btn {
+  width: 100%; min-height: 48px; border-radius: 14px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
+}
+.jf-stop__btn:disabled { opacity: 0.6; cursor: wait; }
+.jf-stop__btn--save { background: var(--accent); border-color: var(--accent); color: var(--on-accent); font-weight: 900; }
+.jf-stop__btn--quiet { background: none; border-color: transparent; color: var(--muted); font-size: 13px; min-height: 44px; }
+.jf-stop__btn--danger { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.3); color: var(--danger-strong); }

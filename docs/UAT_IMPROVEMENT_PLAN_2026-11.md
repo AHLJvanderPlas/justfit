@@ -42,6 +42,12 @@ Guards: e2e asserts the why-panel is collapsed on first view and the coach sente
 check-in rule after "Taking it easy"; a smoke scan counts the done card's controls (≤ 6); the planner
 matrix gets the 5 s property. `App.jsx` stays at 1800 (the Dashboard owns these cards).
 
+Status: built on branch `uat-r2` (not deployed). `npm test` vitest 453 + shared 20; `npm run
+release` smoke 99/99, e2e 22/22. App.jsx 1799, plan.js 3688, onRequestPost 99, inline styles
+2061 → 2025. Partial save is `status: 'abandoned'` (existing CHECK, no migration) with
+`execution_json.stopped_after`; the done-card control guard is the e2e button count, not a source
+scan.
+
 ## Release 3 — Progress and the week, gated on data (M)
 
 1. **Voortgang before three sessions** shows the trajectory sentence, the streak, "Waar sta ik" (when

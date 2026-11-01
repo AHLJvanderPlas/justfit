@@ -397,6 +397,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                           ? stravaMeta.name
                           : new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
                         {h.execution_type === "logged" && <span className="jf-logged-tag">{t("Self-logged")}</span>}
+                        {h.stopped_after && <span className="jf-logged-tag">{t("Stopped after {n} of {m} exercises", { n: h.stopped_after.exercises_done, m: h.stopped_after.exercises_total })}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
                         {isStravaCard

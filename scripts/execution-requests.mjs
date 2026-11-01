@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as execution from '../functions/api/execution.js';
+import * as score from '../functions/api/score.js';
 import api from '../packages/client-app/src/apiClient.js';
 import { loggedStep, parseSetList } from '../packages/client-app/src/logSession.js';
 
@@ -71,10 +72,10 @@ for (const t of ['users', 'executions', 'execution_steps', 'user_progression', '
 const insEx = db.prepare('INSERT INTO exercises (id, slug, name, category, tags_json, primary_muscles_json, name_nl) VALUES (?,?,?,?,?,?,?)');
 const idOf = {};
 rows.forEach((r, i) => { insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.primary_muscles_json ?? '[]', r.name_nl ?? null); idOf[r.slug] = 'ex' + i; });
-for (const s of ['push-up', 'incline-push-up', 'sit-up']) if (!idOf[s]) throw new Error(`fixture has no exercise "${s}"`);
+for (const s of ['push-up', 'incline-push-up', 'sit-up', 'jumping-jacks']) if (!idOf[s]) throw new Error(`fixture has no exercise "${s}"`);
 
 const T0 = Date.now();
-for (const id of ['alice', 'bob', 'carol', 'dave', 'erin']) {
+for (const id of ['alice', 'bob', 'carol', 'dave', 'erin', 'frank', 'gina']) {
   db.prepare('INSERT INTO users (id, created_at_ms, updated_at_ms) VALUES (?,?,?)').run(id, T0, T0);
 }
 
@@ -271,6 +272,56 @@ try {
   try { await viaClient('bob', () => api.saveExecution('bob', null, dayOff(9), [pushStep(1)], 60, null, 'workout')); } catch (e) { thrown = e; }
   check(thrown?.status === 400 && thrown?.code === 'date_out_of_range',
     `apiClient.saveExecution must throw on a 400 (status + code), got ${thrown ? `${thrown.status}/${thrown.code}` : 'a resolved promise'}`);
+}
+
+// 7. UAT release 2 — "Stop and save". Through the client's saveExecution with a stop
+//    summary: status 'abandoned', execution_json.stopped_after recomputed by the
+//    server (the client's claim of 3/3 is ignored), every step kept in the record,
+//    progression credited for the completed sets only — the unstarted timed cardio
+//    step would otherwise fall back to the whole session's duration — and the
+//    consistency score counts the day (Principle 1). Nothing else may be abandoned.
+{
+  const notStarted = (exercise_id, timed = false) => ({ exercise_id, prescribed: timed ? { sets: 2, duration_sec: 30 } : { sets: 3, reps: 10 },
+    actual: { sets_completed: 0, reps_per_set: [], rest_taken_seconds: [], skipped: false } });
+  const steps = [pushStep(2), notStarted(idOf['sit-up']), notStarted(idOf['jumping-jacks'], true)];
+  const saved = await viaClient('frank', () => api.saveExecution('frank', null, today, steps, 900, null, 'workout', null, null, null,
+    { exercises_done: 3, exercises_total: 3 }));
+  const row = saved?.execution_id ? execRow(saved.execution_id) : null;
+  check(row?.status === 'abandoned', `a stopped session must be stored with status 'abandoned', got ${row?.status}`);
+  const after = row?.execution_json ? JSON.parse(row.execution_json).stopped_after : null;
+  check(after?.exercises_done === 1 && after?.exercises_total === 3,
+    `stopped_after must be recomputed from the steps as 1 of 3, got ${JSON.stringify(after)}`);
+  check(saved?.status === 'abandoned' && saved?.stopped_after?.exercises_done === 1, `the POST answer must echo the stop, got ${JSON.stringify(saved)}`);
+  check(stepsOf(saved?.execution_id).length === 3, 'a stopped session must keep every step in the record (done and not done)');
+  const stim = JSON.parse(events('frank').at(-1)?.stimulus_json ?? '{}');
+  check(stim.push?.power > 0, `the two completed push-up sets of a stopped session earned nothing: ${JSON.stringify(stim)}`);
+  check(!(stim.conditioning?.endurance > 0) && !(stim.core?.power > 0),
+    `a stopped session credited steps with no completed set: ${JSON.stringify(stim)}`);
+  const h = await HISTORY('frank');
+  const e = h.body?.executions?.find(x => x.id === saved?.execution_id);
+  check(e?.status === 'abandoned' && e?.stopped_after?.exercises_done === 1 && e?.stopped_after?.exercises_total === 3,
+    `GET history must return the stopped session with stopped_after, got ${JSON.stringify(e && { status: e.status, stopped_after: e.stopped_after })}`);
+  const sc = await call(score.onRequestGet, 'frank');
+  check(sc.body?.breakdown?.activeDays === 1 && sc.body?.score >= 10, `a stopped session with a completed set must count as showing up, got ${JSON.stringify(sc.body)}`);
+  // A completed session still saves as completed and says so.
+  const plain = await POST('frank', { date: today, session_type: 'workout', steps: [pushStep(1)] });
+  check(execRow(plain.body?.execution_id)?.status === 'completed' && execRow(plain.body?.execution_id)?.execution_json === null,
+    'a session without a status must still save as completed with no execution_json');
+
+  const n = db.prepare('SELECT COUNT(*) AS n FROM executions').get().n;
+  const none = await POST('gina', { date: today, session_type: 'workout', status: 'abandoned', steps: [notStarted(idOf['push-up'])] });
+  check(none.status === 400 && none.body?.error === 'nothing_to_save', `a stopped session with no completed set must be 400 nothing_to_save, got ${none.status} ${JSON.stringify(none.body)}`);
+  const skippedOnly = await POST('gina', { date: today, session_type: 'workout', status: 'abandoned', steps: [{ ...pushStep(2), actual: { ...pushStep(2).actual, skipped: true } }] });
+  check(skippedOnly.status === 400, `a stopped session whose only sets were on a skipped step must be 400, got ${skippedOnly.status}`);
+  for (const bad of ['planned', 'in_progress', 'skipped', 'ABANDONED', 1]) {
+    const r = await POST('gina', { date: today, session_type: 'workout', status: bad, steps: [pushStep(1)] });
+    check(r.status === 400 && r.body?.error === 'invalid_status', `status ${JSON.stringify(bad)} from the client must be 400 invalid_status, got ${r.status}`);
+  }
+  check(db.prepare('SELECT COUNT(*) AS n FROM executions').get().n === n, 'a rejected stop wrote an execution');
+  // A legacy abandoned row with no completed set (another writer) is not showing up.
+  db.prepare("INSERT INTO executions (id, user_id, date, execution_type, status, created_at_ms, updated_at_ms) VALUES ('legacy-ab', 'gina', ?, 'workout', 'abandoned', ?, ?)").run(today, T0, T0);
+  const g = await call(score.onRequestGet, 'gina');
+  check(g.body?.breakdown?.activeDays === 0, `an abandoned row with no stopped_after must not count as showing up, got ${JSON.stringify(g.body)}`);
 }
 
 } catch (e) {

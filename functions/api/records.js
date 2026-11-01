@@ -36,7 +36,7 @@ export async function onRequestGet({ request, env }) {
         FROM execution_steps es
         JOIN executions e ON e.id = es.execution_id
         LEFT JOIN exercises ex ON ex.id = es.exercise_id
-       WHERE e.user_id = ? AND e.status = 'completed'
+       WHERE e.user_id = ? AND e.status IN ('completed', 'abandoned')
          AND COALESCE(e.ended_at_ms, e.created_at_ms) >= ?
          AND es.actual_json LIKE '%weight_kg%'
        ORDER BY at_ms ASC

@@ -757,7 +757,10 @@ fi
 # 2274 → 2061 (2026-11-01): coach-dcp R2 — Settings → Doel & coach (the moved running /
 # cycling / military / general blocks, training days, session length) → .jf-dc*; DcpCard and
 # the new keuring card → .jf-norm-card* (SVG bars); the Today coach pill → .jf-coach-pill.
-STYLE_CEILING=2061
+# 2061 → 2025 (2026-11-01): UAT release 2 — the done card (DoneCard.jsx, .jf-done*), the
+# why-panel (.jf-why*), the coach sentence (.jf-today__coach) and WorkoutView's stop
+# overlay (.jf-stop*) moved to styles.css.
+STYLE_CEILING=2025
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"

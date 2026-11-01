@@ -179,6 +179,6 @@ export const RECOVERY_QUERY = `
     LEFT JOIN execution_steps es ON es.execution_id = e.id
     LEFT JOIN exercises ex ON ex.id = es.exercise_id
    WHERE e.user_id = ?
-     AND e.status = 'completed'
+     AND e.status IN ('completed', 'abandoned')   -- a stopped session's sets loaded the muscles too (stepVolume reads sets_completed)
      AND COALESCE(e.ended_at_ms, e.created_at_ms) >= ?
 `;

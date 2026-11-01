@@ -25,8 +25,16 @@ const SessionBuilder = lazy(() => import("./SessionBuilder.jsx"));
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
 // ── The Today card line ─────────────────────────────────────────────────────
-export function OwnTrainingLine({ whyNot, onOwn, onWhyNot }) {
+// UAT release 2 — under START SESSIE the two escape hatches are a row of two ghost
+// buttons (44 px, `buttons`); on the done card and the empty state they stay a line.
+export function OwnTrainingLine({ whyNot, onOwn, onWhyNot, buttons = false }) {
   useLang();
+  if (buttons) return (
+    <div className="jf-today__alt">
+      <button type="button" className="jf-today__alt-btn" onClick={onOwn}>{t("Own training")}</button>
+      {whyNot && <button type="button" className="jf-today__alt-btn" onClick={onWhyNot}>{t("Can't do this?")}</button>}
+    </div>
+  );
   return (
     <div className="jf-own-line">
       <button type="button" className="jf-own-line__link" onClick={onOwn}>{t("Own training")}</button>

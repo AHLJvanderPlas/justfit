@@ -3,6 +3,7 @@
 // DELETE /api/execution — delete an execution and its steps
 
 import { getAuthUserId } from './_shared/auth.js';
+import { readExecutionStatus, creditedSteps, STOPPED_STATUS } from './_shared/sessionOutcome.js';
 import { isProUser } from './_shared/entitlements.js';
 
 // ─── PROGRESSION ENGINE (inline copy — kept in sync with progression.js) ─────
@@ -251,6 +252,10 @@ export async function onRequestPost({ request, env }) {
     if (source_ref != null && (typeof source_ref !== 'string' || !SOURCE_REF_PATTERN.test(source_ref))) {
       return Response.json({ error: 'invalid_source_ref' }, { status: 400 });
     }
+    // UAT release 2 — "Stoppen en bewaren": status 'abandoned' with the sets done.
+    const outcome = readExecutionStatus(body);
+    if (outcome.error) return Response.json({ error: outcome.error }, { status: 400 });
+    const stopped = outcome.status === STOPPED_STATUS;
 
     const id  = crypto.randomUUID();
     const now = Date.now();
@@ -276,7 +281,8 @@ export async function onRequestPost({ request, env }) {
     const cyclingStep = (steps ?? []).find(
       s => typeof s.exercise_id === 'string' && s.exercise_id.startsWith('cycling_coach_')
     );
-    if (cyclingStep) {
+    // A stopped ride is not the planned load: no TSS, so the PMC is not inflated.
+    if (cyclingStep && !stopped) {
       const rpeModifier = { 3: 0.85, 5: 1.0, 8: 1.15 }[perceived_exertion] ?? 1.0;
       // Prefer pre-computed TSS from plan step (Phase 3a plans embed tss_planned on the step)
       const precomputed = cyclingStep.tss_planned ?? cyclingStep.prescribed?.tss_planned ?? null;
@@ -301,12 +307,13 @@ export async function onRequestPost({ request, env }) {
         (id, user_id, date, day_plan_id, execution_type, status,
          total_duration_sec, perceived_exertion,
          tss_planned, tss_actual, tss_source,
-         notes, source_ref, created_at_ms, updated_at_ms)
-      VALUES (?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         notes, source_ref, execution_json, created_at_ms, updated_at_ms)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).bind(
       id, user_id, date,
       day_plan_id ?? null,
       session_type ?? 'workout',
+      outcome.status,
       duration_sec ?? null,
       perceived_exertion ?? null,
       tss_planned_val,
@@ -314,6 +321,7 @@ export async function onRequestPost({ request, env }) {
       tss_source_val,
       typeof notes === 'string' ? (notes.trim() || null) : null,
       source_ref ?? null,
+      outcome.execution_json,
       now, now
     ).run();
 
@@ -339,21 +347,26 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ── 3. Update progression (fire-and-forget style, errors don't fail the response) ──
+    // A stopped session is credited through the same per-step path, for the steps
+    // that have a completed set only (an unstarted timed step would otherwise fall
+    // back to the whole session's duration in progComputeStimulus).
     try {
-      await updateProgression(user_id, id, session_type, duration_sec, steps, env, sessionMs, now);
+      await updateProgression(user_id, id, session_type, duration_sec, creditedSteps(steps, outcome.status), env, sessionMs, now);
     } catch (progErr) {
       console.error('Progression update failed (non-fatal):', progErr.message);
     }
 
     // ── 4. Advance run coach progression ─────────────────────────────────────
-    try {
+    // A stopped session does not complete a programme session: the run, cycling
+    // and military coaches (4–4c) and the polarised balance (5) stay where they are.
+    if (!stopped) try {
       await advanceRunCoach(user_id, steps, env, now);
     } catch (err) {
       console.error('Run coach advance failed (non-fatal):', err.message);
     }
 
     // ── 4b. Advance cycling coach progression ────────────────────────────────
-    try {
+    if (!stopped) try {
       await advanceCyclingCoach(user_id, steps, session_type, env, now);
     } catch (err) {
       console.error('Cycling coach advance failed (non-fatal):', err.message);
@@ -362,7 +375,7 @@ export async function onRequestPost({ request, env }) {
     // ── 4c. Military coach — Cooper result + RPE-based cluster drift ─────────
     // Only advance when the session that was just completed was a military session.
     // Non-military RPE (yoga, strength, etc.) must not drift cluster_current.
-    if (session_program === 'military') {
+    if (session_program === 'military' && !stopped) {
       try {
         await advanceMilitaryCoach(user_id, day_plan_id, steps, perceived_exertion, env, now);
       } catch (err) {
@@ -378,13 +391,13 @@ export async function onRequestPost({ request, env }) {
     }
 
     // ── 5. Track polarised endurance type (zone2 / hiit) for R568 balance ────
-    try {
+    if (!stopped) try {
       await updatePolarisedEnduranceType(user_id, steps, env, now);
     } catch (err) {
       console.error('Polarised type update failed (non-fatal):', err.message);
     }
 
-    return Response.json({ ok: true, execution_id: id });
+    return Response.json({ ok: true, execution_id: id, status: outcome.status, ...(stopped ? { stopped_after: outcome.stopped_after } : {}) });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
@@ -804,7 +817,8 @@ export async function onRequestGet({ request, env }) {
         `SELECT id, date, execution_type, status, total_duration_sec,
                 perceived_exertion, tss_planned, tss_actual, tss_source,
                 strava_activity_id, strava_metadata_json,
-                notes, source_ref, created_at_ms
+                notes, source_ref, created_at_ms,
+                json_extract(execution_json, '$.stopped_after') AS stopped_after_json
          FROM executions
          WHERE user_id = ?
            ${isPro ? '' : 'AND created_at_ms >= ?'}
@@ -853,8 +867,9 @@ export async function onRequestGet({ request, env }) {
       catch { /* ignore malformed */ }
     }
 
-    const executions = result.results.map(e => ({
+    const executions = result.results.map(({ stopped_after_json, ...e }) => ({
       ...e,
+      stopped_after: stopped_after_json ? JSON.parse(stopped_after_json) : null,
       steps: stepsByExec[e.id] ?? [],
       rule_trace: ruleTraceByDate[e.date] ?? null,
     }));

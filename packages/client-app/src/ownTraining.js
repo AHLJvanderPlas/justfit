@@ -99,8 +99,9 @@ export const templateSteps = (template) => (template?.steps ?? []).map((s) => ({
 // What the done card shows after a session. `own_steps` (§6 "Bewaar als
 // sjabloon") only for a session the user wrote that did not come from a saved
 // training — and never the measurement sets the server may have appended.
-export function completedInfo(plan, durationSec) {
+export function completedInfo(plan, durationSec, stop = null) {
   const info = { name: plan?.session_name, duration_sec: durationSec };
+  if (stop) info.stopped_after = stop;   // UAT release 2 — "Gestopt na n van m oefeningen"
   if (plan?.authored_by_user && !plan?.source_ref) {
     info.own_steps = templateSteps({ steps: (plan.steps ?? []).filter((s) => !s.max_effort) });
   }
@@ -129,13 +130,13 @@ export function isRetryable(e) {
 }
 
 // One positional list for api.saveExecution, its queued form, and back.
-const EXEC_KEYS = ["userId", "planId", "date", "steps", "durationSec", "perceivedExertion", "sessionType", "sessionProgram", "notes", "sourceRef"];
+const EXEC_KEYS = ["userId", "planId", "date", "steps", "durationSec", "perceivedExertion", "sessionType", "sessionProgram", "notes", "sourceRef", "stop"];
 export const execPayload = (args) => Object.fromEntries(EXEC_KEYS.map((k, i) => [k, args[i] ?? null]));
 export const execArgs = (p) => EXEC_KEYS.map((k) => p?.[k] ?? null);
 
 // Save an "als extra" session: session_type 'bonus', no day_plan_id (it has no
 // day_plans row), the template it came from as source_ref.
-export function saveOwnExtra(api, { userId, today, plan, stepsActual, durationSec, perceivedExertion, notes }) {
+export function saveOwnExtra(api, { userId, today, plan, stepsActual, durationSec, perceivedExertion, notes, stop = null }) {
   return api.saveExecution(userId, null, today, stepsActual ?? plan?.steps ?? [], durationSec, perceivedExertion,
-    "bonus", null, notes ?? null, plan?.source_ref ?? null);
+    "bonus", null, notes ?? null, plan?.source_ref ?? null, stop);
 }

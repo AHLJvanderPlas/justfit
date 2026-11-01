@@ -9,7 +9,7 @@ import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible }
 import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, frontMeasurements, hasBothMeasurements, measurementStep } from './_shared/dcpMeasure.js';
 import { musclesFromJson } from './_shared/muscles.js';
 import { makePlanStep, prescribedStep } from './_shared/planStep.js';
-import { getDefaultRest, estimateSessionSec } from './_shared/session.js';
+import { getDefaultRest, estimateSessionSec, roundTo5Sec } from './_shared/session.js';
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
 // Re-exported for existing importers (the request harnesses import them from here).
@@ -65,7 +65,7 @@ function adaptExistingPlan(basePlan, checkin) {
   let adaptedSteps = (basePlan.steps ?? []).map(step => ({
     ...step,
     target_reps:         step.target_reps        ? Math.max(1,  Math.round(step.target_reps        * repMult))  : null,
-    target_duration_sec: step.target_duration_sec ? Math.max(10, Math.round(step.target_duration_sec * repMult)) : null,
+    target_duration_sec: step.target_duration_sec && !step.max_effort ? roundTo5Sec(Math.max(10, step.target_duration_sec * repMult)) : (step.target_duration_sec ?? null),
     rest_sec:            step.rest_sec            ? Math.round(step.rest_sec * restMult)                         : step.rest_sec,
   }));
 
@@ -275,7 +275,7 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
           `SELECT es.exercise_id, es.actual_json, ex.date
              FROM execution_steps es
              JOIN executions ex ON ex.id = es.execution_id
-            WHERE ex.user_id = ? AND ex.status = 'completed'
+            WHERE ex.user_id = ? AND ex.status IN ('completed', 'abandoned')
               AND es.actual_json LIKE '%weight_kg%'
             ORDER BY COALESCE(ex.ended_at_ms, ex.created_at_ms) DESC
             LIMIT 400`
@@ -3076,7 +3076,7 @@ function _assembleSession(ctx) {
       // R502's duration leg spares long cardio and run warm-ups (audit §1).
       const expF = (!isLongCardio && !isRunWarmup) ? repScale : 1;
       if (expF !== 1.0) r502Dur++;
-      duration = Math.round(duration * _floored(energyF * expF * sitF));
+      duration = roundTo5Sec(duration * _floored(energyF * expF * sitF));   // UAT D6 — 5 s steps
     }
 
     // Clamp LAST (W3.2): nothing after this point may rescale reps.

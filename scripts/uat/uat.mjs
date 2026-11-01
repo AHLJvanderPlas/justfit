@@ -55,7 +55,7 @@ async function leaveWorkout(run, page) {
     if (await crashed(run, page, 'leaveWorkout')) return;
     if (await visible(btn(page, '^(VANDAAG|TODAY)$'), 600)) return;
     const cancel = btn(page, 'Annuleren|Cancel'); if (await visible(cancel, 400)) { await cancel.first().click().catch(() => {}); await page.waitForTimeout(400); }
-    const quit = btn(page, '^(Stoppen|Quit|Ja|Yes)$'); if (await visible(quit, 600)) { await quit.first().click().catch(() => {}); await page.waitForTimeout(800); continue; }
+    const quit = btn(page, '^(Stoppen|Quit|Weggooien|Discard|Ja|Yes)$'); if (await visible(quit, 600)) { await quit.first().click().catch(() => {}); await page.waitForTimeout(800); continue; }
     const skip = btn(page, 'Beoordeling overslaan|Skip rating|Sessie opslaan|Log session'); if (await visible(skip, 400)) { await skip.first().click().catch(() => {}); await page.waitForTimeout(1200); continue; }
     const back = btn(page, '^(Terug|Back|← Terug|← Back)'); if (await visible(back, 400)) { await back.first().click().catch(() => {}); await page.waitForTimeout(600); continue; }
     await dismissSheets(page); await page.waitForTimeout(400);
@@ -189,7 +189,7 @@ export async function flowWorkout(run, page, { complete = false, maxExercises = 
     if (await visible(doneScreen(page), 2000)) { await run.shot(page, 'workout-feedback', true); await click(run, btn(page, 'Sessie opslaan|Log session|Save session'), 'Sessie opslaan'); await page.waitForTimeout(2500); if (!(await crashed(run, page, 'after save'))) await run.shot(page, 'today-after-session', true); }
     else run.fail(`session did not reach the done screen in 90 s (exercises=${exercises} sets=${sets} timers=${timers})`);
   } else {
-    const cancel = btn(page, 'Annuleren|Cancel'); if (await visible(cancel, 500)) { await click(run, cancel, 'cancel'); await page.waitForTimeout(600); if (!(await crashed(run, page, 'tap ← Annuleren'))) { await run.shot(page, 'workout-cancel-confirm'); const yes = btn(page, '^(Stoppen|Quit|Ja|Yes)$'); if (await visible(yes, 800)) await click(run, yes, 'confirm cancel'); } }
+    const cancel = btn(page, 'Annuleren|Cancel'); if (await visible(cancel, 500)) { await click(run, cancel, 'cancel'); await page.waitForTimeout(600); if (!(await crashed(run, page, 'tap ← Annuleren'))) { await run.shot(page, 'workout-cancel-confirm'); const yes = btn(page, '^(Stoppen|Quit|Weggooien|Discard|Ja|Yes)$'); if (await visible(yes, 800)) await click(run, yes, 'confirm cancel'); } }
     await page.waitForTimeout(800);
   }
   await leaveWorkout(run, page);

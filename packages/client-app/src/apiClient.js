@@ -188,7 +188,7 @@ const api = {
   // rejected save (a 400, a 500) marked the day done and the session was lost
   // with nothing queued and nothing shown. `sourceRef` (MANUAL_TRAINING_DESIGN
   // §7): 'template:<id>' when the session was started from a saved training.
-  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null, sourceRef = null) {
+  async saveExecution(userId, planId, date, steps, durationSec, perceivedExertion, sessionType = "workout", sessionProgram = null, notes = null, sourceRef = null, stop = null) {
     const res = await fetch("/api/execution", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -201,6 +201,10 @@ const api = {
         perceived_exertion: perceivedExertion ?? null,
         notes: notes ?? undefined,
         source_ref: sourceRef ?? undefined,
+        // UAT release 2 — "Stop and save": the sets done, as status 'abandoned'. The
+        // server recomputes stopped_after from the steps; it is sent for the record.
+        status: stop ? "abandoned" : undefined,
+        stopped_after: stop ?? undefined,
         // One mapper for every step shape (logSession.executionStepPayload): keeps
         // the step's own `prescribed` and the R598 `measures` tag (coach-dcp R1).
         steps: steps.map(executionStepPayload),

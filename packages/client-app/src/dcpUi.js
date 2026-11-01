@@ -51,6 +51,16 @@ export function maxEffortMeta(step) {
   return ["Max · {m} min", { m: Math.round((sec / 60) * 10) / 10 }];
 }
 
+/**
+ * UAT release 2 — the same step on the Today card's exercise list: it read
+ * "1 × 2 min" with nothing saying it was the DCP measurement. Now
+ * "DCP-meting · max in 2 min". [key, vars] for t(), or null for an ordinary step.
+ */
+export function dcpTodayMeta(step) {
+  const meta = maxEffortMeta(step);
+  return meta ? ["DCP measurement · max in {m} min", meta[1]] : null;
+}
+
 // ─── coach-dcp release 2 — the DCP card's rows and header, decided once ───────
 
 /**

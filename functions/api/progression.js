@@ -3,6 +3,7 @@
 // POST /api/progression?action=recompute — admin: rebuild from execution history
 
 import { getUser } from './_shared/auth.js';
+import { creditedSteps } from './_shared/sessionOutcome.js';
 import { applyDecay, applyGain, applyBaselineRatchet, GAIN_PER_SET,
          MAX_STIMULUS_PER_AXIS, DECAY_CONFIG } from './_shared/progressionModel.js';
 import { computeRecovery, summariseRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS,
@@ -383,9 +384,9 @@ function exerciseToMode(exercise) {
 async function recomputeFromHistory(userId, env) {
   // Fetch all completed executions + their steps
   const execs = await env.DB.prepare(`
-    SELECT id, date, execution_type, total_duration_sec, perceived_exertion, created_at_ms
+    SELECT id, date, execution_type, status, total_duration_sec, perceived_exertion, created_at_ms
     FROM executions
-    WHERE user_id = ? AND status = 'completed'
+    WHERE user_id = ? AND status IN ('completed', 'abandoned')
     ORDER BY created_at_ms ASC
   `).bind(userId).all();
 
@@ -412,7 +413,8 @@ async function recomputeFromHistory(userId, env) {
       SELECT exercise_id, actual_json FROM execution_steps WHERE execution_id = ?
     `).bind(exec.id).all();
 
-    const stimulus = computeStimulusFromSteps(steps.results, exec, exerciseMap, eventMs);
+    // UAT release 2 — a stopped session replays exactly as execution.js credited it.
+    const stimulus = computeStimulusFromSteps(creditedSteps(steps.results, exec.status), exec, exerciseMap, eventMs);
     scores = applyStimulusToScores(scores, stimulus, eventMs);
   }
 

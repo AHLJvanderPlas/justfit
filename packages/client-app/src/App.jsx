@@ -656,7 +656,7 @@ export default function App() {
           if (mainSession && !localStorage.getItem(`jf_completed_session_${today}`)) {
             const reconstructed = {
               name: mainSession.execution_type ?? "Session",
-              duration_sec: mainSession.total_duration_sec ?? 0,
+              duration_sec: mainSession.total_duration_sec ?? 0, ...(mainSession.stopped_after ? { stopped_after: mainSession.stopped_after } : {}),
             };
             setCompletedSession(reconstructed);
             localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(reconstructed));
@@ -911,9 +911,9 @@ export default function App() {
   }, [prefs.preferences, token]);
 
   const handleComplete = useCallback(
-    async (durationSec, perceivedExertion, stepsActual, notes) => {
-      // Cooper test: pause and ask for distance before saving
-      if (plan?.military_program?.session_type === 'cooper_test') {
+    async (durationSec, perceivedExertion, stepsActual, notes, stop = null) => {
+      // Cooper test: pause and ask for distance before saving (not for a stopped one — UAT R2)
+      if (plan?.military_program?.session_type === 'cooper_test' && !stop) {
         setCooperPending({ durationSec, perceivedExertion, stepsActual, notes });
         setCooperDistance("");
         setShowCooperModal(true);
@@ -929,7 +929,7 @@ export default function App() {
           : plan?.run_program ? "run_coach"
           : "workout";
         await api.saveExecution(userId, plan?.id, today, mergedSteps, durationSec, perceivedExertion,
-          sessionType, isMilSession ? "military" : null, notes, plan?.source_ref ?? null);
+          sessionType, isMilSession ? "military" : null, notes, plan?.source_ref ?? null, stop);
         const [newScore, newHistory, mine] = await Promise.all([
           api.getScore(),
           api.getHistory(), api.getMySessions().catch(() => null),
@@ -941,7 +941,7 @@ export default function App() {
         // Mark today as completed
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
-        const sessionInfo = completedInfo(plan, durationSec);
+        const sessionInfo = completedInfo(plan, durationSec, stop);
         setCompletedSession(sessionInfo);
         localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       } catch (e) {
@@ -955,11 +955,11 @@ export default function App() {
           : plan?.run_program ? "run_coach"
           : "workout";
         await queueMutation('execution', execPayload([userId, plan?.id, today, stepsActual ?? plan?.steps ?? [],
-          durationSec, perceivedExertion, sessionType, isMilSession ? "military" : null, notes, plan?.source_ref]));
+          durationSec, perceivedExertion, sessionType, isMilSession ? "military" : null, notes, plan?.source_ref, stop]));
         setPendingSyncCount(c => c + 1);
         setTodayCompleted(true);
         localStorage.setItem(`jf_completed_${today}`, "1");
-        const sessionInfo = completedInfo(plan, durationSec);
+        const sessionInfo = completedInfo(plan, durationSec, stop);
         setCompletedSession(sessionInfo);
         localStorage.setItem(`jf_completed_session_${today}`, JSON.stringify(sessionInfo));
       }
@@ -1013,22 +1013,22 @@ export default function App() {
   // An engine bonus, or an own session "als extra" (authored_by_user: no
   // day_plans row, so no day_plan_id; its template as source_ref).
   const handleBonusComplete = useCallback(
-    async (durationSec, perceivedExertion, stepsActual, notes) => {
+    async (durationSec, perceivedExertion, stepsActual, notes, stop = null) => {
       const own = !!bonusPlan?.authored_by_user;
       let saved = true;
       try {
-        if (own) await saveOwnExtra(api, { userId, today, plan: bonusPlan, stepsActual, durationSec, perceivedExertion, notes });
-        else await api.saveExecution(userId, bonusPlan?.id, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus");
+        if (own) await saveOwnExtra(api, { userId, today, plan: bonusPlan, stepsActual, durationSec, perceivedExertion, notes, stop });
+        else await api.saveExecution(userId, bonusPlan?.id, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus", null, null, null, stop);
         await refreshScoreHistory();
         if (!own) { setActivityToast("Double session — great work."); setTimeout(() => setActivityToast(""), 3000); }
       } catch (e) {
         console.error("Failed to save bonus execution:", e);
         saved = isRetryable(e);
-        if (saved && own) { await queueMutation('execution', execPayload([userId, null, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus", null, notes, bonusPlan?.source_ref])); setPendingSyncCount(c => c + 1); }
+        if (saved && own) { await queueMutation('execution', execPayload([userId, null, today, stepsActual ?? bonusPlan?.steps ?? [], durationSec, perceivedExertion, "bonus", null, notes, bonusPlan?.source_ref, stop])); setPendingSyncCount(c => c + 1); }
         else if (own) { setActivityToast(t("Your session could not be saved.")); setTimeout(() => setActivityToast(""), 4000); }
       }
       if (saved) { setBonusDone(true); localStorage.setItem(`jf_bonus_${today}`, "1"); }
-      if (saved && own) setExtraDone(writeExtra(today, completedInfo(bonusPlan, durationSec)));
+      if (saved && own) setExtraDone(writeExtra(today, completedInfo(bonusPlan, durationSec, stop)));
       setInBonusWorkout(false);
       setBonusPlan(null);
     },
