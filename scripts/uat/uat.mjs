@@ -35,7 +35,7 @@ class Run {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 async function click(run, loc, label, timeout = 12_000) {
-  try { await loc.first().click({ timeout }); run.tap(); return true; } catch { run.fail(`cannot tap "${label}"`); return false; }
+  try { await loc.first().click({ timeout }); run.tap(); return true; } catch (e) { try { const pg = loc.page(); await pg.screenshot({ path: `${run.dir}/fail-${label.replace(/[^a-z]/gi, "")}.png` }); run.note("blocker: " + await pg.evaluate(() => { const n = [...document.querySelectorAll("nav button")]; const b = n[1]; if (!b) return "no nav"; const r = b.getBoundingClientRect(); const out = []; for (let e = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); e && out.length < 10; e = e.parentElement) out.push(e.tagName + "." + (e.className || "") + (getComputedStyle(e).position === "fixed" ? "[fixed z" + getComputedStyle(e).zIndex + "]" : "")); return out.join(" < "); })); } catch {} run.fail(`cannot tap "${label}": ${String(e.message).split("\n").filter(l => /intercepts|outside|not visible|resolved/.test(l)).slice(0, 3).join(" | ")}`); return false; }
 }
 async function fill(run, loc, value, label) { try { await loc.first().fill(value, { timeout: 8000 }); run.tap(); return true; } catch { run.fail(`cannot fill "${label}"`); return false; } }
 const btn = (page, s) => page.getByRole('button', { name: re(s) });
