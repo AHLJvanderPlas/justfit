@@ -16,6 +16,7 @@ import { t, useLang } from "./i18n.js";
 import { cycleSubGoalLabel, axisLabel } from "./messagePolicy.js";
 import { useAppShell } from "./AppShellContext.js";
 import { MyTrainingsCard } from "./MyTrainings.jsx";
+import { ftpEntered, noSessionYet } from "./coachDisplay.js";   // UAT R3
 
 // ─── COACH VIEW ───────────────────────────────────────────────────────────────
 
@@ -308,23 +309,23 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         </div>
         {primary === 'military' && milA && mp && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            {t("Block {b} of 6 \u00b7 Session {s} of 4", { b: ((mp.block_number ?? 1) - 1) % 6 + 1, s: mp.block_session_index ?? 0 })}
+            {noSessionYet(mp.block_session_index) ? t("Block {b} of 6 \u00b7 No session yet this week", { b: ((mp.block_number ?? 1) - 1) % 6 + 1 }) : t("Block {b} of 6 \u00b7 Session {s} of 4", { b: ((mp.block_number ?? 1) - 1) % 6 + 1, s: mp.block_session_index })}
           </div>
         )}
         {primary === 'running' && rcA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            {t("Week {w} of {total} \u00b7 Session {s} of 3", { w: rc.week ?? 1, total: ({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8, s: rc.session_in_week ?? 0 })}
+            {t(noSessionYet(rc.session_in_week) ? "Week {w} of {total} \u00b7 No session yet this week" : "Week {w} of {total} \u00b7 Session {s} of 3", { w: rc.week ?? 1, total: ({ 5:8,10:12,15:14,20:16,30:20 })[rc.target_km] ?? 8, s: rc.session_in_week })}
           </div>
         )}
         {primary === 'cycling' && ccA && (
           <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>
-            {t("Week {w} \u00b7 Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week ?? 0, total: cc.cycling_days_per_week ?? 3 })}
+            {t(noSessionYet(cc.session_in_week) ? "Week {w} \u00b7 No session yet this week" : "Week {w} \u00b7 Session {s} of {total}", { w: cc.week ?? 1, s: cc.session_in_week, total: cc.cycling_days_per_week ?? 3 })}
           </div>
         )}
       </div>
 
-      {/* ── Primary intent ── */}
-      <div style={{ marginBottom: 28 }}>
+      {/* ── Primary intent — only where it settles a conflict: two or more active coaches (UAT R3) ── */}
+      {multiCoach && <div style={{ marginBottom: 28 }}>
         <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>{t("PRIMARY INTENT")}</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {intents.map(({ id, label, headline, available }) => {
@@ -353,7 +354,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         {intentSaved && (
           <div style={{ fontSize: 12, color: C.muted, marginTop: 10, textAlign: "center" }}>{t("Active from your next check-in.")}</div>
         )}
-      </div>
+      </div>}
 
       {/* ── W4.3 — Mijn trainingen ── */}
       <MyTrainingsCard
@@ -437,7 +438,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               <div style={{ background: C.subtle, borderRadius: 999, height: 5, marginBottom: 8 }}>
                 <div style={{ width: `${pct}%`, height: "100%", background: "var(--accent)", borderRadius: 999, transition: "width 0.5s ease" }} />
               </div>
-              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>{t("Session {s} of 3 this week — any 3 days you train", { s: sessionInWeek })}</div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 10 }}>{noSessionYet(sessionInWeek) ? t("No session yet this week — any 3 days you train") : t("Session {s} of 3 this week — any 3 days you train", { s: sessionInWeek })}</div>
               <div style={{ display: "flex", gap: 6, marginBottom: 14 }}>
                 {[{n:1,day:t("Run {n}", { n: 1 }),type:t("Intervals")},{n:2,day:t("Run {n}", { n: 2 }),type:"Zone 2"},{n:3,day:t("Run {n}", { n: 3 }),type:t("Intervals")}].map(s => {
                   const done = sessionInWeek >= s.n;
@@ -526,7 +527,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         const sessionsLeft = daysPerWeek - sessionInWeek;
         const WEEK_PATTERN = [t('Intervals'), 'Zone 2', t('Intervals')];
         const nextLabel = WEEK_PATTERN[sessionInWeek] ?? t('Intervals');
-        const unitLabel = cc.unit === 'hr' ? t('heart rate zones') : `FTP ${cc.ftp_watts ?? 200} W`;
+        const unitLabel = cc.unit === 'hr' ? t('heart rate zones') : ftpEntered(cc) ? `FTP ${cc.ftp_watts} W` : null;   // UAT R3 — no FTP printed until one was entered
         const insightText = sessionsLeft === daysPerWeek
           ? t("{n} sessions this week — {pattern}.", { n: daysPerWeek, pattern: WEEK_PATTERN.join(' · ') })
           : sessionsLeft > 0
@@ -580,7 +581,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               </div>
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
-                  {t("Cycling Coach — week {w} · {unit}", { w: cc.week ?? 1, unit: unitLabel })}
+                  {unitLabel ? t("Cycling Coach — week {w} · {unit}", { w: cc.week ?? 1, unit: unitLabel }) : t("Cycling Coach — week {w}", { w: cc.week ?? 1 })}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.5 }}>{insightText}</div>
                 {cc.enrolled_at_ms && (() => {

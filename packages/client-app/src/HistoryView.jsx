@@ -15,6 +15,8 @@ import { axisLabel } from "./messagePolicy.js";
 import { insightLines, plannerLines, goalDescription } from "./progressCopy.js";
 import { activeCoachOf, pathGoal } from "./coachPath.js";
 import { showedUp } from "./sessionOutcome.js";   // UAT R2 — a stopped session with sets done counts
+import { insightsUnlocked, strongestWeakest } from "./progressGate.js";   // UAT R3 — the insight blocks wait for data
+import { weekPill, weekdayMondayFirst } from "./weekStatus.js";
 // 82 KB of SVG path data — kept out of the Progress tab's critical path and
 // only fetched when the body map is actually opened.
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
@@ -730,9 +732,12 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
     const rated = thisWeek.filter(h => h.perceived_exertion != null);
     const avgPE = rated.length ? rated.reduce((s, h) => s + h.perceived_exertion, 0) / rated.length : null;
     const exertionLabel = avgPE == null ? null : avgPE >= 7 ? "Tough week" : avgPE <= 4 ? "Light week" : "Well-paced";
-    const verdict = done >= target ? "on-track" : done >= Math.ceil(target * 0.6) ? "building" : "behind";
-    const verdictLabel = { "on-track": "On track", "building": "Building", "behind": "Behind" }[verdict];
-    const verdictColor = { "on-track": C.emerald, "building": C.warning, "behind": "#f43f5e" }[verdict];
+    // UAT R3 — neutral "n to go" in the first week and while on pace; red only from week two, Thursday on.
+    const firstDate = history.reduce((m, h) => (h.date && (!m || h.date < m) ? h.date : m), null);
+    const daysSinceFirst = firstDate ? Math.max(0, Math.floor((nowMs - new Date(firstDate + "T12:00:00").getTime()) / 86400000)) : 0;
+    const pill = weekPill({ target, done, weekday: weekdayMondayFirst(new Date(nowMs)), daysSinceFirst });
+    const verdict = pill.kind;
+    const verdictLabel = pill.kind === "togo" ? t("{n} to go", { n: pill.toGo }) : t({ "on-track": "On track", "building": "Building", "behind": "Behind" }[pill.kind]);
     const insightMap = {
       health:      "Variety is the plan — strength, cardio and mobility in rotation.",
       strength:    "Progressive overload accumulates. 4 sessions per week is the minimum.",
@@ -763,11 +768,12 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
     thisWeek.forEach(h => { const lbl = typeLabels[h.execution_type] ?? 'Session'; typeCounts[lbl] = (typeCounts[lbl] || 0) + 1; });
     const typeChips = Object.entries(typeCounts).map(([label, count]) => ({ label, count }));
 
-    return { done, target, trend, exertionLabel, verdict, verdictLabel, verdictColor, insight, totalMins, sparkCounts, typeChips };
+    return { done, target, trend, exertionLabel, verdict, verdictLabel, insight, totalMins, sparkCounts, typeChips };
   })();
 
   const streak = computeStreak(history);
   const completedCount = history.filter(showedUp).length;
+  const unlocked = insightsUnlocked(completedCount);   // UAT R3 — three sessions before the insight blocks
 
   return (
     <div>
@@ -825,8 +831,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
       <Glass style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
           <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5 }}>{t("THIS WEEK")}</div>
-          <span style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.12em", textTransform: "uppercase", color: weeklyOutcome.verdictColor, background: `${weeklyOutcome.verdictColor}18`, border: `1px solid ${weeklyOutcome.verdictColor}40`, padding: "3px 10px", borderRadius: 999 }}>
-            {t(weeklyOutcome.verdictLabel)}
+          <span className={`jf-weekpill jf-weekpill--${weeklyOutcome.verdict}`}>
+            {weeklyOutcome.verdictLabel}
           </span>
         </div>
         {/* Hero metrics row */}
@@ -918,7 +924,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
       <WaarStaIk prefs={prefs} nowMs={nowMs} onMeasure={handleMeasure} measurePlanned={assessmentPlanned} />
 
-      <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />
+      {unlocked && <RecoveryPanel recovery={progression?.recovery} gender={prefs?.gender} />}
 
       <RecordsPanel />
 
@@ -940,7 +946,8 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         </Glass>
       ) : (
         <>
-          {((sportMode === "general" && completedCount >= 14) || sportMode === "military") && (
+          {!unlocked && <p className="jf-progress-later">{t("After 3 sessions you will see your strong and weak points here.")}</p>}
+          {unlocked && ((sportMode === "general" && completedCount >= 14) || sportMode === "military") && (
             <>
               {/* ── Chart mode tabs — general only ── */}
               {sportMode === "general" && (
@@ -1121,7 +1128,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           )}
 
           {/* ── Goal Fit card (military: folded into the radar card above) ── */}
-          {sportMode !== "military" && (
+          {unlocked && sportMode !== "military" && (
           <Glass style={{ padding: 20, marginBottom: 12, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
               <svg width="60" height="60" viewBox="0 0 60 60">
@@ -1156,7 +1163,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
 
           {/* ── Axis breakdown for military ── */}
-          {sportMode === "military" && (
+          {unlocked && sportMode === "military" && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>
@@ -1188,7 +1195,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           )}
 
           {/* ── Key insights + planner explanation (general mode only) ── */}
-          {sportMode === "general" && (progression.insights || plannerCopy.length > 0) && (
+          {unlocked && sportMode === "general" && (progression.insights || plannerCopy.length > 0) && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Key Insights")}
@@ -1196,20 +1203,20 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               <Glass style={{ padding: 20 }}>
 
                 {/* Strongest / Weakest — general mode only */}
-                {sportMode === "general" && progression.insights && (
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    {[
-                      { key: "strongest", label: t("Strongest"), val: progression.insights.strongest && axisLabel(progression.insights.strongest.axis), sub: progression.insights.strongest?.score },
-                      { key: "weakest",   label: t("Weakest"),   val: progression.insights.weakest && axisLabel(progression.insights.weakest.axis),   sub: progression.insights.weakest?.score },
-                    ].map(({ key, label, val, sub }) => val ? (
-                      <div key={key}>
-                        <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{label}</div>
-                        <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{val}</div>
-                        <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(sub) })}</div>
-                      </div>
-                    ) : null)}
-                  </div>
-                )}
+                {sportMode === "general" && (() => {
+                  const pair = strongestWeakest(progression.insights, displayScores);
+                  return pair.length === 2 ? (
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                      {pair.map(({ key, axis, score }) => (
+                        <div key={key}>
+                          <div style={{ fontSize: 10, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{key === "strongest" ? t("Strongest") : t("Weakest")}</div>
+                          <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{axisLabel(axis)}</div>
+                          <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(score) })}</div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null;
+                })()}
 
                 {/* Focus this week — general mode only */}
                 {sportMode === "general" && progression.insights?.biggest_gap && (
@@ -1253,7 +1260,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             </div>
           )}
 
-          {sportMode === "general" && (
+          {unlocked && sportMode === "general" && (
             <div style={{ marginBottom: 16 }}>
               <div style={{ ...eyebrow, color: C.faint, fontSize: 9.5, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
               <Glass style={{ padding: "4px 0" }}>

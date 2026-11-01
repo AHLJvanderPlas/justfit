@@ -72,6 +72,10 @@ Guards: vitest for the two week helpers and the insight-gating predicate; e2e "d
 has no insight blocks; after three sessions it has"; a smoke scan that the two banners use the
 helpers.
 
+Status: built on branch `uat-r3` (not deployed). `npm test` vitest 476 + shared 20; `npm run release`
+smoke 100/100, e2e 24/24. App.jsx 1799 → 1780, inline styles 2025 → 2008 (both ceilings lowered).
+The week pill counts the same rolling 7 days the card shows; "first activity" is the oldest history row.
+
 ## Release 4 — Dutch sweep 3 and the two orphan screens (M)
 
 Screens: Settings → Jij (every section title and helper), Deze week (dates via `fmtDateNL`, session

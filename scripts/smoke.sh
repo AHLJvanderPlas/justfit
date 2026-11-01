@@ -760,7 +760,9 @@ fi
 # 2061 → 2025 (2026-11-01): UAT release 2 — the done card (DoneCard.jsx, .jf-done*), the
 # why-panel (.jf-why*), the coach sentence (.jf-today__coach) and WorkoutView's stop
 # overlay (.jf-stop*) moved to styles.css.
-STYLE_CEILING=2025
+# 2025 → 2008 (2026-11-01): UAT release 3 — the Deze week day strip, Aankomend cards and the
+# Voortgang week pill moved to .jf-weekstrip* / .jf-upday* / .jf-weekpill* classes.
+STYLE_CEILING=2008
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1483,7 +1485,8 @@ fi
 # 2026-11-01 (coach-dcp R1): plan.js 3726 → 3688 — R598's due check and the
 # measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
 PLAN_CEILING=3688
-APP_CEILING=1800
+# 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
+APP_CEILING=1780
 POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
 APP_NOW=$(wc -l < packages/client-app/src/App.jsx | tr -d " ")
@@ -1585,6 +1588,34 @@ if [ -z "$R2_OUT" ]; then
   ok "coach-dcp R2: one Goal & coach landing row, KEURING_NORMS in one module, no Add-on pill"
 else
   fail "coach-dcp R2: $R2_OUT"
+fi
+
+# ── UAT release 3 — one source for the body-mode numbers (offline source scan) ─
+# The pregnancy and postnatal banners read their week / day from bodyBanner.js: the header line
+# and the milestone label are built from the same helper, the milestone tables live in that one
+# module (a literal "Week 20 · …" in front of "Week 21 of your pregnancy" was UAT D6), and the
+# clearance prompt is skipped once a clearance is recorded.
+R3_OUT=$(node -e '
+const fs = require("fs");
+const errs = [];
+const app = fs.readFileSync("packages/client-app/src/App.jsx", "utf8");
+const bb = fs.readFileSync("packages/client-app/src/bodyBanner.js", "utf8");
+if (!/from "\.\/bodyBanner\.js"/.test(app)) errs.push("App.jsx does not import bodyBanner.js");
+if (!/pregnancyWeek\(/.test(app)) errs.push("the pregnancy banner does not call pregnancyWeek()");
+if (!/postnatalDays\(/.test(app) || !/postnatalLabel\(/.test(app)) errs.push("the postnatal banner does not call postnatalDays() / postnatalLabel()");
+if (/(PREGNANCY|POSTNATAL)_MILESTONES\s*=/.test(app)) errs.push("App.jsx defines its own milestone table");
+if (/new Date\(\) - new Date\(birthDate\)/.test(app)) errs.push("the postnatal banner computes its own day count");
+if (/postnatal_cleared_for_exercise/.test(app) === false) errs.push("the postnatal banner ignores postnatal_cleared_for_exercise");
+if (/msg:\s*"(Week|Day) \d/.test(bb)) errs.push("a milestone message carries a literal week/day number");
+// "Herstel" reads the session just saved: the progression is refetched where the history is.
+const rsh = app.indexOf("const refreshScoreHistory");
+if (!/getProgression/.test(app.slice(rsh, rsh + 500))) errs.push("refreshScoreHistory does not refetch the progression (Herstel)");
+if (!/api\.saveExecution\(userId, plan\?\.id[\s\S]{0,600}getProgression/.test(app)) errs.push("handleComplete does not refetch the progression after saveExecution (Herstel)");
+process.stdout.write(errs.join("; "));' 2>&1)
+if [ -z "$R3_OUT" ]; then
+  ok "UAT R3: both body banners use the bodyBanner.js helpers, no literal week in a milestone, clearance prompt gated"
+else
+  fail "UAT R3: $R3_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

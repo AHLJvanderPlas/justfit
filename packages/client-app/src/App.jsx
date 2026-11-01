@@ -16,6 +16,7 @@ import { logout } from "./authHelpers.js";
 import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
 import { completedInfo, readExtra, writeExtra, isRetryable, execPayload, execArgs, saveOwnExtra } from "./ownTraining.js";
 import { applyPathChoice } from "./pathApply.js";
+import { pregnancyWeek, pregnancyMilestone, postnatalDays, postnatalMilestone, postnatalLabel } from "./bodyBanner.js";   // UAT R3 — one source for the banner numbers
 import { loadEntitlement, entitlementSettled } from "./entitlement.js";
 
 // ─── VIEW COMPONENTS ──────────────────────────────────────────────────────────
@@ -66,29 +67,6 @@ watchSystemTheme(() => localStorage.getItem(THEME_STORAGE_KEY) ?? "system");
 const APP_VERSION = "2";
 
 // ─── PREGNANCY PROGRESS BANNER ───────────────────────────────────────────────
-const PREGNANCY_MILESTONES = [
-  { week: 4,  msg: "Week 4 · Your baby is the size of a poppy seed. Movement is good — keep it gentle." },
-  { week: 8,  msg: "Week 8 · First trimester well underway. Listen to your body — rest counts too." },
-  { week: 13, msg: "Week 13 · Welcome to the second trimester. Energy often improves from here." },
-  { week: 16, msg: "Week 16 · Time to move away from exercises lying flat on your back." },
-  { week: 20, msg: "Week 20 · Halfway there. Your sessions are adapting with you." },
-  { week: 24, msg: "Week 24 · Pelvic floor work pays dividends now and after birth." },
-  { week: 28, msg: "Week 28 · Third trimester begins. Slower and steadier — you're doing brilliantly." },
-  { week: 32, msg: "Week 32 · Breathlessness is normal. Short breaks are part of the session." },
-  { week: 36, msg: "Week 36 · Practise your labour breathing — it's the most useful thing now." },
-  { week: 40, msg: "Week 40 · Due any day. Movement can help — rest when you need to." },
-];
-
-const POSTNATAL_MILESTONES = [
-  { day: 3,   msg: "Day 3 · Rest and pelvic floor breathing. That's everything right now." },
-  { day: 7,   msg: "Week 1 · Gentle heel slides and pelvic tilts are a great start." },
-  { day: 14,  msg: "Week 2 · Your body is healing quietly. Every breath counts." },
-  { day: 42,  msg: "Week 6 · Time to check in with your midwife or GP about exercise clearance." },
-  { day: 84,  msg: "Week 12 · Core rebuilding is underway. Take it one week at a time." },
-  { day: 140, msg: "Week 20 · Great progress. Strength is returning." },
-  { day: 182, msg: "Week 26 · You're in the returning phase. Full programme available when you're ready." },
-];
-
 function PregnancyProgressBanner({ cycle }) {
   const _uid = getUserId();
   const _msKey = _uid ? `jf_milestone_dismissed_${_uid}` : 'jf_milestone_dismissed';
@@ -103,12 +81,12 @@ function PregnancyProgressBanner({ cycle }) {
   const mode = cycle.mode ?? "standard";
 
   if (mode === "pregnant") {
-    const week = cycle.pregnancy_week;
+    // UAT R3 — one source for the number: the header and the milestone label both read `week`.
+    const week = pregnancyWeek(cycle.pregnancy_due_date, new Date().toISOString().slice(0, 10)) ?? cycle.pregnancy_week;
     const trimester = cycle.trimester;
     if (!week) return null;
 
-    // Find current milestone
-    const milestone = [...PREGNANCY_MILESTONES].reverse().find(m => week >= m.week);
+    const milestone = pregnancyMilestone(week);
     const milestoneKey = milestone ? `p_w${milestone.week}` : null;
     const showMilestone = milestone && !dismissed[milestoneKey];
 
@@ -120,15 +98,15 @@ function PregnancyProgressBanner({ cycle }) {
       <div style={{ marginBottom: 20 }}>
         <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.18)", borderRadius: 16, padding: "14px 16px" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-            <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright }}>Week {week} of your pregnancy</div>
-            <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)", fontWeight: 700 }}>Trimester {trimester}</div>
+            <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright }}>{t("Week {n} of your pregnancy", { n: week })}</div>
+            <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)", fontWeight: 700 }}>{t("Trimester {n}", { n: trimester })}</div>
           </div>
           <div style={{ height: 5, background: "rgba(var(--overlay-rgb),0.07)", borderRadius: 999, overflow: "hidden" }}>
             <div style={{ height: "100%", width: `${pct}%`, background: barColor, borderRadius: 999, transition: "width 0.5s" }} />
           </div>
           {showMilestone && (
             <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{milestone.msg}</div>
+              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{t("Week {n}", { n: week })} · {t(milestone.msg)}</div>
               <button
                 onClick={() => {
                   const updated = { ...dismissed, [milestoneKey]: true };
@@ -160,10 +138,10 @@ function PregnancyProgressBanner({ cycle }) {
   if (mode === "postnatal") {
     const birthDate = cycle.postnatal_birth_date;
     if (!birthDate) return null;
-    const daysSince = Math.floor((new Date() - new Date(birthDate)) / (1000 * 60 * 60 * 24));
+    const daysSince = postnatalDays(birthDate, new Date().toISOString().slice(0, 10)) ?? 0;   // UAT R3 — one source for day and week
     const postnatalPhase = cycle.postnatal_phase;
 
-    const milestone = [...POSTNATAL_MILESTONES].reverse().find(m => daysSince >= m.day);
+    const milestone = postnatalMilestone(daysSince, !!cycle.postnatal_cleared_for_exercise);   // the clearance prompt only while none is recorded
     const milestoneKey = milestone ? `pn_d${milestone.day}` : null;
     const showMilestone = milestone && !dismissed[milestoneKey];
 
@@ -181,10 +159,10 @@ function PregnancyProgressBanner({ cycle }) {
           <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 3 }}>
             {PHASE_LABELS_PN[postnatalPhase] ?? "Postnatal recovery"}
           </div>
-          <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)" }}>Day {daysSince} after birth</div>
+          <div style={{ fontSize: 11, color: "rgba(251,191,36,0.6)" }}>{t("Day {n} after birth", { n: daysSince })}</div>
           {showMilestone && (
             <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
-              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{milestone.msg}</div>
+              <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{(({ key, n }) => t(key, { n }))(postnatalLabel(daysSince))} · {t(milestone.msg)}</div>
               <button
                 onClick={() => {
                   const updated = { ...dismissed, [milestoneKey]: true };
@@ -354,7 +332,8 @@ export default function App() {
   };
   // Score + history after a save outside WorkoutView (activity, rest day, a session logged afterwards).
   const refreshScoreHistory = useCallback(async () => {
-    const [s, h, mine] = await Promise.all([api.getScore(), api.getHistory(), api.getMySessions().catch(() => null)]);
+    const [s, h, mine, prog] = await Promise.all([api.getScore(), api.getHistory(), api.getMySessions().catch(() => null), api.getProgression(token).catch(() => null)]);
+    if (prog?.ok) setProgression(prog);   // UAT R3 — "Herstel" reads the session just saved
     setScore(s); setHistory(h.results); setHistoryTruncated(!!h.truncated); if (Array.isArray(mine)) setMyTemplates(mine);
   }, []);
   // Need C — a session logged from PlanWeekView (today … today−6).
@@ -930,10 +909,12 @@ export default function App() {
           : "workout";
         await api.saveExecution(userId, plan?.id, today, mergedSteps, durationSec, perceivedExertion,
           sessionType, isMilSession ? "military" : null, notes, plan?.source_ref ?? null, stop);
-        const [newScore, newHistory, mine] = await Promise.all([
+        const [newScore, newHistory, mine, prog] = await Promise.all([
           api.getScore(),
           api.getHistory(), api.getMySessions().catch(() => null),
+          api.getProgression(token).catch(() => null),   // UAT R3 — "Herstel" reads the session just saved
         ]);
+        if (prog?.ok) setProgression(prog);
         setPrevScore(score);
         setScore(newScore);
         setHistory(newHistory.results); if (Array.isArray(mine)) setMyTemplates(mine); if (plan?.assessment_planned) api.getProfile().then((d) => { if (d?.preferences) setPrefs((p) => ({ ...p, preferences: d.preferences })); }).catch(() => {});

@@ -1,19 +1,22 @@
 import { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
 import { C } from "./tokens.js";
 import { Icons } from "./icons.jsx";
-import { estimateMins } from "./planUtils.js";
+import { estimateMins, fmtDayStrip } from "./planUtils.js";
 import api from "./apiClient.js";
-import { deriveChipLabel } from "./messagePolicy.js";
+import { deriveChipLabel, sessionTitle } from "./messagePolicy.js";
 import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
-import { inLogWindow, logDayLabel, summarizeLogged } from "./logSession.js";
+import { logDayLabel, summarizeLogged } from "./logSession.js";
 import { pickerContextFrom } from "./exerciseSearch.js";
+import { selectedDay, dayRowKind, upcomingShown } from "./weekPlan.js";   // UAT R3 — one row, not seven
 
 const LogSessionSheet = lazy(() => import("./LogSessionSheet.jsx"));
 
 export default function PlanWeekView({ history, plan, userId, onDeleteExecution, prefs, onLogged, templates = [] }) {
   const lang = useLang();
   const [logDate, setLogDate] = useState(null);   // need C — the day being logged
+  const [pickedDay, setPickedDay] = useState(null);   // UAT R3 — the strip's selection (null = today)
+  const [wholeWeek, setWholeWeek] = useState(false);  // UAT R3 — "Hele week →" expands Aankomend
   const today = new Date().toISOString().split("T")[0];
   const [weekOffset, setWeekOffset] = useState(0);
   const [upcomingPlans, setUpcomingPlans] = useState([]);
@@ -134,7 +137,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
   });
 
   const dayNames = [t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")];
-  const monthNames = [t("Jan"),t("Feb"),t("Mar"),t("Apr"),t("May"),t("Jun"),t("Jul"),t("Aug"),t("Sep"),t("Oct"),t("Nov"),t("Dec")];
+  const longDate = (iso) => new Date(iso + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { weekday: "long", month: "short", day: "numeric" });
 
   // Map history by date for quick lookup
   const doneByDate = {};
@@ -142,11 +145,11 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     if (ex.date) doneByDate[ex.date] = ex;
   });
 
-  // Need C — a day in the visible week, inside the 6-day log window, with nothing
-  // recorded: offer to log what was done there. Newest first; older days show nothing.
-  const loggableDays = onLogged
-    ? days.filter((date) => date <= today && inLogWindow(date, today) && !doneByDate[date]).reverse()
-    : [];
+  // Need C — the selected day, inside the 6-day log window with nothing recorded, offers to log
+  // what was done there. One row for one day (UAT R3); older days show nothing.
+  const upcomingList = weekOffset === 0 ? upcomingPlans : upcomingPlans.filter(up => days.includes(up.date));
+  const selected = selectedDay(days, today, pickedDay);
+  const selectedKind = dayRowKind(selected, today, !!doneByDate[selected], !!onLogged);
 
   return (
     <div style={{ padding: "0 0 32px" }}>
@@ -163,69 +166,35 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         <div style={{ fontSize: 13, color: C.muted }}>{weekOffset === 0 ? t('Your last 7 days at a glance') : weekOffset > 0 ? t('Upcoming plan preview') : t('Past week history')}</div>
       </div>
 
-      {/* 7-day strip */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 8, marginBottom: 32 }}>
+      {/* 7-day strip — tap a day to select it; ONE row below follows the selection (UAT R3) */}
+      <div className="jf-weekstrip">
         {days.map((date) => {
           const d = new Date(date + "T12:00:00");
           const done = !!doneByDate[date];
           const isToday = date === today;
           const isFuture = date > today;
-
+          const cls = ["jf-weekstrip__day", isToday && "jf-weekstrip__day--today", done && "jf-weekstrip__day--done",
+            isFuture && "jf-weekstrip__day--future", date === selected && "jf-weekstrip__day--sel"].filter(Boolean).join(" ");
           return (
-            <div
-              key={date}
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: 6,
-                padding: "12px 4px",
-                borderRadius: 16,
-                background: isToday
-                  ? C.emeraldDim
-                  : done
-                    ? "rgba(var(--accent-rgb),0.06)"
-                    : "rgba(var(--overlay-rgb),0.02)",
-                border: `1px solid ${isToday ? C.emeraldBorder : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`,
-              }}
-            >
-              <span style={{ fontSize: 9, fontWeight: 900, letterSpacing: "0.08em", color: isToday ? C.emerald : C.muted, textTransform: "uppercase" }}>
-                {dayNames[d.getDay()]}
-              </span>
-              <span style={{ fontSize: 15, fontWeight: 900, color: isToday ? C.emerald : isFuture ? C.subtle : C.text }}>
-                {d.getDate()}
-              </span>
-              {/* Status dot */}
-              <div
-                style={{
-                  width: 8,
-                  height: 8,
-                  borderRadius: "50%",
-                  background: done
-                    ? C.emerald
-                    : isFuture
-                      ? "transparent"
-                      : "rgba(var(--overlay-rgb),0.1)",
-                  border: done ? "none" : isFuture ? `1px dashed ${C.subtle}` : `1px solid ${C.subtle}`,
-                }}
-              />
-            </div>
+            <button key={date} type="button" className={cls} aria-pressed={date === selected} onClick={() => setPickedDay(date)}>
+              <span className="jf-weekstrip__name">{dayNames[d.getDay()]}</span>
+              <span className="jf-weekstrip__num">{d.getDate()}</span>
+              <span className={`jf-weekstrip__dot${done ? " jf-weekstrip__dot--done" : ""}`} />
+            </button>
           );
         })}
       </div>
 
-      {loggableDays.length > 0 && (
+      {selectedKind === "log" && (
         <div className="jf-logdays">
-          {loggableDays.map((date) => (
-            <div key={date} className="jf-logday">
-              <span className="jf-logday__day">
-                {date === today ? t("Today") : logDayLabel(date, lang)} · {t("nothing recorded")}
-              </span>
-              <button type="button" className="jf-logday__btn" onClick={() => setLogDate(date)}>
-                {t("Log a training")}
-              </button>
-            </div>
-          ))}
+          <div className="jf-logday">
+            <span className="jf-logday__day">
+              {selected === today ? t("Today") : logDayLabel(selected, lang)} · {t("nothing recorded")}
+            </span>
+            <button type="button" className="jf-logday__btn" onClick={() => setLogDate(selected)}>
+              {t("Log a training")}
+            </button>
+          </div>
         </div>
       )}
       {logDate && (
@@ -244,12 +213,12 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: plan.steps?.length ? 10 : 0 }}>
               <div>
                 <div style={{ fontSize: 15, fontWeight: 800, color: C.text, marginBottom: 3 }}>
-                  {plan.session_name || t("Today's session")}
+                  {plan.session_name ? sessionTitle(plan.session_name, plan) : t("Today's session")}
                 </div>
                 <div style={{ fontSize: 12, color: C.muted }}>
-                  {(() => { const d = new Date(today + "T12:00:00"); return `${dayNames[d.getDay()]}, ${monthNames[d.getMonth()]} ${d.getDate()}`; })()}
+                  {fmtDayStrip(new Date(today + "T12:00:00"), lang)}
                 </div>
-                {(() => { const chip = deriveChipLabel(plan.rule_trace, plan.session_notes); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={chip} /></div> : null; })()}
+                {(() => { const chip = deriveChipLabel(plan.rule_trace, plan.session_notes); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={t(chip)} /></div> : null; })()}
               </div>
               {estimateMins(plan) && (
                 <div style={{ padding: "4px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 12, fontWeight: 800, color: C.emerald, flexShrink: 0 }}>
@@ -277,62 +246,56 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             <div style={{ fontSize: 13, color: C.muted }}>{t("Predicting upcoming sessions\u2026")}</div>
           </Glass>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {(weekOffset === 0 ? upcomingPlans : upcomingPlans.filter(up => days.includes(up.date))).map(({ date, plan: p }) => {
+          <div className="jf-upcoming">
+            {upcomingShown(upcomingList, wholeWeek).map(({ date, plan: p }) => {
               const d = new Date(date + "T12:00:00");
               const mins = estimateMins(p);
               const isRest = !p || p.slot_type === "rest";
               const exercises = p?.steps?.slice(0, 4).map((s) => exerciseName(s)) ?? [];
               const extra = Math.max(0, (p?.steps?.length ?? 0) - 4);
               return (
-                <Glass key={date} style={{ padding: "14px 18px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: exercises.length && !isRest ? 8 : 0 }}>
-                    <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                      <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase" }}>
-                        {dayNames[d.getDay()]}
-                      </span>
-                      <span style={{ fontSize: 12, color: C.muted }}>
-                        {monthNames[d.getMonth()]} {d.getDate()}
-                      </span>
+                <Glass key={date} className="jf-upday">
+                  <div className="jf-upday__head">
+                    <div className="jf-upday__when">
+                      <span className="jf-upday__date">{fmtDayStrip(d, lang)}</span>
+                      {!isRest && p?.session_name && <span className="jf-upday__name">{sessionTitle(p.session_name, p)}</span>}
                     </div>
                     {isRest ? (
-                      <div style={{ padding: "3px 10px", borderRadius: 999, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, fontSize: 11, fontWeight: 700, color: C.muted }}>
-                        {t("Rest day")}
-                      </div>
+                      <div className="jf-upday__pill">{t("Rest day")}</div>
                     ) : mins ? (
-                      <div style={{ padding: "3px 10px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 11, fontWeight: 800, color: C.emerald }}>
-                        ~{mins} min
-                      </div>
+                      <div className="jf-upday__pill jf-upday__pill--min">~{mins} min</div>
                     ) : null}
                   </div>
                   {!isRest && exercises.length > 0 && (
-                    <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
+                    <div className="jf-upday__ex">
                       {exercises.join(" · ")}{extra > 0 ? ` · ${t('+{n} more', { n: extra })}` : ""}
                     </div>
                   )}
                 </Glass>
               );
             })}
+            {upcomingList.length > upcomingShown(upcomingList, false).length && (
+              <button type="button" className="jf-upday__more" onClick={() => setWholeWeek((w) => !w)}>
+                {wholeWeek ? t("Show less") : t("Whole week \u2192")}
+              </button>
+            )}
           </div>
         )}
       </div>}
 
-      {/* All history */}
-      <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
-        {t("Completed Sessions")}
-      </div>
-
+      {/* All history — only when there is a session (UAT R3) */}
       {deleteToast && (
         <div style={{ marginBottom: 12, padding: "10px 16px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, fontSize: 13, fontWeight: 700, color: C.muted, textAlign: "center" }}>
           {deleteToast}
         </div>
       )}
+      {history && history.length > 0 && (
+        <div style={{ fontSize: 10, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          {t("Completed Sessions")}
+        </div>
+      )}
 
-      {!history || history.length === 0 ? (
-        <Glass style={{ padding: 28, textAlign: "center" }}>
-          <div style={{ fontSize: 13, color: C.muted, fontStyle: "italic" }}>{t("Your workout history will appear here.")}</div>
-        </Glass>
-      ) : (() => {
+      {history && history.length > 0 && (() => {
         const STRAVA_ICON  = { strava_ride: 'cycle', strava_run: 'run', strava_walk: 'run', strava_hike: 'mountain', strava_swim: 'bolt', strava_row: 'lift', strava_workout: 'bolt' };
         const STRAVA_LABEL = { strava_ride: 'Ride', strava_run: 'Run', strava_walk: 'Walk', strava_hike: 'Hike', strava_swim: 'Swim', strava_row: 'Row', strava_workout: 'Workout' };
         const isStravaFn = e => typeof e.execution_type === 'string' && e.execution_type.startsWith('strava_');
@@ -395,18 +358,18 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>
                         {isStravaCard && stravaMeta?.name
                           ? stravaMeta.name
-                          : new Date(h.date + "T12:00:00").toLocaleDateString("en", { weekday: "long", month: "short", day: "numeric" })}
+                          : longDate(h.date)}
                         {h.execution_type === "logged" && <span className="jf-logged-tag">{t("Self-logged")}</span>}
                         {h.stopped_after && <span className="jf-logged-tag">{t("Stopped after {n} of {m} exercises", { n: h.stopped_after.exercises_done, m: h.stopped_after.exercises_total })}</span>}
                       </div>
                       <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
                         {isStravaCard
-                          ? [new Date(h.date + "T12:00:00").toLocaleDateString("en", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
+                          ? [new Date(h.date + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
                           : h.execution_type === "logged"
                             ? t("Recorded afterwards")
                             : `${h.execution_type || "workout"} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : "completed"}`}
                       </div>
-                      {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={chip} /></div> : null; })()}
+                      {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={t(chip)} /></div> : null; })()}
                       {/* Strava activity name when merged from a separate entry */}
                       {mergedStravaEntry && stravaMeta?.name && (
                         <div style={{ fontSize: 11, color: "#FC4C02", fontWeight: 600, marginTop: 3 }}>
