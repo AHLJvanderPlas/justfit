@@ -55,7 +55,7 @@ export const PERSONAS = [
   base({ id: 'p23-yara', who: 'Yara, 32, Pro, wil elke dag opnieuw plannen na check-in', sex: 'female', name: 'Yara',
     flows: [['signup'], ['checkin', []], ['path', 'general'], ['today'], ['tap', '^CHECK-IN$', 'checkin-again-open'], ['checkin', ['Geen tijd|No time']], ['today']] }),
   base({ id: 'p24-bas', who: 'Bas, 39, wil voortgang en awards zien', name: 'Bas', expIdx: 1,
-    flows: [['signup'], ['checkin', []], ['path', 'general'], ['workout', { complete: true }], ['nav', 'VOORTGANG', 'voortgang'], ['tap', 'Eregalerij|Trophy', 'eregalerij'], ['settings', 'Trofeeënkamer|Trophy room']] }),
+    flows: [['signup'], ['checkin', []], ['path', 'general'], ['workout', { complete: true }], ['nav', 'VOORTGANG', 'voortgang'], ['tap', 'Trofee|Eregalerij|Trophy', 'eregalerij'], ['settings', 'Trofeeënkamer|Trophy room']] }),
   base({ id: 'p25-femke', who: 'Femke, 47, traint bij een trainer die sessies toewijst', sex: 'female', name: 'Femke',
     flows: [['signup'], ['checkin', []], ['path', 'general'], ['connect'], ['own', 'reuse']] }),
   base({ id: 'p26-luc', who: 'Luc, 22, militair én loper — twee coaches tegelijk?', name: 'Luc', expIdx: 1,
