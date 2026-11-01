@@ -2,6 +2,7 @@
 // GET  /api/execution — fetch execution history for a user
 // DELETE /api/execution — delete an execution and its steps
 
+import { knownExerciseIds, stepRow } from './_shared/stepRefs.js';
 import { getAuthUserId } from './_shared/auth.js';
 import { readExecutionStatus, creditedSteps, STOPPED_STATUS } from './_shared/sessionOutcome.js';
 import { isProUser } from './_shared/entitlements.js';
@@ -327,7 +328,8 @@ export async function onRequestPost({ request, env }) {
 
     // ── 2. Batch insert steps ─────────────────────────────────────────────────
     if (steps?.length) {
-      const stmts = steps.map((step, i) =>
+      const known = await knownExerciseIds(env, steps);
+      const stmts = steps.map((step, i) => { const row = stepRow(step, known); return (
         env.DB.prepare(`
           INSERT INTO execution_steps
             (id, execution_id, step_index, step_type, exercise_id,
@@ -337,12 +339,12 @@ export async function onRequestPost({ request, env }) {
           crypto.randomUUID(),
           id,
           i,
-          step.exercise_id ?? null,
-          JSON.stringify(step.prescribed ?? {}),
+          row.exercise_id,
+          row.prescribed_json,
           JSON.stringify(step.actual ?? {}),
           now, now
         )
-      );
+      ); });
       await env.DB.batch(stmts);
     }
 
