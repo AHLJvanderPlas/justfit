@@ -623,7 +623,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-dc__seg-title { font-size: 12px; font-weight: 900; }
 .jf-dc__seg-sub { font-size: 11px; color: var(--muted); line-height: 1.3; }
-.jf-dc__goals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.jf-dc__goals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
 .jf-dc__goal {
   min-height: 64px; padding: 10px 6px 8px; border-radius: 14px; display: flex; flex-direction: column; align-items: center; gap: 5px;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);

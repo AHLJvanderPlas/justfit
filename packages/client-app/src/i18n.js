@@ -1045,7 +1045,7 @@ const NL = {
   "Build Strength": "Kracht opbouwen",
   "Lose Weight": "Afvallen",
   "Build Muscle": "Spieren opbouwen",
-  "Endurance": "Uithoudingsvermogen",
+  "Endurance": "Conditie",
   "Mobility & Flex": "Mobiliteit & souplesse",
   "Beginner": "Beginner",
   "Intermediate": "Gemiddeld",
