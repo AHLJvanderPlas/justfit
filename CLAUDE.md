@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-16 (branch uxb, NOT deployed) — UX review release B: labels, session length, one week, Dutch instructions (findings 3, 5, 6, 12)
+### Shipped 2026-11-16 — UX review release B: session length, labelled numbers, one week, Dutch instructions (migration 0126 applied, ledger 127; verified live: beginner 20 min → 6–7 steps on 10 of 10 days)
 
 - **R601 (finding 6)** `functions/api/_shared/budgetFill.js`: below 70% of the effective budget the
   assembled session restores sets (≤ the goal's base count, beginner rep scale kept), then adds
