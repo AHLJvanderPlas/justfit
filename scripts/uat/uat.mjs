@@ -23,8 +23,32 @@ class Run {
   async audit(page, screen) {
     const a = await page.evaluate(() => {
       const vis = (el) => { const r = el.getBoundingClientRect(); const cs = getComputedStyle(el); return r.width > 0 && r.height > 0 && cs.visibility !== 'hidden' && cs.display !== 'none' && cs.opacity !== '0'; };
-      const ctrls = [...document.querySelectorAll('button, a, input, [role=button]')].filter(vis);
-      const small = ctrls.filter((el) => { const r = el.getBoundingClientRect(); return (r.height < 40 || r.width < 40) && r.top < innerHeight && r.bottom > 0; }).map((el) => ({ text: (el.innerText || el.getAttribute('aria-label') || el.placeholder || el.tagName).trim().slice(0, 40), w: Math.round(el.getBoundingClientRect().width), h: Math.round(el.getBoundingClientRect().height) }));
+      const ctrls = [...document.querySelectorAll('button, a, input, select, textarea, [role=button], [role=switch]')].filter(vis);
+      // Hit areas (UX review C, finding 9). The size that counts is the EFFECTIVE one: the element's box, or the
+      // 44 px ::after hit area .jf-chip / .jf-icon-btn / .jf-tap carry without changing their look.
+      // Justified exemptions (the whole list — keep it short):
+      //  1. a 1 px visually hidden element (.jf-sr-only);
+      //  2. an inline text link inside a sentence (display inline, with text around it): >= 24 px tall (WCAG 2.5.8);
+      //  3. a checkbox / radio whose <label> is the tap target: the label's box counts, not the 18 px box;
+      //  4. a disabled control (not operable, WCAG 2.5.8 does not apply);
+      //  5. a control covered by a modal / sheet (elementFromPoint at its centre is not the control): it cannot be tapped.
+      const eff = (el) => {
+        const r = el.getBoundingClientRect(); let w = r.width, h = r.height;
+        const cs = getComputedStyle(el, '::after');
+        if (cs.content !== 'none' && cs.position === 'absolute') { w = Math.max(w, parseFloat(cs.width) || 0); h = Math.max(h, parseFloat(cs.height) || 0); }
+        if (el instanceof HTMLInputElement && /^(checkbox|radio)$/.test(el.type)) { for (const l of el.labels ?? []) { const lr = l.getBoundingClientRect(); w = Math.max(w, lr.width); h = Math.max(h, lr.height); } }
+        return { w, h };
+      };
+      const inlineLink = (el) => el.tagName === 'A' && getComputedStyle(el).display === 'inline' && ((el.parentElement?.textContent ?? '').length - (el.textContent ?? '').length) > 12; // words around it: a link inside a sentence
+      const small = ctrls.filter((el) => {
+        const r = el.getBoundingClientRect(); if (!(r.top < innerHeight && r.bottom > 0)) return false;
+        if (r.width <= 1 || r.height <= 1 || el.disabled) return false;
+        const top = document.elementFromPoint(Math.min(innerWidth - 1, Math.max(0, r.left + r.width / 2)), Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2)));
+        if (top && !el.contains(top) && !top.contains(el)) return false;
+        const { w, h } = eff(el);
+        if (inlineLink(el)) return h < 24;
+        return h < 44 || w < 44;
+      }).map((el) => { const { w, h } = eff(el); return { text: (el.innerText || el.getAttribute('aria-label') || el.placeholder || el.tagName).trim().slice(0, 40), w: Math.round(w), h: Math.round(h), tag: el.tagName.toLowerCase() + (el.className && typeof el.className === 'string' ? '.' + el.className.split(' ')[0] : '') }; });
       // Text under 11 px anywhere on the page (not only the viewport — screenshots are full-page), at its RENDERED
       // size: SVG text is scaled by its viewBox. Award names are exempt by design (data-award-name).
       const tiny = []; const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
@@ -44,6 +68,7 @@ class Run {
         const titleLike = /^H[1-3]$/.test(el.tagName) || /title/.test(el.className?.baseVal ?? el.className ?? '') || fs >= 20;
         if (!titleLike) continue;
         const r = el.getBoundingClientRect();
+        if (r.width <= 1 || r.height <= 1) continue; // visually hidden (.sr-only / .jf-sr-only): not a title anyone sees
         const overflowX = el.scrollWidth > el.clientWidth + 1 && el.clientWidth > 0;
         const offScreen = r.right > innerWidth + 1 || r.left < -1;
         if (overflowX || offScreen) clipped.push({ text: el.textContent.trim().slice(0, 40), px: fs, sw: el.scrollWidth, cw: el.clientWidth });
@@ -51,7 +76,7 @@ class Run {
       const overflow = document.documentElement.scrollWidth > innerWidth + 1;
       const nav = document.querySelector('nav, [class*="nav"], footer'); const navTop = nav ? nav.getBoundingClientRect().top : innerHeight;
       const underNav = ctrls.filter((el) => { const r = el.getBoundingClientRect(); return nav && !nav.contains(el) && r.top < innerHeight && r.bottom > navTop && r.top < navTop && r.bottom - navTop > 8; }).map((el) => (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 40));
-      return { small: small.slice(0, 12), smallCount: small.length, tiny: tiny.slice(0, 8), tinyCount: tiny.length, clipped: clipped.slice(0, 6), clippedCount: clipped.length, overflow, underNav: underNav.slice(0, 6), vw: innerWidth, vh: innerHeight };
+      return { small: small.slice(0, 30), smallCount: small.length, tiny: tiny.slice(0, 8), tinyCount: tiny.length, clipped: clipped.slice(0, 6), clippedCount: clipped.length, overflow, underNav: underNav.slice(0, 6), vw: innerWidth, vh: innerHeight };
     });
     this.log.audits.push({ screen, flow: this.flow?.name ?? null, ...a });
   }
@@ -422,12 +447,14 @@ export function gateResult(log) {
   const clipped = audits.flatMap((a) => (a.clipped ?? []).map((c) => `${a.screen}: "${c.text}"`));
   const tiny = audits.flatMap((a) => (a.tiny ?? []).map((t) => `${a.screen}: "${t.text}" ${t.px}px`));
   const underNavAtEnd = audits.flatMap((a) => (a.underNavAtEnd ?? []).map((u) => `${a.screen}: "${u}"`));
+  // UX review C (finding 9): 0 controls under 44 px (effective hit area, exemptions listed in Run.audit).
+  const small = audits.flatMap((a) => (a.small ?? []).map((c) => `${a.screen}: "${c.text}" ${c.w}×${c.h} (${c.tag})`));
   const onboarding = log.flows.find((f) => f.name === 'onboarding');
   const notes = log.flows.flatMap((f) => f.notes.map((n) => `${f.name}: ${n}`)).concat(log.notes ?? []);
   const errors = notes.filter((n) => /PAGEERROR|CONSOLE|CRASH/.test(n));
   const failed = log.flows.filter((f) => !f.ok).map((f) => `${f.name}: ${f.notes.filter((n) => n.startsWith('FAIL')).join(' · ')}`);
   const checks = {
-    'clipped titles': clipped, 'text < 11 px': tiny, 'controls under the nav at the end of a page': underNavAtEnd,
+    'clipped titles': clipped, 'text < 11 px': tiny, 'controls under 44 px': [...new Set(small)], 'controls under the nav at the end of a page': underNavAtEnd,
     [`onboarding taps ≤ ${TAP_LIMIT}`]: !onboarding ? ['no onboarding flow'] : onboarding.taps > TAP_LIMIT ? [`${onboarding.taps} taps`] : [],
     'page/console errors': errors, 'failed flows': failed,
   };
@@ -442,10 +469,12 @@ const gated = [];
 for (const p of list) {
   const run = new Run(p);
   console.log(`\n=== ${p.id} — ${p.who}`);
-  const ctx = await browser.newContext({ ...devices[p.device ?? 'iPhone 13'], baseURL: BASE, locale: p.lang === 'en' ? 'en-GB' : 'nl-NL', colorScheme: 'dark' });
+  const ctx = await browser.newContext({ ...devices[p.device ?? 'iPhone 13'], baseURL: BASE, locale: p.lang === 'en' ? 'en-GB' : 'nl-NL', colorScheme: process.env.UAT_THEME === 'light' ? 'light' : 'dark' });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => run.note(`PAGEERROR ${String(e.message).split('\n')[0].slice(0, 200)}`));
   page.on('console', (m) => { if (m.type() === 'error' && !/favicon|404 |net::|Failed to load resource/.test(m.text())) run.note(`CONSOLE ${m.text().slice(0, 200)}`); });
+  // UAT_THEME=light UAT_ACCENT=#8b5cf6: look at the same screens in the light theme / another accent (UX review C).
+  await page.addInitScript(([th, ac]) => { if (th) localStorage.setItem('jf_theme', th); if (ac) localStorage.setItem('jf_accent', ac); }, [process.env.UAT_THEME ?? '', process.env.UAT_ACCENT ?? '']);
   await page.addInitScript((lang) => { if (!localStorage.getItem('jf_lang')) localStorage.setItem('jf_lang', lang); }, p.lang ?? 'nl');
   try {
     for (const [name, ...args] of p.flows) {
