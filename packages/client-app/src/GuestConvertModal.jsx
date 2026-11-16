@@ -1,6 +1,5 @@
 // Guest → account conversion. Moved out of App.jsx (F4); lazy.
 import { useState, useRef } from "react";
-import { C } from "./tokens.js";
 import api from "./apiClient.js";
 import { t } from "./i18n.js";
 import { useDialog, dialogAttrs } from "./useDialog.js";
@@ -33,18 +32,19 @@ export default function GuestConvertModal({ onClose, onConverted }) {
   };
 
   return (
-    <div ref={dlgRef} {...dialogAttrs(t("Keep your data"))} style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.65)" }} onClick={onClose}>
-      <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
-        <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 6 }}>Keep your data</div>
-        <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>Add an email and password so you can log back in from any device.</p>
+    <div ref={dlgRef} {...dialogAttrs(t("Keep your data"))} className="jf-gc" onClick={onClose}>
+      <div onClick={e => e.stopPropagation()} className="jf-gc__card">
+        <div className="jf-gc__title">Keep your data</div>
+        <p className="jf-gc__lead">Add an email and password so you can log back in from any device.</p>
 
         <input aria-label={t("Email address")}
           type="email"
+          inputMode="email"
           placeholder="Email address"
           value={email}
           onChange={e => setEmail(e.target.value)}
           autoComplete="email"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: 10 }}
+          className="jf-gc__input"
         />
         <input aria-label={t("Password")}
           type="password"
@@ -52,18 +52,14 @@ export default function GuestConvertModal({ onClose, onConverted }) {
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete="new-password"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: error ? 10 : 20 }}
+          className={`jf-gc__input${error ? "" : " jf-gc__input--last"}`}
         />
-        {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 16 }}>{error}</div>}
+        {error && <div className="jf-gc__error" role="alert">{error}</div>}
 
-        <button
-          onClick={handle}
-          disabled={saving}
-          style={{ width: "100%", padding: "14px 0", borderRadius: 16, fontSize: 15, fontWeight: 900, background: C.emerald, border: "none", color: C.onAccent, cursor: saving ? "not-allowed" : "pointer", marginBottom: 10, opacity: saving ? 0.7 : 1 }}
-        >
+        <button onClick={handle} disabled={saving} className="jf-gc__save">
           {saving ? "Saving…" : "Save my account →"}
         </button>
-        <button onClick={onClose} style={{ width: "100%", padding: "12px 0", borderRadius: 14, fontSize: 13, fontWeight: 700, background: "transparent", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}>Cancel</button>
+        <button onClick={onClose} className="jf-gc__cancel">Cancel</button>
       </div>
     </div>
   );

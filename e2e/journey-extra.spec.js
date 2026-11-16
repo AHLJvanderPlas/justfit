@@ -41,7 +41,7 @@ async function signupFresh(page, suffix = '') {
 test('guest mode — banner shown after skipping sign-in', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   await page.goto('/login.html');
-  // UAT R5: the guest button is on the Sign in tab too (the default tab); no tab switch needed.
+  // The guest section is on the first screen: no switch needed.
   await expect(page.locator('#guest-btn')).toBeVisible();
   // C-B33: the guest button needs the same terms + privacy consent as email signup
   await expect(page.locator('#guest-btn')).toBeDisabled();
@@ -58,13 +58,16 @@ test('guest mode — banner shown after skipping sign-in', async ({ page }) => {
   await expect(page.getByText('Updated Policies')).toHaveCount(0);
 });
 
-test('guest mode — the guest button is visible on both tabs', async ({ page }) => {
+// UX review E (finding 14): guest is its own small section; it stays on screen in the e-mail, password and sign-up states.
+test('guest mode — the guest section stays visible in every login state', async ({ page }) => {
   await page.addInitScript(() => localStorage.setItem('jf_lang', 'en'));
   await page.goto('/login.html');
-  await expect(page.locator('#tab-login')).toHaveClass(/active/);
+  await expect(page.locator('#guest-btn')).toBeVisible();
+  await page.locator('#mt-password').click();
   await expect(page.locator('#guest-btn')).toBeVisible();
   await page.locator('#tab-signup').click();
   await expect(page.locator('#guest-btn')).toBeVisible();
+  await expect(page.locator('#guest-section')).toContainText('Your data stays on this device only. Add your email later.');
 });
 
 // UAT release 5 — a guest has no email: Settings → Account offers "Add email", not Resend / Enter code.

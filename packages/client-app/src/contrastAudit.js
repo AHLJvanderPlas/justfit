@@ -63,26 +63,27 @@ export function auditJsx(name, src) {
   return fails;
 }
 
-/** public/login.html (dark only): its tokens and every literal text colour against its page and card. */
+/** public/login.html (dark only, emerald like the app): its tokens and every literal text colour against its page and card. */
 export function auditLogin(html) {
   const fails = [];
   const root = html.match(/:root\s*\{([^}]*)\}/)?.[1] ?? "";
   const tok = (n) => root.match(new RegExp(`${n}:\\s*(#[0-9a-fA-F]{3,6})`))?.[1];
   const page = parseColor("#020617");
   const card = composite("rgba(255,255,255,0.04)", page);
-  const coralWash = composite("rgba(244,63,94,0.12)", page);
+  const accentWash = composite("rgba(16,185,129,0.12)", page);
   const muted = tok("--muted"), accentTx = tok("--accent-text"), onAccent = tok("--on-accent");
   if (!muted || !accentTx || !onAccent) return ["login.html: :root must define --muted, --accent-text and --on-accent"];
   const need = (label, fg, bgs) => { const r = Math.min(...bgs.map((b) => contrast(fg, b))); if (r < TEXT_MIN) fails.push(`login.html ${label}: ${r.toFixed(2)}:1 < ${TEXT_MIN}:1`); };
   need("--muted", muted, [page, card]);
-  need("--accent-text", accentTx, [page, card, coralWash]);
-  need("coral button text (--on-accent on #f43f5e)", onAccent, [parseColor("#f43f5e")]);
+  need("--accent-text", accentTx, [page, card, accentWash]);
+  need("button text (--on-accent on the emerald #10b981)", onAccent, [parseColor("#10b981")]);
+  if (/#f43f5e|244,\s*63,\s*94/i.test(html)) fails.push("login.html: the coral accent is back (the login uses the app's emerald)");
   need("body text #f8fafc", "#f8fafc", [page, card]);
   const bare = html.replace(/<!--[\s\S]*?-->/g, "");
   for (const m of bare.matchAll(/(?<![-\w])color:\s*(#[0-9a-fA-F]{6})/g)) {
-    // text on the dark page/card only; the coral button text is checked above
+    // text on the dark page/card only; the button text is checked above
     const ctx = bare.slice(Math.max(0, m.index - 160), m.index);
-    if (/background:\s*#f43f5e/.test(ctx.slice(-80))) continue;
+    if (/background:\s*#10b981/.test(ctx.slice(-80))) continue;
     need(`literal text colour ${m[1]}`, m[1], [page, card]);
   }
   if (!/::placeholder\s*\{[^}]*var\(--muted\)/.test(bare)) fails.push("login.html: ::placeholder must use var(--muted)");

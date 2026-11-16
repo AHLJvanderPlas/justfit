@@ -86,12 +86,13 @@ describe("source guards (what smoke runs)", () => {
     expect(auditJsx("x.jsx", "<div style={{ color: on ? C.emerald : C.muted }} />").length).toBe(1);
     expect(auditJsx("x.jsx", "<div style={{ background: C.emerald, color: C.subtle }} />").length).toBe(1);
   });
-  it("login.html: its tokens and literal colours pass; the old coral button text fails", () => {
+  it("login.html: its tokens and literal colours pass; white button text and a returning coral fail", () => {
     const html = read("public/login.html");
     expect(auditLogin(html)).toEqual([]);
-    expect(auditLogin(html.replace("--on-accent: #020617", "--on-accent: #ffffff")).some((f) => f.includes("coral button"))).toBe(true);
+    expect(auditLogin(html.replace("--on-accent: #020617", "--on-accent: #ffffff")).some((f) => f.includes("button text"))).toBe(true);
+    expect(auditLogin(html.replace("--accent: #10b981;", "--accent: #f43f5e;") + "x { color: #f43f5e }").some((f) => f.includes("coral"))).toBe(true);
     expect(auditLogin(html.replace("--muted: #8f9db2", "--muted: #64748b")).some((f) => f.includes("--muted"))).toBe(true);
-    expect(auditLogin(html.replace("color: var(--muted); margin-bottom: 8px;", "color: #334155; margin-bottom: 8px;")).some((f) => f.includes("#334155"))).toBe(true);
+    expect(auditLogin(html.replace("color: var(--muted); margin-bottom: 8px; }", "color: #334155; margin-bottom: 8px; }")).some((f) => f.includes("#334155"))).toBe(true);
   });
   it("prepaint.js carries the same --muted as tokens.js", () => {
     const pre = read("public/prepaint.js");

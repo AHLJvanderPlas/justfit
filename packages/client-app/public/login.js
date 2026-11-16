@@ -2,9 +2,11 @@
 const T = (key) => (window.JF_LOGIN ? window.JF_LOGIN.T(key) : key);
 
 // ─── STATE ───────────────────────────────────────────────────────────────
-let mode   = 'login';
-let method = 'magic';
+// One path (UX review E, finding 14). view: 'email' (e-mail + "Ga verder met e-mail" = magic link, for
+// existing and new users alike), 'password' (revealed by a quiet link) or 'signup' (a quiet toggle).
+let view = 'email';
 let passkeyAvailable = false;
+const $ = (id) => document.getElementById(id);
 
 // Must match CURRENT_TERMS_VERSION / CURRENT_PRIVACY_VERSION in functions/api/_shared/legalVersions.js
 const CURRENT_TERMS_VERSION   = '1.1';
@@ -41,90 +43,76 @@ const fromB64url = str => {
 };
 
 // ─── ALERT HELPERS ───────────────────────────────────────────────────────
-function showAlert(id, msg, type = 'error') {
-  const el = document.getElementById(id);
+// #main-alert is a role="alert" region that is always in the page: adding text announces it.
+function showAlert(msg, type = 'error') {
+  const el = $('main-alert');
   el.className = `alert alert-${type}`;
   el.textContent = msg;
-  el.style.display = 'block';
 }
-function hideAlert(id) { document.getElementById(id).style.display = 'none'; }
+function hideAlert() { const el = $('main-alert'); el.className = 'alert'; el.textContent = ''; }
 
 // ─── VIEW SWITCHING ──────────────────────────────────────────────────────
-function setMode(m) {
-  mode = m;
-  document.getElementById('tab-login').classList.toggle('active',  m === 'login');
-  document.getElementById('tab-signup').classList.toggle('active', m === 'signup');
-  document.getElementById('tab-login').setAttribute('aria-pressed', String(m === 'login'));
-  document.getElementById('tab-signup').setAttribute('aria-pressed', String(m === 'signup'));
-  document.getElementById('method-switcher').style.display = m === 'login' ? 'flex' : 'none';
-  document.getElementById('passkey-section').style.display = m === 'login' && passkeyAvailable ? 'block' : 'none';
-  // UAT R5 — guest access is offered on both tabs, so setMode no longer toggles it
-  if (m === 'signup') { setMethod('password'); }
-  if (m === 'login')  { setMethod('magic'); }
-  const pwdField   = document.getElementById('password-field');
-  const forgotLink = document.getElementById('forgot-link');
-  const acceptRow  = document.getElementById('accept-row');
-  if (m === 'signup') {
-    pwdField.style.display   = 'block';
-    forgotLink.style.display = 'none';
-    acceptRow.style.display  = 'flex';
-    document.getElementById('submit-btn').textContent = T('btn_create');
-    document.getElementById('password').autocomplete  = 'new-password';
-  } else {
-    pwdField.style.display   = method === 'password' ? 'block' : 'none';
-    forgotLink.style.display = method === 'password' ? 'block' : 'none';
-    acceptRow.style.display  = 'none';
-    document.getElementById('submit-btn').textContent = T('btn_signin');
-    document.getElementById('password').autocomplete  = 'current-password';
-  }
-  hideAlert('main-alert');
-}
+const TITLES = { email: ['title_email', 'lead_email'], password: ['title_password', 'lead_password'], signup: ['title_signup', 'lead_signup'] };
 
-function setMethod(m, updateUI = true) {
-  method = m;
-  if (!updateUI) return;
-  document.getElementById('mt-password').classList.toggle('active', m === 'password');
-  document.getElementById('mt-magic').classList.toggle('active',    m === 'magic');
-  document.getElementById('mt-password').setAttribute('aria-pressed', String(m === 'password'));
-  document.getElementById('mt-magic').setAttribute('aria-pressed',    String(m === 'magic'));
-  document.getElementById('password-form').style.display = m === 'password' ? 'block' : 'none';
-  document.getElementById('magic-form').style.display    = m === 'magic'    ? 'block' : 'none';
-  document.getElementById('forgot-link').style.display   = m === 'password' ? 'block' : 'none';
-  hideAlert('main-alert');
+function setView(v, { focus = false } = {}) {
+  view = v;
+  const [title, lead] = TITLES[v];
+  $('form-title').textContent = T(title);
+  $('form-lead').textContent  = T(lead);
+  const pw = v !== 'email';
+  $('password-field').hidden = !pw;
+  $('forgot-link').hidden    = v !== 'password';
+  $('accept-row').hidden     = v !== 'signup';
+  $('magic-btn').hidden      = v !== 'email';
+  $('submit-btn').hidden     = !pw;
+  $('submit-btn').textContent = v === 'signup' ? T('btn_create') : T('btn_signin');
+  $('mt-password').hidden    = v !== 'email';
+  $('mt-magic').hidden       = v !== 'password';
+  $('tab-signup').hidden     = v === 'signup';
+  $('tab-login').hidden      = v !== 'signup';
+  $('passkey-btn').hidden    = !(passkeyAvailable && v !== 'signup');
+  $('password').autocomplete = v === 'signup' ? 'new-password' : 'current-password';
+  hideAlert();
+  if (focus) (pw && $('email').value.trim() ? $('password') : $('email')).focus();
 }
 
 function showForgot() {
-  document.getElementById('main-view').style.display   = 'none';
-  document.getElementById('forgot-view').style.display = 'block';
-  hideAlert('forgot-alert');
+  $('main-view').hidden = true;
+  $('guest-section').hidden = true;
+  $('forgot-view').hidden = false;
+  hideAlert();
+  if (!$('forgot-email').value) $('forgot-email').value = $('email').value;   // the address already typed
+  $('forgot-email').focus();
 }
 
 function showMain() {
-  document.getElementById('forgot-view').style.display = 'none';
-  document.getElementById('main-view').style.display   = 'block';
+  $('forgot-view').hidden = true;
+  $('main-view').hidden = false;
+  $('guest-section').hidden = false;
+  hideAlert();
 }
 
 // ─── HANDLERS ────────────────────────────────────────────────────────────
+// Password sign-in and sign-up share one button (#submit-btn); the view decides which.
 async function handleSubmit() {
-  const email    = document.getElementById('email').value.trim();
-  const password = document.getElementById('password').value;
-  const btn      = document.getElementById('submit-btn');
+  const email    = $('email').value.trim();
+  const password = $('password').value;
+  const btn      = $('submit-btn');
+  const signup   = view === 'signup';
+  const label    = signup ? T('btn_create') : T('btn_signin');
 
-  if (!email)              { showAlert('main-alert', T('a_email')); return; }
-  if (!password)           { showAlert('main-alert', T('a_password')); return; }
-  if (password.length < 6) { showAlert('main-alert', T('a_pw_short')); return; }
-  if (mode === 'signup' && !document.getElementById('accept-check').checked) {
-    showAlert('main-alert', T('a_accept'));
-    return;
-  }
+  if (!email)              { showAlert(T('a_email')); return; }
+  if (!password)           { showAlert(T('a_password')); return; }
+  if (password.length < 6) { showAlert(T('a_pw_short')); return; }
+  if (signup && !$('accept-check').checked) { showAlert(T('a_accept')); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-  hideAlert('main-alert');
+  hideAlert();
 
   try {
-    const body = { action: mode === 'login' ? 'login' : 'signup', email, password };
-    if (mode === 'signup') {
+    const body = { action: signup ? 'signup' : 'login', email, password };
+    if (signup) {
       body.accepted_terms_version   = CURRENT_TERMS_VERSION;
       body.accepted_privacy_version = CURRENT_PRIVACY_VERSION;
     }
@@ -138,34 +126,36 @@ async function handleSubmit() {
     if (!data.ok) {
       if (data.loginRequired) {
         btn.disabled = false;
-        setMode('login');
-        showAlert('main-alert', T(data.error || 'a_registered'));
+        setView('password');
+        showAlert(T(data.error || 'a_registered'));
         return;
       }
-      showAlert('main-alert', T(data.error || 'a_wrong'));
+      showAlert(T(data.error || 'a_wrong'));
       btn.disabled = false;
-      btn.textContent = mode === 'login' ? T('btn_login') : T('btn_create');
+      btn.textContent = label;
       return;
     }
 
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
-    showAlert('main-alert', T('a_network'));
+    showAlert(T('a_network'));
     btn.disabled = false;
-    btn.textContent = mode === 'login' ? T('btn_login') : T('btn_create');
+    btn.textContent = label;
   }
 }
 
+// "Ga verder met e-mail": sends the magic link. The server answers the same for known and unknown
+// addresses; an unknown one lands on the sign-up form (magic.html: needsSignup) after the click.
 async function handleMagicLink() {
-  const email = document.getElementById('magic-email').value.trim();
-  const btn   = document.getElementById('magic-btn');
+  const email = $('email').value.trim();
+  const btn   = $('magic-btn');
 
-  if (!email) { showAlert('main-alert', T('a_email')); return; }
+  if (!email) { showAlert(T('a_email')); $('email').focus(); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-  hideAlert('main-alert');
+  hideAlert();
 
   try {
     await fetch('/api/auth', {
@@ -173,24 +163,24 @@ async function handleMagicLink() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ action: 'magic_link', email }),
     });
-    showAlert('main-alert', T('a_magic_sent'), 'success');
+    showAlert(T('a_magic_sent'), 'success');
   } catch {
-    showAlert('main-alert', T('a_network'));
+    showAlert(T('a_network'));
   }
 
   btn.disabled = false;
-  btn.textContent = T('btn_magic');
+  btn.textContent = T('btn_continue');
 }
 
 async function handleForgot() {
-  const email = document.getElementById('forgot-email').value.trim();
-  const btn   = document.getElementById('forgot-btn');
+  const email = $('forgot-email').value.trim();
+  const btn   = $('forgot-btn');
 
-  if (!email) { showAlert('forgot-alert', T('a_email')); return; }
+  if (!email) { showAlert(T('a_email')); return; }
 
   btn.disabled = true;
   btn.innerHTML = '<span class="spinner"></span>';
-  hideAlert('forgot-alert');
+  hideAlert();
 
   try {
     await fetch('/api/auth', {
@@ -198,9 +188,9 @@ async function handleForgot() {
       headers: { 'Content-Type': 'application/json' },
       body:    JSON.stringify({ action: 'forgot_password', email }),
     });
-    showAlert('forgot-alert', T('a_reset_sent'), 'success');
+    showAlert(T('a_reset_sent'), 'success');
   } catch {
-    showAlert('forgot-alert', T('a_network'));
+    showAlert(T('a_network'));
   }
 
   btn.disabled = false;
@@ -209,10 +199,10 @@ async function handleForgot() {
 
 // ─── PASSKEY LOGIN ───────────────────────────────────────────────────────
 async function handlePasskeyLogin() {
-  const btn = document.getElementById('passkey-btn');
+  const btn = $('passkey-btn');
   btn.disabled = true;
-  document.getElementById('passkey-label').textContent = T('passkey_wait');
-  hideAlert('main-alert');
+  $('passkey-label').textContent = T('passkey_wait');
+  hideAlert();
 
   try {
     const beginRes = await fetch('/api/auth', {
@@ -256,22 +246,22 @@ async function handlePasskeyLogin() {
     redirectAfterAuth();
   } catch (e) {
     if (e.name === 'NotAllowedError') {
-      showAlert('main-alert', T('a_passkey_cancel'));
+      showAlert(T('a_passkey_cancel'));
     } else {
-      showAlert('main-alert', e.message ? T(e.message) : T('a_passkey_failed'));
+      showAlert(e.message ? T(e.message) : T('a_passkey_failed'));
     }
     btn.disabled = false;
-    document.getElementById('passkey-label').textContent = T('passkey');
+    $('passkey-label').textContent = T('passkey');
   }
 }
 
 // ─── GUEST SIGNUP ────────────────────────────────────────────────────────
 async function handleGuestSignup() {
-  const btn = document.getElementById('guest-btn');
-  if (!document.getElementById('guest-accept-check').checked) { showAlert('main-alert', T('a_accept')); return; }
+  const btn = $('guest-btn');
+  if (!$('guest-accept-check').checked) { showAlert(T('a_accept')); return; }
   btn.disabled = true;
   btn.textContent = T('guest_setup');
-  hideAlert('main-alert');
+  hideAlert();
   try {
     const res = await fetch('/api/auth', {
       method: 'POST',
@@ -284,7 +274,7 @@ async function handleGuestSignup() {
     });
     const data = await res.json();
     if (!data.ok) {
-      showAlert('main-alert', T(data.error || 'a_guest_failed'));
+      showAlert(T(data.error || 'a_guest_failed'));
       btn.disabled = false;
       btn.textContent = T('guest');
       return;
@@ -292,31 +282,36 @@ async function handleGuestSignup() {
     localStorage.setItem('jf_user_id', data.userId);
     redirectAfterAuth();
   } catch {
-    showAlert('main-alert', T('a_network'));
+    showAlert(T('a_network'));
     btn.disabled = false;
     btn.textContent = T('guest');
   }
 }
 
-// ─── MAGIC LINK AUTO-VERIFY ──────────────────────────────────────────────
+// ─── MAGIC LINK AUTO-VERIFY (legacy login.html?magic=; the emailed link opens magic.html) ──────
 async function verifyMagicLink(token) {
-  document.getElementById('main-view').style.display  = 'none';
-  document.getElementById('magic-view').style.display = 'block';
+  $('main-view').hidden = true;
+  $('guest-section').hidden = true;
+  $('magic-view').hidden = false;
 
   try {
     const res  = await fetch(`/api/auth?magic=${encodeURIComponent(token)}`);
     const data = await res.json();
 
+    if (data.needsSignup && data.email) {   // an address with no account yet: finish it on the sign-up form
+      window.location.href = `/login.html?email=${encodeURIComponent(data.email)}&mode=signup`;
+      return;
+    }
     if (!data.ok) throw new Error(T(data.error || 'magic_invalid'));
 
     localStorage.setItem('jf_user_id', data.userId);
-    document.getElementById('magic-title').textContent = T('magic_done');
-    document.getElementById('magic-sub').textContent   = T('magic_redirect');
+    $('magic-title').textContent = T('magic_done');
+    $('magic-sub').textContent   = T('magic_redirect');
     setTimeout(redirectAfterAuth, 600);
   } catch (e) {
-    document.getElementById('magic-title').textContent = T('magic_expired');
-    document.getElementById('magic-sub').innerHTML =
-      `${e.message}<br/><a href="/login.html" style="color:#10b981;text-decoration:none;font-weight:700;margin-top:12px;display:inline-block;">${T('magic_back')}</a>`;
+    $('magic-title').textContent = T('magic_expired');
+    $('magic-sub').textContent   = e.message;
+    $('magic-back').hidden = false;
   }
 }
 
@@ -357,49 +352,50 @@ async function verifyMagicLink(token) {
   // Pre-fill email from ?email= param (e.g. from magic.html needsSignup redirect)
   const emailParam = params.get('email');
   if (emailParam) {
-    document.getElementById('email').value        = emailParam;
-    document.getElementById('magic-email').value  = emailParam;
-    document.getElementById('forgot-email').value = emailParam;
+    $('email').value        = emailParam;
+    $('forgot-email').value = emailParam;
   }
 
   // Switch to signup from ?mode=signup or #signup hash
-  if (params.get('mode') === 'signup' || window.location.hash === '#signup') setMode('signup');
+  if (params.get('mode') === 'signup' || window.location.hash === '#signup') setView('signup');
 
   // Wire up event listeners
-  document.getElementById('tab-login').addEventListener('click', () => setMode('login'));
-  document.getElementById('tab-signup').addEventListener('click', () => setMode('signup'));
-  document.getElementById('mt-password').addEventListener('click', () => setMethod('password'));
-  document.getElementById('mt-magic').addEventListener('click', () => setMethod('magic'));
-  document.getElementById('forgot-link').addEventListener('click', showForgot);
-  document.getElementById('back-link').addEventListener('click', showMain);
-  document.getElementById('submit-btn').addEventListener('click', handleSubmit);
-  document.getElementById('magic-btn').addEventListener('click', handleMagicLink);
-  document.getElementById('forgot-btn').addEventListener('click', handleForgot);
-  document.getElementById('passkey-btn').addEventListener('click', handlePasskeyLogin);
-  document.getElementById('guest-btn').addEventListener('click', handleGuestSignup);
+  $('mt-password').addEventListener('click', () => setView('password', { focus: true }));
+  $('mt-magic').addEventListener('click',    () => setView('email', { focus: true }));
+  $('tab-signup').addEventListener('click',  () => setView('signup', { focus: true }));
+  $('tab-login').addEventListener('click',   () => setView('email', { focus: true }));
+  $('forgot-link').addEventListener('click', showForgot);
+  $('back-link').addEventListener('click', showMain);
+  $('submit-btn').addEventListener('click', handleSubmit);
+  $('magic-btn').addEventListener('click', handleMagicLink);
+  $('forgot-btn').addEventListener('click', handleForgot);
+  $('passkey-btn').addEventListener('click', handlePasskeyLogin);
+  $('guest-btn').addEventListener('click', handleGuestSignup);
+  $('main-view').addEventListener('submit', (e) => e.preventDefault());
   // The guest button is only usable once the same terms + privacy consent as signup is given
-  document.getElementById('guest-accept-check').addEventListener('change', (e) => {
-    document.getElementById('guest-btn').disabled = !e.target.checked;
+  $('guest-accept-check').addEventListener('change', (e) => {
+    $('guest-btn').disabled = !e.target.checked;
   });
 
-  // Enter key support
-  document.addEventListener('keydown', e => {
-    if (e.key !== 'Enter') return;
-    if (document.getElementById('forgot-view').style.display !== 'none') { handleForgot(); return; }
-    if (method === 'magic') { handleMagicLink(); return; }
-    handleSubmit();
+  // Enter inside a field does what the visible primary button does (a button handles its own Enter)
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || !(e.target instanceof HTMLInputElement) || e.target.type === 'checkbox') return;
+    if (!$('forgot-view').hidden) { handleForgot(); return; }
+    if (e.target.id === 'guest-accept-check') return;
+    e.preventDefault();
+    if (view === 'email') handleMagicLink(); else handleSubmit();
   });
 
   // Passkey availability
   if (window.PublicKeyCredential?.isUserVerifyingPlatformAuthenticatorAvailable) {
     passkeyAvailable = await PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable();
     if (passkeyAvailable) {
-      document.getElementById('passkey-section').style.display = 'block';
+      $('passkey-btn').hidden = view === 'signup';
       const ua = navigator.userAgent;
       let label = T('passkey');
       if (/Windows/i.test(ua)) label = T('passkey_windows');
       if (/Android/i.test(ua)) label = T('passkey_android');
-      document.getElementById('passkey-label').textContent = label;
+      $('passkey-label').textContent = label;
     }
   }
 })();

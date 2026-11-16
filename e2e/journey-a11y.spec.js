@@ -85,19 +85,28 @@ test('login page: names, autocomplete, 16 px fields, language', async ({ page })
   await page.goto('/login.html');
   await expect(page.locator('html')).toHaveAttribute('lang', /^(nl|en)$/);
   await expect(page.locator('h1')).toHaveCount(1);
-  for (const id of ['email', 'magic-email', 'password']) {
-    const input = page.locator(`#${id}`);
+  // One field first: the e-mail field only; the password field is revealed on request.
+  await expect(page.locator('#email')).toBeVisible();
+  await expect(page.locator('#password')).toBeHidden();
+  for (const id of ['email', 'password']) {
     await expect(page.locator(`label[for="${id}"]`)).toHaveCount(1);
-    expect(parseFloat(await input.evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
   }
+  expect(parseFloat(await page.locator('#email').evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
   await expect(page.locator('#email')).toHaveAttribute('autocomplete', 'email');
+  await expect(page.locator('#email')).toHaveAttribute('inputmode', 'email');
+  await page.locator('#mt-password').click();
+  await expect(page.locator('#password')).toBeVisible();
+  expect(parseFloat(await page.locator('#password').evaluate((el) => getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
   await expect(page.locator('#password')).toHaveAttribute('autocomplete', 'current-password');
-  await expect(page.locator('#tab-login')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#tab-signup').click();
-  await expect(page.locator('#tab-signup')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#password')).toHaveAttribute('autocomplete', 'new-password');
-  for (const sel of ['#tab-login', '#tab-signup', '#guest-btn']) {
+  // 44 px controls: the primary, the quiet links and the guest button that are on screen
+  for (const sel of ['#submit-btn', '#tab-login', '#guest-btn']) {
     const box = await page.locator(sel).boundingBox();
-    expect(box.height).toBeGreaterThanOrEqual(44);
+    expect(box.height, sel).toBeGreaterThanOrEqual(44);
   }
+  // Errors are announced: the message region is a live alert that is in the page before it fills
+  await expect(page.locator('#main-alert')).toHaveAttribute('role', 'alert');
+  await page.locator('#submit-btn').click();
+  await expect(page.locator('#main-alert')).not.toBeEmpty();
 });

@@ -8,7 +8,8 @@
   if (!cvs || !cvs.getContext) return;
   var ctx = cvs.getContext('2d');
 
-  var SR = 244, SG = 63, SB = 94;
+  // Emerald, the app's accent (UX review E, finding 14); was coral. Off for prefers-reduced-motion and phones.
+  var SR = 16, SG = 185, SB = 129;
   var sig = function(a) { return 'rgba('+SR+','+SG+','+SB+','+a+')'; };
 
   var COUNT = 70, SPEED = 0.28, MAX_DIST = 175;

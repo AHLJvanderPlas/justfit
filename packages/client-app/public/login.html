@@ -3,482 +3,241 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title data-i18n="page_title">JustFit.cc — Login</title>
+  <title data-i18n="page_title">JustFit.cc — Inloggen</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@700;900&family=Inter+Tight:wght@400;500;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
   <style>
+    /* UX review E (finding 14): the app's own dark tokens and its emerald accent (tokens.js DEFAULT_ACCENT);
+       the coral of the old login is gone. Text colours are checked by scripts/uxC.scan.mjs against the page
+       (#020617) and the card (white 4 %): --muted and --accent-text >= 4.5:1, and the ink on the emerald
+       button (--on-accent #020617). No inline style attributes anywhere on this page (CSP). */
     :root {
-      --accent: #f43f5e; --accent-dim: rgba(244,63,94,0.12); --accent-border: rgba(244,63,94,0.3);
-      /* UX review C (finding 7) — text colours checked by scripts/uxC.scan.mjs against this page's
-         background #020617 and its card (white 4 %): muted >= 4.5:1, coral text >= 4.5:1, and the
-         ink on the coral buttons (#020617, 5.5:1; white was 3.7:1). */
-      --muted: #8f9db2; --accent-text: #f7566f; --on-accent: #020617;
+      --bg: #020617; --text: #f8fafc; --text-soft: #cbd5e1;
+      --accent: #10b981; --accent-rgb: 16,185,129; --accent-dim: rgba(16,185,129,0.12); --accent-border: rgba(16,185,129,0.3);
+      --muted: #8f9db2; --accent-text: #10b981; --on-accent: #020617;
+      --card: rgba(255,255,255,0.04); --border: rgba(255,255,255,0.08);
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
+    [hidden] { display: none !important; }
     /* One focus ring (UX review C, finding 8): every control, keyboard focus. */
     :focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
     ::placeholder { color: var(--muted); opacity: 1; }
     .sr-only { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
-    @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
     body {
-      background: #020617;
-      color: #f8fafc;
+      background: var(--bg);
+      color: var(--text);
       font-family: 'Inter Tight', -apple-system, 'Helvetica Neue', Arial, sans-serif;
       -webkit-font-smoothing: antialiased;
     }
 
-    /* ── Wave background canvas ── */
-    #wave-bg {
-      position: fixed; inset: 0;
-      width: 100%; height: 100%;
-      pointer-events: none; z-index: 0;
-    }
+    /* ── Wave background canvas (login-wave.js, emerald; off for reduced motion and phones) ── */
+    #wave-bg { position: fixed; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 0; }
     @media (max-width: 599px) { #wave-bg { display: none; } }
-    .zone1, .explainer { position: relative; z-index: 1; }
-
-    /* ── Zone 1 — auth above the fold ── */
+    .zone1 { position: relative; z-index: 1; }
     .zone1 {
-      min-height: 100vh;
-      min-height: 100dvh;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
+      min-height: 100vh; min-height: 100dvh;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
       padding: 20px 20px 32px;
     }
 
-    /* ── Auth card (unchanged) ── */
     .card {
-      width: 100%;
-      max-width: 420px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 28px;
-      padding: 40px;
+      width: 100%; max-width: 420px;
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 28px; padding: 32px 32px 20px;
       box-shadow: 0 40px 100px rgba(0,0,0,0.4);
     }
-    /* Outer tabs: Login | Sign Up */
-    .mode-tabs {
-      display: flex; gap: 4px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px; padding: 4px;
-      margin-bottom: 28px;
+    @media (max-width: 380px) { .card { padding: 24px 20px 16px; } }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; }
+    .logo-mark {
+      width: 40px; height: 40px; border-radius: 12px; background: var(--accent); color: var(--on-accent);
+      display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 15px;
+      box-shadow: 0 4px 20px rgba(var(--accent-rgb),0.3);
     }
-    .mode-tab {
-      flex: 1; padding: 10px; min-height: 44px;
-      border: none; border-radius: 10px;
-      font-size: 13px; font-weight: 800;
-      letter-spacing: 0.04em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.15s;
-      background: transparent; color: var(--muted);
-    }
-    .mode-tab.active { background: #f43f5e; color: var(--on-accent); box-shadow: 0 4px 16px rgba(244,63,94,0.3); }
+    .logo-text { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; }
+    .logo-text span { color: var(--accent-text); }
+    h2.title { font-size: 24px; font-weight: 900; letter-spacing: -0.02em; margin-bottom: 6px; }
+    .lead { font-size: 14px; color: var(--muted); line-height: 1.5; margin-bottom: 20px; }
 
-    /* Inner method switcher: Password | Magic Link */
-    .method-tabs {
-      display: flex; gap: 6px;
-      margin-bottom: 24px;
-    }
-    .method-tab {
-      flex: 1; padding: 9px 0; min-height: 44px;
-      border-radius: 12px;
-      font-size: 12px; font-weight: 800;
-      letter-spacing: 0.05em; text-transform: uppercase;
-      cursor: pointer; transition: all 0.15s;
-      background: rgba(255,255,255,0.03);
-      border: 1px solid rgba(255,255,255,0.08);
-      color: var(--muted);
-    }
-    .method-tab.active {
-      background: rgba(244,63,94,0.12);
-      border-color: rgba(244,63,94,0.3);
-      color: var(--accent-text);
-    }
-
-    .field { margin-bottom: 16px; }
-    label {
-      display: block;
-      font-size: 11px; font-weight: 800;
-      letter-spacing: 0.1em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 8px;
-    }
+    .field { margin-bottom: 14px; }
+    label { display: block; font-size: 11px; font-weight: 800; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 8px; }
     input[type="email"], input[type="password"] {
-      width: 100%; padding: 14px 16px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 14px; color: #f8fafc;
-      font-size: 16px; font-family: inherit;
-      transition: border-color 0.15s;
+      width: 100%; min-height: 48px; padding: 13px 16px;
+      background: var(--card); border: 1px solid var(--border); border-radius: 14px; color: var(--text);
+      font-size: 16px; font-family: inherit; transition: border-color 0.15s;
     }
-    input:focus { border-color: rgba(244,63,94,0.5); }
-    input[type="checkbox"] { min-width: 18px; }
+    input:focus { border-color: rgba(var(--accent-rgb),0.5); }
 
     .accept-row {
-      display: flex; align-items: flex-start; gap: 10px;
-      margin-bottom: 16px; padding: 14px 16px;
-      background: rgba(244,63,94,0.04);
-      border: 1px solid rgba(244,63,94,0.15);
-      border-radius: 14px;
+      display: flex; align-items: flex-start; gap: 10px; margin-bottom: 16px; padding: 14px 16px;
+      background: rgba(var(--accent-rgb),0.04); border: 1px solid rgba(var(--accent-rgb),0.15); border-radius: 14px;
     }
-    .accept-row input[type="checkbox"] {
-      width: 18px; height: 18px; flex-shrink: 0; margin-top: 1px;
-      accent-color: #f43f5e; cursor: pointer; border-radius: 4px;
-    }
+    .accept-row input[type="checkbox"] { width: 18px; height: 18px; flex-shrink: 0; margin-top: 4px; accent-color: var(--accent); cursor: pointer; }
     .accept-row label {
-      font-size: 12px; font-weight: 600; color: #94a3b8;
-      text-transform: none; letter-spacing: 0; cursor: pointer;
-      line-height: 1.8; margin: 0;
+      font-size: 12px; font-weight: 600; color: #94a3b8; text-transform: none; letter-spacing: 0; cursor: pointer; line-height: 1.8; margin: 0;
     }
-    /* Legal links inside the consent sentence: 24+ px tall hit area (WCAG 2.5.8) via padding, without
-       moving a line of text. Underlined, because colour alone must not mark a link. */
+    /* Legal links inside the consent sentence: 24+ px tall hit area (WCAG 2.5.8) via padding. Underlined: colour alone must not mark a link. */
     .accept-row label a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; padding: 5px 2px; }
     .accept-row label a:hover { text-decoration-thickness: 2px; }
 
+    /* The one primary action of the screen: exactly one .btn-primary is visible at a time. */
     .btn-primary {
-      width: 100%; padding: 16px;
-      background: #f43f5e; border: none;
-      border-radius: 16px; color: var(--on-accent); min-height: 52px;
-      font-size: 15px; font-weight: 900;
-      cursor: pointer; margin-top: 4px;
-      box-shadow: 0 8px 30px rgba(244,63,94,0.3);
-      transition: opacity 0.15s;
+      display: block; width: 100%; min-height: 52px; padding: 16px; margin-top: 4px;
+      background: var(--accent); border: none; border-radius: 16px; color: var(--on-accent);
+      font-size: 15px; font-weight: 900; font-family: inherit; cursor: pointer;
+      box-shadow: 0 8px 30px rgba(var(--accent-rgb),0.3); transition: opacity 0.15s;
     }
-    .btn-primary:hover   { opacity: 0.9; }
+    .btn-primary:hover { opacity: 0.9; }
     .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-secondary {
+      display: block; width: 100%; min-height: 48px; padding: 12px 16px; background: transparent;
+      border: 1px solid rgba(255,255,255,0.18); border-radius: 16px; color: var(--text);
+      font-size: 14px; font-weight: 800; font-family: inherit; cursor: pointer; transition: all 0.15s;
+    }
+    .btn-secondary:hover:not(:disabled) { border-color: rgba(var(--accent-rgb),0.5); background: rgba(var(--accent-rgb),0.06); }
+    .btn-secondary:disabled { color: var(--muted); border-color: var(--border); cursor: not-allowed; }
 
-    .btn-passkey {
-      width: 100%; padding: 15px 16px; min-height: 48px;
-      background: rgba(255,255,255,0.04);
-      border: 1px solid rgba(255,255,255,0.12);
-      border-radius: 16px; color: #f8fafc;
-      font-size: 14px; font-weight: 800;
-      cursor: pointer; transition: all 0.15s;
-      display: flex; align-items: center; justify-content: center; gap: 10px;
+    /* Quiet links: real buttons (they change the form in place), 44 px tall, underlined. */
+    .quiet { display: flex; flex-direction: column; align-items: center; margin-top: 6px; }
+    .link-btn {
+      min-height: 44px; padding: 10px 8px; background: none; border: none; cursor: pointer;
+      font-family: inherit; font-size: 13px; color: var(--text-soft); text-decoration: underline; text-underline-offset: 3px;
     }
-    .btn-passkey:hover { border-color: rgba(244,63,94,0.4); background: rgba(244,63,94,0.06); }
-    .btn-passkey:disabled { opacity: 0.5; cursor: not-allowed; }
+    .link-btn:hover { color: var(--text); }
+    .forgot { display: block; margin: -6px 0 10px auto; font-size: 12px; color: var(--muted); }
 
-    .alert {
-      padding: 13px 16px;
-      border-radius: 12px;
-      font-size: 13px;
-      margin-bottom: 16px;
-      line-height: 1.5;
-      display: none;
-    }
-    .alert-error   { background: rgba(226,76,74,0.1);   border: 1px solid rgba(226,76,74,0.3);   color: #fca5a5; }
-    .alert-success { background: rgba(244,63,94,0.1);  border: 1px solid rgba(244,63,94,0.3);  color: #fda4af; }
+    .alert { padding: 13px 16px; border-radius: 12px; font-size: 13px; margin-bottom: 16px; line-height: 1.5; }
+    .alert:empty { padding: 0; margin: 0; border: 0; }
+    .alert-error   { background: rgba(226,76,74,0.1); border: 1px solid rgba(226,76,74,0.3); color: #fca5a5; }
+    .alert-success { background: rgba(var(--accent-rgb),0.1); border: 1px solid rgba(var(--accent-rgb),0.3); color: #6ee7b7; }
 
-    .divider {
-      display: flex; align-items: center; gap: 12px;
-      margin: 22px 0;
-      font-size: 11px; color: var(--muted);
-      font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    /* Guest: its own small section, apart from signing in. */
+    .guest {
+      width: 100%; max-width: 420px; margin-top: 16px; padding: 20px 24px 22px;
+      border: 1px solid var(--border); border-radius: 22px; background: rgba(2,6,23,0.6);
     }
-    .divider::before, .divider::after { content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.06); }
+    .guest h2 { font-size: 15px; font-weight: 800; margin-bottom: 4px; }
+    .guest p { font-size: 13px; color: var(--muted); line-height: 1.5; margin-bottom: 14px; }
+    .guest .accept-row { margin-bottom: 12px; }
 
-    .forgot-link {
-      display: block; text-align: right;
-      font-size: 12px; color: var(--muted);
-      text-decoration: underline; text-underline-offset: 3px; margin-top: -8px; margin-bottom: 10px;
-      cursor: pointer; padding: 14px 0; min-height: 44px;
-    }
-    .forgot-link:hover { color: var(--accent-text); }
-
-    .back-link {
-      display: block; text-align: center;
-      font-size: 12px; color: var(--muted);
-      text-decoration: underline; text-underline-offset: 3px; margin-top: 14px;
-      cursor: pointer; padding: 14px 0; min-height: 44px;
-    }
-    .back-link:hover { color: var(--accent-text); }
-
-    .tagline {
-      text-align: center;
-      font-size: 11px; color: var(--muted);
-      font-weight: 500; margin-top: 28px;
-      line-height: 1.6;
-    }
-
-    /* Spinner */
-    @keyframes spin { to { transform: rotate(360deg); } }
-    .spinner {
-      display: inline-block;
-      width: 14px; height: 14px;
-      border: 2px solid rgba(255,255,255,0.3);
-      border-top-color: #fff;
-      border-radius: 50%;
-      animation: spin 0.6s linear infinite;
-    }
-
-    /* ── Scroll cue ── */
-    .scroll-cue {
-      display: flex; flex-direction: column; align-items: center;
-      gap: 6px; margin-top: 28px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--muted);
-    }
-    .scroll-cue svg { animation: bounce 2.4s ease-in-out infinite; }
-    @keyframes bounce { 0%,100% { transform: translateY(0); } 50% { transform: translateY(4px); } }
-    @media (prefers-reduced-motion: reduce) { .scroll-cue svg { animation: none; } }
-
-    /* ── Zone 2 — explainer ── */
-    .explainer {
-      max-width: 560px;
-      margin: 80px auto 60px;
-      padding: 0 20px;
-      color: #cbd5e1;
-    }
-    .expl-eyebrow {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: #94a3b8; margin-bottom: 14px;
-    }
-    .section-title {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900; font-size: 48px; line-height: 1.0;
-      letter-spacing: -0.005em; text-transform: uppercase;
-      color: #f8fafc; margin-bottom: 40px;
-    }
-    @media (max-width: 420px) { .section-title { font-size: 36px; } }
-    .section-sub {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900; font-size: 24px; text-transform: uppercase;
-      color: #f8fafc; margin: 48px 0 14px;
-    }
-
-    /* Three pillars */
-    .pillars { display: grid; gap: 28px; list-style: none; padding: 0; }
-    .pillar { display: grid; grid-template-columns: 32px 1fr; gap: 0 16px; align-items: start; }
-    .pillar-icon { color: var(--accent); padding-top: 2px; }
-    .pillar h3 {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
-      text-transform: uppercase; color: #f8fafc; margin-bottom: 4px;
-    }
-    .pillar p { font-size: 15px; line-height: 1.5; color: #cbd5e1; }
-
-    /* Today card mockup */
-    .proof {
-      margin: 48px 0;
-      border: 1px solid rgba(255,255,255,0.08);
-      border-radius: 22px; overflow: hidden;
-      background: rgba(255,255,255,0.02);
-    }
-    .proof-card { padding: 24px; }
-    .proof-eyebrow {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; letter-spacing: 0.18em; text-transform: uppercase;
-      color: var(--muted); margin-bottom: 14px;
-    }
-    .proof-coach-pill {
-      display: inline-flex; align-items: center; gap: 6px;
-      padding: 4px 10px; border-radius: 20px;
-      background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25);
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; letter-spacing: 0.1em; color: var(--accent-text);
-      margin-bottom: 10px;
-    }
-    .proof-session-name {
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900; font-size: 42px; line-height: 1.0;
-      color: #f8fafc; margin-bottom: 6px;
-    }
-    @media (max-width: 420px) { .proof-session-name { font-size: 32px; } }
-    .proof-meta {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
-      margin-bottom: 20px;
-    }
-    .proof-steps {
-      display: grid; gap: 10px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-      padding-top: 16px; margin-bottom: 20px;
-    }
-    .proof-step {
-      display: flex; align-items: center; gap: 10px;
-      font-size: 14px; color: #94a3b8; line-height: 1.4;
-    }
-    .proof-step-dot {
-      width: 5px; height: 5px; border-radius: 50%;
-      background: rgba(244,63,94,0.5); flex-shrink: 0;
-    }
-    .proof-btn {
-      display: block; width: 100%;
-      padding: 14px; border-radius: 14px;
-      background: rgba(244,63,94,0.1); border: 1px solid rgba(244,63,94,0.25);
-      font-family: 'Barlow Condensed', sans-serif;
-      font-weight: 900; font-size: 16px; letter-spacing: 0.04em;
-      text-transform: uppercase; color: var(--accent-text); text-align: center;
-    }
-    .proof figcaption {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px; letter-spacing: 0.16em; text-transform: uppercase;
-      color: #94a3b8; padding: 12px 16px;
-      border-top: 1px solid rgba(255,255,255,0.06);
-    }
-
-    /* What we don't do */
-    .anti { list-style: none; padding: 0; display: grid; gap: 8px; }
-    .anti li {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 13px; line-height: 1.5; color: #cbd5e1;
-      padding-left: 20px; position: relative;
-    }
-    .anti li::before { content: '—'; position: absolute; left: 0; color: var(--muted); }
-
-    .pricing { font-size: 15px; line-height: 1.6; color: #cbd5e1; }
-    .pricing strong { color: #f8fafc; font-weight: 700; }
-
-    .back-cta { margin-top: 48px; padding-bottom: 8px; text-align: center; }
-    .back-cta a {
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
-      color: #94a3b8; text-decoration: none;
-    }
-    .back-cta a:hover { color: var(--accent-text); }
-
-    .btn-ghost-full {
-      width: 100%; background: none; border: none;
-      color: #cbd5e1; font-size: 13px; cursor: pointer;
-      text-decoration: underline; text-underline-offset: 3px;
-      padding: 10px 0; min-height: 44px; display: block; text-align: center;
-      font-family: inherit; margin-top: 2px;
-    }
-    .btn-ghost-full:hover { color: #f8fafc; }
-    .btn-ghost-full:disabled { color: var(--muted); cursor: not-allowed; }
-    .foot-links { margin-top: 8px; font-size: 12px; text-align: center; }
+    .foot-links { margin-top: 4px; font-size: 12px; text-align: center; }
     .foot-links a { display: inline-block; min-height: 44px; padding: 14px 8px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
-    .foot-links a:hover { color: var(--text-hover, #f8fafc); }
-    .guest-note { color: var(--muted); font-size: 11px; margin-top: 6px; text-align: center; }
+    .foot-links a:hover { color: var(--text); }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid rgba(2,6,23,0.3); border-top-color: var(--on-accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+
+    /* Magic-link auto-login view (?magic=) */
+    .center { text-align: center; padding: 20px 0; }
+    .center .icon { display: flex; justify-content: center; margin-bottom: 16px; color: var(--accent); }
+    .center .big { font-size: 20px; font-weight: 900; margin-bottom: 8px; }
+    .center .sub { font-size: 14px; color: var(--muted); }
+    .center a { display: inline-block; margin-top: 12px; min-height: 44px; padding: 12px 8px; color: var(--accent-text); font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+    .back-link { display: block; text-align: center; margin: 8px auto 0; }
   </style>
 </head>
 <body>
 <canvas id="wave-bg" aria-hidden="true"></canvas>
 
-  <!-- ── ZONE 1 — auth above the fold ── -->
   <main id="top" class="zone1">
-    <h1 class="sr-only" data-i18n="h1_login">Sign in to JustFit</h1>
+    <h1 class="sr-only" data-i18n="h1_login">Inloggen bij JustFit</h1>
     <div class="card">
+      <div class="brand" aria-hidden="true">
+        <div class="logo-mark">JF</div>
+        <div class="logo-text">JustFit<span>.cc</span></div>
+      </div>
+
+      <!-- Messages for every view: always in the page, announced when text is added -->
+      <div id="main-alert" class="alert" role="alert"></div>
 
       <!-- MAGIC LINK AUTO-LOGIN (shown when ?magic= in URL) -->
-      <div id="magic-view" style="display:none; text-align:center; padding:20px 0;">
-        <div style="display:flex;justify-content:center;margin-bottom:16px;color:var(--accent);">
+      <div id="magic-view" class="center" hidden>
+        <div class="icon">
           <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <rect x="3" y="6" width="18" height="13" rx="2"/>
             <path d="M3 8 L12 14 L21 8"/>
           </svg>
         </div>
-        <div id="magic-title" data-i18n="magic_signing" style="font-size:20px;font-weight:900;margin-bottom:8px;">Signing you in…</div>
-        <div id="magic-sub" data-i18n="magic_verifying" style="font-size:14px;color:var(--muted);">Verifying your link.</div>
+        <div id="magic-title" class="big" data-i18n="magic_signing" role="status">Je wordt ingelogd…</div>
+        <div id="magic-sub" class="sub" data-i18n="magic_verifying">We controleren je link.</div>
+        <a id="magic-back" href="/login.html" data-i18n="magic_back" hidden>Terug naar inloggen →</a>
       </div>
 
       <!-- FORGOT PASSWORD VIEW -->
-      <div id="forgot-view" style="display:none;">
-        <h2 data-i18n="forgot_title" style="font-size:24px;font-weight:900;letter-spacing:-0.02em;margin-bottom:8px;">Forgot password?</h2>
-        <p data-i18n="forgot_text" style="font-size:14px;color:var(--muted);margin-bottom:24px;line-height:1.6;">Enter your email and we'll send a reset link. It expires in 1 hour.</p>
-        <div id="forgot-alert" class="alert" role="alert"></div>
+      <div id="forgot-view" hidden>
+        <h2 class="title" data-i18n="forgot_title">Wachtwoord vergeten?</h2>
+        <p class="lead" data-i18n="forgot_text">Vul je e-mailadres in.</p>
         <div class="field">
-          <label data-i18n="label_email" for="forgot-email">Email</label>
-          <input type="email" id="forgot-email" inputmode="email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
+          <label data-i18n="label_email" for="forgot-email">E-mail</label>
+          <input type="email" id="forgot-email" inputmode="email" data-i18n-ph="ph_email" placeholder="jij@voorbeeld.nl" autocomplete="email" />
         </div>
-        <button class="btn-primary" id="forgot-btn" data-i18n="btn_reset">Send Reset Link</button>
-        <a id="back-link" class="back-link" data-i18n="back_login">← Back to login</a>
+        <button type="button" class="btn-primary" id="forgot-btn" data-i18n="btn_reset">Stuur herstellink</button>
+        <button type="button" id="back-link" class="link-btn back-link" data-i18n="back_login">← Terug naar inloggen</button>
       </div>
 
-      <!-- MAIN AUTH VIEW -->
-      <div id="main-view">
+      <!-- MAIN VIEW: one path. E-mail + "Ga verder"; password, passkey and "Account maken" are quiet links. -->
+      <form id="main-view" novalidate>
+        <h2 class="title" id="form-title" data-i18n="title_email">Inloggen of beginnen</h2>
+        <p class="lead" id="form-lead" data-i18n="lead_email">We sturen je een link om in te loggen.</p>
 
-        <!-- Passkey (shown if platform authenticator available, sign-in tab only) -->
-        <div id="passkey-section" style="display:none;">
-          <button class="btn-passkey" id="passkey-btn">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#f43f5e" stroke-width="2" aria-hidden="true">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-              <circle cx="12" cy="9" r="2.5"/>
-            </svg>
-            <span id="passkey-label" data-i18n="passkey">Use Face ID / Touch ID</span>
-          </button>
-          <div class="divider" data-i18n="or">or</div>
+        <div class="field">
+          <label data-i18n="label_email" for="email">E-mail</label>
+          <input type="email" id="email" inputmode="email" data-i18n-ph="ph_email" placeholder="jij@voorbeeld.nl" autocomplete="email" />
+        </div>
+        <div class="field" id="password-field" hidden>
+          <label data-i18n="label_password" for="password">Wachtwoord</label>
+          <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
+        </div>
+        <button type="button" id="forgot-link" class="link-btn forgot" data-i18n="forgot_link" hidden>Wachtwoord vergeten?</button>
+
+        <!-- Terms + privacy consent: only on the sign-up form; the server needs the accepted versions -->
+        <div class="accept-row" id="accept-row" hidden>
+          <input type="checkbox" id="accept-check" />
+          <label for="accept-check">
+            <span data-i18n="terms_pre">Ik heb de</span>
+            <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Algemene voorwaarden</a>,
+            <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer en aansprakelijkheid</a>,
+            <span data-i18n="terms_and">en</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacybeleid</a>
+            <span data-i18n="terms_post">van JustFit.cc gelezen en ga akkoord.</span>
+          </label>
         </div>
 
-        <div class="mode-tabs" role="group" data-i18n-aria="aria_mode">
-          <button class="mode-tab active" id="tab-login" aria-pressed="true" data-i18n="tab_login">Sign in</button>
-          <button class="mode-tab"        id="tab-signup" aria-pressed="false" data-i18n="tab_signup">Create account</button>
+        <button type="button" class="btn-primary" id="magic-btn" data-i18n="btn_continue">Ga verder met e-mail</button>
+        <button type="button" class="btn-primary" id="submit-btn" data-i18n="btn_signin" hidden>Inloggen</button>
+
+        <div class="quiet">
+          <button type="button" class="link-btn" id="mt-password" data-i18n="link_password">Inloggen met wachtwoord</button>
+          <button type="button" class="link-btn" id="mt-magic" data-i18n="link_magic" hidden>Inloggen met een e-maillink</button>
+          <button type="button" class="link-btn" id="passkey-btn" hidden><span id="passkey-label" data-i18n="passkey">Inloggen met passkey / Face ID</span></button>
+          <button type="button" class="link-btn" id="tab-signup" data-i18n="link_signup">Nog geen account? Account maken</button>
+          <button type="button" class="link-btn" id="tab-login" data-i18n="link_login" hidden>Heb je al een account? Inloggen</button>
         </div>
-
-        <div id="main-alert" class="alert" role="alert"></div>
-
-        <!-- Method switcher (sign-in tab only) -->
-        <div id="method-switcher" class="method-tabs" role="group" data-i18n-aria="aria_method">
-          <button class="method-tab active" id="mt-magic" aria-pressed="true" data-i18n="mt_magic">Magic Link</button>
-          <button class="method-tab"        id="mt-password" aria-pressed="false" data-i18n="mt_password">Password</button>
-        </div>
-
-        <!-- Password form -->
-        <div id="password-form" style="display:none;">
-          <div class="field">
-            <label data-i18n="label_email" for="email">Email</label>
-            <input type="email" id="email" inputmode="email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
-          </div>
-          <div class="field" id="password-field">
-            <label data-i18n="label_password" for="password">Password</label>
-            <input type="password" id="password" placeholder="••••••••" autocomplete="current-password" />
-          </div>
-          <a id="forgot-link" class="forgot-link" data-i18n="forgot_link">Forgot password?</a>
-          <!-- Acceptance checkbox — shown only in Sign Up mode (toggled by login.js) -->
-          <div class="accept-row" id="accept-row" style="display:none;">
-            <input type="checkbox" id="accept-check" />
-            <label for="accept-check">
-              <span data-i18n="terms_pre">I have read and agree to the</span>
-              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Terms &amp; Conditions</a>,
-              <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer &amp; Liability Waiver</a>,
-              <span data-i18n="terms_and">and</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacy Policy</a>
-              <span data-i18n="terms_post">of JustFit.cc.</span>
-            </label>
-          </div>
-          <button class="btn-primary" id="submit-btn" data-i18n="btn_login">Login</button>
-        </div>
-
-        <!-- Magic link form -->
-        <div id="magic-form">
-          <p data-i18n="magic_intro" style="font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.6;">Enter your email and we'll send a secure link. No password needed.</p>
-          <div class="field">
-            <label data-i18n="label_email" for="magic-email">Email</label>
-            <input type="email" id="magic-email" inputmode="email" data-i18n-ph="ph_email" placeholder="you@example.com" autocomplete="email" />
-          </div>
-          <button class="btn-primary" id="magic-btn" data-i18n="btn_magic">Send Login Link</button>
-        </div>
-
-        <!-- Guest access (both tabs, UAT R5) -->
-        <div id="guest-section">
-          <div class="divider" data-i18n="or">or</div>
-          <!-- Same consent as email signup (C-B33): the guest button stays disabled until accepted -->
-          <div class="accept-row" id="guest-accept-row">
-            <input type="checkbox" id="guest-accept-check" />
-            <label for="guest-accept-check">
-              <span data-i18n="terms_pre">I have read and agree to the</span>
-              <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Terms &amp; Conditions</a>,
-              <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer &amp; Liability Waiver</a>,
-              <span data-i18n="terms_and">and</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacy Policy</a>
-              <span data-i18n="terms_post">of JustFit.cc.</span>
-            </label>
-          </div>
-          <button id="guest-btn" class="btn-ghost-full" disabled data-i18n="guest">Continue without account →</button>
-          <p class="guest-note" data-i18n="guest_note">Your data is saved locally. Add email later to keep access.</p>
-        </div>
-      </div>
-
-      <p class="foot-links">
-        <a href="/privacy.html" data-i18n="link_privacy">Privacy Policy</a>
-        <a href="/terms.html" data-i18n="link_terms">Terms &amp; Conditions</a>
-      </p>
+      </form>
     </div><!-- /.card -->
 
+    <!-- Guest: its own small section. Same consent as signup (C-B33): the button stays disabled until it is ticked. -->
+    <section id="guest-section" class="guest" aria-labelledby="guest-title">
+      <h2 id="guest-title" data-i18n="guest_title">Eerst rondkijken?</h2>
+      <p data-i18n="guest_text">Je gegevens staan alleen op dit apparaat. Voeg later je e-mail toe.</p>
+      <div class="accept-row" id="guest-accept-row">
+        <input type="checkbox" id="guest-accept-check" />
+        <label for="guest-accept-check">
+          <span data-i18n="terms_pre">Ik heb de</span>
+          <a href="/terms.html" target="_blank" rel="noopener" data-i18n="terms_terms">Algemene voorwaarden</a>,
+          <a href="/disclaimer.html" target="_blank" rel="noopener" data-i18n="terms_disclaimer">Disclaimer en aansprakelijkheid</a>,
+          <span data-i18n="terms_and">en</span> <a href="/privacy.html" target="_blank" rel="noopener" data-i18n="terms_privacy">Privacybeleid</a>
+          <span data-i18n="terms_post">van JustFit.cc gelezen en ga akkoord.</span>
+        </label>
+      </div>
+      <button type="button" id="guest-btn" class="btn-secondary" disabled data-i18n="guest">Doorgaan zonder account</button>
+    </section>
+
+    <p class="foot-links">
+      <a href="/privacy.html" data-i18n="link_privacy">Privacybeleid</a>
+      <a href="/terms.html" data-i18n="link_terms">Algemene voorwaarden</a>
+    </p>
   </main><!-- /.zone1 -->
 
   <script src="/login-wave.js" defer></script>
