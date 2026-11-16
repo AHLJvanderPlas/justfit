@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-16 (branch uxa, NOT deployed) — UX review release A: the exercise screen (`docs/UI_UX_REVIEW_2026-11-16.md` findings 1, 2, 4)
+### Shipped 2026-11-16 — UX review release A: the exercise screen (`docs/UI_UX_REVIEW_2026-11-16.md` findings 1, 2, 4)
 
 - **Working screen** (rep and timed): header = Cancel · "n van m oefeningen" · progress (no name, no "SET n/m"); body = "SET 1 VAN 2", the name once, a quiet target stepper (44 px ghost buttons), the 0 / 10 counter and tap zone. The rep dots are gone (the counter says it once). Bottom bar: "Set afronden →" is the only `.jf-primary` (56 px, widest); "Overslaan" and "Alternatieven tonen" / "Dit voelt niet goed" are two quiet text actions (44 px). Data paths unchanged (`handleSetDone`, skip, alternatives incl. the injury-safe sheet, safe stop). Classes `.jf-wo-*`.
 - **Wake-lock tip**: `src/wakeTip.js`; see the Wake Lock section.
