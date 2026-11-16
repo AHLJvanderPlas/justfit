@@ -1362,6 +1362,35 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-16 (branch uxb, NOT deployed) — UX review release B: labels, session length, one week, Dutch instructions (findings 3, 5, 6, 12)
+
+- **R601 (finding 6)** `functions/api/_shared/budgetFill.js`: below 70% of the effective budget the
+  assembled session restores sets (≤ the goal's base count, beginner rep scale kept), then adds
+  exercises from the date-seeded selection list through `_safePool`, `loadsAny` and R597; aims at 85%,
+  never past 95% (90 s kept for R525); R595 still caps. Off for micro, rest, bonus, forced measurement,
+  pregnancy/postnatal, coach programmes, unlimited budget, and any R511/R512/R513/R517/R526-stress/
+  R535/R536/R558/R559 day; user-built sessions never reach assembly. Why-panel "Meer": "Sessie
+  aangevuld tot je gekozen tijd." Health, no kit, median minutes before → after: beginner 20/30/45:
+  6/9/15 → 17/27/35; intermediate 14/19/28 → 19/28/42; advanced unchanged (19/29/44).
+- **R510**: "Shorter today: N min instead of your usual M" only when today's time (check-in, weekly
+  schedule, overhead) is below `session_duration_min`; otherwise "Normal session (your own N min)",
+  hidden. Chip "Korter: minder tijd vandaag" / "Micro: weinig tijd vandaag" — every plan traced
+  R510, so every plan showed "Tijd aangepast".
+- **Finding 5** `src/setFormat.js`: Today "Reeks 1 dag · Score 10" (nothing on day one, `.jf-today-stats`);
+  Voortgang: duration omitted under 30 s (the bare "0" was `0 && …`), one `stepResult()` with Deze
+  week (a 30 s hold read "1 × 1min"), "weeknummer" caption, "Doelfit n%", TRAININGSDAGEN; Deze week:
+  no "0 min", no "× 0s", skipped / not completed in words.
+- **Finding 12** `weekPlan.weekBounds()` (on `isoWeekStart`): Deze week is ma → zo, subtitle "ma 16 – zo 22 nov".
+- **Finding 3** migration **0126_exercise_instructions_nl.sql** (GENERATED: `scripts/generate-instructions-nl-migration.mjs`
+  from `scripts/fixtures/exercise-instructions-nl.json`, review `docs/exercise-instructions-nl.md`):
+  steps_nl / cues_nl inside instructions_json for 69 exercises (top 64 of 3024 general-path plans +
+  5 UAT screenshot rows), guarded on the English, assert table. Client `exerciseInstructions()` in
+  i18n.js. **Apply with `node scripts/migrate.mjs apply migrations/0126_exercise_instructions_nl.sql`,
+  then `npm run baseline:seeds`.** Until then smoke X-28 reports it UNRECORDED.
+- Guards: matrix property 14 `fills-budget` (100 personas × 14); smoke "UX review B"
+  (`scripts/uxB.scan.mjs`). vitest 613 → **678**; smoke 106 → **107** checks; e2e 33 (two journeys
+  extended). plan.js 3677 → **3676**, inline styles 1672 → **1671** (ceilings lowered).
+
 ### Shipped 2026-11-16 — UX review release A: the exercise screen (`docs/UI_UX_REVIEW_2026-11-16.md` findings 1, 2, 4)
 
 - **Working screen** (rep and timed): header = Cancel · "n van m oefeningen" · progress (no name, no "SET n/m"); body = "SET 1 VAN 2", the name once, a quiet target stepper (44 px ghost buttons), the 0 / 10 counter and tap zone. The rep dots are gone (the counter says it once). Bottom bar: "Set afronden →" is the only `.jf-primary` (56 px, widest); "Overslaan" and "Alternatieven tonen" / "Dit voelt niet goed" are two quiet text actions (44 px). Data paths unchanged (`handleSetDone`, skip, alternatives incl. the injury-safe sheet, safe stop). Classes `.jf-wo-*`.

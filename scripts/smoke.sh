@@ -804,7 +804,7 @@ fi
 # 1749 → 1748 (2026-11-16): finding 0 — the alternatives sheet's empty state is .jf-alt-empty.
 # 1748 → 1672 (2026-11-16): UX review A — the WorkoutView header, working phase (title, steppers, counter, tap
 # zone, bottom bar), the wake-lock tip and the session rating moved to .jf-wo-* / .jf-rate classes.
-STYLE_CEILING=1672
+STYLE_CEILING=1671
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
