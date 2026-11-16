@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-16 (branch uxc, NOT deployed) — UX review release C: accessibility (`docs/UI_UX_REVIEW_2026-11-16.md` findings 7, 8, 9)
+### Shipped 2026-11-16 — UX review release C: accessibility (contrast, focus/keyboard/live regions, 44 px controls; + `safeAccent` fallback for an unparseable stored accent; vitest 711, smoke 108, e2e 35)
 
 - **Contrast (7)** `src/contrast.js` (pure WCAG maths) + `src/contrastAudit.js` read THEMES / ACCENT_COLORS from `tokens.js`.
   Dark `--muted` #64748b → #8f9db2 (4.24 → 6.3:1 page, 3.4 → 5.6 on a sheet card); light `--muted` #5b6675 → #4d5867
