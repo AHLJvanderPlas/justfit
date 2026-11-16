@@ -806,7 +806,9 @@ fi
 # zone, bottom bar), the wake-lock tip and the session rating moved to .jf-wo-* / .jf-rate classes.
 # 1671 → 1661 (2026-11-16): UX review C — the sign-out button, Settings back, injury / pain / check-in chips, week nav,
 # share and "Toon alles" buttons moved to .jf-signout / .jf-back-btn / .jf-warn-chip / .jf-ci-chip / .jf-weeknav / .jf-quiet-btn.
-STYLE_CEILING=1661
+# 1661 → 1624 (2026-11-16): UX review D — the Today header (TodayHeader, .jf-today-head / .jf-checkin-btn), the merged week
+# card (.jf-weekcard*), the goal link and the back controls (.jf-back) moved to classes; the goal card is gone.
+STYLE_CEILING=1624
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1533,7 +1535,7 @@ fi
 PLAN_CEILING=3676
 # 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
 # 2026-11-01 (UAT release 6): App.jsx 1780 → 1769 — the check-in time budget moved to checkinQuick.js, the page container to .jf-page.
-APP_CEILING=1769
+APP_CEILING=1703   # 1769 → 1703 (UX review D): the header moved to TodayHeader.jsx
 POST_CEILING=99
 PLAN_NOW=$(wc -l < functions/api/plan.js | tr -d " ")
 APP_NOW=$(wc -l < packages/client-app/src/App.jsx | tr -d " ")
@@ -1758,6 +1760,17 @@ if [ -z "$UXC_OUT" ]; then
   ok "UX review C: contrast >= 4.5:1 for muted/accents/button text in both themes + login, one focus ring (no bare outline none), svgs hidden, icon buttons labelled, dialogs on useDialog"
 else
   fail "UX review C: $UXC_OUT"
+fi
+
+# ── UX review D — Today and chrome ──────────────────────────────────────────
+# The logo row + CHECK-IN are TodayHeader, mounted for view === "today" only; one BackLink for every
+# back arrow; the sign-out row sits at the bottom of Settings → Account and asks first; Today has one
+# week card, no Training goal card, no coach sentence that restates the title. scripts/uxD.scan.mjs.
+UXD_OUT=$(node scripts/uxD.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$UXD_OUT" ]; then
+  ok "UX review D: header on Today only, one BackLink, sign-out at the bottom of Account (confirmed), one week card, no Training goal card"
+else
+  fail "UX review D: $UXD_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

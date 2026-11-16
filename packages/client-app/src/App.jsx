@@ -13,6 +13,7 @@ import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 import { reportError } from "./errorReporter.js";
 import { logout } from "./authHelpers.js";
+import TodayHeader from "./TodayHeader.jsx";
 import { cachePlan, getCachedPlan, queueMutation, getPendingMutations, removeMutation, purgeExpiredMutations } from "./offlineCache.js";
 import { completedInfo, readExtra, writeExtra, isRetryable, execPayload, execArgs, saveOwnExtra } from "./ownTraining.js";
 import { applyPathChoice } from "./pathApply.js";
@@ -1151,70 +1152,7 @@ export default function App() {
     >
 
       <div className="jf-page" role="main">
-        {!inWorkout && !inBonusWorkout && (
-          <header
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              alignItems: "center",
-              marginBottom: 44,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <svg aria-hidden="true" width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
-                <rect x="28" y="28" width="968" height="968" rx="180" style={{ fill: "var(--accent)" }}/>
-                {/* Outer hexagon */}
-                <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.35)" }} strokeWidth="28" strokeLinejoin="round"/>
-                {/* Inner web rings — solid */}
-                <path d="M 512 277 L 716 395 L 716 630 L 512 747 L 308 630 L 308 395 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.2)" }} strokeWidth="14" strokeLinejoin="round"/>
-                <path d="M 512 387 L 620 450 L 620 575 L 512 637 L 404 575 L 404 450 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.15)" }} strokeWidth="12" strokeLinejoin="round"/>
-                {/* S-curve route */}
-                <path d="M 308 630 C 580 590, 620 470, 480 420 C 360 380, 460 315, 512 294" fill="none" stroke={C.logoMark} strokeWidth="44" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="512" cy="294" r="32" fill={C.logoMark}/>
-                {/* Pole + filled flag */}
-                <path d="M 512 294 L 512 172" stroke={C.logoMark} strokeWidth="30" strokeLinecap="round"/>
-                <path d="M 512 176 L 626 176 C 608 200, 608 226, 626 250 L 512 250 Z" fill={C.logoMark} stroke={C.logoMark} strokeWidth="8" strokeLinejoin="round"/>
-              </svg>
-              <span
-                style={{
-                  fontWeight: 900,
-                  fontSize: 18,
-                  letterSpacing: "-0.02em",
-                }}
-              >
-                JustFit<span style={{ color: C.accentText }}>.cc</span>
-              </span>
-            </div>
-            {view === "settings" ? (
-              <button onClick={() => setShowSignOutConfirm(true)} className="jf-signout">
-                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.danger} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                  <polyline points="16 17 21 12 16 7" />
-                  <line x1="21" y1="12" x2="9" y2="12" />
-                </svg>
-                {t("Sign out")}
-              </button>
-            ) : (
-              <button
-                onClick={() => setShowCheckIn(true)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 8,
-                  padding: "9px 18px", minHeight: 44, borderRadius: 14, fontSize: 12, fontWeight: 900,
-                  letterSpacing: "0.06em", textTransform: "uppercase",
-                  background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`,
-                  color: C.muted, cursor: "pointer",
-                }}
-              >
-                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
-                  <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
-                  <path d="M19 3v4" />
-                  <path d="M21 5h-4" />
-                </svg>
-                {t("Check-in")}
-              </button>
-            )}
-          </header>
-        )}
+        {view === "today" && !inWorkout && !inBonusWorkout && <TodayHeader onCheckIn={() => setShowCheckIn(true)} />}
 
         {assessmentConfig ? (
           <Suspense fallback={null}>
@@ -1382,6 +1320,8 @@ export default function App() {
                     history={history}
                     onNavigateProgress={() => setView('history')}
                     onNavigateCoach={() => setView("coach")}
+                    onNavigateWeek={() => setView("plan")}
+                    onNavigateSettings={() => setView("settings")}
                     cycle={prefs.cycle}
                     planCapped={!!(plan?.capped)}
                     onUpgrade={() => setView("upgrade")}
@@ -1456,6 +1396,7 @@ export default function App() {
                   prefs={prefs}
                   onUpdate={setPrefs}
                   onRedoOnboarding={() => setShowOnboarding(true)}
+                  onSignOut={() => setShowSignOutConfirm(true)}
                   onResetDefaults={async () => {
                     const defaultPrefs = {
                       display_name: "User",

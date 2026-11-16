@@ -296,7 +296,7 @@ test('own training (e) — Dutch exercise names on Today, in the picker and in W
   // v1.6 — the shell around the sheets is Dutch too: the primary button, the eyebrow, the week card.
   await expect(page.getByRole('button', { name: 'START SESSIE' })).toBeVisible();
   await expect(page.getByRole('button', { name: /START SESSION/ })).toHaveCount(0);
-  await expect(page.getByText(/^VANDAAG · DAG \d+$/)).toBeVisible();
+  await expect(page.getByText(/^VANDAAG · DAG \d+/)).toBeVisible();
   await expect(page.getByText('DEZE WEEK', { exact: true })).toBeVisible();
 
   await page.getByRole('button', { name: 'Eigen training' }).click();

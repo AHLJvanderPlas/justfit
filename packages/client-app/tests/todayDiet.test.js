@@ -133,7 +133,8 @@ describe('coach sentence names what changed today (item 2)', () => {
   });
   it("Mark: no run step → not the run-walk sentence; the goal line is the fallback", () => {
     expect(deriveCoachSentence(MARK.rule_trace, null, 'standard', 'main', MARK.steps)).toBeNull();
-    expect(coachLine(MARK)).toBe(`Sessie van vandaag: ${sessionTitle('Fat Loss Circuit').toLowerCase()}.`);
+    // UX review D (finding 10): the goal line only restated the title — no sentence at all.
+    expect(coachLine(MARK)).toBeNull();
     const withRun = [...MARK.steps, step('run-interval-level-1', ['cardio', 'run_interval'], 'cardio')];
     expect(deriveCoachSentence(MARK.rule_trace, null, 'standard', 'main', withRun)).toBe('Walk-run intervals — the safe way to build running capacity.');
   });
@@ -220,5 +221,24 @@ describe('safe stop — outcome rules (item 5)', () => {
     expect(doneKind({ name: 'recovery', duration_sec: 0 })).toBe('rest');
     expect(doneKind({ name: 'Fat Loss Circuit' })).toBe('done');
     expect(doneKind(null)).toBe('done');
+  });
+});
+
+// UX review D (finding 10) — the coach sentence is shown only when it adds a reason.
+describe('coach sentence adds information (UX review D)', () => {
+  const plain = { session_name: 'Balanced session', slot_type: 'main', rule_trace: ['R500 — Goal'], steps: [] };
+  it('nothing beyond the title -> no sentence', () => {
+    expect(coachLine(plain)).toBeNull();
+    expect(coachLine({ ...plain, rule_trace: [] })).toBeNull();
+    expect(coachLine({ ...plain, session_name: null })).toBeNull();
+  });
+  it('R601 (topped up to the chosen time) states that reason', () => {
+    const line = coachLine({ ...plain, rule_trace: ['R500 — Goal', 'R601 — sets restored to reach the time budget'] });
+    expect(line).toBeTruthy();
+    expect(line).not.toMatch(/Sessie van vandaag/);
+  });
+  it('a body-mode rationale and an own session still speak', () => {
+    expect(coachLine(plain, 'pregnant')).toMatch(/zwangerschap/);
+    expect(coachLine({ authored_by_user: true })).toMatch(/zelf samengesteld/);
   });
 });

@@ -199,7 +199,9 @@ export async function flowCheckin(run, page, signals = [], detail = null) {
     await page.waitForTimeout(1500);
     return run.end();
   }
-  // Signals: the sheet, from the mood row's "Meer vertellen" (or the header Check-in).
+  // Signals: the sheet, from the mood row's "Meer vertellen" (or the header Check-in). UX review D: the
+  // CHECK-IN button is on Today only, so open the check-in from Today.
+  if (!(await visible(row, 800)) && await visible(btn(page, '^(VANDAAG|TODAY)$'), 500)) { await click(run, btn(page, '^(VANDAAG|TODAY)$'), 'Vandaag'); await page.waitForTimeout(800); }
   const more = (await visible(row, 3000)) ? row.getByRole('button', { name: re('Tell more|Meer vertellen') }) : btn(page, '^CHECK-IN$');
   if (!(await click(run, more, 'open check-in sheet'))) return run.end();
   await page.waitForTimeout(500); await run.shot(page, 'checkin-1-mood');
@@ -358,18 +360,31 @@ export async function flowSettings(run, page, sub, actions = []) {
   await click(run, btn(page, '^(INSTELLINGEN|SETTINGS)$'), 'Instellingen');
   await page.waitForTimeout(600);
   if (run.flow.screens === 0) { await run.shot(page, 'settings-landing'); await scrollEndCheck(run, page, 'settings-landing'); }
+  // UX review D: Settings has no logo row / CHECK-IN, and no sign-out in the header (it sits at the bottom of Account).
+  if (await visible(btn(page, '^CHECK-IN$'), 300)) run.fail('CHECK-IN button on the Settings landing (Today only)');
+  if (await visible(btn(page, '^(UITLOGGEN|SIGN OUT)$'), 300)) run.fail('sign-out button on the Settings landing');
   const rowBtn = page.getByRole('button', { name: re(sub) });
   const row = (await visible(rowBtn, 800)) ? rowBtn.first() : page.getByText(re(sub)).first();
   if (!(await click(run, row, sub))) return run.end();
   await page.waitForTimeout(900);
   await run.shot(page, `settings-${sub.replace(/[^a-z]/gi, '').toLowerCase()}`, true);
+  if (/^(Account)$/i.test(sub)) {   // UX review D: Uitloggen is the quiet last row of Account and asks first
+    const out = btn(page, '^(Uitloggen|Sign out)$');
+    if (await visible(out, 1500)) {
+      await out.first().scrollIntoViewIfNeeded().catch(() => {}); await run.shot(page, 'account-signout-row');
+      await click(run, out, 'Uitloggen'); await page.waitForTimeout(600);
+      if (await visible(page.getByRole('dialog'), 1500)) { await run.shot(page, 'account-signout-confirm'); await page.keyboard.press('Escape'); await page.waitForTimeout(400); }
+      else run.fail('Uitloggen did not open the confirmation');
+    } else run.fail('no Uitloggen row in Account');
+  }
   for (const a of actions) {
     if (a.fill) { await fill(run, page.getByRole('textbox', { name: re(a.fill[0]) }), a.fill[1], a.fill[0]); continue; }
     if (a.tap) { const t = page.getByRole('button', { name: re(a.tap) }); if (await visible(t, 1500)) { await click(run, t, a.tap); await page.waitForTimeout(a.wait ?? 800); if (a.shot) await run.shot(page, a.shot, true); } else run.fail(`"${a.tap}" not found`); }
     if (a.text) { const t = page.getByText(re(a.text)); if (await visible(t, 1500)) { await click(run, t, a.text); await page.waitForTimeout(a.wait ?? 800); if (a.shot) await run.shot(page, a.shot, true); } else run.fail(`"${a.text}" not found`); }
   }
-  const back = page.locator('button').filter({ hasText: re('^‹$') });
+  const back = page.getByTestId('back-link');
   if (await visible(back, 400)) { await back.first().click(); run.tap(); }
+  else run.fail(`settings:${sub}: no back control (BackLink)`);
   run.end();
 }
 
@@ -403,6 +418,9 @@ export async function applyApiSetup(run, page) {
 
 export async function flowTap(run, page, label, shotName) {
   run.start(`tap:${shotName}`);
+  // UX review D: the settings flow now ends on the Settings landing (the one BackLink); a control that lives on Today
+  // (the coach card) is reached from Vandaag.
+  if (!(await visible(btn(page, label), 600)) && await visible(btn(page, '^(VANDAAG|TODAY)$'), 500)) { await click(run, btn(page, '^(VANDAAG|TODAY)$'), 'Vandaag'); await page.waitForTimeout(800); }
   if (await click(run, btn(page, label), label)) { await page.waitForTimeout(1200); await run.shot(page, shotName, true); }
   run.end();
 }

@@ -22,10 +22,16 @@ test('settings — navigate to Account sub-view and back', async ({ page }) => {
   // Landing → Account
   await page.getByRole('button', { name: /^Account/ }).click();
   await expect(page.getByText('Abonnement')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('button', { name: 'Sign out' }).last()).toBeVisible();
+  // UX review D: the sign-out row lives at the bottom of Account and asks first.
+  await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(1);
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('dialog', { name: /Sign out/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Return sporting' }).click();
+  await expect(page.getByRole('dialog')).toHaveCount(0);
 
   // Back to landing
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to Settings', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Sign out' })).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'SETTINGS' })).toBeVisible();
 
   // Landing → Privacy
@@ -74,7 +80,7 @@ test('settings — Advanced settings is collapsed by default and holds Daily che
   await expect(page.getByRole('button', { name: /^Daily check-in\s*Once a day/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Available equipment/ })).toBeVisible();
   // Jij no longer carries the planner block.
-  await page.getByRole('button', { name: 'Back', exact: true }).click();
+  await page.getByRole('button', { name: 'Back to Settings', exact: true }).click();
   await page.getByRole('button', { name: /^You/ }).click();
   await expect(page.getByText('Daily Planning', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Known Injuries', { exact: true })).toBeVisible({ timeout: 10_000 });

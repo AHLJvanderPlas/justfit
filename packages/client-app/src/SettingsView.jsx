@@ -8,6 +8,8 @@ import { GOALS, EXPERIENCE, ALL_EQUIPMENT, ALL_SPORTS, SEX_OPTIONS, CYCLE_LENGTH
 import { Icons, GOAL_ICONS, GoalIcon, MilitaryIcon } from "./icons.jsx";
 import { t, useLang, setLang, getLang } from "./i18n.js";
 import { useAppShell } from "./AppShellContext.js";
+import BackLink from "./BackLink.jsx";
+import { takeSettingsStart } from "./settingsStart.js";
 import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
 import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
@@ -126,7 +128,7 @@ const DOCS = [
   },
 ];
 
-function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onOpenCoachView, onForceAssessment, assessmentPlanned, todaySession, isPro, onUpgrade, onSubscriptionChange }) {
+function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onChangePath, onOpenCooperModal, onProgressionRefresh, onNavigateAwards, onOpenCoachView, onForceAssessment, assessmentPlanned, todaySession, isPro, onUpgrade, onSubscriptionChange, onSignOut }) {
   useLang();
   const { token, userId } = useAppShell();
   const [passkeySupported, setPasskeySupported] = useState(false);
@@ -180,7 +182,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetting, setResetting] = useState(false);
   // Sub-view routing
-  const [subView, setSubView] = useState(null); // null | 'you' | 'coach' | 'privacy' | 'account'
+  const [subView, setSubView] = useState(takeSettingsStart()); // null | 'you' | 'coach' | 'privacy' | 'account'
   const [primaryIntent, setPrimaryIntent] = useState(prefs.preferences?.primary_intent ?? null);
   const [themeMode, setThemeMode] = useState(() => localStorage.getItem(THEME_STORAGE_KEY) ?? "system");
   const [showConflictModal, setShowConflictModal] = useState(false);
@@ -1448,14 +1450,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           </div>
         </div>
       ) : (
-        <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
-          <button
-            aria-label={t("Back")}
-            onClick={() => setSubView(null)}
-            className="jf-back-btn"
-          >
-            ‹
-          </button>
+        <div style={{ marginBottom: 28 }}>
+          <BackLink to={t("Settings")} onClick={() => setSubView(null)} />
           <h1 style={{ ...display(28), color: C.text, margin: 0 }}>
             {subView === "you" ? t("YOU") : subView === "coach" ? t("GOAL & COACH") : subView === "privacy" ? t("PRIVACY") : subView === "trainers" ? t("TRAINERS") : t("ACCOUNT")}
           </h1>
@@ -1985,7 +1981,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={t("Your name")}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontWeight: 700, boxSizing: "border-box" }}
+              className="jf-set__input"
             />
           </div>
 
@@ -2689,13 +2685,6 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}`, color: C.muted, fontSize: 13, fontWeight: 700, fontFamily: "monospace", boxSizing: "border-box", opacity: 0.6, marginBottom: 8 }}>{userId}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>{t("Your unique identifier — links your workouts, plan, and score to your account privately and securely.")}</div>
             </div>
-          </Glass>
-        </div>
-        <div style={{ marginBottom: 32 }}>
-          <Glass style={{ padding: 20 }}>
-            <button onClick={() => { logout(); }} style={{ width:"100%", padding:"12px 0", borderRadius:12, border:`1px solid ${C.border}`, background:"rgba(var(--overlay-rgb),0.03)", color:C.muted, fontWeight:900, fontSize:14, cursor:"pointer" }}>
-              {t("Sign out")}
-            </button>
           </Glass>
         </div>
       </>)}
@@ -3408,6 +3397,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {t("Delete →")}
           </button>
         </div>
+        <button type="button" className="jf-signout-row" onClick={() => onSignOut?.()}>{t("Sign out")}</button>
       </div>
       )}  {/* closes subView === "account" for Delete account */}
 

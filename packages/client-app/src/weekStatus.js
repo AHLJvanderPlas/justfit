@@ -46,3 +46,12 @@ export function weekOutcomeCounts(history, prefs, goal, today) {
   const lastDone = trainingDaysThisWeek(rows, addDays(mon, -1));
   return { thisWeek, target: weekCountTarget(prefs, goal), done, trend: done - lastDone, explicit: weeklyTarget(prefs) != null };
 }
+
+// UX review D (finding 10) — the one status line on Today's week card, under the 7-day
+// strip: "1 van 3 trainingsdagen · nog 2 te gaan". Same ISO-week count and target as
+// Voortgang and Deze week (weekOutcomeCounts); `reached` once the target is met.
+export function weekLineState(history, prefs, goal, today) {
+  const { done, target } = weekOutcomeCounts(history, prefs, goal, today);
+  const toGo = Math.max(0, target - done);
+  return { done, target, toGo, reached: toGo === 0 };
+}

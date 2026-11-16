@@ -1,3 +1,4 @@
+import BackLink from "./BackLink.jsx";
 import { useState, useRef } from "react";
 import { useDialog, dialogAttrs, activateKey } from "./useDialog.js";
 import { C, display, eyebrow, mono } from "./tokens.js";
@@ -248,12 +249,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
   if (consentRequired) {
     return (
       <div style={{ minHeight: "100dvh", display: "flex", flexDirection: "column", justifyContent: "center", padding: "32px 20px" }}>
-        <button
-          onClick={() => setView("today")}
-          style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", padding: "0 0 24px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, alignSelf: "flex-start" }}
-        >
-          ← Terug
-        </button>
+        <BackLink to={t("Today")} onClick={() => setView("today")} />
         <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 24, padding: "28px 24px" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.accentText, textTransform: "uppercase", marginBottom: 14 }}>Gegevensdeling</div>
           <h1 style={{ ...display(26, 900), color: C.text, lineHeight: 1.1, marginBottom: 16 }}>
@@ -294,12 +290,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
     <div>
       {/* ── Header ── */}
       <div style={{ marginBottom: 28 }}>
-        <button
-          onClick={() => setView("today")}
-          style={{ background: "none", border: "none", color: C.muted, fontSize: 13, cursor: "pointer", padding: "0 0 10px", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4 }}
-        >
-          {t("← Today")}
-        </button>
+        <BackLink to={t("Today")} onClick={() => setView("today")} />
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
             <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("COACH")}</h2>

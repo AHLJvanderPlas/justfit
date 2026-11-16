@@ -467,6 +467,9 @@ const SENTENCE_VARIANTS = {
   R561: "Sport mobility added — one targeted exercise to support your sport.",
   R556: "Running Coach programme — structured progression, week by week.",
   R555: "Safe run/walk intervals matched to your current conditioning level.",
+  // UX review D: R601 topped the session up to the chosen time — a reason, so the card says it
+  // (the fallback "Sessie van vandaag: <titel>" restated the title and is gone).
+  R601: "Session topped up to the time you chose.",
 };
 
 // Release 2 — what the user told us today outranks every standing rule; only a
@@ -475,6 +478,7 @@ const SENTENCE_VARIANTS = {
 const SENTENCE_SEVERITY_ORDER = [
   'R514', 'R539', 'R599', 'R600',
   'R535', 'R536', 'R559', 'R558', 'R511', 'R512', 'R513', 'R517', 'R510', 'R516', 'R515', 'R563', 'R565',
+  'R601',
   'R598', 'R556', 'R557', 'R568',
   'R540', 'R541', 'R534', 'R532', 'R530', 'R545', 'R546', 'R555', 'R526',
   'R561', 'R560',
@@ -521,8 +525,8 @@ const BODY_FALLBACK = {
 
 /**
  * The Today card's coach line, translated: the user's own session, the rule that
- * changed today, the body-mode line, or the goal line. Null on a rest day with
- * nothing to say.
+ * changed today (R601 top-up included), or the body-mode line. Null when there is
+ * nothing beyond the title — a sentence that only restates it is not shown.
  */
 export function coachLine(plan, bodyMode = 'standard') {
   if (!plan) return null;
@@ -531,7 +535,8 @@ export function coachLine(plan, bodyMode = 'standard') {
   if (sentence) return coachSentenceT(sentence);
   if (plan.slot_type === 'rest') return null;
   if (BODY_FALLBACK[bodyMode]) return coachSentenceT(BODY_FALLBACK[bodyMode]);
-  return plan.session_name ? t("Today's session: {name}.", { name: sessionTitle(plan.session_name, plan).toLowerCase() }) : null;
+  // UX review D (finding 10): "Sessie van vandaag: <titel>." only restated the title — no reason, no sentence.
+  return null;
 }
 
 /**

@@ -97,7 +97,7 @@ test('Dutch sweep 3: Instellingen → Jij says "Je profiel", Voortgang has no "F
   // UAT R5: the planner block moved to Doel & coach → Geavanceerd (closed by default), so Jij no
   // longer shows 'Dagelijkse planning'; the Dutch titles are read there instead.
   await expect(page.getByText('Dagelijkse planning', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: 'Terug', exact: true }).click();
+  await page.getByRole('button', { name: 'Terug naar Instellingen', exact: true }).click();
   await page.getByRole('button', { name: /^Doel & coach/ }).click();
   await page.getByRole('button', { name: /^Geavanceerd/ }).click();
   await expect(page.getByRole('button', { name: /^Dagelijkse check-in/ })).toBeVisible({ timeout: 10_000 });

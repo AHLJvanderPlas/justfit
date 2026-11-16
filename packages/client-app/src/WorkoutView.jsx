@@ -1,3 +1,4 @@
+import BackLink from "./BackLink.jsx";
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
 import { C } from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
@@ -625,9 +626,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             {/* Overview header */}
             <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
               <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                <button onClick={onBack} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
-                  {t('← Back')}
-                </button>
+                <BackLink to={t("Today")} onClick={onBack} />
                 <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{sessionTitle(plan.session_name, plan)}</div>
                 <div style={{ minWidth: 56 }} />
               </div>

@@ -1,4 +1,5 @@
 // ─── Lazy-loaded chunk — not on the critical path ─────────────────────────────
+import BackLink from "./BackLink.jsx";
 import { useState } from "react";
 import { Icons } from "./icons.jsx";
 import { C } from "./tokens.js";
@@ -135,15 +136,7 @@ export default function AwardsView({ history, score, isPro, progression, runUnlo
     <div>
       {/* Page header */}
       <div style={{ marginBottom: 32 }}>
-        {onBack && (
-          <button
-            onClick={onBack}
-            style={{ display: "flex", alignItems: "center", gap: 6, background: "none", border: "none", padding: 0,
-                     marginBottom: 14, color: C.muted, fontSize: 13, fontWeight: 700, cursor: "pointer" }}
-          >
-            ← {origin === "settings" ? t("Settings") : t("Progress")}
-          </button>
-        )}
+        {onBack && <BackLink to={origin === "settings" ? t("Settings") : t("Progress")} onClick={onBack} />}
         <h1 style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Trophy Room")}</h1>
         <div style={{ fontFamily: "'Barlow Condensed', sans-serif", fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
           {t("Showing up, quietly.")}

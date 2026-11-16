@@ -1362,6 +1362,25 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-16 (branch uxd, NOT deployed) — UX review release D: Today and chrome (findings 10, 11, 15, 17; vitest 711 → 722, smoke 108 → 109, e2e 35 → 36)
+
+- **Today (10)** one week card (`.jf-weekcard`): the 7-day strip + ONE status line "1 van 3 trainingsdagen · nog 2 te gaan" /
+  "… · weekdoel gehaald" (`weekStatus.weekLineState`, the C-B32 ISO-week count and target), tapping it opens Deze week; the sentence
+  card and the Trainingsdoel card are gone (goal lives in Doel & coach). The goal name in the Today eyebrow is a quiet link that opens
+  Settings on Doel & coach (`settingsStart.js` one-shot hand-off, no App state). `coachLine()` no longer falls back to "Sessie van
+  vandaag: <titel>" — no sentence unless there is a reason; R601 ("Sessie aangevuld tot je gekozen tijd.") now carries the sentence.
+  Coach programme cards keep their chevron (all three paths).
+- **Header (11)** `TodayHeader.jsx` (logo + CHECK-IN) is mounted for `view === "today"` only; every other view starts with its h1.
+  e2e / UAT runner open the check-in from Today (`flowCheckin`, `flowTap` go to Vandaag first).
+- **Back + sign-out (15)** `BackLink.jsx` (chevron + parent name, 44 px, aria-label "Terug naar {name}", `data-testid=back-link`) for Coach view,
+  Trofeeënkamer, Settings sub-views, session overview, Pro gate; in-session "← Annuleren" unchanged. UITLOGGEN left the header: the
+  quiet `.jf-signout-row` is the last row of Settings → Account and opens the existing confirmation (`onSignOut`); it used to call logout() directly.
+- Guards: smoke **UX review D** (`scripts/uxD.scan.mjs`: header gated to Today, one BackLink / no hand-made "←", sign-out row in Account asks first,
+  one THIS WEEK card, no Training goal card) — each broken once and seen failing; `tests/uxReviewD.test.js`; e2e `journey-chrome.spec.js` + extensions.
+  Inline styles 1661 → **1624**, App.jsx 1769 → **1703** (both ceilings lowered).
+- Noticed: the Settings Display-name input was 40 px and came into the first screen once the header left (UAT gate) — now `.jf-set__input` 44 px;
+  at 320 px the goal link wraps the Today eyebrow to two lines; the settings flow of the UAT runner now ends on the landing, so `tap` flows go via Vandaag.
+
 ### Shipped 2026-11-16 — UX review release C: accessibility (contrast, focus/keyboard/live regions, 44 px controls; + `safeAccent` fallback for an unparseable stored accent; vitest 711, smoke 108, e2e 35)
 
 - **Contrast (7)** `src/contrast.js` (pure WCAG maths) + `src/contrastAudit.js` read THEMES / ACCENT_COLORS from `tokens.js`.

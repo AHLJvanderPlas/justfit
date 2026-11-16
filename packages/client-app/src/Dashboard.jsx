@@ -4,15 +4,17 @@
 // WorkoutView) because this is the first screen, so the chunk loads in
 // parallel with first render instead of after it.
 import { useState, useMemo, useEffect } from "react";
-import { C, display, eyebrow, mono } from "./tokens.js";
+import { C, display, mono } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
-import { GOALS, EXPERIENCE } from "./appConstants.js";
-import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
+import { GOALS } from "./appConstants.js";
+import { openSettingsAt } from "./settingsStart.js";
+import { Icons, ExerciseIcon, MilitaryIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
 import { todayStripLabel } from "./setFormat.js";   // finding 5 — "Reeks 1 dag · Score 10", nothing on day one
 import { parseRuleTrace, hasBlockingSafety, classifyAdvisories, coachLine, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, cycleSubGoalLabel } from "./messagePolicy.js";
+import { weekLineState } from "./weekStatus.js";
 import { dcpTodayMeta } from "./dcpUi.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
 import DoneCard from "./DoneCard.jsx";
@@ -252,7 +254,7 @@ function splitTitle(name) {
 }
 
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
-export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, onQuickCheckin, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
+export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, onQuickCheckin, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, onNavigateWeek, onNavigateSettings, planCapped, onUpgrade, onUseTemplate }) {
   const lang = useLang();
   useEffect(() => { if (isGenerating) announce(t("Your plan is being adjusted\u2026")); }, [isGenerating]);
   const intensityColor = {
@@ -274,29 +276,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
     : 0;
   const totalMins = estMins !== null ? estMins + overheadMins : null;
 
-  // ── Weekly outcome summary ───────────────────────────────────────────────
-  const weekSummary = (() => {
-    // training_goal is a COLUMN on user_preferences, not a key in preferences_json.
-    // Reading it from the blob always missed and silently fell back to 'health',
-    // so the weekly summary described a goal the user had not set.
-    const goal = prefs?.training_goal ?? 'health';
-    const targetMap = { health: 3, strength: 4, muscle: 4, fat_loss: 4, endurance: 5, mobility: 3 };
-    const target = targetMap[goal] ?? 3;
-    const now = new Date();
-    const dayOfWeek = now.getDay(); // 0=Sun, 1=Mon…
-    const daysToMonday = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
-    const monday = new Date(now);
-    monday.setDate(now.getDate() - daysToMonday);
-    const cutoffStr = monday.toISOString().slice(0, 10);
-    const done = (history ?? []).filter(h => h.date >= cutoffStr).length;
-    const remaining = Math.max(0, target - done);
-    let message;
-    if (done === 0) message = t("{n} sessions this week — let's get started.", { n: target });
-    else if (done >= target) message = t("Goal hit — {done} of {target} sessions done. Bonus available.", { done, target });
-    else if (remaining === 1) message = t("One more to hit your weekly goal.");
-    else message = t("{done} of {target} done — {remaining} to go.", { done, target, remaining });
-    return { done, target, message };
-  })();
+  // ── Week line under the strip: the ISO-week training days against the target (C-B32, weekStatus.js) ──
+  const weekLine = weekLineState(history, prefs, prefs?.training_goal, new Date().toISOString().slice(0, 10));
 
   // ── Date line ────────────────────────────────────────────────────────────
   const dateLine = fmtDayStrip(new Date(), lang);
@@ -422,7 +403,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               <>
                 {/* Session eyebrow + coach pill in top-right */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <h2 className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</h2>
+                  <h2 className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}{onNavigateSettings && (
+                    <> · <button type="button" className="jf-today__goal" data-testid="goal-link" onClick={() => { openSettingsAt("coach"); onNavigateSettings(); }}>{t((GOALS.find((g) => g.value === (prefs?.training_goal ?? "health")) ?? GOALS[0]).label)}</button></>
+                  )}</h2>
                   {(() => {
                     const milA = !!(prefs?.preferences?.military_coach?.active);
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
@@ -863,51 +846,20 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             </Glass>
           );
         }
-        const goal = GOALS.find((g) => g.value === (prefs.training_goal ?? "health")) ?? GOALS[0];
-        const exp  = EXPERIENCE.find((e) => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
-        const GOAL_FOCUS = {
-          health:       'Balanced movement & consistency',
-          fat_loss:     'Calorie burn & metabolic conditioning',
-          muscle_gain:  'Progressive strength overload',
-          strength:     'Maximum force & compound lifts',
-          endurance:    'Aerobic capacity & stamina',
-          mobility:     'Flexibility, range of motion & recovery',
-          mixed:        'Full-body variety across all domains',
-        };
-        return (
-          <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
-                <GoalIcon value={goal.value} size={22} />
-              </div>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Training goal")}</div>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{t(goal.label)}</div>
-                <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t(GOAL_FOCUS[goal.value] ?? 'Consistent daily movement')}</div>
-              </div>
-            </div>
-            <span style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 700, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.muted }}>
-              {t(exp.label)}
-            </span>
-          </Glass>
-        );
+        // UX review D: no static goal card — the goal lives in Settings → Goal & coach (the Today eyebrow links there).
+        return null;
       })()}
 
-      {/* ── Weekly grid ─────────────────────────────── */}
-      <Glass style={{ padding: "16px 20px", marginBottom: 16 }}>
-        <h2 style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>{t("THIS WEEK")}</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
+      {/* ── One week card: the strip + one status line; tap = Deze week (UX review D, finding 10) ── */}
+      <div className="jf-weekcard" data-testid="week-card" onClick={() => onNavigateWeek?.()}>
+        <h2 className="jf-weekcard__title">{t("THIS WEEK")}</h2>
+        <div className="jf-weekcard__strip" aria-hidden="true">
           {weekdayLetters(lang).map((d, i) => {
             const status = weekStatusFor(i);
             return (
-              <div key={i} style={{ textAlign: "center" }}>
-                <h2 style={{ ...eyebrow, fontSize: 11, color: C.faint, marginBottom: 6 }}>{d}</h2>
-                <div style={{
-                  height: 36, borderRadius: 10,
-                  background: status === "today" ? "var(--accent)" : C.bgCard,
-                  border: `1px solid ${status === "today" ? "var(--accent)" : C.border}`,
-                  display: "flex", alignItems: "center", justifyContent: "center",
-                }}>
+              <div key={i} className="jf-weekcard__col">
+                <span className="jf-weekcard__day">{d}</span>
+                <div className={`jf-weekcard__cell${status === "today" ? " jf-weekcard__cell--today" : ""}`}>
                   {status === "done" && <Icons.check size={14} c={C.emerald} />}
                   {status === "today" && <Icons.bolt size={14} c={C.onAccent} filled />}
                 </div>
@@ -915,20 +867,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             );
           })}
         </div>
-      </Glass>
-
-      {/* ── Weekly outcome summary ──────────────────── */}
-      <Glass style={{ padding: "14px 20px", marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("This week")}</h2>
-          <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
-        </div>
-        <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
-          {Array.from({ length: weekSummary.target }).map((_, i) => (
-            <div key={i} style={{ width: 10, height: 10, borderRadius: "50%", background: i < weekSummary.done ? "var(--accent)" : "rgba(var(--accent-rgb),0.15)", border: i < weekSummary.done ? "none" : "1px solid rgba(var(--accent-rgb),0.3)" }} />
-          ))}
-        </div>
-      </Glass>
+        <button type="button" className="jf-weekcard__line" data-testid="week-line" onClick={(e) => { e.stopPropagation(); onNavigateWeek?.(); }}>
+          <span>{weekLine.reached
+            ? t("{done} of {target} training days · week goal reached", { done: weekLine.done, target: weekLine.target })
+            : t("{done} of {target} training days · {n} to go", { done: weekLine.done, target: weekLine.target, n: weekLine.toGo })}</span>
+          <span className="jf-coach-card__chev" aria-hidden="true">›</span>
+        </button>
+      </div>
 
       {/* ── Coach discovery card — once per account, general path only (UAT R5, coachingCard.js) ── */}
       <CoachingCard prefs={prefs} sessions={(history ?? []).length} onExplore={onNavigateCoach} />

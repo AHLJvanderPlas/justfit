@@ -1,4 +1,6 @@
 // ProGate.jsx — full-screen Pro upgrade wall
+import BackLink from "./BackLink.jsx";
+import { t } from "./i18n.js";
 import { useState, useEffect } from "react";
 import { C, display } from "./tokens.js";
 import api from "./apiClient.js";
@@ -75,9 +77,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
       <div style={{ maxWidth: 480, margin: "0 auto", width: "100%", padding: "max(40px, env(safe-area-inset-top)) 20px 60px" }}>
 
         {/* Back */}
-        <button onClick={onBack} style={{ background: "none", border: "none", color: C.muted, cursor: "pointer", fontSize: 14, fontWeight: 700, padding: 0, marginBottom: 32 }}>
-          ← Terug
-        </button>
+        <BackLink to={t("Today")} onClick={onBack} />
 
         {/* Header */}
         <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 8 }}>

@@ -1416,14 +1416,15 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
 }
 .jf-weeknav:disabled { cursor: not-allowed; color: var(--subtle-text); }
-.jf-signout {
-  display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 9px 16px; border-radius: 14px; font: inherit; font-size: 12px; font-weight: 900;
-  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
-  background: rgba(226, 76, 74, 0.08); border: 1px solid rgba(226, 76, 74, 0.25); color: var(--danger);
+/* UX review D: the one back control (BackLink) and the quiet sign-out row at the bottom of Account. */
+.jf-back {
+  display: inline-flex; align-items: center; gap: 4px; min-width: 44px; min-height: 44px; margin: 0 0 4px -4px; padding: 0 12px 0 4px;
+  background: none; border: none; font: inherit; font-size: 14px; font-weight: 700; color: var(--muted); cursor: pointer;
 }
-.jf-back-btn {
-  min-width: 44px; min-height: 44px; padding: 8px 16px; border-radius: 12px; font: inherit; font-weight: 900; cursor: pointer;
-  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--text);
+.jf-back__chev { font-size: 26px; line-height: 1; font-weight: 400; }
+.jf-signout-row {
+  width: 100%; min-height: 44px; padding: 10px 16px; border-radius: 14px; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer;
+  background: none; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted);
 }
 /* injury / pain chips: danger tone when on */
 .jf-warn-chip {
@@ -1444,3 +1445,46 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); touch-action: manipulation;
 }
 .jf-quiet-btn--accent, .jf-quiet-btn--ok { color: var(--accent-text); }
+
+/* UX review D (finding 11): the logo row + CHECK-IN exist on Today only. */
+.jf-today-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; }
+.jf-today-head__brand { display: flex; align-items: center; gap: 12px; }
+.jf-today-head__logo { flex-shrink: 0; filter: drop-shadow(0 4px 20px rgba(var(--accent-rgb), 0.3)); }
+.jf-logo__bg { fill: var(--accent); }
+.jf-logo__ring { stroke: rgba(var(--overlay-rgb), 0.35); }
+.jf-logo__ring--mid { stroke: rgba(var(--overlay-rgb), 0.2); }
+.jf-logo__ring--inner { stroke: rgba(var(--overlay-rgb), 0.15); }
+.jf-today-head__name { font-weight: 900; font-size: 18px; letter-spacing: -0.02em; }
+.jf-today-head__cc { color: var(--accent-text); }
+.jf-checkin-btn {
+  display: flex; align-items: center; gap: 8px; padding: 9px 18px; min-height: 44px; border-radius: 14px; font: inherit; font-size: 12px; font-weight: 900;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted);
+}
+
+/* UX review D (finding 10): ONE week card on Today — the strip, then one status line (tap = Deze week). */
+.jf-weekcard { padding: 16px 20px 6px; margin-bottom: 16px; border-radius: 28px; background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); cursor: pointer; }
+.jf-weekcard__title { margin: 0 0 12px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.jf-weekcard__strip { display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.jf-weekcard__col { text-align: center; }
+.jf-weekcard__day { display: block; margin-bottom: 6px; font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase; color: var(--muted); }
+.jf-weekcard__cell {
+  height: 36px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
+  background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-weekcard__cell--today { background: var(--accent); border-color: var(--accent); }
+.jf-weekcard__line {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px; margin-top: 4px; padding: 0;
+  background: none; border: none; font: inherit; font-size: 13px; font-weight: 600; line-height: 1.4; text-align: left; color: var(--text); cursor: pointer;
+}
+/* the goal, a quiet link to Settings → Doel & coach, inside the Today eyebrow (hit area 44 px, row height unchanged) */
+.jf-today__goal {
+  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: -16px 0; padding: 0 2px; background: none; border: none;
+  font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--muted); cursor: pointer;
+}
+.jf-today__goal::after { content: "›"; font-size: 14px; }
+/* a text field in Settings: 44 px tall (it came into the first screen once the logo row left). */
+.jf-set__input {
+  width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 14px; box-sizing: border-box; font: inherit; font-size: 16px; font-weight: 700;
+  background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
+}

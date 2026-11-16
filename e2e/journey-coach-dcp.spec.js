@@ -150,6 +150,13 @@ test('coach-dcp (g) — the coach programme card on Today opens the Coach view',
   await expect(page.getByText(/^add-on$/i)).toHaveCount(0);
   await card.click();
   await expect(page.getByText(/^HARDLOPEN · 5km$/)).toBeVisible({ timeout: 15_000 });
+  // UX review D: the Coach view has no logo row or CHECK-IN, and the one back control names its parent.
+  await expect(page.getByTestId('today-header')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^check-in$/i })).toHaveCount(0);
+  const back = page.getByRole('button', { name: 'Terug naar Vandaag', exact: true });
+  await expect(back).toBeVisible();
+  await back.click();
+  await expect(page.getByTestId('today-header')).toBeVisible();
 });
 
 test('coach-dcp (h) — Waar sta ik: the keuring card, and the level only once measured', async ({ page }) => {
