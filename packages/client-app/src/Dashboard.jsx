@@ -11,6 +11,7 @@ import { Icons, ExerciseIcon, MilitaryIcon, GoalIcon } from "./icons.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
+import { todayStripLabel } from "./setFormat.js";   // finding 5 — "Reeks 1 dag · Score 10", nothing on day one
 import { parseRuleTrace, hasBlockingSafety, classifyAdvisories, coachLine, buildVolumeSentence, RULE_LABELS, intensityLabel, sessionTitle, cycleSubGoalLabel } from "./messagePolicy.js";
 import { dcpTodayMeta } from "./dcpUi.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
@@ -332,12 +333,11 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {/* ── Top strip: date · streak · score ──────── */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20 }}>
         <span style={{ ...mono(11), color: C.faint, letterSpacing: "0.16em", textTransform: "uppercase" }}>{dateLine}</span>
-        <button
-          onClick={onNavigateProgress}
-          style={{ background: "none", border: "none", cursor: "pointer", padding: 0, ...mono(11), color: C.muted, letterSpacing: "0.12em", textTransform: "uppercase" }}
-        >
-          {streak > 0 ? `${streak}d · ` : ""}{score ?? "—"}
-        </button>
+        {todayStripLabel(streak, score) && (
+          <button type="button" onClick={onNavigateProgress} className="jf-today-stats" data-testid="today-stats">
+            {todayStripLabel(streak, score)}
+          </button>
+        )}
       </div>
 
       {/* ── Goal header ────────────────────────────── */}

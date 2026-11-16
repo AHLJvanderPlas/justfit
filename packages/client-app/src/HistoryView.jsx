@@ -1,3 +1,4 @@
+import { stepResult, sessionMinutes } from "./setFormat.js";   // finding 5
 import { useState, useEffect, lazy, Suspense } from "react";
 import { C, display, eyebrow, mono , overlay, themeValue} from "./tokens.js";
 import { Icons, ExerciseIcon } from "./icons.jsx";
@@ -252,6 +253,7 @@ function TrajectoryChart({ history, accentHex }) {
           <span key={wk} className={`jf-traj__wk${wk === currentWeek ? " jf-traj__wk--now" : ""}`}>{wk.split("-W")[1]}</span>
         ))}
       </div>
+      <div className="jf-traj__cap">{t("week number")}</div>
     </>
   );
 }
@@ -832,7 +834,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               <span style={{ ...display(34), color: "var(--accent)" }}>{weeklyOutcome.done}</span>
               <span style={{ ...display(20), color: C.faint }}>/{weeklyOutcome.target}</span>
             </div>
-            <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("SESSIONS")}</div>
+            <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINING DAYS")}</div>
           </div>
           {weeklyOutcome.totalMins > 0 && (
             <div>
@@ -893,10 +895,11 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               <circle cx={18} cy={18} r={14} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth={3}
                 strokeDasharray={`${(progression.goal_fit / 100) * 87.96} 87.96`}
                 strokeLinecap="round" transform="rotate(-90 18 18)" />
-              <text x={18} y={22} textAnchor="middle" fontSize={9} fontWeight="900"
+              <text x={18} y={22} textAnchor="middle" fontSize={11} fontWeight="900"
                 fontFamily="monospace" style={{ fill: "var(--accent)" }}>{progression.goal_fit}%</text>
             </svg>
             <div>
+              <div className="jf-fit__label">{t("Goal fit {n}%", { n: progression.goal_fit })}</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: C.text }}>
                 {progression.goal_fit >= 80 ? t("Profile aligned with your goal") :
                  progression.goal_fit >= 50 ? t("Building toward your goal") :
@@ -1374,7 +1377,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("RECENT SESSIONS")}</div>
                 {recent.map((session) => {
                   const steps = session.steps ?? [];
-                  const mins = session.total_duration_sec ? Math.round(session.total_duration_sec / 60) : null;
+                  const mins = sessionMinutes(session.total_duration_sec);   // finding 5 — `0 && …` printed a bare "0"
                   const d = new Date(session.date + "T12:00:00");
                   const dateLabel = fmtDateShort(d, getLang());
                   return (
@@ -1384,12 +1387,10 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           {dateLabel}
                           {session.execution_type === "logged" && <span className="jf-logged-tag">{t("Self-logged")}</span>}
                         </div>
-                        {mins && <div style={{ ...mono(11), color: C.muted }}>{mins} min</div>}
+                        {mins && <div style={{ ...mono(11), color: C.muted }}>{mins}</div>}
                       </div>
                       {steps.map((step, i) => {
-                        const prescribed = step.prescribed_json ? JSON.parse(step.prescribed_json) : {};
                         const actual = step.actual_json ? JSON.parse(step.actual_json) : {};
-                        const sets = actual.sets_completed ?? prescribed.sets ?? null;
                         let stat;
                         if (session.execution_type === "logged") {
                           // Typed in afterwards: as written, one line — "5 sets · 3/3/3/4/4 @ 60 s".
@@ -1397,12 +1398,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                           stat = actual.skipped ? t("skipped")
                             : `${sum.sets} ${sum.sets !== 1 ? t("sets") : t("set")}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
                         } else {
-                          const repArr = actual.reps_per_set;
-                          const reps = repArr?.length ? Math.round(repArr.reduce((a, b) => a + b, 0) / repArr.length) : prescribed.reps ?? null;
-                          const durSec = prescribed.duration_sec ?? null;
-                          stat = durSec
-                            ? `${sets ?? 1} × ${Math.round(durSec / 60)}min`
-                            : sets && reps ? `${sets} × ${reps}` : sets ? `${sets} ${t("sets")}` : null;
+                          stat = stepResult(step);   // one formatter with Deze week (setFormat.js)
                         }
                         return (
                           <div key={i} className="jf-rec-row">

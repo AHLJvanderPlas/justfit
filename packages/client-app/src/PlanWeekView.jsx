@@ -8,6 +8,7 @@ import { Glass, AdaptationChip } from "./uiComponents.jsx";
 import { t, useLang, exerciseName } from "./i18n.js";
 import { logDayLabel, summarizeLogged } from "./logSession.js";
 import { pickerContextFrom } from "./exerciseSearch.js";
+import { stepResult, sessionMinutes } from "./setFormat.js";   // finding 5
 import { selectedDay, dayRowKind, upcomingShown, previewWeekSim } from "./weekPlan.js";   // UAT R3 — one row, not seven
 import { weekOutcomeCounts } from "./weekStatus.js";
 import { weekTargetApplies, weeklyTarget } from "../../../functions/api/_shared/weekTarget.js";   // C-B32
@@ -382,10 +383,10 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                       </div>
                       <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
                         {isStravaCard
-                          ? [new Date(h.date + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { month: "short", day: "numeric" }), sportLabel, h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : null, distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
+                          ? [new Date(h.date + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { month: "short", day: "numeric" }), sportLabel, sessionMinutes(h.total_duration_sec), distKm ? `${distKm} km` : null, elevM ? `↑${elevM}m` : null].filter(Boolean).join(' · ')
                           : h.execution_type === "logged"
                             ? t("Recorded afterwards")
-                            : `${execTypeLabel(h.execution_type)} · ${h.total_duration_sec ? `${Math.round(h.total_duration_sec / 60)} min` : t("completed")}`}
+                            : `${execTypeLabel(h.execution_type)} · ${sessionMinutes(h.total_duration_sec) ?? t("completed")}`}
                       </div>
                       {!isStravaCard && (() => { const chip = deriveChipLabel(h.rule_trace, null); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={t(chip)} /></div> : null; })()}
                       {/* Strava activity name when merged from a separate entry */}
@@ -432,11 +433,10 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         const logged = h.execution_type === "logged";
                         const lines = h.steps.map(s => {
                           const actual = s.actual_json ? (() => { try { return JSON.parse(s.actual_json); } catch { return null; } })() : null;
-                          const pres   = s.prescribed_json ? (() => { try { return JSON.parse(s.prescribed_json); } catch { return null; } })() : null;
                           // A self-logged session keeps what was skipped — the note usually says why.
                           if (actual?.skipped && logged) return `${exerciseName(s)} · ${t("skipped")}`;
-                          if (!actual || actual.skipped || (actual.sets_completed ?? 0) === 0) return null;
-                          const sets = actual.sets_completed;
+                          if (!actual) return null;
+                          const sets = actual.sets_completed ?? 0;
                           const setsLabel = `${sets} ${sets !== 1 ? t('sets') : t('set')}`;
                           // Logged sets are typed in: one line per exercise, as written —
                           // "Push-up · 5 sets · 3/3/3/4/4 @ 60 s".
@@ -444,11 +444,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                             const sum = summarizeLogged(actual);
                             return `${exerciseName(s)} · ${setsLabel}${sum.values ? ` · ${sum.values}` : ""}${sum.rest ? ` @ ${sum.rest} s` : ""}`;
                           }
-                          const isTime = pres?.duration_sec && !pres?.reps;
-                          const reps = actual.reps_per_set ?? [];
-                          const avgVal = reps.length ? Math.round(reps.reduce((a,b) => a+b, 0) / reps.length) : null;
-                          const detail = avgVal != null ? (isTime ? `${avgVal}s` : `${avgVal} reps`) : null;
-                          return `${exerciseName(s)} · ${setsLabel}${detail ? ` × ${detail}` : ""}`;
+                          // Finding 5 — one formatter with Voortgang: no "× 0s", skipped / not completed said in words.
+                          return `${exerciseName(s)} · ${stepResult(s)}`;
                         }).filter(Boolean);
                         if (!lines.length) return null;
                         return (

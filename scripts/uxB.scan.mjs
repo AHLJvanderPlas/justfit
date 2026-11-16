@@ -63,5 +63,19 @@ for (const f of readdirSync(SRC).filter(f => /\.(jsx?|mjs)$/.test(f))) {
   if (/JSON\.parse\([^)]*instructions_json/.test(s)) errs.push(`B4 ${f} parses instructions_json itself — use exerciseInstructions() from i18n.js`);
 }
 
+// ── B2 ──
+{
+  const src = (f) => { try { return read(`${SRC}/${f}`); } catch { return ''; } };
+  for (const f of ['PlanWeekView.jsx', 'HistoryView.jsx']) {
+    const s = src(f);
+    if (!/from "\.\/setFormat\.js"/.test(s)) errs.push(`B2 ${f} does not use the one set formatter (setFormat.js)`);
+    if (/total_duration_sec \/ 60\)/.test(s)) errs.push(`B2 ${f} rounds a session duration itself (prints "0 min") — use sessionMinutes()`);
+    if (/\}min`|\$\{avgVal\}s|\$\{avgVal\} reps/.test(s)) errs.push(`B2 ${f} formats a set value itself — use stepResult()/formatSets()`);
+  }
+  const dash = src('Dashboard.jsx');
+  if (!/todayStripLabel\(/.test(dash) || /\$\{streak\}d/.test(dash)) errs.push('B2 Dashboard.jsx: the Today strip must say "Reeks n dagen · Score n" (todayStripLabel)');
+  if (/t\("SESSIONS"\)/.test(src('HistoryView.jsx'))) errs.push('B2 HistoryView.jsx: the week card counts training days — label it TRAINING DAYS, not SESSIONS');
+}
+
 process.stdout.write(errs.join('\n') + (errs.length ? '\n' : ''));
 process.exit(errs.length ? 1 : 0);

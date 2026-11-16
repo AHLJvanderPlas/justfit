@@ -973,6 +973,13 @@ const NL = {
   '{n} sets': '{n} sets',
   'Skipped': 'Overgeslagen',
   'skipped': 'overgeslagen',
+  // UX review B — finding 5: every number has a word
+  'not completed': 'niet afgerond',
+  'Streak 1 day': 'Reeks 1 dag',
+  'Streak {n} days': 'Reeks {n} dagen',
+  'Score {n}': 'Score {n}',
+  'week number': 'weeknummer',
+  'Goal fit {n}%': 'Doelfit {n}%',
   'Note': 'Notitie',
   'How did it go? Anything you skipped, and why?': 'Hoe ging het? Iets overgeslagen, en waarom?',
   'How did it feel? (optional)': 'Hoe voelde het? (optioneel)',
