@@ -5,7 +5,7 @@
 // with their short follow-up; experience joins "About you", sports join "Equipment & time".
 // A goal tap answers the step. The path is saved exactly as PathChoiceModal saves it
 // (pathPrefs.js), so the modal does not reappear after onboarding.
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { t, useLang } from "./i18n.js";
 import { EXPERIENCE, EQUIPMENT_OPTIONS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS } from "./appConstants.js";
 import api from "./apiClient.js";
@@ -37,6 +37,9 @@ const PATH_CARDS = [
 ];
 const DURATION_OPTIONS = [15, 20, 30, 45, 60, 90, 120, 999];
 const durationLabel = (d) => (d === 999 ? "∞" : d === 60 ? t("1h") : d === 90 ? t("1.5h") : d === 120 ? t("2h") : `${d}m`);
+// The four everyday options; the rest sits behind "More equipment" (Finding 13). Selected values in the
+// hidden part open the disclosure, so a re-done onboarding never hides what is already chosen.
+const COMMON_EQUIPMENT = ["none", "dumbbell", "resistance_bands", "pull_up_bar"];
 const moon = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
 
 export default function OnboardingModal({ token, prefs, onComplete, onBack, isPro, entitlementKnown }) {
@@ -69,6 +72,17 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
   const [duration, setDuration] = useState(p.session_duration_min ?? 45);
   const [sports, setSports] = useState((pp.sport_prefs?.sports) ?? []);
   const [saving, setSaving] = useState(false);
+  const [moreEquip, setMoreEquip] = useState(() => (pp.available_equipment ?? []).some((e) => EQUIPMENT_OPTIONS.some((o) => o.value === e && !COMMON_EQUIPMENT.includes(o.value))));
+  // A soft fade at the scroll edge while more content follows; the scroll area ends above the footer.
+  const bodyRef = useRef(null);
+  const [more, setMore] = useState(false);
+  const measure = () => {
+    const el = bodyRef.current;
+    if (el) setMore(el.scrollHeight - el.scrollTop - el.clientHeight > 4);
+  };
+  useEffect(() => { if (bodyRef.current) bodyRef.current.scrollTop = 0; }, [idx]);
+  useLayoutEffect(measure);
+  useEffect(() => { window.addEventListener("resize", measure); return () => window.removeEventListener("resize", measure); }, []);
 
   const steps = onboardingSteps(pathKey, pathTouched);
   const stepId = steps[Math.min(idx, steps.length - 1)];
@@ -140,7 +154,8 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
     <div className="jf-ob" ref={dlgRef} {...dialogAttrs(t("Set up your profile"))}>
       <div className="jf-ob__card">
         <div className="jf-ob__progress"><progress className="jf-ob__bar" max={steps.length - 1} value={idx} aria-hidden="true" /></div>
-        <div className="jf-ob__body">
+        <div className="jf-ob__scroll">
+        <div className={`jf-ob__body${more ? " jf-ob__body--more" : ""}`} ref={bodyRef} onScroll={measure}>
           {idx > 0 && <div className="jf-ob__step">{t("Step {n} of {total}", { n: idx, total: steps.length - 1 })}</div>}
 
           {stepId === "waiver" && (
@@ -210,7 +225,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
           {stepId === "about" && (
             <>
               <h2 className="jf-ob__title">{t("About you")}</h2>
-              <p className="jf-ob__lead">{t("This helps us personalise your training baseline.")}</p>
+              <p className="jf-ob__lead jf-ob__lead--aux">{t("This helps us personalise your training baseline.")}</p>
               {isPregnancyGoal && <p className="jf-ob__note">{t("You'll complete pregnancy setup in Settings after onboarding.")}</p>}
 
               <label className="jf-ob__label" htmlFor="jf-ob-name">{t("Your name")} <span className="jf-ob__opt-hint">{t("(optional)")}</span></label>
@@ -225,15 +240,13 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
                 ))}
               </div>
 
-              <div className="jf-ob__label">{t("Experience level?")}</div>
-              <div className="jf-ob__stack">
+              <div className="jf-ob__label" id="jf-ob-exp-label">{t("Experience level?")}</div>
+              <div className="jf-ob__exp" role="group" aria-labelledby="jf-ob-exp-label">
                 {EXPERIENCE.map((e) => (
-                  <button key={e.value} type="button" aria-pressed={experience === e.value} className={`${opt(experience === e.value)} jf-ob__opt--row`} onClick={() => setExperience(e.value)}>
-                    <span className="jf-ob__opt-title">{t(e.label)}</span>
-                    <span className="jf-ob__opt-sub">{t(e.sub)}</span>
-                  </button>
+                  <button key={e.value} type="button" aria-pressed={experience === e.value} className={opt(experience === e.value)} onClick={() => setExperience(e.value)}>{t(e.label)}</button>
                 ))}
               </div>
+              <p className="jf-ob__exp-desc" aria-live="polite">{t(EXPERIENCE.find((e) => e.value === experience)?.sub ?? "")}</p>
 
               <div className="jf-ob__label">{t("Your weight")} <span className="jf-ob__opt-hint">{t("(optional)")}</span></div>
               <div className="jf-ob__hint">{t("Helps us scale exercise volume to your body.")}</div>
@@ -289,21 +302,24 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
           {stepId === "setup" && (
             <>
               <h2 className="jf-ob__title">{t("Equipment & time?")}</h2>
-              <p className="jf-ob__lead">{t("Your default session setup.")}</p>
-              <div className="jf-ob__label">{t("Available equipment")}</div>
-              <div className="jf-ob__stack">
-                {EQUIPMENT_OPTIONS.map((eq) => (
-                  <button key={eq.value} type="button" aria-pressed={equipment.includes(eq.value)} className={`${opt(equipment.includes(eq.value))} jf-ob__opt--split`} onClick={() => toggleEquip(eq.value)}>
-                    <span>{t(eq.label)}</span>
-                    <span className="jf-ob__opt-sub">{t(eq.sub)}</span>
-                  </button>
-                ))}
-              </div>
+              <p className="jf-ob__lead jf-ob__lead--aux">{t("Your default session setup.")}</p>
               <div className="jf-ob__label">{t("Default session length")}</div>
               <div className="jf-ob__times">
                 {DURATION_OPTIONS.map((d) => (
                   <button key={d} type="button" aria-pressed={duration === d} className={`jf-ob__time${duration === d ? " jf-ob__time--on" : ""}`} onClick={() => setDuration(d)}>{durationLabel(d)}</button>
                 ))}
+              </div>
+              <div className="jf-ob__label" id="jf-ob-equip-label">{t("Available equipment")}</div>
+              <div className="jf-ob__stack" role="group" aria-labelledby="jf-ob-equip-label">
+                {EQUIPMENT_OPTIONS.filter((eq) => COMMON_EQUIPMENT.includes(eq.value) || moreEquip).map((eq) => (
+                  <button key={eq.value} type="button" aria-pressed={equipment.includes(eq.value)} className={`${opt(equipment.includes(eq.value))} jf-ob__opt--split`} onClick={() => toggleEquip(eq.value)}>
+                    <span>{t(eq.label)}</span>
+                    <span className="jf-ob__opt-sub">{t(eq.sub)}</span>
+                  </button>
+                ))}
+                <button type="button" className="jf-ob__more" aria-expanded={moreEquip} onClick={() => setMoreEquip((v) => !v)}>
+                  {moreEquip ? t("Less equipment") : t("More equipment")}
+                </button>
               </div>
               <div className="jf-ob__label">{t("Any sports you play?")} <span className="jf-ob__opt-hint">{t("(optional)")}</span></div>
               <div className="jf-ob__chips">
@@ -322,6 +338,8 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
             </>
           )}
         </div>
+        <div className="jf-ob__fade" aria-hidden="true" />
+        </div>
 
         <div className="jf-ob__foot">
           <div className="jf-ob__row">
@@ -332,7 +350,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
               {idx === 0 ? t("I Agree — Continue") : saving ? t("Saving...") : isLast ? t("Start Training") : t("Continue")}
             </button>
           </div>
-          {idx > 0 && (
+          {stepId === "about" && (
             <button type="button" className="jf-ob__skip" onClick={next}>{t("Skip this step")}</button>
           )}
         </div>

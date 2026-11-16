@@ -2164,6 +2164,8 @@ const NL = {
   "Training consistently for 6+ months": "Traint al 6+ maanden regelmatig",
   "Training for 2+ years, know your way around": "Traint al 2+ jaar en weet de weg",
   "No equipment": "Geen materiaal",
+  "More equipment": "Meer materiaal",
+  "Less equipment": "Minder materiaal",
   "Adjustable or fixed": "Verstelbaar of vast",
   "Light to heavy bands": "Lichte tot zware banden",
   "Door-mounted or free-standing": "In de deurpost of vrijstaand",

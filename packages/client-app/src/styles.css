@@ -1094,7 +1094,19 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .jf-ob__bar::-webkit-progress-bar { background: transparent; }
 .jf-ob__bar::-webkit-progress-value { background: var(--accent); transition: width 0.3s; }
 .jf-ob__bar::-moz-progress-bar { background: var(--accent); }
-.jf-ob__body { padding: 24px 22px 18px; overflow-y: auto; }
+.jf-ob__scroll { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.jf-ob__body { flex: 1 1 auto; min-height: 0; padding: 20px 22px 32px; overflow-y: auto; overscroll-behavior: contain; }
+.jf-ob__fade {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 32px; pointer-events: none; opacity: 0; transition: opacity 0.15s;
+  background: linear-gradient(to bottom, transparent, var(--sheet));
+}
+.jf-ob__body--more + .jf-ob__fade { opacity: 1; }
+.jf-ob__exp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.jf-ob__exp .jf-ob__opt { text-align: center; padding: 10px 2px; font-size: 12px; }
+.jf-ob__exp-desc { min-height: 34px; margin-top: 8px; font-size: 12px; line-height: 1.4; color: var(--muted); }
+.jf-ob__more {
+  min-height: 44px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--accent-text);
+}
 .jf-ob__step { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--accent-text); text-transform: uppercase; margin-bottom: 8px; }
 .jf-ob__badge {
   width: 44px; height: 44px; margin-bottom: 18px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
@@ -1186,7 +1198,7 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
 .jf-ob__time--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
-.jf-ob__foot { padding: 0 22px 20px; display: flex; flex-direction: column; gap: 4px; }
+.jf-ob__foot { padding: 8px 22px 16px; display: flex; flex-direction: column; gap: 4px; }
 .jf-ob__row { display: flex; gap: 10px; }
 .jf-ob__btn {
   flex: 1; min-height: 48px; padding: 12px; border-radius: 16px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700;
@@ -1203,6 +1215,14 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 .jf-ob__btn--main:disabled { opacity: 0.7; cursor: wait; }
 .jf-ob__skip { min-height: 44px; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700; color: var(--muted); }
 
+/* Short phones (an SE is 568 px): a tighter frame and no second-line leads, so name, sex and experience share one screen. */
+@media (max-height: 640px) {
+  .jf-ob { padding: 8px; }
+  .jf-ob__card { max-height: 100%; }
+  .jf-ob__body { padding-top: 14px; }
+  .jf-ob__lead--aux { display: none; }
+  .jf-ob__title { margin-bottom: 10px; }
+}
 /* The sport path follow-up (PathDetails.jsx) — onboarding and PathChoiceModal. */
 .jf-path__chips { display: flex; flex-wrap: wrap; gap: 10px; }
 .jf-path__chip {

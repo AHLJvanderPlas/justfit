@@ -30,13 +30,12 @@ export async function signupFresh(page, suffix = '', { path = 'general', afterOn
 export async function finishOnboarding(page, { path = 'general' } = {}) {
   await page.getByRole('button', { name: /I Agree/ }).click();
   if (path === 'general') {
-    await page.getByRole('button', { name: 'Skip this step' }).click();          // goal → general path by default
+    await page.getByRole('button', { name: 'Continue', exact: true }).click();   // goal → general path by default
   } else {
     await page.locator(`[data-path="${path}"]`).click();
     await page.getByRole('button', { name: 'Continue', exact: true }).click();   // the follow-up's defaults
   }
-  const skip = page.getByRole('button', { name: 'Skip this step' });
-  await skip.click();                                                            // about you
+  await page.getByRole('button', { name: 'Skip this step' }).click();           // about you (the only step that offers it)
   await page.getByRole('button', { name: 'Start Training' }).click();            // equipment & time
   await expect(page.getByRole('button', { name: /START SESSION|Recovery Mode Active/ })).toBeVisible({ timeout: 30_000 });
 }

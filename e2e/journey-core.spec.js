@@ -30,7 +30,9 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
   // ── Onboarding (UAT R6): the goal step holds the path; skipping it keeps General ───────
   await page.getByRole('button', { name: /I Agree/ }).click();
   await expect(page.locator('[data-path="running"]')).toBeVisible();     // the sport paths sit in the goal step
-  for (let i = 0; i < 3; i++) await page.getByRole('button', { name: 'Skip this step' }).click();
+  await page.getByRole('button', { name: 'Continue', exact: true }).click();                 // goal: general by default
+  await page.getByRole('button', { name: 'Skip this step' }).click();                        // about you: the one step that keeps it
+  await page.getByRole('button', { name: 'Start Training' }).click();                        // length 45 min pre-selected
 
   // ── Today first, no path modal, no check-in sheet: the mood row is the day's check-in ──
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });

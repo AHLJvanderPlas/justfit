@@ -102,6 +102,24 @@ async function scrollEndCheck(run, page, name) {
   run.log.audits.push({ screen: `${name}-scrolled-end`, flow: run.flow?.name ?? null, underNavAtEnd: under, small: [], tiny: [], clipped: [], underNav: [] });
   if (under.length) run.note(`under the nav at the end of ${name}: ${under.join(' | ')}`);
 }
+// Finding 13: the onboarding scroll area ends ABOVE the footer. Scroll it to the end and report any control that
+// is cut off by it or sits behind the footer (the same idea as the under-nav audit).
+async function onboardingEndCheck(run, page, name) {
+  const under = await page.evaluate(async () => {
+    const body = document.querySelector('.jf-ob__body'), foot = document.querySelector('.jf-ob__foot'); if (!body || !foot) return [];
+    body.scrollTop = body.scrollHeight; await new Promise((r) => setTimeout(r, 200));
+    const b = body.getBoundingClientRect(), f = foot.getBoundingClientRect();
+    const out = [];
+    if (b.bottom > f.top + 1) out.push('scroll area runs under the footer');
+    for (const el of body.querySelectorAll('button, input, a, [role=button]')) {
+      const r = el.getBoundingClientRect(); if (r.height === 0) continue;
+      if (r.bottom > b.bottom + 1 || r.bottom > f.top + 1) out.push((el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 40));
+    }
+    body.scrollTop = 0; return out;
+  });
+  run.log.audits.push({ screen: `${name}-scrolled-end`, flow: run.flow?.name ?? null, underNavAtEnd: under, small: [], tiny: [], clipped: [], underNav: [] });
+  if (under.length) run.note(`under the footer at the end of ${name}: ${under.join(' | ')}`);
+}
 const visible = async (loc, ms = 1500) => loc.first().isVisible({ timeout: ms }).catch(() => false);
 // isVisible() does not wait; this does (a fresh plan takes a few seconds).
 const waitVisible = async (loc, ms) => loc.first().waitFor({ state: 'visible', timeout: ms }).then(() => true).catch(() => false);
@@ -150,7 +168,7 @@ export async function flowSignup(run, page) {
   await run.shot(page, 'onboarding-0-waiver');
   if (!(await click(run, btn(page, 'I Agree|Akkoord'), 'I Agree'))) return run.end();
   await page.waitForTimeout(400);
-  await run.shot(page, 'onboarding-1-goal');
+  await run.shot(page, 'onboarding-1-goal'); await onboardingEndCheck(run, page, 'onboarding-goal');
   const next = async () => { const c = btn(page, '^(Continue|Doorgaan)$'); if (await visible(c, 800)) return click(run, c, 'Continue'); run.fail('no Continue button'); return false; };
   const path = p.path ?? 'general';
   if (path === 'general') {
@@ -167,14 +185,19 @@ export async function flowSignup(run, page) {
     }
     if (!(await next())) return run.end();
   }
-  await page.waitForTimeout(400); await run.shot(page, 'onboarding-2-about-you');
+  await page.waitForTimeout(400); await run.shot(page, 'onboarding-2-about-you'); await onboardingEndCheck(run, page, 'onboarding-about');
   if (p.name) await fill(run, page.getByPlaceholder(re('What should we call you|Hoe mogen we je noemen')), p.name, 'name');
   await choose(run, page.locator('button').filter({ hasText: re(p.sex === 'female' ? '^(Female|Vrouw)$' : '^(Male|Man)$') }), 'sex');
-  await choose(run, page.locator('.jf-ob__opt--row').nth(p.expIdx ?? 0), 'experience');
+  await choose(run, page.locator('.jf-ob__exp .jf-ob__opt').nth(p.expIdx ?? 0), 'experience');
   if (!(await next())) return run.end();
-  await page.waitForTimeout(400); await run.shot(page, 'onboarding-3-equipment-time');
-  for (const eq of (p.equipment ?? [])) await choose(run, page.locator('.jf-ob__opt').filter({ hasText: re(eq) }), `equipment ${eq}`);
+  await page.waitForTimeout(400); await run.shot(page, 'onboarding-3-equipment-time'); await onboardingEndCheck(run, page, 'onboarding-setup');
+  // Finding 13: session length first (the default is pre-selected), then the four common options; the rest sits behind "Meer materiaal".
   if (p.minutes) await choose(run, page.locator('.jf-ob__time').filter({ hasText: re(`^${p.minutes}\\s*(m|min)?$`) }), `${p.minutes} min`);
+  for (const eq of (p.equipment ?? [])) {
+    let item = page.locator('.jf-ob__opt').filter({ hasText: re(eq) });
+    if (!(await visible(item, 500))) { const more = page.locator('.jf-ob__more'); if (await visible(more, 500)) { await more.click(); run.tap(); } }
+    await choose(run, item, `equipment ${eq}`);
+  }
   if (!(await click(run, btn(page, 'Start Training|Start met trainen'), 'Start Training'))) return run.end();
   // The first Today card with a session — and no path modal after onboarding (the goal was asked once).
   const card = btn(page, 'START SESSI|Herstelmodus|Recovery Mode');
