@@ -355,7 +355,9 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         }
         return (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ ...mono(11), color: C.accentText, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
+            {onNavigateSettings
+              ? <button type="button" className="jf-today__goal" data-testid="goal-link" onClick={() => { openSettingsAt("coach"); onNavigateSettings(); }}>{goalText}</button>
+              : <div className="jf-today__goal">{goalText}</div>}
             {coachText && <div style={{ ...mono(11), color: C.muted, letterSpacing: "0.1em", marginTop: 2 }}>{coachText}</div>}
           </div>
         );
@@ -403,9 +405,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
               <>
                 {/* Session eyebrow + coach pill in top-right */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <h2 className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}{onNavigateSettings && (
-                    <> · <button type="button" className="jf-today__goal" data-testid="goal-link" onClick={() => { openSettingsAt("coach"); onNavigateSettings(); }}>{t((GOALS.find((g) => g.value === (prefs?.training_goal ?? "health")) ?? GOALS[0]).label)}</button></>
-                  )}</h2>
+                  <h2 className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</h2>
                   {(() => {
                     const milA = !!(prefs?.preferences?.military_coach?.active);
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);

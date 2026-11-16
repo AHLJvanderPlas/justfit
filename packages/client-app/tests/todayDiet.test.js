@@ -232,10 +232,9 @@ describe('coach sentence adds information (UX review D)', () => {
     expect(coachLine({ ...plain, rule_trace: [] })).toBeNull();
     expect(coachLine({ ...plain, session_name: null })).toBeNull();
   });
-  it('R601 (topped up to the chosen time) states that reason', () => {
-    const line = coachLine({ ...plain, rule_trace: ['R500 — Goal', 'R601 — sets restored to reach the time budget'] });
-    expect(line).toBeTruthy();
-    expect(line).not.toMatch(/Sessie van vandaag/);
+  it('R601 (topped up to the chosen time) is structural: it does not carry the card', () => {
+    // It fires on most ordinary days, so as "the reason" it would be the new restated title.
+    expect(coachLine({ ...plain, rule_trace: ['R500 — Goal', 'R601 — sets restored to reach the time budget'] })).toBeNull();
   });
   it('a body-mode rationale and an own session still speak', () => {
     expect(coachLine(plain, 'pregnant')).toMatch(/zwangerschap/);

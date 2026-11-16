@@ -1479,10 +1479,12 @@ input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offs
 }
 /* the goal, a quiet link to Settings → Doel & coach, inside the Today eyebrow (hit area 44 px, row height unchanged) */
 .jf-today__goal {
-  display: inline-flex; align-items: center; gap: 4px; min-height: 44px; margin: -16px 0; padding: 0 2px; background: none; border: none;
-  font: inherit; letter-spacing: inherit; text-transform: inherit; color: var(--muted); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin: -14px 0; padding: 0; background: none; border: none; text-align: left;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent-text);
 }
-.jf-today__goal::after { content: "›"; font-size: 14px; }
+button.jf-today__goal { cursor: pointer; }
+button.jf-today__goal::after { content: "›"; font-size: 14px; }
 /* a text field in Settings: 44 px tall (it came into the first screen once the logo row left). */
 .jf-set__input {
   width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 14px; box-sizing: border-box; font: inherit; font-size: 16px; font-weight: 700;
