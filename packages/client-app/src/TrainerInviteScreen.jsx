@@ -44,7 +44,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
     <div className="jf-orphan">
       <div className="jf-orphan__card">
         <div className="jf-orphan__icon">{done === 'accepted' ? '✓' : '—'}</div>
-        <div className="jf-orphan__title">{done === 'accepted' ? t('Connected!') : t('Declined')}</div>
+        <h2 className="jf-orphan__title">{done === 'accepted' ? t('Connected!') : t('Declined')}</h2>
         <div className="jf-orphan__text">
           {done === 'accepted'
             ? (who
@@ -60,7 +60,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
   if (err && !info) return (
     <div className="jf-orphan">
       <div className="jf-orphan__card">
-        <div className="jf-orphan__title">{t('Invite not found')}</div>
+        <h2 className="jf-orphan__title">{t('Invite not found')}</h2>
         <div className="jf-orphan__text">
           {err === 'Invite not found or expired' ? t('This invite link has expired or already been used.') : t(err)}
         </div>
@@ -72,7 +72,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
   if (info?.already_connected) return (
     <div className="jf-orphan">
       <div className="jf-orphan__card">
-        <div className="jf-orphan__title">{t('Already connected')}</div>
+        <h2 className="jf-orphan__title">{t('Already connected')}</h2>
         <div className="jf-orphan__text">
           {who ? t("You're already connected to {name}.", { name: who }) : t("You're already connected.")}
         </div>
@@ -89,7 +89,7 @@ export default function TrainerInviteScreen({ inviteToken }) {
           : <div className="jf-orphan__avatar">👤</div>
         }
         <div className="jf-orphan__eyebrow">{t('TRAINER INVITE')}</div>
-        {info?.trainer_name && <div className="jf-orphan__title">{info.trainer_name}</div>}
+        {info?.trainer_name && <h2 className="jf-orphan__title">{info.trainer_name}</h2>}
         {info?.gym_name && <div className="jf-orphan__sub">{info.gym_name}</div>}
         <div className="jf-orphan__text">
           {t('Accepting lets your trainer view the training data you choose to share and send you personalised programming.')}

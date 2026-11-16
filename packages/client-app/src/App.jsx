@@ -57,6 +57,7 @@ const WhyNotModal = lazy(() => import("./WhyNotModal.jsx"));
 const EigenTraining = lazy(() => import("./EigenTraining.jsx"));
 const GuestConvertModal = lazy(() => import("./GuestConvertModal.jsx"));
 import Nav from "./Nav.jsx";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 // ─── APPLY SAVED ACCENT BEFORE FIRST RENDER ─────────────────────────────────
 applyAccent(localStorage.getItem("jf_accent") ?? "#10b981");
@@ -110,6 +111,7 @@ function PregnancyProgressBanner({ cycle }) {
             <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
               <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{t("Week {n}", { n: week })} · {t(milestone.msg)}</div>
               <button
+                aria-label={t("Close")}
                 onClick={() => {
                   const updated = { ...dismissed, [milestoneKey]: true };
                   setDismissed(updated);
@@ -166,6 +168,7 @@ function PregnancyProgressBanner({ cycle }) {
             <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 8 }}>
               <div style={{ fontSize: 12, color: "rgba(251,191,36,0.85)", lineHeight: 1.6, flex: 1 }}>{(({ key, n }) => t(key, { n }))(postnatalLabel(daysSince))} · {t(milestone.msg)}</div>
               <button
+                aria-label={t("Close")}
                 onClick={() => {
                   const updated = { ...dismissed, [milestoneKey]: true };
                   setDismissed(updated);
@@ -367,6 +370,7 @@ export default function App() {
 
   // Terms acceptance gate (shown to existing users who haven't accepted current policy version)
   const [needsTermsGate, setNeedsTermsGate] = useState(false);
+  const signRef = useRef(null), termsRef = useRef(null), cooperRef = useRef(null); useDialog(signRef, { onClose: () => setShowSignOutConfirm(false), enabled: showSignOutConfirm }); useDialog(termsRef, { enabled: needsTermsGate }); useDialog(cooperRef, { onClose: () => setShowCooperModal(false), enabled: showCooperModal });
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [termsAccepting, setTermsAccepting] = useState(false);
   const [termsAcceptError, setTermsAcceptError] = useState(null);
@@ -1146,7 +1150,7 @@ export default function App() {
       }}
     >
 
-      <div className="jf-page">
+      <div className="jf-page" role="main">
         {!inWorkout && !inBonusWorkout && (
           <header
             style={{
@@ -1157,7 +1161,7 @@ export default function App() {
             }}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-              <svg width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
+              <svg aria-hidden="true" width="38" height="38" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg" style={{ filter: "drop-shadow(0 4px 20px rgba(var(--accent-rgb),0.3))", flexShrink: 0 }}>
                 <rect x="28" y="28" width="968" height="968" rx="180" style={{ fill: "var(--accent)" }}/>
                 {/* Outer hexagon */}
                 <path d="M 512 132 L 841 322 L 841 702 L 512 892 L 183 702 L 183 322 Z" fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.35)" }} strokeWidth="28" strokeLinejoin="round"/>
@@ -1178,21 +1182,12 @@ export default function App() {
                   letterSpacing: "-0.02em",
                 }}
               >
-                JustFit<span style={{ color: C.emerald }}>.cc</span>
+                JustFit<span style={{ color: C.accentText }}>.cc</span>
               </span>
             </div>
             {view === "settings" ? (
-              <button
-                onClick={() => setShowSignOutConfirm(true)}
-                style={{
-                  display: "flex", alignItems: "center", gap: 6,
-                  padding: "9px 16px", borderRadius: 14, fontSize: 12, fontWeight: 900,
-                  letterSpacing: "0.06em", textTransform: "uppercase",
-                  background: "rgba(226,76,74,0.08)", border: "1px solid rgba(226,76,74,0.25)",
-                  color: C.danger, cursor: "pointer",
-                }}
-              >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.danger} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <button onClick={() => setShowSignOutConfirm(true)} className="jf-signout">
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.danger} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
                   <polyline points="16 17 21 12 16 7" />
                   <line x1="21" y1="12" x2="9" y2="12" />
@@ -1210,7 +1205,7 @@ export default function App() {
                   color: C.muted, cursor: "pointer",
                 }}
               >
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
                   <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
                   <path d="M19 3v4" />
                   <path d="M21 5h-4" />
@@ -1259,7 +1254,7 @@ export default function App() {
           <>
             {isOffline && (
               <div style={{ margin: "0 0 16px", padding: "12px 16px", borderRadius: 16, background: "rgba(245,158,11,0.08)", border: "1px solid rgba(245,158,11,0.3)", display: "flex", alignItems: "center", gap: 10 }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.warning} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
+                <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.warning} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ flexShrink: 0 }}>
                   <line x1="1" y1="1" x2="23" y2="23" /><path d="M16.72 11.06A10.94 10.94 0 0 1 19 12.55" /><path d="M5 12.55a10.94 10.94 0 0 1 5.17-2.39" /><path d="M10.71 5.05A16 16 0 0 1 22.56 9" /><path d="M1.42 9a15.91 15.91 0 0 1 4.7-2.88" /><path d="M8.53 16.11a6 6 0 0 1 6.95 0" /><line x1="12" y1="20" x2="12.01" y2="20" />
                 </svg>
                 <div style={{ fontSize: 13, fontWeight: 700, color: C.warning }}>Je bent offline — wijzigingen worden gesynchroniseerd zodra de verbinding hersteld is</div>
@@ -1274,7 +1269,7 @@ export default function App() {
                 {installPrompt && !installDismissed && history.length >= 3 && (
                   <div style={{ margin: "0 0 16px", padding: "14px 16px", borderRadius: 16, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: C.emerald }}>{t("Add JustFit to your home screen")}</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.accentText }}>{t("Add JustFit to your home screen")}</div>
                       <div style={{ fontSize: 12, color: C.muted, marginTop: 2, lineHeight: 1.45 }}>
                         {t("Opens full screen and works offline.")}
                       </div>
@@ -1320,7 +1315,7 @@ export default function App() {
                     <button onClick={() => setShowGuestConvert(true)} style={{ padding: "6px 12px", borderRadius: 10, border: "1px solid rgba(245,158,11,0.4)", background: "rgba(245,158,11,0.1)", color: C.warning, fontWeight: 800, fontSize: 11, cursor: "pointer", flexShrink: 0, fontFamily: "inherit" }}>
                       {t("Add →")}
                     </button>
-                    <button onClick={() => { setEmailBannerDismissed(true); localStorage.setItem(uKey('jf_email_banner_dismissed'), String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
+                    <button aria-label={t("Close")} onClick={() => { setEmailBannerDismissed(true); localStorage.setItem(uKey('jf_email_banner_dismissed'), String(Date.now())); }} style={{ padding: "4px 8px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontSize: 20, cursor: "pointer", lineHeight: 1, fontFamily: "inherit" }}>
                       ×
                     </button>
                   </div>
@@ -1395,7 +1390,7 @@ export default function App() {
               </>
             )}
             {view === "coach" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: C.accentText, fontSize: 14 }}>{t("Loading…")}</div>}>
                 <CoachView
                   prefs={prefs}
                   plan={plan}
@@ -1446,7 +1441,7 @@ export default function App() {
               />
             )}
             {view === "awards" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: C.accentText, fontSize: 14 }}>{t("Loading…")}</div>}>
                 <AwardsView history={history} score={score} isPro={isPro} progression={progression} runUnlocked={prefs.preferences?.run_coach?.unlocked_targets ?? []} onBack={() => setView(awardsOrigin)} origin={awardsOrigin} />
               </Suspense>
             )}
@@ -1456,7 +1451,7 @@ export default function App() {
               </Suspense>
             )}
             {view === "settings" && (
-              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: "var(--accent)", fontSize: 14 }}>{t("Loading…")}</div>}>
+              <Suspense fallback={<div style={{ padding: 40, textAlign: "center", color: C.accentText, fontSize: 14 }}>{t("Loading…")}</div>}>
                 <SettingsView
                   prefs={prefs}
                   onUpdate={setPrefs}
@@ -1481,10 +1476,7 @@ export default function App() {
                     if (result?.ok && result.preferences) {
                       setPrefs(p => ({ ...p, sex: "male", weight_kg: 75, height_cm: 180, session_duration_min: 60, preferences: result.preferences }));
                       localStorage.setItem("jf_accent", "#10b981");
-                      document.documentElement.style.setProperty("--accent", "#10b981");
-                      document.documentElement.style.setProperty("--accent-rgb", "16,185,129");
-                      document.documentElement.style.setProperty("--accent-dim", "rgba(16,185,129,0.15)");
-                      document.documentElement.style.setProperty("--accent-border", "rgba(16,185,129,0.3)");
+                      applyAccent("#10b981");
                     }
                   }}
                   onChangePath={() => setShowPathChoice(true)}
@@ -1518,6 +1510,7 @@ export default function App() {
 
       {showSignOutConfirm && (
         <div
+          ref={signRef} {...dialogAttrs(t("Sign out"))}
           style={{ position: "fixed", inset: 0, zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "rgba(var(--bg-rgb),0.85)" }}
           onClick={() => setShowSignOutConfirm(false)}
         >
@@ -1532,7 +1525,7 @@ export default function App() {
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
               <button
                 onClick={() => setShowSignOutConfirm(false)}
-                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
+                style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, fontWeight: 900, fontSize: 14, cursor: "pointer" }}
               >
                 {t("Return sporting")}
               </button>
@@ -1576,14 +1569,14 @@ export default function App() {
 
       {/* ── Terms acceptance gate ─────────────────────────────── */}
       {needsTermsGate && (
-        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div ref={termsRef} {...dialogAttrs(t("Terms and privacy"))} style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 80, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ width: "100%", maxWidth: 420, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 28, padding: 32, boxShadow: "0 40px 100px rgba(0,0,0,0.5)" }}>
             {/* Logo */}
             <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 28 }}>
               <div style={{ width: 36, height: 36, background: C.emerald, borderRadius: 10, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 900, fontSize: 13, color: C.onAccent }}>JF</div>
-              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>Just<span style={{ color: C.emerald }}>Fit</span>.cc</div>
+              <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>Just<span style={{ color: C.accentText }}>Fit</span>.cc</div>
             </div>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10 }}>{t("Updated Policies")}</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.accentText, textTransform: "uppercase", marginBottom: 10 }}>{t("Updated Policies")}</div>
             <h2 style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 10, lineHeight: 1.2 }}>
               Review &amp; accept our terms
             </h2>
@@ -1602,7 +1595,7 @@ export default function App() {
                   href={href}
                   target="_blank"
                   rel="noopener noreferrer"
-                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 13, fontWeight: 800, textDecoration: "none" }}
+                  style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "11px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontSize: 13, fontWeight: 800, textDecoration: "none" }}
                 >
                   {label}
                   <span style={{ fontSize: 16, opacity: 0.7 }}>↗</span>
@@ -1708,18 +1701,18 @@ export default function App() {
       )}
 
       {showCooperModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div ref={cooperRef} {...dialogAttrs(t("Cooper Test Complete"))} style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <div style={{ background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 24, padding: 28, width: "100%", maxWidth: 400 }}>
             <div style={{ marginBottom: 12 }}><Icons.run size={28} c={C.emerald} /></div>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 6 }}>{t("Cooper Test Complete")}</div>
             <div style={{ fontSize: 14, color: C.muted, marginBottom: 20 }}>{t("How far did you run in 12 minutes? Enter your distance in meters.")}</div>
-            <input
+            <input aria-label={t("Distance in meters")}
               type="number"
               inputMode="numeric"
               placeholder="e.g. 2400"
               value={cooperDistance}
               onChange={e => setCooperDistance(e.target.value)}
-              style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 22, fontWeight: 900, textAlign: "center", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+              style={{ width: "100%", padding: "14px 16px", borderRadius: 14, border: `1px solid ${C.emeraldBorder}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 22, fontWeight: 900, textAlign: "center", boxSizing: "border-box", marginBottom: 8 }}
             />
             <div style={{ fontSize: 11, color: C.muted, textAlign: "center", marginBottom: 20 }}>
               {(() => {
@@ -1751,7 +1744,7 @@ export default function App() {
       )}
 
       {activityToast && (
-        <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 14, padding: "12px 24px", fontSize: 14, fontWeight: 800, color: C.emerald, zIndex: 200, boxShadow: "0 8px 30px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "fixed", bottom: 100, left: "50%", transform: "translateX(-50%)", background: C.sheet, border: `1px solid ${C.emeraldBorder}`, borderRadius: 14, padding: "12px 24px", fontSize: 14, fontWeight: 800, color: C.accentText, zIndex: 200, boxShadow: "0 8px 30px rgba(0,0,0,0.4)" }}>
           {activityToast}
         </div>
       )}

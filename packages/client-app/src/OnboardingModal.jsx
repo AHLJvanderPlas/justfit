@@ -5,12 +5,13 @@
 // with their short follow-up; experience joins "About you", sports join "Equipment & time".
 // A goal tap answers the step. The path is saved exactly as PathChoiceModal saves it
 // (pathPrefs.js), so the modal does not reappear after onboarding.
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { t, useLang } from "./i18n.js";
 import { EXPERIENCE, EQUIPMENT_OPTIONS, ONBOARDING_SPORTS, SEX_OPTIONS, CYCLE_LENGTHS } from "./appConstants.js";
 import api from "./apiClient.js";
 import { DEFAULT_PATH_DETAILS, PATH_INTRO, onboardingPathToSave, onboardingSteps, pathLocked, savePath } from "./pathPrefs.js";
 import PathDetails from "./PathDetails.jsx";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 // Default last period ≈ 4 weeks ago
 function defaultPeriodDate() {
@@ -39,6 +40,8 @@ const durationLabel = (d) => (d === 999 ? "∞" : d === 60 ? t("1h") : d === 90 
 const moon = <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>;
 
 export default function OnboardingModal({ token, prefs, onComplete, onBack, isPro, entitlementKnown }) {
+  const dlgRef = useRef(null);
+  useDialog(dlgRef); // full-screen flow: focus stays inside, no Escape
   useLang();
   const p = prefs ?? {};
   const pp = p.preferences ?? {};
@@ -134,7 +137,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
   const opt = (on) => `jf-ob__opt${on ? " jf-ob__opt--on" : ""}`;
 
   return (
-    <div className="jf-ob">
+    <div className="jf-ob" ref={dlgRef} {...dialogAttrs(t("Set up your profile"))}>
       <div className="jf-ob__card">
         <div className="jf-ob__progress"><progress className="jf-ob__bar" max={steps.length - 1} value={idx} aria-hidden="true" /></div>
         <div className="jf-ob__body">
@@ -143,7 +146,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
           {stepId === "waiver" && (
             <>
               <div className="jf-ob__badge" aria-hidden="true">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
+                <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" /></svg>
               </div>
               <h2 className="jf-ob__title">{t("Health & Safety")}</h2>
               <p className="jf-ob__lead">{t("JustFit.cc provides general fitness guidance for healthy adults. By continuing you confirm:")}</p>
@@ -261,7 +264,7 @@ export default function OnboardingModal({ token, prefs, onComplete, onBack, isPr
                     <>
                       <div className="jf-ob__cycle-title">{moon}{t("Set up cycle tracking")}</div>
                       <div className="jf-ob__hint">{t("When did your last period start?")}</div>
-                      <input type="date" className="jf-ob__input jf-ob__input--full" value={lastPeriodStart} max={new Date().toISOString().split("T")[0]} onChange={(e) => setLastPeriodStart(e.target.value)} />
+                      <input aria-label={t("When did your last period start?")} type="date" className="jf-ob__input jf-ob__input--full" value={lastPeriodStart} max={new Date().toISOString().split("T")[0]} onChange={(e) => setLastPeriodStart(e.target.value)} />
                       <div className="jf-ob__hint">{t("How long is your typical cycle?")}</div>
                       <div className="jf-ob__chips">
                         {CYCLE_LENGTHS.map((d) => (

@@ -19,8 +19,8 @@ export default function CoachingCard({ prefs, sessions, onExplore }) {
   const dismiss = () => { writeCoachingCard(localStorage, userId, "dismissed"); setDismissed(true); };
   return (
     <div className="jf-cc">
-      <div className="jf-cc__eyebrow">{t("SPECIALIST COACHING")}</div>
-      <div className="jf-cc__title">{t("Want a structured training programme?")}</div>
+      <h2 className="jf-cc__eyebrow">{t("SPECIALIST COACHING")}</h2>
+      <h2 className="jf-cc__title">{t("Want a structured training programme?")}</h2>
       <div className="jf-cc__body">{t("Add Running, Cycling, or Military coaching as an add-on alongside your current goal.")}</div>
       <div className="jf-cc__actions">
         <button className="jf-cc__go" onClick={() => { dismiss(); onExplore?.(); }}>{t("Explore coaches →")}</button>

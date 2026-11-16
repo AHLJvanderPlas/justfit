@@ -53,10 +53,10 @@ test('Deze week: one "Log a training" row, two upcoming days, "Whole week →" f
   }
   await expect(page.locator('.jf-weekstrip__day--sel')).toHaveCount(1);
   // ‹ last week: still Monday → Sunday, then back.
-  await page.getByRole('button', { name: '‹' }).click();
+  await page.getByRole('button', { name: 'Previous week' }).click();
   await expect(page.locator('.jf-weekstrip__name').first()).toHaveText('Mon');
   await expect(page.locator('.jf-weekstrip__day--today')).toHaveCount(0);
-  await page.getByRole('button', { name: '›' }).click();
+  await page.getByRole('button', { name: 'Next week' }).click();
   await expect(page.locator('.jf-weekstrip__day--today')).toHaveCount(1);
   await page.locator('.jf-weekstrip__day').nth(todayIdx).click();
   // Aankomend: at most two days until the whole week is asked for.
@@ -97,7 +97,7 @@ test('Dutch sweep 3: Instellingen → Jij says "Je profiel", Voortgang has no "F
   // UAT R5: the planner block moved to Doel & coach → Geavanceerd (closed by default), so Jij no
   // longer shows 'Dagelijkse planning'; the Dutch titles are read there instead.
   await expect(page.getByText('Dagelijkse planning', { exact: true })).toHaveCount(0);
-  await page.getByRole('button', { name: '‹' }).click();
+  await page.getByRole('button', { name: 'Terug', exact: true }).click();
   await page.getByRole('button', { name: /^Doel & coach/ }).click();
   await page.getByRole('button', { name: /^Geavanceerd/ }).click();
   await expect(page.getByRole('button', { name: /^Dagelijkse check-in/ })).toBeVisible({ timeout: 10_000 });

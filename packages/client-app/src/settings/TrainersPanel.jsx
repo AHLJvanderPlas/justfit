@@ -3,6 +3,7 @@ import { C, eyebrow } from "../tokens.js";
 import { Glass } from "../uiComponents.jsx";
 import api from "../apiClient.js";
 import { useAppShell } from "../AppShellContext.js";
+import { t } from "../i18n.js";
 
 const LEVEL_LABELS = { L0: 'None', L1: 'Basic', L2: 'Standard', L3: 'Full (billable)', L4: 'Complete' };
 const LEVEL_ORDER = ['L0', 'L1', 'L2', 'L3', 'L4'];
@@ -153,7 +154,7 @@ export default function TrainersPanel() {
                   <p style={{ fontSize: 16, fontWeight: 700, color: C.text }}>{d.gym_name ?? d.gym_id}</p>
                   <p style={{ fontSize: 12, color: C.muted }}>Connected trainer</p>
                 </div>
-                <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald, background: 'rgba(16,185,129,0.1)', padding: '3px 8px', borderRadius: 8 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: C.accentText, background: 'rgba(16,185,129,0.1)', padding: '3px 8px', borderRadius: 8 }}>
                   {LEVEL_LABELS[d.level] ?? d.level}
                 </span>
               </div>
@@ -199,11 +200,11 @@ export default function TrainersPanel() {
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>
             Ask your trainer for their code (format: FIT-XXXXXX) or paste a full invite link.
           </p>
-          <input
+          <input aria-label={t("Trainer code")}
             value={connectCode}
             onChange={e => { setConnectCode(e.target.value.trim()); setConnectError(''); }}
             placeholder="FIT-XXXXXX"
-            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? C.danger : C.border}`, background: 'rgba(var(--overlay-rgb),0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', outline: 'none', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
+            style={{ width: '100%', padding: '12px 16px', borderRadius: 12, border: `1px solid ${connectError ? C.danger : C.border}`, background: 'rgba(var(--overlay-rgb),0.06)', color: C.text, fontSize: 16, fontWeight: 700, letterSpacing: '0.05em', boxSizing: 'border-box', marginBottom: 10, textTransform: 'uppercase' }}
           />
           {connectError && <p style={{ fontSize: 12, color: C.danger, marginBottom: 10 }}>{connectError}</p>}
           <div style={{ display: 'flex', gap: 8 }}>
@@ -218,7 +219,7 @@ export default function TrainersPanel() {
                 } catch { setConnectError('Could not reach server — try again.'); }
                 finally { setConnectLoading(false); }
               }}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 13, cursor: (connectLoading || !connectCode) ? 'not-allowed' : 'pointer', opacity: (connectLoading || !connectCode) ? 0.5 : 1 }}>
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontWeight: 900, fontSize: 13, cursor: (connectLoading || !connectCode) ? 'not-allowed' : 'pointer', opacity: (connectLoading || !connectCode) ? 0.5 : 1 }}>
               {connectLoading ? '…' : 'Look up →'}
             </button>
             <button onClick={() => setConnectStep(0)}
@@ -230,9 +231,9 @@ export default function TrainersPanel() {
       )}
       {connectStep === 2 && connectGymInfo && (
         <div style={{ marginBottom: 20, padding: 20, borderRadius: 20, background: 'rgba(16,185,129,0.05)', border: `1px solid ${C.emeraldBorder}` }}>
-          <p style={{ ...eyebrow, fontSize: 11, color: C.emerald, marginBottom: 12 }}>CONFIRM CONNECTION</p>
+          <p style={{ ...eyebrow, fontSize: 11, color: C.accentText, marginBottom: 12 }}>CONFIRM CONNECTION</p>
           <p style={{ fontSize: 15, fontWeight: 700, color: C.text, marginBottom: 4 }}>{connectGymInfo.trainer_name}</p>
-          <p style={{ fontSize: 13, color: 'var(--accent)', fontWeight: 700, marginBottom: 16 }}>{connectGymInfo.gym_name}</p>
+          <p style={{ fontSize: 13, color: C.accentText, fontWeight: 700, marginBottom: 16 }}>{connectGymInfo.gym_name}</p>
           <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
             Your trainer will need to approve this request before they can view your data.
           </p>
@@ -249,7 +250,7 @@ export default function TrainersPanel() {
                 } catch { setConnectError('Could not reach server — try again.'); }
                 finally { setConnectLoading(false); }
               }}
-              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 13, cursor: connectLoading ? 'not-allowed' : 'pointer', opacity: connectLoading ? 0.5 : 1 }}>
+              style={{ flex: 1, padding: '12px 0', borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontWeight: 900, fontSize: 13, cursor: connectLoading ? 'not-allowed' : 'pointer', opacity: connectLoading ? 0.5 : 1 }}>
               {connectLoading ? '…' : 'Send request'}
             </button>
             <button onClick={() => { setConnectStep(1); setConnectGymInfo(null); }}
@@ -272,7 +273,7 @@ export default function TrainersPanel() {
       )}
 
       {/* Intake form */}
-      <div style={{ marginTop: 24, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
+      <div style={{ marginTop: 24, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.accentText, textTransform: 'uppercase' }}>
         Health Intake
       </div>
       <Glass style={{ padding: 20 }}>
@@ -341,7 +342,7 @@ export default function TrainersPanel() {
       {/* ── Trainer instellingen (only shown when connected to a gym) ── */}
       {isInGym && (
         <>
-          <div style={{ marginTop: 28, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.emerald, textTransform: 'uppercase' }}>
+          <div style={{ marginTop: 28, marginBottom: 8, fontSize: 11, fontWeight: 900, letterSpacing: '0.15em', color: C.accentText, textTransform: 'uppercase' }}>
             Jouw trainer
           </div>
           <Glass style={{ padding: 20 }}>
@@ -355,7 +356,7 @@ export default function TrainersPanel() {
                 </div>
               </div>
               <button
-                onClick={() => handleSwitchConsentToggle(!allowSwitch)}
+                role="switch" aria-checked={!!allowSwitch} aria-label="Trainer wissel toestaan" onClick={() => handleSwitchConsentToggle(!allowSwitch)}
                 disabled={switchConsentSaving}
                 style={{
                   width: 44, height: 26, borderRadius: 13, border: 'none', cursor: 'pointer',

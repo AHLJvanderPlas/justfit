@@ -49,7 +49,7 @@ export default function ConnectScreen({ connectToken }) {
   if (done) return (
     <div className="jf-orphan">
       <div className="jf-orphan__card">
-        <div className="jf-orphan__title">{t('Request sent!')}</div>
+        <h2 className="jf-orphan__title">{t('Request sent!')}</h2>
         <div className="jf-orphan__text">
           {who
             ? t('Your connection request to {name} has been sent. Your trainer will approve it shortly.', { name: who })
@@ -65,7 +65,7 @@ export default function ConnectScreen({ connectToken }) {
     <div className="jf-orphan">
       <div className="jf-orphan__card">
         <div className="jf-orphan__eyebrow">{t('CONNECT TO TRAINER')}</div>
-        <div className="jf-orphan__title">{t('Could not connect')}</div>
+        <h2 className="jf-orphan__title">{t('Could not connect')}</h2>
         <div className="jf-orphan__err" role="alert">{err || t('Could not load trainer info')}</div>
         <div className="jf-orphan__row">
           <button className="jf-orphan__btn" onClick={() => setAttempt(a => a + 1)}>{t('Try again')}</button>
@@ -79,7 +79,7 @@ export default function ConnectScreen({ connectToken }) {
     <div className="jf-orphan">
       <div className="jf-orphan__card">
         <div className="jf-orphan__eyebrow">{t('CONNECT TO TRAINER')}</div>
-        {info.trainer_name && <div className="jf-orphan__title">{info.trainer_name}</div>}
+        {info.trainer_name && <h2 className="jf-orphan__title">{info.trainer_name}</h2>}
         {info.gym_name && <div className="jf-orphan__sub">{info.gym_name}</div>}
         <div className="jf-orphan__text">
           {t("Send a connection request to this trainer. They'll approve it and can then view data you choose to share.")}

@@ -1362,6 +1362,38 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-16 (branch uxc, NOT deployed) — UX review release C: accessibility (`docs/UI_UX_REVIEW_2026-11-16.md` findings 7, 8, 9)
+
+- **Contrast (7)** `src/contrast.js` (pure WCAG maths) + `src/contrastAudit.js` read THEMES / ACCENT_COLORS from `tokens.js`.
+  Dark `--muted` #64748b → #8f9db2 (4.24 → 6.3:1 page, 3.4 → 5.6 on a sheet card); light `--muted` #5b6675 → #4d5867
+  and `--text-soft` #475569 → #334155 (keeps a visible text / soft / muted / subtle step). New tokens: `--subtle-text`
+  (text that used the FILL colour `--subtle`; `C.subtleText`), `--on-disabled`, `--accent-text` (per theme, derived in
+  `applyAccent()`; `C.accentText`). Accents needing a text variant: dark violet, indigo, rose, fuchsia; light all 11. Dark ink
+  `#020617` on the accent-filled button is ≥ 4.5:1 for all 11 accents. `::placeholder` = `--muted`. Login page: its own
+  `--muted` / `--accent-text` / `--on-accent` (ink on the coral buttons, was white 3.7:1). Never write `color: C.emerald`,
+  `var(--accent)` or `C.subtle` for text again (smoke fails).
+- **Keyboard / screen reader (8)** one global `:focus-visible` 2 px ring (`--focus-ring` = accent text); inline `outline: none`
+  gone; the only `outline: none` left is `[tabindex="-1"]:focus` (programmatic focus targets) and `.jf-wo-tap` (own
+  focus-visible rule). `src/useDialog.js` is the ONE dialog helper (focus in, Tab trap, Escape, focus back; a stack so only
+  the top dialog answers): session sheets, check-in, why-not, path modal, onboarding, guest-convert, pending invite, cancel
+  confirm, alternatives sheet, four trainer sheets, terms gate, sign-out, Cooper, delete-session, FTP, sex warning, document
+  viewer, email and delete-account modals. `src/announce.js` + `Announcer.jsx` (two hidden live regions in main.jsx):
+  timers speak at start / 10 s / 5 s / done only, "Set n van m klaar", rest started / over, session saved, check-in applied,
+  plan wordt aangepast, chips that save on tap; errors are `role="alert"`; the rep counter is `aria-live="polite"`.
+  `<html lang>` follows the UI language (index.html, prepaint.js, `setLang`); `<main>` landmark, labelled `<nav>`, one h1 per
+  view, section eyebrows are h2; every svg aria-hidden; icon-only buttons labelled; toggles `aria-pressed` / `role="switch"`;
+  every input has a label, inputs ≥ 16 px.
+- **Hit areas (9)** real 44 px for sign-out, Settings back, injury / pain / check-in chips, week nav, "Toon alles", share,
+  "Eigen training", "Waarom dit plan?"; the weekstrip days use the shared `::after`. Login tabs, method chips, guest button,
+  footer links 44 px; consent links padded to 25 px (inline, ≥ 24). UAT runner counts the EFFECTIVE size (box or `::after`)
+  and `controls under 44 px` is part of the gate; exemptions are listed in `Run.audit` (sr-only, inline link ≥ 24 px,
+  checkbox with a label target, disabled, covered by a modal).
+- Guards: smoke **UX review C** (`scripts/uxC.scan.mjs`); vitest 678 → **709** (`contrast.test.js`, `dialog.test.js`); e2e
+  `journey-a11y.spec.js` (+2). Inline styles 1671 → **1661** (ceiling lowered). App.jsx 1769 (ceiling).
+- Not done / noticed: icons as graphics (3:1) in light theme for lime/amber/cyan are not audited (text only); the legal
+  pages and dashboard.html lost `outline: none` but were not otherwise audited; `Dialog` roots sit on the full-screen scrim, so
+  a screen reader reads the whole overlay as the dialog.
+
 ### Shipped 2026-11-16 — UX review release B: session length, labelled numbers, one week, Dutch instructions (migration 0126 applied, ledger 127; verified live: beginner 20 min → 6–7 steps on 10 of 10 days)
 
 - **R601 (finding 6)** `functions/api/_shared/budgetFill.js`: below 70% of the effective budget the

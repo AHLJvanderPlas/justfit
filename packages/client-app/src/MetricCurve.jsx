@@ -140,7 +140,7 @@ export function MetricCurve({ data, initialPeriod = 90, height = 168 }) {
                 flex: 1, minHeight: 38, border: "none", borderRadius: 9, cursor: "pointer",
                 fontSize: 12, fontWeight: 700, touchAction: "manipulation",
                 background: sel ? C.emeraldDim : "transparent",
-                color: sel ? C.emerald : C.muted,
+                color: sel ? C.accentText : C.muted,
               }}>
               {t(p.key)}
             </button>
@@ -284,7 +284,7 @@ export function MetricCurve({ data, initialPeriod = 90, height = 168 }) {
 
       {/* ── Table fallback: a screen reader cannot read a polyline ── */}
       <button type="button" onClick={() => setShowTable(s => !s)}
-        style={{ background: "none", border: "none", cursor: "pointer", color: C.emerald,
+        style={{ background: "none", border: "none", cursor: "pointer", color: C.accentText,
           fontSize: 12, fontWeight: 600, padding: "10px 0 0", minHeight: 40, touchAction: "manipulation" }}>
         {showTable ? t("Hide table") : t("Show as table")}
       </button>

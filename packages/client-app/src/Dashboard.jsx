@@ -3,7 +3,7 @@
 // prop, as it does for CoachView. App starts the import at module scope (like
 // WorkoutView) because this is the first screen, so the chunk loads in
 // parallel with first render instead of after it.
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
@@ -25,6 +25,8 @@ import { ownLine } from "./ownTraining.js";
 import MoodRow from "./MoodRow.jsx";
 import { titleFitClass } from "./titleFit.js";
 import { quickCheckinVisible, readCheckinDate, todayISO } from "./checkinQuick.js";
+import { activateKey } from "./useDialog.js";
+import { announce } from "./announce.js";
 
 // ─── MESSAGE COMPONENTS ────────────────────────────────────────────────────────
 /**
@@ -151,7 +153,7 @@ function PlanErrorCard({ planError, onRetry, token, prefs }) {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", color: C.dangerStrong, fontFamily: "'Courier New', monospace", marginTop: 3 }}>{planError.code}</div>
         </div>
       </div>
-      <div style={{ fontSize: 13, color: C.subtle, lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
+      <div style={{ fontSize: 13, color: C.subtleText, lineHeight: 1.6, marginBottom: planError.detail ? 12 : 20 }}>
         {msg}
       </div>
       {planError.detail && (
@@ -252,6 +254,7 @@ function splitTitle(name) {
 // ─── DASHBOARD ────────────────────────────────────────────────────────────────
 export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGenerating, todayCompleted, completedSession, onLogActivity, onBonusSession, bonusDone, onWhyNot, onOwnTraining, extraDone, onExtraPlanDone, onExtraDismiss, isGuest, onTemplateSaved, onCheckIn, onQuickCheckin, prefs, planError, onRetryPlan, token, history, onNavigateProgress, cycle, onNavigateCoach, planCapped, onUpgrade, onUseTemplate }) {
   const lang = useLang();
+  useEffect(() => { if (isGenerating) announce(t("Your plan is being adjusted\u2026")); }, [isGenerating]);
   const intensityColor = {
     low: C.successSoft,
     moderate: C.emerald,
@@ -371,7 +374,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         }
         return (
           <div style={{ marginBottom: 14 }}>
-            <div style={{ ...mono(11), color: "var(--accent)", letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
+            <div style={{ ...mono(11), color: C.accentText, letterSpacing: "0.14em", textTransform: "uppercase", fontWeight: 700 }}>{goalText}</div>
             {coachText && <div style={{ ...mono(11), color: C.muted, letterSpacing: "0.1em", marginTop: 2 }}>{coachText}</div>}
           </div>
         );
@@ -413,13 +416,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     </div>
                   </div>
                 ))}
-                <p style={{ fontSize: 13, color: C.emerald, fontWeight: 700, marginTop: 14, textAlign: "center" }}>{t("Designing your session...")}</p>
+                <p style={{ fontSize: 13, color: C.accentText, fontWeight: 700, marginTop: 14, textAlign: "center" }}>{t("Designing your session...")}</p>
               </div>
             ) : plan ? (
               <>
                 {/* Session eyebrow + coach pill in top-right */}
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                  <div className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</div>
+                  <h2 className="jf-today__eyebrow">{t("TODAY")} · {t("DAY {n}", { n: (history ?? []).length + 1 })}</h2>
                   {(() => {
                     const milA = !!(prefs?.preferences?.military_coach?.active);
                     const rcA  = !!(prefs?.preferences?.run_coach?.enrolled && !prefs?.preferences?.run_coach?.completed);
@@ -441,38 +444,38 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 </div>
                 {/* Session name — hero size; line2 in accent colour */}
                 <div style={{ marginBottom: 10 }}>
-                  <h2 className={`jf-today__title ${titleFitClass(line1, line2)}`} data-testid="today-title">{line1}</h2>
+                  <h1 className={`jf-today__title ${titleFitClass(line1, line2)}`} data-testid="today-title">{line1}</h1>
                   {line2 && <div className={`jf-today__title jf-today__title--accent ${titleFitClass(line1, line2)}`}>{line2}</div>}
                 </div>
                 {/* Coach / program badges */}
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 10 }}>
                   {plan?.authored_by_user && (
-                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       {t("Own session")}
                     </span>
                   )}
                   {Array.isArray(plan?.pinned) && plan.pinned.length > 0 && (
-                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       {t("{n} pinned", { n: plan.pinned.length })}
                     </span>
                   )}
                   {prefs?.preferences?.run_coach?.enrolled && plan?.run_program && (
-                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       {t(plan.run_program.session_type ?? "Run Day")} · Week {plan.run_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cycling_program && (
-                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       {t(plan.cycling_program.session_type ?? "Cycling")} · Week {plan.cycling_program.week}
                     </span>
                   )}
                   {prefs?.preferences?.cycling_coach?.active && plan?.cross_training_run && (
-                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       {t("Cross-Training · Level {n}", { n: plan.cross_training_run.level })}
                     </span>
                   )}
                   {prefs?.preferences?.military_coach?.active && plan?.military_program && (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: "var(--accent)", borderRadius: 4, padding: "2px 7px" }}>
+                    <span style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase", background: "rgba(var(--accent-rgb),0.15)", color: C.accentText, borderRadius: 4, padding: "2px 7px" }}>
                       <MilitaryIcon size={10} />
                       {t(({ cooper_test: 'Cooper Test', kracht: 'Strength', duurloop: 'Endurance Run', interval: 'Intervals', kracht_marsen: 'Strength + March', circuit: 'Circuit', rust: 'Rest' })[plan.military_program.session_type] ?? plan.military_program.session_type ?? 'Military')}
                       {plan.military_program.is_base_build ? ` · ${t("Base build")}` : ` · W${plan.military_program.week}`}
@@ -550,7 +553,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                       return whyEntry ? (
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 10, padding: "10px 14px", background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, lineHeight: 1.5, borderLeft: `2px solid ${C.emeraldBorder}` }}>
                           {t(whyEntry.text, whyEntry.vars)}
-                          {whyEntry.cta && <span style={{ color: C.emerald, fontWeight: 700 }}> {t(whyEntry.cta)}</span>}
+                          {whyEntry.cta && <span style={{ color: C.accentText, fontWeight: 700 }}> {t(whyEntry.cta)}</span>}
                         </div>
                       ) : null;
                     })()}
@@ -603,7 +606,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 {!todayCompleted && <OwnSessionAssessmentOffer plan={plan} onUse={onUseTemplate} />}
                 {planCapped && !todayCompleted && (
                   <div style={{ fontSize: 11, color: C.muted, marginTop: 10, textAlign: "center" }}>
-                    {t("Your daily plan is ready. {pro} users can regenerate.", { pro: "\u0001" }).split("\u0001").flatMap((part, i) => i === 0 ? [part] : [<span key="pro" onClick={onUpgrade} style={{ color: "var(--accent)", cursor: "pointer", fontWeight: 700 }}>Pro</span>, part])}
+                    {t("Your daily plan is ready. {pro} users can regenerate.", { pro: "\u0001" }).split("\u0001").flatMap((part, i) => i === 0 ? [part] : [<span key="pro" role="button" tabIndex={0} onKeyDown={activateKey(onUpgrade)} onClick={onUpgrade} style={{ color: C.accentText, cursor: "pointer", fontWeight: 700 }}>Pro</span>, part])}
                   </div>
                 )}
               </>
@@ -689,14 +692,14 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           return (
             <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(var(--accent-rgb),0.15)", border: "1px solid rgba(var(--accent-rgb),0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                <div style={{ width: 38, height: 38, borderRadius: 12, background: "rgba(var(--accent-rgb),0.15)", border: "1px solid rgba(var(--accent-rgb),0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
                   <MilitaryIcon size={24} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 2 }}>{t("Military Coach")}</div>
                   <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>
                     {trackLabel} · {t(...lvl.line)}
-                    {lvl.measured && overperforming && <span style={{ fontSize: 11, color: C.emerald, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
+                    {lvl.measured && overperforming && <span style={{ fontSize: 11, color: C.accentText, marginLeft: 6 }}>{t("↑ {x} target", { x: milClL(track, clusterTarget) })}</span>}
                   </div>
                   {sessionLabel && (
                     <div style={{ fontSize: 11, color: C.muted, marginTop: 1 }}>{t("Today: {x}", { x: sessionLabel })}{mp?.march_kg ? ` · ${t("{kg} kg march", { kg: mp.march_kg })}` : ""}</div>
@@ -723,7 +726,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 {(isPostAssess || isBaseBuild || milMode === 'fit' || isCalibration || isDeload || isTaper) && (
                   <span style={{ flexShrink: 0, padding: "3px 8px", borderRadius: 6, fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", textTransform: "uppercase",
                     background: (milMode === 'fit' || isBaseBuild) ? "rgba(16,185,129,0.12)" : isPostAssess ? "rgba(16,185,129,0.12)" : isCalibration ? "rgba(245,158,11,0.15)" : isDeload ? "rgba(16,185,129,0.12)" : "rgba(var(--accent-rgb),0.15)",
-                    color: (milMode === 'fit' || isBaseBuild) ? C.emerald : isPostAssess ? C.emerald : isCalibration ? C.warning : isDeload ? C.emerald : "var(--accent)",
+                    color: (milMode === 'fit' || isBaseBuild) ? C.accentText : isPostAssess ? C.accentText : isCalibration ? C.warning : isDeload ? C.accentText : C.accentText,
                   }}>
                     {milMode === 'fit' ? t("Fit target") : isBaseBuild ? t("Base build") : isPostAssess ? t("Open") : isCalibration ? t("On-ramp") : isDeload ? t("Deload") : t("Taper")}
                   </span>
@@ -741,7 +744,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
           const canExportRunTcx = runSteps.length > 0;
           return (
             <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
                 <Icons.run size={20} c={C.emerald} />
               </div>
               <div style={{ flex: 1, minWidth: 0 }}>
@@ -764,7 +767,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                     const slug = sessionName.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                     triggerFileDownload(tcx, `${slug}_${new Date().toISOString().slice(0, 10)}.tcx`, 'application/vnd.garmin.tcx+xml');
                   }}
-                  style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" }}
+                  style={{ flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, whiteSpace: "nowrap" }}
                 >
                   ↓ TCX
                 </button>
@@ -782,7 +785,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
             const crossRunSteps = plan?.steps?.filter(s => s.target_duration_sec) ?? [];
             const canExportCrossRunTcx = crossRunSteps.length > 0;
             const dateStr = new Date().toISOString().slice(0, 10);
-            const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
+            const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, whiteSpace: "nowrap" };
             return (
               <Glass {...coachCard} style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", gap: 14 }}>
                 <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -847,7 +850,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                 const hasTarget = !!(ftpW || hrMax);   // TCX / ERG need a power or HR target
                 const slug = cycStep.name.replace(/[^a-z0-9]+/gi, '_').toLowerCase();
                 const dateStr = new Date().toISOString().slice(0, 10);
-                const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, whiteSpace: "nowrap" };
+                const btnStyle = { flexShrink: 0, padding: "6px 10px", borderRadius: 8, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, whiteSpace: "nowrap" };
                 return (
                   <div onClick={(e) => e.stopPropagation()} style={{ display: "flex", flexDirection: "column", gap: 5, flexShrink: 0 }}>
                     {hasTarget && <button onClick={() => triggerFileDownload(generateCyclingTcx(cycStep.name, intervals, ftpW, hrMax), `${slug}_${dateStr}.tcx`, 'application/vnd.garmin.tcx+xml')} style={btnStyle}>↓ TCX</button>}
@@ -874,7 +877,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
         return (
           <Glass style={{ padding: "14px 20px", marginBottom: 16, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.emerald }}>
+              <div style={{ width: 38, height: 38, borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
                 <GoalIcon value={goal.value} size={22} />
               </div>
               <div>
@@ -892,13 +895,13 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
 
       {/* ── Weekly grid ─────────────────────────────── */}
       <Glass style={{ padding: "16px 20px", marginBottom: 16 }}>
-        <div style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>{t("THIS WEEK")}</div>
+        <h2 style={{ ...eyebrow, color: C.faint, marginBottom: 12 }}>{t("THIS WEEK")}</h2>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 6 }}>
           {weekdayLetters(lang).map((d, i) => {
             const status = weekStatusFor(i);
             return (
               <div key={i} style={{ textAlign: "center" }}>
-                <div style={{ ...eyebrow, fontSize: 11, color: C.faint, marginBottom: 6 }}>{d}</div>
+                <h2 style={{ ...eyebrow, fontSize: 11, color: C.faint, marginBottom: 6 }}>{d}</h2>
                 <div style={{
                   height: 36, borderRadius: 10,
                   background: status === "today" ? "var(--accent)" : C.bgCard,
@@ -917,7 +920,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {/* ── Weekly outcome summary ──────────────────── */}
       <Glass style={{ padding: "14px 20px", marginBottom: 8, display: "flex", alignItems: "center", gap: 16 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("This week")}</div>
+          <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("This week")}</h2>
           <div style={{ fontSize: 13, fontWeight: 600, color: C.text, lineHeight: 1.4 }}>{weekSummary.message}</div>
         </div>
         <div style={{ display: "flex", gap: 5, flexShrink: 0 }}>
@@ -934,7 +937,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
       {!todayCompleted && onCheckIn && (
         <div style={{ textAlign: "center", marginBottom: 16 }}>
           <button onClick={onCheckIn} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, color: C.muted, fontFamily: "inherit" }}>
-            {t("Updated how you're feeling?")} <span style={{ color: "var(--accent)", fontWeight: 700 }}>{t("Check in →")}</span>
+            {t("Updated how you're feeling?")} <span style={{ color: C.accentText, fontWeight: 700 }}>{t("Check in →")}</span>
           </button>
         </div>
       )}

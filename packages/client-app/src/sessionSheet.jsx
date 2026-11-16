@@ -1,29 +1,22 @@
 // Shared parts of the two exercise sheets: SessionBuilder (plan TARGETS for today)
 // and LogSessionSheet (record what was DONE on a date). Classes only — styles.css.
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { t, exerciseName } from "./i18n.js";
 import { ALWAYS_OWNED, CATEGORY_CHIPS, equipOf, isTest, filterLibrary, emptyMessage, chipsOnFor, sheetKit } from "./exerciseSearch.js";
 import { EQUIPMENT_OPTIONS } from "./appConstants.js";
+import { useDialog } from "./useDialog.js";
 
-// v1.4 — Escape closes the sheet, and focus moves to its title on open so a
-// screen reader starts at the top. Focus is not trapped: the sheet is a bottom
-// sheet over a page that stays usable behind the scrim.
+// v1.4 — focus moves into the sheet on open (the title, so a screen reader starts at the top),
+// Escape closes it, Tab stays inside it and focus returns to the opener (useDialog, UX review C).
 export function Sheet({ title, sub = null, label, onClose, padded = false, sheetRef = null, children }) {
-  const titleRef = useRef(null);
-  useEffect(() => {
-    const el = titleRef.current;
-    // A field that asked for focus itself (autoFocus) keeps it.
-    if (el && !el.closest(".jf-sheet")?.contains(document.activeElement)) el.focus({ preventScroll: true });
-  }, []);
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  const ownRef = useRef(null);
+  const rootRef = sheetRef ?? ownRef;
+  // The title takes focus (a field that asked for it itself keeps it); see useDialog.
+  useDialog(rootRef, { onClose, initialFocus: ".jf-sheet__title" });
   return (
     <div className="jf-sheet-scrim" onClick={onClose}>
       <div
-        ref={sheetRef}
+        ref={rootRef}
         role="dialog"
         aria-modal="true"
         aria-label={label ?? title}
@@ -32,10 +25,10 @@ export function Sheet({ title, sub = null, label, onClose, padded = false, sheet
       >
         <div className="jf-sheet__handle" />
         <div className="jf-sheet__head">
-          <div className="jf-sheet__title" ref={titleRef} tabIndex={-1}>
+          <h2 className="jf-sheet__title" tabIndex={-1}>
             {title}
             {sub && <span className="jf-sheet__sub">{sub}</span>}
-          </div>
+          </h2>
           <button type="button" aria-label={t("Close")} onClick={onClose} className="jf-icon-btn jf-sheet-close">×</button>
         </div>
         {children}
@@ -167,7 +160,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
         })}
       </div>
       <div className="jf-pick__list">
-        {loadError && <div className="jf-pick__msg jf-pick__msg--error">{t("Could not load the exercise library.")}</div>}
+        {loadError && <div className="jf-pick__msg jf-pick__msg--error" role="alert">{t("Could not load the exercise library.")}</div>}
         {!library && !loadError && <div className="jf-pick__msg">{t("Loading…")}</div>}
         {library && total === 0 && (
           <div className="jf-pick__msg">{emptyMessage({ query, showAll, matchedAny, matchedOwned })}</div>
@@ -179,7 +172,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
               const kit = equipOf(ex).filter((e) => !ALWAYS_OWNED.includes(e));
               const m = mark(ex);
               return (
-                <button key={ex.id} type="button" onClick={() => onPick(ex)} className={`jf-pick__item${m.active ? " jf-pick__item--on" : ""}`}>
+                <button aria-pressed={!!m.active} key={ex.id} type="button" onClick={() => onPick(ex)} className={`jf-pick__item${m.active ? " jf-pick__item--on" : ""}`}>
                   <span className="jf-pick__text">
                     <span className="jf-pick__name">{exerciseName(ex)}</span>
                     <span className="jf-pick__meta">

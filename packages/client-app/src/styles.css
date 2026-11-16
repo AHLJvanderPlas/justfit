@@ -16,8 +16,8 @@
    least 44 × 44 px, never smaller than the control itself — without changing
    their look. Smoke guards that both base rules keep it. */
 button, [role="button"] { touch-action: manipulation; }
-.jf-tap { position: relative; }
-.jf-tap::after, .jf-chip::after, .jf-icon-btn::after {
+.jf-tap, .jf-weekstrip__day { position: relative; }
+.jf-tap::after, .jf-chip::after, .jf-icon-btn::after, .jf-weekstrip__day::after {
   content: ""; position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: max(100%, 44px); height: max(100%, 44px);
@@ -52,7 +52,26 @@ button, [role="button"] { touch-action: manipulation; }
 @keyframes tapRing { 0%{opacity:0.7;transform:scale(1)} 100%{opacity:0;transform:scale(1.18)} }
 ::-webkit-scrollbar { width: 0; }
 textarea { font-family: inherit; color: inherit; }
-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ── UX review C (finding 7) — accent as TEXT. applyAccent() derives one variant per theme that
+   reads >= 4.5:1 on every surface of that theme; fills keep --accent. ── */
+:root { --accent-text: var(--accent-text-dark, var(--accent)); --focus-ring: var(--accent-text); }
+:root[data-theme="light"] { --accent-text: var(--accent-text-light, var(--accent)); }
+/* Placeholders are the only label of some fields: muted is >= 4.5:1 on every field surface. */
+::placeholder { color: var(--muted); opacity: 1; }
+
+/* ── UX review C (finding 8) — ONE focus ring. Every interactive element, both themes: 2 px in
+   the accent-text colour (>= 4.5:1 on its surface, so >= 3:1 as a non-text indicator), 2 px off the
+   control. Keyboard focus only (:focus-visible) except text fields, which always show it. No rule in
+   this file or in a component may set outline: none/0 without a focus-visible replacement (smoke
+   uxC). Inline styles lose to this rule only when they set no outline, which none does any more. ── */
+:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+input:focus-visible, textarea:focus-visible, select:focus-visible { outline-offset: 1px; }
+/* The accent-filled controls sit on the page; the ring is the page-side halo. */
+.jf-sr-only {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
+  clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0;
+}
 
 /* F8 — "Zelfmeting toevoegen" under a session the user wrote (Today card). */
 .jf-own-offer {
@@ -76,7 +95,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   cursor: pointer;
   border: 1px solid var(--accent-border);
   background: var(--accent-dim);
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .jf-own-offer__btn:disabled { cursor: wait; opacity: 0.7; }
 .jf-own-offer__error { font-size: 12px; color: var(--rose); margin-top: 8px; }
@@ -99,7 +118,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   letter-spacing: -0.005em; line-height: 0.95; color: var(--text); text-transform: uppercase;
 }
 /* Focus lands here on open (v1.4) for screen readers; it is not a control. */
-.jf-sheet__title:focus { outline: none; }
+.jf-sheet__title[tabindex="-1"]:focus, .jf-dialog[tabindex="-1"]:focus { outline: none; }
 .jf-sheet__sub { display: block; margin-top: 4px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted); text-transform: none; }
 .jf-sheet__footer {
   position: sticky; bottom: 0; padding-top: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom));
@@ -124,7 +143,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   position: relative; padding: 8px 14px; border-radius: 99px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--muted);
 }
-.jf-chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-chip--wide { width: 100%; padding: 12px 14px; }
 .jf-chip--tall { padding: 11px 14px; }
 .jf-chip--grow { flex: 1; }
@@ -134,17 +153,17 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: "Barlow Condensed", "Oswald", system-ui, sans-serif; font-size: 17px; font-weight: 800; letter-spacing: 0.02em;
   background: var(--accent); color: var(--on-accent);
 }
-.jf-primary:disabled { background: var(--subtle); color: var(--muted); cursor: not-allowed; }
+.jf-primary:disabled { background: var(--subtle); color: var(--on-disabled); cursor: not-allowed; }
 .jf-secondary {
   width: 100%; height: 52px; border-radius: 16px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 800;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 
 /* Library search (ExercisePicker) */
 .jf-pick__search { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
 .jf-pick__input {
   flex: 1; min-width: 0; min-height: 44px; padding: 11px 14px; border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
-  background: rgba(var(--overlay-rgb), 0.04); color: var(--text); font: inherit; font-size: 16px; outline: none;
+  background: rgba(var(--overlay-rgb), 0.04); color: var(--text); font: inherit; font-size: 16px;
 }
 .jf-pick__input:focus { border-color: var(--accent-border); }
 .jf-pick__list { max-height: 210px; overflow-y: auto; border-radius: 12px; border: 1px solid rgba(var(--overlay-rgb), 0.08); margin-bottom: 14px; }
@@ -160,7 +179,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-pick__name { display: block; font-size: 13px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .jf-pick__meta { display: block; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em; color: var(--muted); }
 .jf-pick__mark { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-weight: 700; color: var(--muted); }
-.jf-pick__mark--on { color: var(--accent); }
+.jf-pick__mark--on { color: var(--accent-text); }
 /* v1.3 — category + kit chips (one scrolling row each), section headers, TEST marker, cap line.
    v1.4: a scrolling row clips its children, so it gets 9 px of padding above and below
    for the chips' 44 px hit area, cancelled by margins — the rows sit where they did. */
@@ -173,7 +192,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   letter-spacing: 0.08em; text-transform: uppercase; color: var(--label);
 }
 .jf-pick__group + .jf-pick__group { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
-.jf-pick__test { color: var(--accent); font-weight: 700; }
+.jf-pick__test { color: var(--accent-text); font-weight: 700; }
 .jf-pick__cap { padding: 10px 12px; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); font-size: 11px; color: var(--muted); }
 
 /* ── SessionBuilder (plan TARGETS for today) ── */
@@ -207,7 +226,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-move-btn:disabled { opacity: 0.35; cursor: default; }
 .jf-link {
-  background: none; border: none; padding: 0; cursor: pointer; color: var(--accent);
+  background: none; border: none; padding: 0; cursor: pointer; color: var(--accent-text);
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px;
 }
 .jf-note {
@@ -252,11 +271,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-sb-tpl--line .jf-sb-tpl__input { flex: 1 1 150px; width: auto; margin-bottom: 0; }
 .jf-sb-tpl--line .jf-sb-tpl__msg { flex-basis: 100%; margin-top: 0; }
 .jf-sb-tpl__input {
-  width: 100%; box-sizing: border-box; padding: 11px 14px; border-radius: 14px; margin-bottom: 8px; outline: none;
+  width: 100%; box-sizing: border-box; padding: 11px 14px; border-radius: 14px; margin-bottom: 8px;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.06); color: var(--text); font: inherit; font-size: 16px;
 }
 .jf-sb-tpl__actions { display: flex; gap: 8px; flex-wrap: wrap; }
-.jf-sb-tpl__msg { font-size: 12px; color: var(--accent); margin-top: 8px; }
+.jf-sb-tpl__msg { font-size: 12px; color: var(--accent-text); margin-top: 8px; }
 .jf-sb-tpl__msg--err { color: var(--danger); }
 .jf-sb-tpl__msg--center { text-align: center; margin: 0 0 4px; }
 .jf-sb-quiet {
@@ -273,7 +292,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--muted); text-align: left;
 }
 .jf-log-phase__n { font-family: "JetBrains Mono", ui-monospace, monospace; margin-right: 6px; }
-.jf-log-phase--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-log-phase--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-log-phase:disabled { opacity: 0.4; cursor: default; }
 
 /* Phase 1 — the ordered list */
@@ -308,7 +327,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-log-val {
   width: 48px; min-width: 0; min-height: 44px; box-sizing: border-box; padding: 8px 4px; border-radius: 12px; text-align: center;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.06); color: var(--text);
-  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 16px; font-weight: 700; outline: none;
+  font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 16px; font-weight: 700;
 }
 .jf-log-val:focus { border-color: var(--accent-border); }
 .jf-log-val--value { flex: 1; width: auto; }
@@ -317,13 +336,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-log-card__tools { display: flex; align-items: center; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
 .jf-log-card__label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; color: var(--label); }
 .jf-log-card__tools .jf-chip { padding: 6px 10px; font-size: 11px; }
-.jf-log-add { margin-left: auto; min-height: 36px; padding: 6px 14px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-log-add { margin-left: auto; min-height: 36px; padding: 6px 14px; border-radius: 12px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-log-card__sum { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: rgba(var(--overlay-rgb), 0.55); margin-top: 8px; }
 .jf-log-card__sum--todo { color: var(--muted); }
 .jf-log-card__error { font-size: 12px; color: var(--danger); margin-top: 6px; }
 .jf-log-card__hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .jf-log-skip { min-height: 36px; padding: 0 6px; font-size: 12px; color: var(--muted); text-decoration: underline; }
-.jf-log-skip--on { color: var(--accent); font-weight: 800; }
+.jf-log-skip--on { color: var(--accent-text); font-weight: 800; }
 .jf-log-card__tools--end { justify-content: flex-end; margin-top: 4px; }
 .jf-log-val::placeholder { color: var(--muted); font-weight: 400; font-size: 13px; }
 
@@ -335,7 +354,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-log-textarea {
   width: 100%; box-sizing: border-box; min-height: 72px; padding: 10px 12px; border-radius: 14px; resize: vertical; line-height: 1.5;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.06);
-  color: var(--text); font: inherit; font-size: 16px; outline: none;
+  color: var(--text); font: inherit; font-size: 16px;
 }
 .jf-log-textarea:focus { border-color: var(--accent-border); }
 .jf-log-rpe { display: flex; gap: 8px; margin-bottom: 10px; }
@@ -347,7 +366,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; padding: 3px 10px;
   border-radius: 999px; color: var(--muted); background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.14);
 }
-.jf-weekpill--on-track { color: var(--accent); background: var(--accent-dim); border-color: var(--accent-border); }
+.jf-weekpill--on-track { color: var(--accent-text); background: var(--accent-dim); border-color: var(--accent-border); }
 .jf-weekpill--building { color: var(--warning); background: rgba(var(--overlay-rgb), 0.05); border-color: var(--warning); }
 .jf-weekpill--behind { color: #f43f5e; background: rgba(244, 63, 94, 0.09); border-color: rgba(244, 63, 94, 0.25); }
 .jf-progress-later { margin: 0 0 20px; font-size: 13px; line-height: 1.55; color: var(--muted); }
@@ -361,11 +380,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-weekstrip__day--done { background: rgba(var(--accent-rgb), 0.06); border-color: rgba(var(--accent-rgb), 0.2); }
 .jf-weekstrip__day--today { background: var(--accent-dim); border-color: var(--accent-border); }
-.jf-weekstrip__day--sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+.jf-weekstrip__day--sel { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 .jf-weekstrip__name { font-size: 11px; font-weight: 900; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
 .jf-weekstrip__num { font-size: 15px; font-weight: 900; color: var(--text); }
-.jf-weekstrip__day--today .jf-weekstrip__name, .jf-weekstrip__day--today .jf-weekstrip__num { color: var(--accent); }
-.jf-weekstrip__day--future .jf-weekstrip__num { color: var(--subtle); }
+.jf-weekstrip__day--today .jf-weekstrip__name, .jf-weekstrip__day--today .jf-weekstrip__num { color: var(--accent-text); }
+.jf-weekstrip__day--future .jf-weekstrip__num { color: var(--subtle-text); }
 .jf-weekstrip__dot { width: 8px; height: 8px; border-radius: 50%; border: 1px solid var(--subtle); background: rgba(var(--overlay-rgb), 0.1); }
 .jf-weekstrip__day--future .jf-weekstrip__dot { background: transparent; border-style: dashed; }
 .jf-weekstrip__dot--done { background: var(--accent); border-color: transparent; }
@@ -379,14 +398,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   flex: none; padding: 3px 10px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--muted);
   background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
 }
-.jf-upday__pill--min { font-weight: 800; color: var(--accent); background: var(--accent-dim); border-color: var(--accent-border); }
+.jf-upday__pill--min { font-weight: 800; color: var(--accent-text); background: var(--accent-dim); border-color: var(--accent-border); }
 .jf-upday__ex { margin-top: 8px; font-size: 12px; line-height: 1.6; color: var(--muted); }
 .jf-upday__more {
   align-self: flex-start; min-height: 44px; padding: 0 4px; border: none; background: none; cursor: pointer;
-  font: inherit; font-size: 13px; font-weight: 700; color: var(--accent); touch-action: manipulation;
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--accent-text); touch-action: manipulation;
 }
 /* C-B32 — Deze week counts training days against the weekly target, like the week pill. */
-.jf-weektarget { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.jf-weektarget { margin-top: 6px; font-size: 12px; font-weight: 700; color: var(--accent-text); }
 
 /* PlanWeekView — days in the log window with no recorded session. Quiet on purpose:
    a secondary action under the strip, never competing with today's plan. */
@@ -398,7 +417,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-logday__day { font-size: 12px; color: var(--muted); }
 .jf-logday__btn {
   min-height: 40px; padding: 6px 12px; border-radius: 12px; border: none; background: none; cursor: pointer;
-  font: inherit; font-size: 12px; font-weight: 700; color: var(--accent);
+  font: inherit; font-size: 12px; font-weight: 700; color: var(--accent-text);
 }
 /* Completed-session card: recorded afterwards, not trained in the app. */
 .jf-logged-tag {
@@ -413,7 +432,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* One line per exercise in a completed-session record (PlanWeekView + HistoryView). */
 .jf-rec-lines { margin-top: 6px; display: flex; flex-direction: column; gap: 2px; }
 .jf-rec-line { font-size: 11px; color: var(--muted); }
-.jf-rec-line--more { color: var(--subtle); }
+.jf-rec-line--more { color: var(--subtle-text); }
 .jf-rec-row {
   display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0;
   border-bottom: 1px solid rgba(var(--overlay-rgb), 0.08);
@@ -430,7 +449,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-own-line__link {
   background: none; border: none; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted);
-  padding: 10px 8px; min-height: 40px;
+  padding: 10px 8px; min-height: 44px;
 }
 .jf-own-line__link:hover { color: var(--text); }
 .jf-own-line__dot { font-size: 12px; color: rgba(var(--overlay-rgb), 0.32); }
@@ -445,20 +464,20 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-own-row:disabled { opacity: 0.6; cursor: wait; }
 .jf-own-row--default { border-color: var(--accent-border); background: var(--accent-dim); }
 .jf-own-row__verb { display: block; font-size: 15px; font-weight: 800; }
-.jf-own-row--default .jf-own-row__verb { color: var(--accent); }
+.jf-own-row--default .jf-own-row__verb { color: var(--accent-text); }
 .jf-own-row__hint { display: block; font-size: 12px; color: var(--muted); margin-top: 3px; line-height: 1.45; }
 .jf-own-confirm {
   padding: 12px; border-radius: 14px; margin-bottom: 10px;
   background: var(--amber-dim); border: 1px solid var(--amber-border);
 }
 .jf-own-confirm__text { font-size: 12px; color: var(--warning-soft); font-weight: 600; line-height: 1.5; margin-bottom: 10px; }
-.jf-own-busy { font-size: 12px; color: var(--accent); font-weight: 700; margin: 4px 0 10px; }
+.jf-own-busy { font-size: 12px; color: var(--accent-text); font-weight: 700; margin: 4px 0 10px; }
 .jf-own-back {
   background: none; border: none; cursor: pointer; font: inherit; font-size: 12px; color: var(--muted);
   padding: 10px 0; min-height: 40px;
 }
 .jf-own-section { margin-top: 16px; }
-.jf-own-saved { font-size: 12px; color: var(--accent); font-weight: 700; margin: 0 0 14px; }
+.jf-own-saved { font-size: 12px; color: var(--accent-text); font-weight: 700; margin: 0 0 14px; }
 
 /* "Mijn trainingen" pick list (MyTrainings.jsx TemplatePickList). */
 .jf-tpl-pick {
@@ -487,7 +506,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-extra-done__head { display: flex; align-items: center; gap: 12px; }
 .jf-extra-done__check {
   width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  border: 1px solid var(--accent-border); color: var(--accent); font-weight: 900;
+  border: 1px solid var(--accent-border); color: var(--accent-text); font-weight: 900;
 }
 .jf-extra-done__text { flex: 1; min-width: 0; }
 .jf-extra-done__title { font-size: 15px; font-weight: 900; color: var(--text); }
@@ -498,7 +517,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-extra-done .jf-sb-quiet { margin-top: 10px; }
 .jf-extra-line {
   margin: 0 0 16px; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em;
-  color: var(--accent); text-align: center;
+  color: var(--accent-text); text-align: center;
 }
 
 /* "Mijn trainingen" card on the Coach tab (MyTrainings.jsx MyTrainingsCard). */
@@ -516,7 +535,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-mt__btns { display: flex; gap: 8px; }
 .jf-mt__error { font-size: 12px; color: var(--danger); margin-top: 8px; }
 .jf-mt__add {
-  margin-top: 6px; background: none; border: none; padding: 8px 0; cursor: pointer; color: var(--accent);
+  margin-top: 6px; background: none; border: none; padding: 8px 0; cursor: pointer; color: var(--accent-text);
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.05em;
 }
 .jf-mt-btn {
@@ -524,7 +543,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: transparent; color: var(--muted);
 }
 .jf-mt-btn:disabled { opacity: 0.6; cursor: wait; }
-.jf-mt-btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-mt-btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-mt-btn--danger { color: var(--danger); border-color: var(--danger); }
 .jf-mt-btn--wide { width: 100%; }
 .jf-mt-btn--grow { flex: 1; }
@@ -533,7 +552,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
    Coach view, "Where you are", Settings → Normen). Disabled = already planned. */
 .jf-dcp-measure {
   margin-top: 12px; min-height: 44px; padding: 9px 15px; border-radius: 12px; cursor: pointer; font-family: inherit;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
   font-size: 13px; font-weight: 800; touch-action: manipulation;
 }
 .jf-dcp-measure--wide { width: 100%; }
@@ -565,15 +584,15 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   flex-shrink: 0; min-height: 40px; padding: 8px 18px; border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 900; cursor: pointer;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.05); color: var(--muted);
 }
-.jf-norm__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-norm__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-norm__toggle:disabled { cursor: not-allowed; opacity: 0.5; }
 .jf-norm__link {
   margin-top: 14px; padding: 8px 16px; border-radius: 10px; font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer; letter-spacing: 0.04em;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 
 /* coach-dcp R1 — WorkoutView: a measurement set's prescription line ("Max · 2 min"). */
-.jf-wv-meta { font-size: 13px; font-weight: 700; color: var(--accent); }
+.jf-wv-meta { font-size: 13px; font-weight: 700; color: var(--accent-text); }
 
 /* coach-dcp R2 — Settings → Doel & coach: one screen for path, coach, standards and
    training days. The moved coach blocks (running / cycling / military / general) carry
@@ -582,7 +601,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-dc__section { margin-bottom: 28px; }
 .jf-dc__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
 .jf-dc__card { background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; padding: 18px; }
-.jf-dc__path-head { display: flex; align-items: center; gap: 10px; color: var(--accent); }
+.jf-dc__path-head { display: flex; align-items: center; gap: 10px; color: var(--accent-text); }
 .jf-dc__path-name { font-family: "Barlow Condensed", "Oswald", system-ui, sans-serif; font-size: 28px; font-weight: 900; line-height: 1.05; color: var(--text); text-transform: uppercase; }
 .jf-dc__status { font-size: 13px; color: var(--muted); line-height: 1.5; margin-top: 6px; }
 .jf-dc__actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
@@ -599,22 +618,22 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   min-height: 36px; padding: 6px 13px; border-radius: 999px; font-size: 12px; font-weight: 800;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
-.jf-dc__chip--on, .jf-dc__day--on, .jf-dc__seg-btn--on, .jf-dc__goal--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-dc__chip--on, .jf-dc__day--on, .jf-dc__seg-btn--on, .jf-dc__goal--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-dc__btn {
   min-height: 40px; padding: 8px 16px; border-radius: 10px; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; white-space: nowrap;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
 .jf-dc__actions .jf-dc__btn, .jf-dc__actions .jf-norm__link { margin-top: 14px; }
-.jf-dc__btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); align-self: flex-start; }
+.jf-dc__btn--accent { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); align-self: flex-start; }
 .jf-dc__save {
   width: 100%; min-height: 46px; padding: 12px 20px; border-radius: 14px; font-size: 13px; font-weight: 900;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 .jf-dc__save--done { border-color: transparent; background: var(--accent); color: var(--on-accent); }
 .jf-dc__save:disabled { cursor: default; opacity: 0.7; }
 .jf-dc__upgrade {
   align-self: flex-start; min-height: 44px; padding: 10px 16px; border-radius: 12px; font-size: 13px; font-weight: 900;
-  border: 1px solid rgba(var(--accent-rgb), 0.3); background: rgba(var(--accent-rgb), 0.08); color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.3); background: rgba(var(--accent-rgb), 0.08); color: var(--accent-text);
 }
 .jf-dc__seg { display: flex; gap: 6px; }
 .jf-dc__seg-btn {
@@ -629,9 +648,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
 .jf-dc__goal span { font-size: 11px; font-weight: 900; line-height: 1.3; text-align: center; color: var(--text); }
-.jf-dc__goal--on span { color: var(--accent); }
+.jf-dc__goal--on span { color: var(--accent-text); }
 .jf-dc__note { padding: 10px 14px; border-radius: 12px; background: rgba(var(--accent-rgb), 0.06); border: 1px solid var(--accent-border); }
-.jf-dc__note-title { font-size: 11px; font-weight: 900; color: var(--accent); margin-bottom: 2px; }
+.jf-dc__note-title { font-size: 11px; font-weight: 900; color: var(--accent-text); margin-bottom: 2px; }
 .jf-dc__note-body { font-size: 11px; color: var(--muted); line-height: 1.5; }
 .jf-dc__note--warn { background: var(--amber-dim); border-color: var(--amber-border); }
 .jf-dc__note--warn .jf-dc__note-title { color: var(--amber); }
@@ -642,7 +661,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-dc__row--end { align-items: flex-end; }
 .jf-dc__field { flex: 1; min-width: 0; }
 .jf-dc__input {
-  width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 700;
+  width: 100%; min-height: 40px; padding: 8px 10px; border-radius: 10px; font: inherit; font-size: 16px; font-weight: 700;
   color: var(--text); background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08);
 }
 .jf-dc__box { padding: 12px 14px; border-radius: 14px; background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); display: flex; flex-direction: column; gap: 10px; }
@@ -652,7 +671,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex; align-items: center; gap: 10px; width: 100%; padding: 10px 14px; border-radius: 12px; text-align: left;
   background: rgba(var(--accent-rgb), 0.06); border: 1px solid var(--accent-border); color: var(--muted); font-size: 11px; line-height: 1.45;
 }
-.jf-dc__addkit b { display: block; font-size: 12px; font-weight: 900; color: var(--accent); }
+.jf-dc__addkit b { display: block; font-size: 12px; font-weight: 900; color: var(--accent-text); }
 .jf-dc__others { display: flex; flex-direction: column; border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 20px; overflow: hidden; }
 .jf-dc__other + .jf-dc__other { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); }
 .jf-dc__other-row {
@@ -683,7 +702,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-norm-card__score { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 12px; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
 .jf-norm-card__score--below { color: var(--rose); }
 .jf-norm-card__score--minimum { color: var(--amber); }
-.jf-norm-card__score--safe, .jf-norm-card__score--capacity, .jf-norm-card__score--met { color: var(--accent); }
+.jf-norm-card__score--safe, .jf-norm-card__score--capacity, .jf-norm-card__score--met { color: var(--accent-text); }
 .jf-norm-card__bar { display: block; width: 100%; height: 8px; overflow: visible; }
 .jf-norm-card__track { fill: rgba(var(--overlay-rgb), 0.08); }
 .jf-norm-card__fill { fill: var(--muted); }
@@ -709,7 +728,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   min-height: 34px; padding: 5px 12px; border-radius: 999px; font-family: inherit; font-size: 11px; font-weight: 800; cursor: pointer; white-space: nowrap;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
 }
-.jf-radar__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-radar__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-radar__fit { width: 100%; margin-top: 14px; padding-top: 12px; border-top: 1px solid rgba(var(--overlay-rgb), 0.08); font-size: 12px; color: var(--muted); line-height: 1.5; text-align: left; }
 .jf-radar__fit b { color: var(--text); font-weight: 900; }
 
@@ -717,7 +736,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-coach-pill {
   display: inline-flex; align-items: center; gap: 4px; padding: 3px 9px; border-radius: 99px;
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
-  font-variant-numeric: tabular-nums; color: var(--accent); background: var(--accent-dim); border: 1px solid var(--accent-border);
+  font-variant-numeric: tabular-nums; color: var(--accent-text); background: var(--accent-dim); border: 1px solid var(--accent-border);
 }
 
 /* ── UAT release 2 — Today diet ─────────────────────────────────────────────── */
@@ -735,7 +754,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 /* "Waarom dit plan?" — closed by default; today first, structure behind "Meer". */
 .jf-why { margin-bottom: 14px; }
 .jf-why__toggle {
-  display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; min-height: 32px;
+  display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 0; min-height: 44px;
   cursor: pointer; font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
 }
 .jf-why__chev { transition: transform 0.2s; }
@@ -749,9 +768,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   margin: 10px 0 4px;
 }
 .jf-why__label:first-child { margin-top: 0; }
-.jf-why__row { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 5px; font-size: 12px; line-height: 1.5; color: var(--subtle); }
-.jf-why__mark { color: var(--accent); flex-shrink: 0; margin-top: 1px; }
-.jf-why__cta { color: var(--accent); font-weight: 700; }
+.jf-why__row { display: flex; align-items: flex-start; gap: 8px; padding-bottom: 5px; font-size: 12px; line-height: 1.5; color: var(--subtle-text); }
+.jf-why__mark { color: var(--accent-text); flex-shrink: 0; margin-top: 1px; }
+.jf-why__cta { color: var(--accent-text); font-weight: 700; }
 .jf-why__more {
   display: block; margin: 8px 0 4px; padding: 6px 0; min-height: 32px; background: none; border: none; cursor: pointer;
   font: inherit; font-size: 11px; font-weight: 700; color: var(--muted);
@@ -766,7 +785,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-done__head { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
 .jf-done__check {
   width: 52px; height: 52px; border-radius: 50%; flex-shrink: 0; display: flex; align-items: center; justify-content: center;
-  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-text);
   box-shadow: 0 0 20px rgba(var(--accent-rgb), 0.25);
 }
 .jf-done__titles { min-width: 0; }
@@ -774,7 +793,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-done__sub { font-size: 13px; color: var(--muted); margin-top: 3px; }
 .jf-done__praise { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
 .jf-done__score { font-size: 13px; color: var(--muted); font-weight: 700; margin-bottom: 16px; }
-.jf-done__score--up { color: var(--accent); }
+.jf-done__score--up { color: var(--accent-text); }
 .jf-done__actions { border-top: 1px solid rgba(var(--overlay-rgb), 0.08); padding-top: 14px; display: flex; flex-direction: column; gap: 4px; }
 .jf-done__row {
   display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 48px; padding: 12px 14px;
@@ -783,14 +802,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-done__link {
   align-self: flex-start; min-height: 44px; padding: 10px 2px; background: none; border: none; cursor: pointer;
-  font: inherit; font-size: 13px; font-weight: 700; color: var(--accent);
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--accent-text);
 }
-.jf-done__logged { font-size: 13px; color: var(--accent); font-weight: 700; padding: 12px 2px; }
+.jf-done__logged { font-size: 13px; color: var(--accent-text); font-weight: 700; padding: 12px 2px; }
 .jf-done__bonus { padding: 2px 0 6px; }
 .jf-done__bonus-chips { display: flex; gap: 8px; }
 .jf-done__bonus-chip {
   flex: 1; min-height: 44px; border-radius: 12px; font: inherit; font-size: 14px; font-weight: 900; cursor: pointer;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 .jf-done__chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
 .jf-done__save { margin-bottom: 4px; }
@@ -845,14 +864,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: "Barlow Condensed", "Oswald", system-ui, sans-serif; font-size: 26px; font-weight: 900;
   line-height: 1.05; letter-spacing: -0.005em; color: var(--text); margin-bottom: 8px;
 }
-.jf-orphan__sub { font-size: 14px; font-weight: 700; color: var(--accent); margin-bottom: 20px; }
+.jf-orphan__sub { font-size: 14px; font-weight: 700; color: var(--accent-text); margin-bottom: 20px; }
 .jf-orphan__text { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 28px; }
 .jf-orphan__text strong { color: var(--text); }
 .jf-orphan__err { font-size: 13px; color: var(--danger); margin-bottom: 14px; }
 .jf-orphan__row { display: flex; gap: 10px; }
 .jf-orphan__btn {
   flex: 1; min-height: 48px; padding: 0 16px; border-radius: 14px; cursor: pointer;
-  font-size: 14px; font-weight: 900; color: var(--accent);
+  font-size: 14px; font-weight: 900; color: var(--accent-text);
   background: var(--accent-dim); border: 1px solid var(--accent-border);
 }
 .jf-orphan__btn--solid { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
@@ -865,16 +884,16 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* UAT R5 — the "Specialistische coaching" card on Today (was inline-styled in Dashboard). */
 .jf-cc { background: rgba(var(--overlay-rgb), 0.03); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 16px; padding: 16px 18px; margin-bottom: 16px; }
-.jf-cc__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 6px; }
+.jf-cc__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 6px; }
 .jf-cc__title { font-size: 14px; font-weight: 700; color: var(--text); line-height: 1.4; margin-bottom: 4px; }
 .jf-cc__body { font-size: 12px; color: var(--muted); line-height: 1.5; margin-bottom: 12px; }
 .jf-cc__actions { display: flex; gap: 10px; }
 .jf-cc__go, .jf-cc__no { font-family: inherit; font-size: 12px; cursor: pointer; min-height: 44px; border-radius: 12px; touch-action: manipulation; }
-.jf-cc__go { flex: 1; font-weight: 800; background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent); }
+.jf-cc__go { flex: 1; font-weight: 800; background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-text); }
 .jf-cc__no { padding: 0 14px; font-weight: 700; background: transparent; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted); }
 
 /* UAT R5 — chips that save on tap: the line under a chip group. */
-.jf-dc__chipline { margin-top: 6px; min-height: 16px; font-size: 12px; font-weight: 700; color: var(--accent); }
+.jf-dc__chipline { margin-top: 6px; min-height: 16px; font-size: 12px; font-weight: 700; color: var(--accent-text); }
 .jf-dc__chipline--saving { color: var(--muted); }
 .jf-dc__chipline--error { color: var(--amber); }
 /* UAT R5 — Materiaal summary row (opens Geavanceerd → equipment). */
@@ -900,7 +919,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: inherit; background: none; border: none; cursor: pointer; touch-action: manipulation;
 }
 .jf-adv__row-title { font-size: 14px; font-weight: 800; color: var(--text); }
-.jf-adv__row-val { font-size: 13px; font-weight: 700; color: var(--accent); text-align: right; min-width: 0; overflow-wrap: anywhere; }
+.jf-adv__row-val { font-size: 13px; font-weight: 700; color: var(--accent-text); text-align: right; min-width: 0; overflow-wrap: anywhere; }
 .jf-adv__row-sentence { font-size: 12px; color: var(--muted); line-height: 1.5; }
 .jf-adv__row-body { margin-top: 12px; }
 .jf-adv__seg { display: flex; gap: 6px; }
@@ -912,12 +931,12 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-adv__opt-title { font-size: 12px; font-weight: 900; }
 .jf-adv__opt-sub { font-size: 11px; color: var(--muted); }
 .jf-adv__opt--on { border-color: var(--accent-border); background: var(--accent-dim); }
-.jf-adv__opt--on .jf-adv__opt-title, .jf-adv__opt--on .jf-adv__opt-sub { color: var(--accent); }
+.jf-adv__opt--on .jf-adv__opt-title, .jf-adv__opt--on .jf-adv__opt-sub { color: var(--accent-text); }
 .jf-adv__toggle {
   min-height: 44px; padding: 8px 22px; border-radius: 999px; font-family: inherit; font-size: 12px; font-weight: 900; cursor: pointer; touch-action: manipulation;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.05); color: var(--muted);
 }
-.jf-adv__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-adv__toggle--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-adv__toggle:disabled { cursor: not-allowed; opacity: 0.6; }
 .jf-adv__note { font-size: 12px; color: var(--muted); margin-bottom: 8px; line-height: 1.5; }
 .jf-adv__days { display: flex; gap: 6px; }
@@ -927,7 +946,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-adv__day--on { border-color: var(--rose-border); background: var(--rose-dim); color: var(--rose); }
 .jf-adv__save { padding: 10px 18px; font-size: 12px; text-align: center; color: var(--muted); border-top: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); }
-.jf-adv__save--ok { color: var(--accent); font-weight: 700; }
+.jf-adv__save--ok { color: var(--accent-text); font-weight: 700; }
 .jf-adv__save--err { color: var(--danger, var(--rose)); }
 
 /* UAT R5 — Settings landing: the NL · EN segmented control sits beside the title. */
@@ -938,7 +957,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   min-width: 48px; min-height: 44px; padding: 0 14px; font-family: inherit; font-size: 13px; font-weight: 900; cursor: pointer; touch-action: manipulation;
   border: none; background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
 }
-.jf-set__lang-btn--on { background: var(--accent-dim); color: var(--accent); }
+.jf-set__lang-btn--on { background: var(--accent-dim); color: var(--accent-text); }
 /* UAT R5 — Account for a guest: "E-mail toevoegen". */
 .jf-set__guest { margin-bottom: 20px; }
 .jf-set__row {
@@ -946,7 +965,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-family: inherit; cursor: pointer; touch-action: manipulation;
   border: 1px solid var(--accent-border); background: var(--accent-dim); border-radius: 14px;
 }
-.jf-set__row-title { font-size: 14px; font-weight: 900; color: var(--accent); }
+.jf-set__row-title { font-size: 14px; font-weight: 900; color: var(--accent-text); }
 .jf-set__row-sub { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.5; }
 
 /* ══ UAT release 6 — small phones and the first five minutes ═══════════════════════════════ */
@@ -979,7 +998,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   max-width: 100%; font-size: 11px; font-weight: 800; letter-spacing: 0; line-height: 13px;
   text-transform: uppercase; white-space: nowrap; color: var(--muted);
 }
-.jf-nav__item--on .jf-nav__label { color: var(--accent); }
+.jf-nav__item--on .jf-nav__label { color: var(--accent-text); }
 .jf-nav__icon { position: relative; display: flex; }
 .jf-nav__dot { position: absolute; top: -2px; right: -2px; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); border: 1.5px solid var(--bg); }
 
@@ -989,7 +1008,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font-size: clamp(28px, 10.5vw, 42px); line-height: 0.95; letter-spacing: -0.005em; text-transform: uppercase;
   color: var(--text); overflow-wrap: anywhere;
 }
-.jf-today__title--accent { color: var(--accent); }
+.jf-today__title--accent { color: var(--accent-text); }
 .jf-today__eyebrow {
   font-family: "Inter Tight", "Inter", system-ui, sans-serif; font-size: 11px; font-weight: 600; letter-spacing: 0.14em;
   text-transform: uppercase; color: rgba(var(--overlay-rgb), 0.32);
@@ -1016,13 +1035,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.1); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
 .jf-mood__btn--1 { color: var(--danger); }
-.jf-mood__btn--3 { color: var(--accent); border-color: var(--accent-border); }
+.jf-mood__btn--3 { color: var(--accent-text); border-color: var(--accent-border); }
 .jf-mood__btn:disabled { opacity: 0.6; cursor: wait; }
 .jf-mood__more {
   display: block; width: 100%; min-height: 44px; margin-top: 4px; background: none; border: none; cursor: pointer; font-family: inherit;
   font-size: 12px; color: var(--muted);
 }
-.jf-mood__more-cta { color: var(--accent); font-weight: 700; }
+.jf-mood__more-cta { color: var(--accent-text); font-weight: 700; }
 
 /* WorkoutView — the timed set. Neutral until Start; on a short screen (568 px) the Start
    control sits above the fixed action bar. */
@@ -1032,11 +1051,11 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   margin-bottom: 20px; transition: color 0.3s; color: var(--text);
 }
 .jf-timer__count--idle { color: rgba(var(--overlay-rgb), 0.55); }
-.jf-timer__count--run { color: var(--accent); }
+.jf-timer__count--run { color: var(--accent-text); }
 .jf-timer__count--warn { color: var(--amber); }
 .jf-timer__count--danger { color: var(--danger-strong); animation: pulse 0.8s infinite; }
 .jf-timer__track { height: 6px; max-width: 320px; margin: 0 auto 24px; border-radius: 3px; overflow: hidden; background: rgba(var(--overlay-rgb), 0.08); }
-.jf-timer__fill { display: block; width: 100%; height: 100%; border: none; border-radius: 3px; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent); }
+.jf-timer__fill { display: block; width: 100%; height: 100%; border: none; border-radius: 3px; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent-text); }
 .jf-timer__fill::-webkit-progress-bar { background: transparent; }
 .jf-timer__fill::-webkit-progress-value { background: currentColor; border-radius: 3px; transition: width 1s linear; }
 .jf-timer__fill::-moz-progress-bar { background: currentColor; border-radius: 3px; }
@@ -1046,7 +1065,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-timer__start {
   width: 120px; height: 120px; margin: 0 auto; border-radius: 50%; cursor: pointer; font-family: inherit;
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
-  background: var(--accent-dim); border: 2px solid var(--accent-border); color: var(--accent);
+  background: var(--accent-dim); border: 2px solid var(--accent-border); color: var(--accent-text);
 }
 .jf-timer__start-label { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; text-transform: uppercase; }
 .jf-timer__early {
@@ -1071,21 +1090,21 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   background: var(--sheet); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 28px; box-shadow: 0 40px 100px rgba(0, 0, 0, 0.7);
 }
 .jf-ob__progress { height: 3px; background: var(--subtle); }
-.jf-ob__bar { display: block; width: 100%; height: 3px; border: none; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent); }
+.jf-ob__bar { display: block; width: 100%; height: 3px; border: none; -webkit-appearance: none; appearance: none; background: transparent; color: var(--accent-text); }
 .jf-ob__bar::-webkit-progress-bar { background: transparent; }
 .jf-ob__bar::-webkit-progress-value { background: var(--accent); transition: width 0.3s; }
 .jf-ob__bar::-moz-progress-bar { background: var(--accent); }
 .jf-ob__body { padding: 24px 22px 18px; overflow-y: auto; }
-.jf-ob__step { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase; margin-bottom: 8px; }
+.jf-ob__step { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--accent-text); text-transform: uppercase; margin-bottom: 8px; }
 .jf-ob__badge {
   width: 44px; height: 44px; margin-bottom: 18px; border-radius: 14px; display: flex; align-items: center; justify-content: center;
-  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent);
+  background: var(--accent-dim); border: 1px solid var(--accent-border); color: var(--accent-text);
 }
 .jf-ob__title { font-size: 22px; font-weight: 900; color: var(--text); letter-spacing: -0.02em; margin-bottom: 6px; line-height: 1.2; }
 .jf-ob__lead { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 18px; }
 .jf-ob__list { list-style: none; margin-bottom: 18px; display: flex; flex-direction: column; gap: 10px; }
 .jf-ob__li { display: flex; gap: 10px; align-items: flex-start; font-size: 13px; color: var(--text); line-height: 1.5; }
-.jf-ob__tick { color: var(--accent); font-weight: 900; flex-shrink: 0; }
+.jf-ob__tick { color: var(--accent-text); font-weight: 900; flex-shrink: 0; }
 .jf-ob__fine { font-size: 11px; color: var(--muted); line-height: 1.6; margin-top: 8px; }
 .jf-ob__note {
   margin: 0 0 16px; padding: 10px 14px; border-radius: 12px; font-size: 12px; line-height: 1.5;
@@ -1102,9 +1121,9 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   flex-shrink: 0; width: 34px; height: 34px; border-radius: 10px; display: flex; align-items: center; justify-content: center;
   background: rgba(var(--overlay-rgb), 0.05); color: var(--muted);
 }
-.jf-ob__goal--on .jf-ob__goal-icon { background: rgba(var(--accent-rgb), 0.2); color: var(--accent); }
+.jf-ob__goal--on .jf-ob__goal-icon { background: rgba(var(--accent-rgb), 0.2); color: var(--accent-text); }
 .jf-ob__goal-title { display: block; font-size: 14px; font-weight: 700; color: var(--text); margin-bottom: 2px; }
-.jf-ob__goal--on .jf-ob__goal-title { color: var(--accent); }
+.jf-ob__goal--on .jf-ob__goal-title { color: var(--accent-text); }
 .jf-ob__goal-sub { display: block; font-size: 12px; color: var(--muted); font-weight: 500; }
 .jf-ob__label {
   display: block; margin: 18px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--label); text-transform: uppercase;
@@ -1118,7 +1137,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04);
 }
 .jf-ob__path--on { border-color: var(--accent-border); background: var(--accent-dim); }
-.jf-ob__path-icon { font-size: 16px; color: var(--accent); }
+.jf-ob__path-icon { font-size: 16px; color: var(--accent-text); }
 .jf-ob__path--locked .jf-ob__path-icon, .jf-ob__path--locked .jf-ob__path-name { color: var(--muted); }
 .jf-ob__path-name {
   max-width: 100%; font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 17px; font-weight: 800;
@@ -1126,7 +1145,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-ob__path-line { font-size: 11px; color: var(--muted); line-height: 1.35; }
 .jf-ob__input {
-  width: 96px; min-height: 44px; padding: 10px 14px; border-radius: 12px; outline: none; font-family: inherit; font-size: 15px; font-weight: 700;
+  width: 96px; min-height: 44px; padding: 10px 14px; border-radius: 12px; font-family: inherit; font-size: 16px; font-weight: 700;
   background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
 }
 .jf-ob__input--full { width: 100%; margin-bottom: 4px; }
@@ -1137,28 +1156,28 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
 .jf-ob__grid2 .jf-ob__opt { text-align: center; }
-.jf-ob__opt--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__opt--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-ob__opt--row { display: flex; flex-direction: column; gap: 2px; color: var(--text); }
 .jf-ob__opt--split { display: flex; justify-content: space-between; align-items: center; gap: 10px; color: var(--text); }
 .jf-ob__opt-title { font-size: 14px; }
-.jf-ob__opt--on .jf-ob__opt-title { color: var(--accent); }
+.jf-ob__opt--on .jf-ob__opt-title { color: var(--accent-text); }
 .jf-ob__opt-sub { font-size: 11px; color: var(--muted); font-weight: 500; }
 .jf-ob__hint { font-size: 12px; color: var(--muted); margin-bottom: 8px; }
 .jf-ob__measure { display: flex; gap: 8px; align-items: center; }
 .jf-ob__unit {
   min-width: 56px; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 900;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 .jf-ob__cycle { margin-top: 18px; padding: 16px; border-radius: 20px; border: 1px solid var(--accent-border); background: rgba(var(--accent-rgb), 0.04); }
 .jf-ob__cycle-title { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font-size: 15px; font-weight: 900; color: var(--text); }
 .jf-ob__cycle-text { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 14px; }
-.jf-ob__done { margin-top: 14px; padding: 8px 12px; border-radius: 10px; font-size: 12px; color: var(--accent); background: rgba(var(--accent-rgb), 0.08); }
+.jf-ob__done { margin-top: 14px; padding: 8px 12px; border-radius: 10px; font-size: 12px; color: var(--accent-text); background: rgba(var(--accent-rgb), 0.08); }
 .jf-ob__chips { display: flex; flex-wrap: wrap; gap: 8px; }
 .jf-ob__chip {
   min-height: 44px; padding: 8px 14px; border-radius: 999px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 700;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
-.jf-ob__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-ob__primary { margin-left: 6px; font-size: 11px; font-weight: 900; letter-spacing: 0.06em; text-transform: uppercase; opacity: 0.75; }
 /* Session length: four per row, each wider than 40 px and 44 px tall. */
 .jf-ob__times { display: grid; grid-template-columns: repeat(4, minmax(48px, 1fr)); gap: 8px; }
@@ -1166,7 +1185,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   min-height: 44px; padding: 8px 0; border-radius: 12px; cursor: pointer; font-family: inherit; font-size: 13px; font-weight: 800;
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.03); color: var(--muted);
 }
-.jf-ob__time--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-ob__time--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-ob__foot { padding: 0 22px 20px; display: flex; flex-direction: column; gap: 4px; }
 .jf-ob__row { display: flex; gap: 10px; }
 .jf-ob__btn {
@@ -1175,7 +1194,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-ob__btn--grow2 { flex: 2; }
 .jf-ob__btn--ghost { background: transparent; }
-.jf-ob__btn--soft { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); font-weight: 800; }
+.jf-ob__btn--soft { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); font-weight: 800; }
 .jf-ob__btn--solid { border: none; background: var(--accent); color: var(--on-accent); font-weight: 900; }
 .jf-ob__btn--main {
   flex: 2; border: none; background: var(--accent); color: var(--on-accent); font-size: 15px; font-weight: 900;
@@ -1191,7 +1210,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
 }
 .jf-path__chip--grow { flex: 1; padding: 10px 8px; font-size: 12px; }
-.jf-path__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent); }
+.jf-path__chip--on { border-color: var(--accent-border); background: var(--accent-dim); color: var(--accent-text); }
 .jf-path__list { display: flex; flex-direction: column; gap: 8px; }
 .jf-path__pair { display: flex; gap: 8px; margin-bottom: 4px; }
 .jf-path__pair .jf-path__row { flex: 1; }
@@ -1202,13 +1221,13 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 }
 .jf-path__row--on { border-color: var(--accent-border); background: var(--accent-dim); }
 .jf-path__row-title { display: block; font-size: 14px; font-weight: 800; color: var(--text); }
-.jf-path__row--on .jf-path__row-title { color: var(--accent); }
+.jf-path__row--on .jf-path__row-title { color: var(--accent-text); }
 .jf-path__row-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); }
-.jf-path__tick { color: var(--accent); font-size: 16px; }
+.jf-path__tick { color: var(--accent-text); font-size: 16px; }
 .jf-path__label { margin: 14px 0 8px; font-size: 11px; font-weight: 900; letter-spacing: 0.1em; color: var(--label); text-transform: uppercase; }
 .jf-path__label:first-child { margin-top: 0; }
 .jf-path__date {
-  width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px; outline: none; font-family: inherit; font-size: 14px;
+  width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 12px; font-family: inherit; font-size: 16px;
   background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
 }
 
@@ -1218,7 +1237,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   padding: max(40px, calc(env(safe-area-inset-top) + 16px)) 20px 48px;
 }
 .jf-pathmodal__inner { max-width: 520px; width: 100%; margin: 0 auto; }
-.jf-pathmodal__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); margin-bottom: 16px; }
+.jf-pathmodal__eyebrow { font-size: 11px; font-weight: 600; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 16px; }
 .jf-pathmodal__title {
   font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-weight: 800; font-size: clamp(36px, 13vw, 52px);
   line-height: 1.05; letter-spacing: -0.005em; color: var(--text); margin: 0 0 16px;
@@ -1230,14 +1249,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   display: flex; flex-direction: column; align-items: flex-start; gap: 8px;
   background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
 }
-.jf-pathmodal__icon { font-size: 22px; color: var(--accent); }
+.jf-pathmodal__icon { font-size: 22px; color: var(--accent-text); }
 .jf-pathmodal__name {
   font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 16px; font-weight: 800; line-height: 1.2;
   white-space: pre-line; color: var(--text);
 }
 .jf-pathmodal__tile--locked .jf-pathmodal__icon, .jf-pathmodal__tile--locked .jf-pathmodal__name { color: var(--muted); }
 .jf-pathmodal__line { font-size: 12px; color: var(--muted); line-height: 1.4; }
-.jf-pathmodal__foot { font-size: 12px; color: var(--subtle); line-height: 1.6; }
+.jf-pathmodal__foot { font-size: 12px; color: var(--subtle-text); line-height: 1.6; }
 .jf-pathmodal__back { min-height: 44px; margin-bottom: 16px; padding: 0; background: none; border: none; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--muted); }
 .jf-pathmodal__h2 {
   font-family: "Barlow Condensed", "Oswald", "Helvetica Neue", system-ui, sans-serif; font-size: 32px; font-weight: 800; line-height: 0.95;
@@ -1247,14 +1266,14 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-pathmodal__form { margin-bottom: 32px; }
 .jf-pathmodal__save {
   width: 100%; min-height: 48px; padding: 14px 0; border-radius: 14px; cursor: pointer; font-family: inherit; font-weight: 900; font-size: 15px;
-  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent);
+  border: 1px solid var(--accent-border); background: var(--accent-dim); color: var(--accent-text);
 }
 .jf-pathmodal__save:disabled { cursor: not-allowed; opacity: 0.6; }
 
 /* Voortgang trajectory: week numbers under the bars (HTML — the SVG stretches). */
 .jf-traj__weeks { display: flex; margin-top: 4px; }
 .jf-traj__wk { flex: 1 1 0; min-width: 0; text-align: center; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 800; letter-spacing: -0.02em; color: rgba(100, 116, 139, 0.6); }
-.jf-traj__wk--now { color: var(--accent); }
+.jf-traj__wk--now { color: var(--accent-text); }
 
 /* Today title by its longest word: a 13–17 letter Dutch word ("CARDIOVERBRANDING") fits a 320 px card. */
 .jf-today__title--long { font-size: clamp(24px, 8vw, 36px); }
@@ -1269,7 +1288,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-alt-empty__text { font-size: 14px; line-height: 1.5; color: var(--text); margin: 0 0 16px; }
 .jf-alt-empty__skip {
   width: 100%; min-height: 48px; padding: 14px 0; border-radius: 16px; cursor: pointer;
-  font: inherit; font-size: 14px; font-weight: 700; color: var(--accent);
+  font: inherit; font-size: 14px; font-weight: 700; color: var(--accent-text);
   background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
 
@@ -1287,7 +1306,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-wo-head__count { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
 .jf-wo-head__bar {
   display: block; width: 100%; height: 4px; margin-top: 4px; border: none; border-radius: 2px; overflow: hidden;
-  -webkit-appearance: none; appearance: none; background: rgba(var(--overlay-rgb), 0.08); color: var(--accent);
+  -webkit-appearance: none; appearance: none; background: rgba(var(--overlay-rgb), 0.08); color: var(--accent-text);
 }
 .jf-wo-head__bar::-webkit-progress-bar { background: transparent; }
 .jf-wo-head__bar::-webkit-progress-value { background: currentColor; border-radius: 2px; transition: width 0.4s ease; }
@@ -1312,7 +1331,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-wo-ss { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px; }
 .jf-wo-ss__dot { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--overlay-rgb), 0.18); transition: width 0.2s; }
 .jf-wo-ss__dot--on { width: 22px; background: var(--accent); }
-.jf-wo-ss__label { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-left: 4px; }
+.jf-wo-ss__label { font-size: 11px; font-weight: 700; color: var(--accent-text); letter-spacing: 0.08em; text-transform: uppercase; margin-left: 4px; }
 
 /* Target / load stepper: quiet — ghost buttons, small value. */
 .jf-wo-step { display: flex; align-items: center; justify-content: center; gap: 6px; }
@@ -1325,26 +1344,26 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .jf-wo-step__val { font-size: 14px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
 .jf-wo-step__val--set { color: var(--text); }
 .jf-wo-step__sub { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
-.jf-wo-step__toast { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+.jf-wo-step__toast { font-size: 11px; font-weight: 700; color: var(--accent-text); margin-top: 2px; }
 
 /* Rep counter + tap zone (the dots are gone: the counter says it once). */
 .jf-wo-count { text-align: center; margin-bottom: 16px; }
 .jf-wo-count__n { font-size: 64px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; transition: color 0.2s; }
-.jf-wo-count__n--done { color: var(--accent); }
+.jf-wo-count__n--done { color: var(--accent-text); }
 .jf-wo-count__target { font-size: 24px; font-weight: 700; color: var(--muted); margin-left: 6px; }
 .jf-wo-clock { text-align: center; margin-bottom: 14px; }
 .jf-wo-clock__label { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
-.jf-wo-clock__time { font-size: 38px; font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.jf-wo-clock__time { font-size: 38px; font-weight: 900; line-height: 1; color: var(--accent-text); font-variant-numeric: tabular-nums; }
 .jf-wo-clock__time--warn { color: var(--amber); }
 .jf-wo-tapwrap { position: relative; }
 .jf-wo-tapring { position: absolute; inset: 0; border-radius: 20px; border: 2px solid var(--accent); animation: tapRing 0.35s ease-out forwards; pointer-events: none; }
 .jf-wo-tap {
-  width: 100%; min-height: 220px; border-radius: 20px; cursor: pointer; font: inherit; color: var(--accent);
+  width: 100%; min-height: 220px; border-radius: 20px; cursor: pointer; font: inherit; color: var(--accent-text);
   display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
   background: rgba(var(--accent-rgb), 0.08); border: 2px solid rgba(var(--accent-rgb), 0.2);
   transition: background 0.15s, border-color 0.15s; -webkit-tap-highlight-color: transparent; outline: none;
 }
-.jf-wo-tap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.jf-wo-tap:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
 .jf-wo-tap--done { background: rgba(var(--accent-rgb), 0.15); border-color: rgba(var(--accent-rgb), 0.4); cursor: default; }
 .jf-wo-tap--flash { background: rgba(var(--accent-rgb), 0.25); border-color: rgba(var(--accent-rgb), 0.55); animation: tapScale 0.15s ease-out; }
 .jf-wo-tap__label { font-size: 11px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; }
@@ -1375,17 +1394,53 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   width: 100%; min-height: 64px; border-radius: 16px; cursor: pointer; font: inherit; font-size: 18px; font-weight: 800; color: var(--text);
   background: rgba(var(--overlay-rgb), 0.05); border: 2px solid rgba(var(--overlay-rgb), 0.08);
 }
-.jf-rate__btn[aria-pressed="true"] { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.jf-rate__btn[aria-pressed="true"] { background: var(--accent-dim); border-color: var(--accent); color: var(--accent-text); }
 .jf-wo-link {
   min-height: 44px; padding: 0 12px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted);
   background: none; border: none; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
 }
-.jf-wo-note { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; font: inherit; font-size: 14px; resize: none; color: var(--text); background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); }
+.jf-wo-note { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; font: inherit; font-size: 16px; resize: none; color: var(--text); background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); }
 
 /* UX review B — finding 5: labels for bare numbers */
 .jf-traj__cap { margin-top: 2px; text-align: right; font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; color: var(--muted); }
-.jf-fit__label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent); margin-bottom: 2px; }
+.jf-fit__label { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; color: var(--accent-text); margin-bottom: 2px; }
 /* Today strip, right: "Reeks 1 dag · Score 10" — one line at 320 px, a 44 px tap target that does not move the row */
 .jf-today-stats { background: none; border: none; cursor: pointer; padding: 0 0 0 8px; margin: -14px 0; min-height: 44px;
   font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase;
   color: var(--muted); white-space: nowrap; }
+
+/* ── UX review C (finding 9) — hit areas. The look stays; the tap area is >= 44 px, either as real size
+   (min-height) or as the shared centred ::after above. The UAT runner counts the effective size. ── */
+.jf-weeknav {
+  min-width: 44px; min-height: 44px; padding: 6px 10px; border-radius: 10px; font: inherit; font-size: 14px; font-weight: 900; cursor: pointer;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--muted);
+}
+.jf-weeknav:disabled { cursor: not-allowed; color: var(--subtle-text); }
+.jf-signout {
+  display: flex; align-items: center; gap: 6px; min-height: 44px; padding: 9px 16px; border-radius: 14px; font: inherit; font-size: 12px; font-weight: 900;
+  letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer;
+  background: rgba(226, 76, 74, 0.08); border: 1px solid rgba(226, 76, 74, 0.25); color: var(--danger);
+}
+.jf-back-btn {
+  min-width: 44px; min-height: 44px; padding: 8px 16px; border-radius: 12px; font: inherit; font-weight: 900; cursor: pointer;
+  border: 1px solid rgba(var(--overlay-rgb), 0.08); background: rgba(var(--overlay-rgb), 0.04); color: var(--text);
+}
+/* injury / pain chips: danger tone when on */
+.jf-warn-chip {
+  padding: 8px 16px; min-height: 44px; border-radius: 14px; font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--subtle-text);
+  background: rgba(var(--overlay-rgb), 0.05); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-warn-chip--on { background: rgba(239, 68, 68, 0.15); border-color: rgba(239, 68, 68, 0.4); color: var(--danger); font-weight: 700; }
+.jf-warn-chip--grow { flex: 1; padding: 10px 8px; color: var(--muted); }
+.jf-warn-chip--grow.jf-warn-chip--on { color: var(--danger); }
+.jf-ci-chip {
+  display: flex; align-items: center; gap: 7px; min-height: 44px; padding: 10px 16px; border-radius: 99px; font: inherit; font-size: 14px; font-weight: 500;
+  cursor: pointer; transition: all 0.15s; color: var(--muted); background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-ci-chip--on { background: var(--accent-dim); border-color: var(--accent-border); color: var(--accent-text); font-weight: 700; }
+/* quiet text buttons under a card ("Toon alles", "Deel je voortgang") */
+.jf-quiet-btn {
+  display: flex; align-items: center; gap: 6px; min-height: 44px; margin-top: 4px; background: transparent; border: none; padding: 0; cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 600; color: var(--muted); touch-action: manipulation;
+}
+.jf-quiet-btn--accent, .jf-quiet-btn--ok { color: var(--accent-text); }

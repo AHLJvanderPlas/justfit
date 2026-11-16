@@ -1,12 +1,16 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { C, display, eyebrow } from "./tokens.js";
 import api from "./apiClient.js";
 import { useAppShell } from "./AppShellContext.js";
+import { t } from "./i18n.js";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 export default function PendingInviteModal({ inviteToken, onDone }) {
   const { token } = useAppShell();
   const [info, setInfo] = useState(null);
   const [acting, setActing] = useState(false);
+  const dlgRef = useRef(null);
+  useDialog(dlgRef, { onClose: onDone, enabled: !!info });
 
   useEffect(() => {
     api.lookupTrainerInvite(inviteToken)
@@ -31,16 +35,16 @@ export default function PendingInviteModal({ inviteToken, onDone }) {
   const sheet = { width: '100%', maxWidth: 520, background: C.bg, borderRadius: '24px 24px 0 0', border: `1px solid ${C.border}`, borderBottom: 'none', padding: '28px 28px 40px' };
 
   return (
-    <div style={overlay} onClick={e => e.target === e.currentTarget && onDone()}>
+    <div ref={dlgRef} {...dialogAttrs(t("Trainer invite"))} style={overlay} onClick={e => e.target === e.currentTarget && onDone()}>
       <div style={sheet}>
-        <div style={{ ...eyebrow, color: C.muted, fontSize: 11, marginBottom: 12 }}>TRAINER INVITE</div>
+        <h2 style={{ ...eyebrow, color: C.muted, fontSize: 11, marginBottom: 12 }}>TRAINER INVITE</h2>
         <div style={{ ...display(22, 900), color: C.text, marginBottom: 4 }}>Connect to {info.trainer_name}?</div>
         <div style={{ fontSize: 14, color: C.muted, marginBottom: 24, lineHeight: 1.6 }}>
           {info.trainer_name} at <strong style={{ color: C.text }}>{info.gym_name}</strong> invited you to JustFit. Accept to share your training data and receive personalised programming.
         </div>
         <div style={{ display: 'flex', gap: 10 }}>
           <button disabled={acting} onClick={() => handleAction('accept')}
-            style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 900, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
+            style={{ flex: 1, padding: '14px 0', borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontWeight: 900, fontSize: 14, cursor: acting ? 'not-allowed' : 'pointer', opacity: acting ? 0.6 : 1 }}>
             {acting ? '…' : 'Accept'}
           </button>
           <button disabled={acting} onClick={() => handleAction('decline')}

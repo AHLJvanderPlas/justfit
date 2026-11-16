@@ -1,14 +1,18 @@
 // Daily check-in sheet. Moved out of App.jsx (F4); App starts the import at
 // module scope so the sheet is ready before anyone can open it.
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { C, display, mono } from "./tokens.js";
 import { t } from "./i18n.js";
 import { SadFace, NeutralFace, HappyFace } from "./MoodRow.jsx";
 import { buildCheckinPayload } from "./checkinQuick.js";
+import { useDialog, dialogAttrs } from "./useDialog.js";
+import { announce } from "./announce.js";
 
 // ─── CHECK-IN MODAL ───────────────────────────────────────────────────────────
 
 export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeBudget, lastCheckin, onMarkChronic }) {
+  const dlgRef = useRef(null);
+  useDialog(dlgRef, { onClose });
   const bodyMode = cycle?.mode ?? "standard";
   const showPeriodChip = sex === "female" && bodyMode === "standard";
 
@@ -43,6 +47,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
   // One payload builder for the sheet and the mood row on Today (UAT R6, checkinQuick.js).
   const buildAndSave = () => {
     try { localStorage.setItem("jf_last_location", location); } catch { /* private mode */ }
+    announce(t("Check-in applied"));
     onSave(buildCheckinPayload({ feeling, chips, location, freeText, painScope, painAreas, pregnancySignals, postnatalSignals, timeBudget: defaultTimeBudget }));
   };
 
@@ -53,7 +58,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
   // Compact SVG icon factory for chips
   const ci = (inner) => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">{inner}</svg>
+    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">{inner}</svg>
   );
   const CHIP_DEFS = [
     { val: "pain",       label: t("Pain or soreness"), icon: ci(<><circle cx="12" cy="12" r="9"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></>) },
@@ -74,13 +79,13 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
   const smileys = [
     { val: 1, label: t("Not great"), color: C.danger, Face: SadFace     },
     { val: 2, label: t("Okay"),      color: C.muted,   Face: NeutralFace },
-    { val: 3, label: t("Good"),      color: C.emerald, Face: HappyFace   },
+    { val: 3, label: t("Good"),      color: C.accentText, Face: HappyFace   },
   ];
 
   const dotCount = needsStep3 ? 3 : 2;
 
   return (
-    <div data-testid="checkin-sheet" style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
+    <div data-testid="checkin-sheet" ref={dlgRef} {...dialogAttrs(t("Daily check-in"))} style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", flexDirection: "column", justifyContent: "flex-end", background: "rgba(var(--bg-rgb),0.7)", backdropFilter: "blur(8px)" }}>
       {/* Width-constrained row so the sheet matches app card width on desktop */}
       <div style={{ display: "flex", justifyContent: "center" }}>
       <div style={{ background: C.sheet, borderTop: `1px solid ${C.border}`, borderRadius: "24px 24px 0 0", maxHeight: "92vh", display: "flex", flexDirection: "column", boxShadow: "0 -20px 60px rgba(0,0,0,0.6)", width: "100%", maxWidth: 520 }}>
@@ -114,7 +119,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                   const { val, label, color, Face } = sm;
                   const sel = feeling === val;
                   return (
-                    <button
+                    <button aria-pressed={sel}
                       key={val}
                       onClick={() => { setFeeling(val); setStep(2); }}
                       style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 10, padding: "20px 8px", borderRadius: 20, border: `1px solid ${sel ? color : C.border}`, background: sel ? `${color}22` : "rgba(var(--overlay-rgb),0.03)", cursor: "pointer", color: sel ? color : C.muted, fontFamily: "inherit", transition: "all 0.15s" }}
@@ -137,7 +142,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
               </div>
               {/* ── C-F9: where are you training today ── */}
               <div style={{ paddingTop: 16 }}>
-                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.subtle, marginBottom: 8 }}>
+                <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: C.subtleText, marginBottom: 8 }}>
                   {t("Where are you training?")}
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -157,7 +162,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                           fontSize: 13, fontWeight: 800, touchAction: "manipulation",
                           border: `1px solid ${sel ? C.emeraldBorder : C.border}`,
                           background: sel ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                          color: sel ? C.emerald : C.muted,
+                          color: sel ? C.accentText : C.muted,
                         }}
                       >
                         {label}
@@ -171,10 +176,10 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                 {CHIP_DEFS.map(({ val, label, icon }) => {
                   const sel = chips.includes(val);
                   return (
-                    <button
+                    <button aria-pressed={sel}
                       key={val}
                       onClick={() => toggleChip(val)}
-                      style={{ padding: "10px 16px", borderRadius: 99, background: sel ? "var(--accent-dim)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${sel ? "var(--accent-border)" : C.border}`, color: sel ? "var(--accent)" : C.muted, fontSize: 14, fontWeight: sel ? 700 : 500, cursor: "pointer", fontFamily: "inherit", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 7 }}
+                      className={`jf-ci-chip${sel ? " jf-ci-chip--on" : ""}`}
                     >
                       {icon}
                       {label}
@@ -182,11 +187,11 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                   );
                 })}
               </div>
-              <textarea
+              <textarea aria-label={t("Tell your coach more")}
                 placeholder={t("Rough night? Big day? Tell me anything\u2026")}
                 value={freeText}
                 onChange={e => setFreeText(e.target.value)}
-                style={{ width: "100%", minHeight: 72, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 14, color: C.text, resize: "none", outline: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
+                style={{ width: "100%", minHeight: 72, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}`, borderRadius: 14, padding: 14, fontSize: 16, color: C.text, resize: "none", fontFamily: "inherit", boxSizing: "border-box", marginBottom: 4 }}
               />
             </div>
           )}
@@ -201,13 +206,14 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
 
               {hasPain && (
                 <div style={{ marginTop: 16, marginBottom: 20 }}>
-                  <div style={{ ...mono(11), color: C.emerald, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("Pain detail")}</div>
+                  <div style={{ ...mono(11), color: C.accentText, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10 }}>{t("Pain detail")}</div>
                   <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
                     {[{ v: "general", l: "General soreness" }, { v: "specific", l: "Specific area" }].map(({ v, l }) => (
                       <button
                         key={v}
                         onClick={() => { setPainScope(v); if (v === "general") setPainAreas([]); }}
-                        style={{ flex: 1, padding: "10px 8px", borderRadius: 14, background: painScope === v ? "rgba(239,68,68,0.12)" : "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${painScope === v ? "rgba(239,68,68,0.4)" : C.border}`, color: painScope === v ? C.danger : C.muted, fontSize: 13, fontWeight: painScope === v ? 700 : 500, cursor: "pointer", fontFamily: "inherit" }}
+                        className={`jf-warn-chip jf-warn-chip--grow${painScope === v ? " jf-warn-chip--on" : ""}`}
+                        aria-pressed={painScope === v}
                       >
                         {l}
                       </button>
@@ -219,10 +225,10 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                         {PAIN_AREAS.map(({ k, l }) => {
                           const active = painAreas.includes(k);
                           return (
-                            <button
+                            <button aria-pressed={active}
                               key={k}
                               onClick={() => toggleArea(k)}
-                              style={{ padding: "8px 14px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? C.danger : C.muted, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                              className={`jf-warn-chip${active ? " jf-warn-chip--on" : ""}`}
                             >
                               {l}
                             </button>
@@ -256,7 +262,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                     ].map(({ key, label, sub }) => {
                       const active = pregnancySignals[key];
                       return (
-                        <button
+                        <button aria-pressed={active}
                           key={key}
                           onClick={() => setPregnancySignals(s => ({ ...s, [key]: !active }))}
                           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}
@@ -285,7 +291,7 @@ export default function CheckInModal({ onSave, onClose, sex, cycle, defaultTimeB
                     ].map(({ key, label, sub }) => {
                       const active = postnatalSignals[key];
                       return (
-                        <button
+                        <button aria-pressed={active}
                           key={key}
                           onClick={() => setPostnatalSignals(s => ({ ...s, [key]: !active }))}
                           style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 14, width: "100%", textAlign: "left", background: active ? "rgba(251,191,36,0.08)" : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${active ? "rgba(251,191,36,0.35)" : C.border}`, cursor: "pointer", fontFamily: "inherit" }}

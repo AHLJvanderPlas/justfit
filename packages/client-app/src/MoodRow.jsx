@@ -3,6 +3,7 @@
 // for the detailed signals (pain, sleep, energy, time, location).
 import { useState } from "react";
 import { t } from "./i18n.js";
+import { announce } from "./announce.js";
 import { MOOD_OPTIONS } from "./checkinQuick.js";
 
 function Face({ size, mouth }) {
@@ -30,7 +31,7 @@ export default function MoodRow({ onPick, onMore }) {
           const MoodFace = FACES[val];
           return (
             <button key={val} type="button" disabled={busy} className={`jf-mood__btn jf-mood__btn--${val}`}
-              onClick={() => { setBusy(true); onPick(val); }}>
+              onClick={() => { setBusy(true); announce(t("Check-in applied")); onPick(val); }}>
               <MoodFace size={28} />
               <span>{t(label)}</span>
             </button>

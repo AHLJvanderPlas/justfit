@@ -5,12 +5,13 @@
 // minute chips, and the "Eigen training" link. After "Gewoon rusten" the card is
 // a rest day: "Rustdag", and no bonus. After "Stop and save": "Gestopt na n van m
 // oefeningen". e2e journey-workout (d) counts the buttons (≤ 6).
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { t, useLang } from "./i18n.js";
 import { sessionTitle } from "./messagePolicy.js";
 import { Sheet } from "./sessionSheet.jsx";
 import { OwnTrainingLine, SaveAsTemplate } from "./EigenTraining.jsx";
 import { doneKind } from "./sessionOutcome.js";
+import { announce } from "./announce.js";
 
 const ACTIVITY_TYPES = [
   { label: "Run",   value: "run"   },
@@ -56,6 +57,7 @@ export default function DoneCard({ score, prevScore, completedSession, onLogActi
   const stop = completedSession?.stopped_after;
   const mins = completedSession?.duration_sec ? Math.round(completedSession.duration_sec / 60) : null;
   const sessionLabel = completedSession?.name ? sessionTitle(completedSession.name) : t("Session");
+  useEffect(() => { announce(t("Session saved")); }, []); // the card appears when a session is saved
   const [sheetOpen, setSheetOpen] = useState(false);
   const [bonusOpen, setBonusOpen] = useState(false);
   const [logDone, setLogDone] = useState(false);
@@ -70,10 +72,10 @@ export default function DoneCard({ score, prevScore, completedSession, onLogActi
     <div className="jf-done" data-testid="done-card">
       <div className="jf-done__head">
         <div className="jf-done__check" aria-hidden="true">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+          <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
         </div>
         <div className="jf-done__titles">
-          <div className="jf-done__title">{title}</div>
+          <h2 className="jf-done__title">{title}</h2>
           <div className="jf-done__sub">{sub}</div>
         </div>
       </div>

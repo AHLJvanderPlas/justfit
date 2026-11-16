@@ -54,6 +54,8 @@ function setMode(m) {
   mode = m;
   document.getElementById('tab-login').classList.toggle('active',  m === 'login');
   document.getElementById('tab-signup').classList.toggle('active', m === 'signup');
+  document.getElementById('tab-login').setAttribute('aria-pressed', String(m === 'login'));
+  document.getElementById('tab-signup').setAttribute('aria-pressed', String(m === 'signup'));
   document.getElementById('method-switcher').style.display = m === 'login' ? 'flex' : 'none';
   document.getElementById('passkey-section').style.display = m === 'login' && passkeyAvailable ? 'block' : 'none';
   // UAT R5 — guest access is offered on both tabs, so setMode no longer toggles it
@@ -83,6 +85,8 @@ function setMethod(m, updateUI = true) {
   if (!updateUI) return;
   document.getElementById('mt-password').classList.toggle('active', m === 'password');
   document.getElementById('mt-magic').classList.toggle('active',    m === 'magic');
+  document.getElementById('mt-password').setAttribute('aria-pressed', String(m === 'password'));
+  document.getElementById('mt-magic').setAttribute('aria-pressed',    String(m === 'magic'));
   document.getElementById('password-form').style.display = m === 'password' ? 'block' : 'none';
   document.getElementById('magic-form').style.display    = m === 'magic'    ? 'block' : 'none';
   document.getElementById('forgot-link').style.display   = m === 'password' ? 'block' : 'none';

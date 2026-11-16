@@ -69,7 +69,7 @@ export function SaveAsTemplate({ defaultName, steps, onSaved }) {
       : data.error === "invalid_name" ? t("Give your training a name (max 60 characters).")
       : t("Could not save your training — check your connection and try again.") });
   };
-  if (msg && !msg.err) return <div className="jf-own-saved">✓ {msg.text}</div>;
+  if (msg && !msg.err) return <div className="jf-own-saved" role="status">✓ {msg.text}</div>;
   return open ? (
     <div className="jf-sb-tpl">
       <input type="text" value={name} maxLength={60} autoFocus onChange={(e) => { setName(e.target.value); setMsg(null); }}
@@ -78,7 +78,7 @@ export function SaveAsTemplate({ defaultName, steps, onSaved }) {
         <button type="button" disabled={busy} onClick={save} className="jf-chip jf-chip--on jf-chip--tall jf-chip--grow">{busy ? t("Saving…") : t("Save")}</button>
         <button type="button" onClick={() => { setOpen(false); setMsg(null); }} className="jf-chip jf-chip--tall">{t("Cancel")}</button>
       </div>
-      {msg && <div className="jf-sb-tpl__msg jf-sb-tpl__msg--err">{msg.text}</div>}
+      {msg && <div className="jf-sb-tpl__msg jf-sb-tpl__msg--err" role="alert">{msg.text}</div>}
     </div>
   ) : (
     <button type="button" className="jf-sb-quiet" onClick={() => setOpen(true)}>{t("Save as template")}</button>
@@ -96,7 +96,7 @@ export function ExtraDoneCard({ extra, askPlanDone, onPlanDone, onDismiss, canSa
       <div className="jf-extra-done__head">
         <span className="jf-extra-done__check" aria-hidden="true">✓</span>
         <div className="jf-extra-done__text">
-          <div className="jf-extra-done__title">{t("Extra session done")}</div>
+          <h2 className="jf-extra-done__title">{t("Extra session done")}</h2>
           <div className="jf-extra-done__sub">{extra?.name}{mins ? ` · ${mins} min` : ""}</div>
         </div>
         <button type="button" className="jf-icon-btn" aria-label={t("Close")} onClick={onDismiss}>×</button>
@@ -203,7 +203,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
   const status = (busy || error) && (
     <>
       {busy && <div className="jf-own-busy">{t("Starting…")}</div>}
-      {error && <div className="jf-sheet__error">{error}</div>}
+      {error && <div className="jf-sheet__error" role="alert">{error}</div>}
     </>
   );
   const back = (to) => <button type="button" className="jf-own-back" onClick={() => { setError(null); setStep(to); }}>← {t("Back")}</button>;
@@ -293,7 +293,7 @@ export default function EigenTraining({ prefs, today, plan, todayCompleted, temp
         ))}
         {result.offer && (
           <div className="jf-sb-offer">
-            <div className="jf-sb-offer__title">{t("Your self-measurement is due")}</div>
+            <h2 className="jf-sb-offer__title">{t("Your self-measurement is due")}</h2>
             <div className="jf-sb-offer__text">{t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}</div>
             <button type="button" disabled={busy} className="jf-chip jf-chip--on jf-chip--wide"
               onClick={() => submit(result.mode, { ...result.opts, includeAssessment: true })}>

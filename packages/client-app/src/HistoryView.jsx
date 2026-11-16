@@ -233,7 +233,7 @@ function TrajectoryChart({ history, accentHex }) {
   // none), which squeezed 7-unit labels to ~6 px on a 320 px phone (UAT R6, 11 px floor).
   return (
     <>
-      <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+      <svg aria-hidden="true" width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
         {median > 0 && (
           <line x1={0} y1={barArea - (median / maxCount) * barArea} x2={W} y2={barArea - (median / maxCount) * barArea}
             style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
@@ -326,14 +326,14 @@ function RecordsPanel() {
               </div>
             </div>
             <div style={{ textAlign: "right", flex: "none" }}>
-              <div style={{ fontSize: 15, fontWeight: 900, color: C.emerald, fontVariantNumeric: "tabular-nums" }}>
+              <div style={{ fontSize: 15, fontWeight: 900, color: C.accentText, fontVariantNumeric: "tabular-nums" }}>
                 {r.e1rm} kg
               </div>
-              <div style={{ fontSize: 11, color: C.subtle, fontWeight: 600, letterSpacing: "0.1em",
+              <div style={{ fontSize: 11, color: C.subtleText, fontWeight: 600, letterSpacing: "0.1em",
                 textTransform: "uppercase" }}>{t("est. 1RM")}</div>
             </div>
             {canOpen && (
-              <span aria-hidden="true" style={{ flex: "none", color: C.subtle, fontSize: 13,
+              <span aria-hidden="true" style={{ flex: "none", color: C.subtleText, fontSize: 13,
                 transform: isOpen ? "rotate(90deg)" : "none", transition: "transform 0.15s" }}>›</span>
             )}
           </div>
@@ -359,9 +359,7 @@ function RecordsPanel() {
         })}
       </div>
       {records.length > 4 && (
-        <button onClick={() => setExpanded((e) => !e)} style={{ background: "none", border: "none",
-          cursor: "pointer", color: C.emerald, fontSize: 12, fontWeight: 600, padding: "10px 0 0",
-          minHeight: 40, touchAction: "manipulation" }}>
+        <button onClick={() => setExpanded((e) => !e)} aria-expanded={expanded} className="jf-quiet-btn jf-quiet-btn--accent">
           {expanded ? t("Show less") : `${t("Show all")} (${records.length})`}
         </button>
       )}
@@ -405,7 +403,7 @@ function RecoveryPanel({ recovery, gender }) {
       </div>
       <div style={{ width: 34, textAlign: "right", fontSize: 12, fontWeight: 700,
         fontVariantNumeric: "tabular-nums", flex: "none",
-        color: f >= 65 ? C.emerald : f >= 45 ? C.amber : C.rose }}>{f}%</div>
+        color: f >= 65 ? C.accentText : f >= 45 ? C.amber : C.rose }}>{f}%</div>
     </div>
   );
 
@@ -414,7 +412,7 @@ function RecoveryPanel({ recovery, gender }) {
       <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 4 }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: C.text }}>{t("Recovery")}</div>
         <button onClick={() => setOpen((o) => !o)} style={{ background: "none", border: "none", cursor: "pointer",
-          color: C.emerald, fontSize: 12, fontWeight: 600, padding: "6px 0", minHeight: 32, touchAction: "manipulation" }}>
+          color: C.accentText, fontSize: 12, fontWeight: 600, padding: "6px 0", minHeight: 32, touchAction: "manipulation" }}>
           {open ? t("Hide body map") : t("Show body map")}
         </button>
       </div>
@@ -435,10 +433,10 @@ function RecoveryPanel({ recovery, gender }) {
       {trained && mostFatigued?.length > 0 && (
         <>
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
-            color: C.subtle, marginBottom: 2 }}>{t("Needs the most rest")}</div>
+            color: C.subtleText, marginBottom: 2 }}>{t("Needs the most rest")}</div>
           {mostFatigued.map((x) => <Row key={x.region} {...x} />)}
           <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase",
-            color: C.subtle, margin: "12px 0 2px" }}>{t("Ready to train")}</div>
+            color: C.subtleText, margin: "12px 0 2px" }}>{t("Ready to train")}</div>
           {freshest.map((x) => <Row key={x.region} {...x} />)}
         </>
       )}
@@ -452,7 +450,7 @@ function RadarChart({ scores, goalScores, accentHex, size = 220, onSelectAxis = 
   const labelOffset = 22;
 
   return (
-    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible" }}>
+    <svg aria-hidden="true" width={size} height={size} viewBox={`0 0 ${size} ${size}`} style={{ overflow: "visible" }}>
       {/* Grid rings */}
       {gridLevels.map((lvl, gi) => (
         <polygon
@@ -567,7 +565,7 @@ function SleepTrendChart({ checkins, accentHex }) {
   const W = 300, H = 56, labelH = 12, barAreaH = H - labelH;
   const barW = W / 30;
   return (
-    <svg width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
+    <svg aria-hidden="true" width="100%" height={H} viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ display: "block" }}>
       <line x1={0} y1={barAreaH - (7 / maxVal) * barAreaH} x2={W} y2={barAreaH - (7 / maxVal) * barAreaH}
         style={{ stroke: "rgba(var(--overlay-rgb),0.1)" }} strokeWidth="1" strokeDasharray="3 2" />
       {values.map((v, i) => {
@@ -805,7 +803,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     setTimeout(() => setShareState("idle"), 3000);
                   } catch { setShareState("idle"); }
                 }}
-                style={{ marginTop: 12, display: "flex", alignItems: "center", gap: 6, background: "transparent", border: "none", padding: 0, cursor: "pointer", color: shareState === "done" ? accentHex : C.muted, fontSize: 12, fontWeight: 600, fontFamily: "inherit" }}
+                className={`jf-quiet-btn${shareState === "done" ? " jf-quiet-btn--ok" : ""}`}
               >
                 {shareState === "generating" ? "…" : shareState === "done" ? t("✓ Saved") : t("↑ Share progress")}
               </button>
@@ -814,7 +812,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         </Glass>
         <div style={{ marginBottom: 8 }}>
           <span style={{ ...display(28), color: C.text }}>{t("STREAK")} · </span>
-          <span style={{ ...display(28), color: "var(--accent)" }}>{streak} {streak === 1 ? t("DAY") : t("DAYS")}</span>
+          <span style={{ ...display(28), color: C.accentText }}>{streak} {streak === 1 ? t("DAY") : t("DAYS")}</span>
         </div>
         <div style={{ fontSize: 16, color: C.muted, lineHeight: 1.5 }}>{trajectorySentence(history)}</div>
       </div>
@@ -822,7 +820,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
       {/* ── Weekly outcome card ── */}
       <Glass style={{ padding: 20, marginBottom: 24 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
-          <div style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("THIS WEEK")}</div>
+          <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("THIS WEEK")}</h2>
           <span className={`jf-weekpill jf-weekpill--${weeklyOutcome.verdict}`}>
             {weeklyOutcome.verdictLabel}
           </span>
@@ -831,10 +829,10 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         <div style={{ display: "flex", alignItems: "flex-end", gap: 20, marginBottom: 14 }}>
           <div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 3 }}>
-              <span style={{ ...display(34), color: "var(--accent)" }}>{weeklyOutcome.done}</span>
+              <span style={{ ...display(34), color: C.accentText }}>{weeklyOutcome.done}</span>
               <span style={{ ...display(20), color: C.faint }}>/{weeklyOutcome.target}</span>
             </div>
-            <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINING DAYS")}</div>
+            <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINING DAYS")}</h2>
           </div>
           {weeklyOutcome.totalMins > 0 && (
             <div>
@@ -843,7 +841,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   ? `${Math.floor(weeklyOutcome.totalMins / 60)}h${weeklyOutcome.totalMins % 60 > 0 ? `${weeklyOutcome.totalMins % 60}m` : ""}`
                   : `${weeklyOutcome.totalMins}m`}
               </div>
-              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINED")}</div>
+              <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginTop: 3 }}>{t("TRAINED")}</h2>
             </div>
           )}
           {/* Mini sparkline — 5 bars, rightmost = this week */}
@@ -867,7 +865,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             ))}
           </div>
           {weeklyOutcome.trend !== 0 && (
-            <span style={{ ...mono(11), color: weeklyOutcome.trend > 0 ? C.emerald : C.muted }}>
+            <span style={{ ...mono(11), color: weeklyOutcome.trend > 0 ? C.accentText : C.muted }}>
               {weeklyOutcome.trend > 0 ? `↑ +${weeklyOutcome.trend}` : `↓ ${Math.abs(weeklyOutcome.trend)}`} {t("vs last week")}
             </span>
           )}
@@ -890,7 +888,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
         {progression?.goal_fit != null && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${C.border}` }}>
             {/* Goal-fit ring */}
-            <svg width={36} height={36} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
+            <svg aria-hidden="true" width={36} height={36} viewBox="0 0 36 36" style={{ flexShrink: 0 }}>
               <circle cx={18} cy={18} r={14} fill="none" style={{ stroke: "rgba(var(--accent-rgb),0.12)" }} strokeWidth={3} />
               <circle cx={18} cy={18} r={14} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth={3}
                 strokeDasharray={`${(progression.goal_fit / 100) * 87.96} 87.96`}
@@ -948,14 +946,14 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                   {CHART_MODES.map((m) => {
                     const active = effectiveChartMode === m.id;
                     return (
-                      <button
+                      <button aria-pressed={active}
                         key={m.id}
                         onClick={() => handleChartModeChange(m.id)}
                         style={{
                           padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
                           border: `1px solid ${active ? C.emeraldBorder : C.border}`,
                           background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                          color: active ? C.emerald : C.muted,
+                          color: active ? C.accentText : C.muted,
                         }}
                       >
                         {t(m.label)}
@@ -968,7 +966,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                       marginLeft: "auto", padding: "7px 14px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", whiteSpace: "nowrap",
                       border: `1px solid ${showCompare ? C.emeraldBorder : C.border}`,
                       background: showCompare ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                      color: showCompare ? C.emerald : C.muted,
+                      color: showCompare ? C.accentText : C.muted,
                     }}
                   >
                     {showCompare ? t("Goal on") : t("Goal off")}
@@ -979,7 +977,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
               {/* ── Mode description — general only ── */}
               {sportMode === "general" && (
                 <div style={{ marginBottom: 14, paddingLeft: 2 }}>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.emerald }}>{t(CHART_MODES.find(m => m.id === effectiveChartMode)?.label ?? "")}</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: C.accentText }}>{t(CHART_MODES.find(m => m.id === effectiveChartMode)?.label ?? "")}</span>
                   <span style={{ fontSize: 11, color: C.muted }}> — {t(CHART_MODES.find(m => m.id === effectiveChartMode)?.desc ?? "")}</span>
                 </div>
               )}
@@ -989,12 +987,12 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                    assessment writes the per-axis baseline the chart decays toward. */}
               {assessment && !normOn && (
                 <Glass style={{ padding: 20, marginBottom: 20 }}>
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 10 }}>{t("WHERE YOU ARE")}</div>
+                  <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 10 }}>{t("WHERE YOU ARE")}</h2>
 
                   {assessment.blocked ? (
                     <>
                       <div style={{ fontSize: 13, color: C.text, lineHeight: 1.55 }}>{assessment.blocked.message}</div>
-                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 8 }}>
+                      <div style={{ fontSize: 11, color: C.subtleText, marginTop: 8 }}>
                         {t("The measurement can wait — your plan keeps adapting either way.")}
                       </div>
                     </>
@@ -1036,7 +1034,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                       )}
 
                       {assessment.unmeasured_axes?.length > 0 && (
-                        <div style={{ fontSize: 11, color: C.subtle, marginTop: 10, lineHeight: 1.55 }}>
+                        <div style={{ fontSize: 11, color: C.subtleText, marginTop: 10, lineHeight: 1.55 }}>
                           {t("Pull and mobility are estimated, not measured — no equipment-free test gives an honest reading for either.")}
                         </div>
                       )}
@@ -1050,7 +1048,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 {/* coach-dcp R2 — the general profile; the military target is an in-card toggle
                     (it was a separate "Fitness Profile … Target on" strip). */}
                 <div className="jf-radar__head">
-                  <div style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("TRAINING BALANCE")}</div>
+                  <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11 }}>{t("TRAINING BALANCE")}</h2>
                   {sportMode === "military" && (
                     <button className={`jf-radar__toggle${showCompare ? " jf-radar__toggle--on" : ""}`} onClick={() => setShowCompare((v) => !v)} aria-pressed={showCompare}>
                       {t("Military goal")}
@@ -1078,7 +1076,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         </div>
                       </div>
                       <button onClick={() => setAxisDrill(null)}
-                        style={{ background: "none", border: "none", cursor: "pointer", color: C.emerald,
+                        style={{ background: "none", border: "none", cursor: "pointer", color: C.accentText,
                           fontSize: 12, fontWeight: 600, minHeight: 40, padding: "0 0 0 12px", touchAction: "manipulation" }}>
                         {t("Close")}
                       </button>
@@ -1124,7 +1122,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {unlocked && sportMode !== "military" && (
           <Glass style={{ padding: 20, marginBottom: 12, display: "flex", alignItems: "center", gap: 16 }}>
             <div style={{ position: "relative", width: 60, height: 60, flexShrink: 0 }}>
-              <svg width="60" height="60" viewBox="0 0 60 60">
+              <svg aria-hidden="true" width="60" height="60" viewBox="0 0 60 60">
                 <circle cx="30" cy="30" r="24" fill="none" stroke={C.border} strokeWidth="5" />
                 <circle
                   cx="30" cy="30" r="24" fill="none"
@@ -1158,7 +1156,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── Axis breakdown for military ── */}
           {unlocked && sportMode === "military" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
+              <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</h2>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -1171,7 +1169,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (
-                            <span style={{ color: delta > 0 ? C.emerald : C.warning, marginLeft: 8, fontSize: 11 }}>
+                            <span style={{ color: delta > 0 ? C.accentText : C.warning, marginLeft: 8, fontSize: 11 }}>
                               {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
                             </span>
                           )}
@@ -1190,7 +1188,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── Key insights + planner explanation (general mode only) ── */}
           {unlocked && sportMode === "general" && (progression.insights || plannerCopy.length > 0) && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Key Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
@@ -1204,7 +1202,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <div key={key}>
                           <div style={{ fontSize: 11, fontWeight: 900, color: C.muted, textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 4 }}>{key === "strongest" ? t("Strongest") : t("Weakest")}</div>
                           <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{axisLabel(axis)}</div>
-                          <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(score) })}</div>
+                          <div style={{ fontSize: 11, color: C.accentText, fontWeight: 700, marginTop: 2 }}>{t("Score: {n}", { n: Math.round(score) })}</div>
                         </div>
                       ))}
                     </div>
@@ -1255,7 +1253,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
 
           {unlocked && sportMode === "general" && (
             <div style={{ marginBottom: 16 }}>
-              <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</div>
+              <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("AXIS BREAKDOWN")}</h2>
               <Glass style={{ padding: "4px 0" }}>
                 {RADAR_AXES.map((axis, i) => {
                   const current = Math.round(displayScores[axis] ?? 0);
@@ -1268,7 +1266,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                         <span style={{ ...mono(12), color: C.text }}>
                           {current}
                           {delta !== 0 && (
-                            <span style={{ color: delta > 0 ? C.emerald : C.warning, marginLeft: 8, fontSize: 11 }}>
+                            <span style={{ color: delta > 0 ? C.accentText : C.warning, marginLeft: 8, fontSize: 11 }}>
                               {delta > 0 ? "↑" : "↓"} {Math.abs(delta)}
                             </span>
                           )}
@@ -1299,7 +1297,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             const ZCOLORS = [C.muted, accentHex, C.warning, '#f97316', C.dangerStrong];
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</div>
+                <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>POWER ZONES · FTP {ftp}W</h2>
                 <Glass style={{ padding: "4px 0" }}>
                   {ZONES.map((z, i) => {
                     const wMin = Math.round(ftp * z.pctMin / 100);
@@ -1340,7 +1338,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             const avgSleep = sleepCheckins.reduce((s, c) => s + c.sleep_hours, 0) / sleepCheckins.length;
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</div>
+                <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>SLAAPTREND (30 DAGEN)</h2>
                 <Glass style={{ padding: 16 }}>
                   <SleepTrendChart checkins={checkins} accentHex={accentHex} />
                   <div style={{ fontSize: 12, color: C.muted, marginTop: 10 }}>
@@ -1361,7 +1359,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                     {t(nextAward.remaining === 1 ? "Next: {name} — {n} session to go" : "Next: {name} — {n} sessions to go", { name: nextAward.name, n: nextAward.remaining })}
                   </div>
                 )}
-                <button onClick={() => (onOpenAwards ?? (() => setView("awards")))()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit" }}>
+                <button onClick={() => (onOpenAwards ?? (() => setView("awards")))()} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, fontSize: 13, fontWeight: 700, color: C.accentText, fontFamily: "inherit" }}>
                   {t("Trophy room \u2192")}
                 </button>
               </div>
@@ -1374,7 +1372,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
             if (!recent.length) return null;
             return (
               <div style={{ marginBottom: 20 }}>
-                <div style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("RECENT SESSIONS")}</div>
+                <h2 style={{ ...eyebrow, color: C.faint, fontSize: 11, marginBottom: 12 }}>{t("RECENT SESSIONS")}</h2>
                 {recent.map((session) => {
                   const steps = session.steps ?? [];
                   const mins = sessionMinutes(session.total_duration_sec);   // finding 5 — `0 && …` printed a bare "0"
@@ -1421,11 +1419,11 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
           {/* ── History truncation upgrade card ── */}
           {historyTruncated && (
             <div style={{ marginBottom: 20, padding: "16px 18px", borderRadius: 16, background: "rgba(var(--accent-rgb),0.06)", border: "1px solid rgba(var(--accent-rgb),0.2)" }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 6 }}>Pro — Onbeperkte geschiedenis</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.accentText, textTransform: "uppercase", marginBottom: 6 }}>Pro — Onbeperkte geschiedenis</div>
               <div style={{ fontSize: 12, color: "rgba(var(--overlay-rgb),0.55)", marginBottom: 12, lineHeight: 1.6 }}>Je ziet de laatste 30 dagen. Upgrade naar Pro voor je volledige trainingshistorie.</div>
               <button
                 onClick={onUpgrade}
-                style={{ padding: "9px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 12, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}
+                style={{ padding: "9px 16px", borderRadius: 10, fontFamily: "inherit", fontWeight: 900, fontSize: 12, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: C.accentText }}
               >
                 Bekijk je volledige geschiedenis met Pro →
               </button>
@@ -1449,7 +1447,7 @@ export default function HistoryView({ progression, isLoading, token, userId, pre
                 >
                   {recomputing ? t("Recomputing\u2026") : t("Rebuild scores from history")}
                 </button>
-                {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.emerald, fontWeight: 700 }}>{t(recomputeMsg)}</div>}
+                {recomputeMsg && <div style={{ marginTop: 8, fontSize: 12, color: C.accentText, fontWeight: 700 }}>{t(recomputeMsg)}</div>}
                 <div style={{ marginTop: 8, fontSize: 11, color: C.muted, lineHeight: 1.5 }}>
                   {t("Recalculates progression scores from your full workout history. Use if you migrate accounts or need a fresh score.")}
                 </div>

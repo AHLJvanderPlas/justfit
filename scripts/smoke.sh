@@ -136,7 +136,7 @@ fi
 # Every theme-dependent colour must be a CSS custom property, or it will not
 # invert on light. The dark design used white-at-low-alpha for every raised
 # surface, border and divider; those are now rgba(var(--overlay-rgb),a).
-_hard=$(grep -rrnE "rgba\(255,\s*255,\s*255," packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null | grep -v "tokens.js" | wc -l | tr -d ' ')
+_hard=$(grep -rrnE "rgba\(255,\s*255,\s*255," packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null | grep -v "tokens.js" | grep -v "src/contrast" | wc -l | tr -d ' ')
 if [ "$_hard" = "0" ]; then
   ok "no hardcoded white overlays in components"
 else
@@ -157,7 +157,7 @@ _allow='FC4C02|10b981|8b5cf6|0ea5e9|f43f5e|f59e0b|6366f1|84cc16|06b6d4|f97316|d9
 # the context away.)
 _scan() {
   grep -rnE "#[0-9a-fA-F]{3,8}|[\"'](white|black|silver|gray|grey)[\"']" packages/client-app/src --include="*.jsx" --include="*.js" 2>/dev/null \
-    | grep -v "tokens.js" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" \
+    | grep -v "tokens.js" | grep -v "src/contrast" | grep -v "ErrorBoundary" | grep -v "themeValue(" | grep -v "var(--" \
     | grep -vE "#($_allow)" | grep -viE "#($_allow)"
 }
 _hex=$(_scan | wc -l | tr -d ' ')
@@ -804,7 +804,9 @@ fi
 # 1749 → 1748 (2026-11-16): finding 0 — the alternatives sheet's empty state is .jf-alt-empty.
 # 1748 → 1672 (2026-11-16): UX review A — the WorkoutView header, working phase (title, steppers, counter, tap
 # zone, bottom bar), the wake-lock tip and the session rating moved to .jf-wo-* / .jf-rate classes.
-STYLE_CEILING=1671
+# 1671 → 1661 (2026-11-16): UX review C — the sign-out button, Settings back, injury / pain / check-in chips, week nav,
+# share and "Toon alles" buttons moved to .jf-signout / .jf-back-btn / .jf-warn-chip / .jf-ci-chip / .jf-weeknav / .jf-quiet-btn.
+STYLE_CEILING=1661
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1744,6 +1746,18 @@ if [ -z "$UXB_OUT" ]; then
   ok "UX review B: Dutch instructions valid and complete (baseline + 0126), one instructions helper, one set formatter, every number labelled, Deze week = ISO week"
 else
   fail "UX review B: $UXB_OUT"
+fi
+
+# ── UX review C — accessibility ─────────────────────────────────────────────
+# WCAG 2.1 AA computed from the real token source (muted / subtle-text / label / placeholder / disabled
+# button / all 11 accents as text and as the button fill / the focus ring, both themes; login.html;
+# prepaint.js in step), no outline none/0 without :focus-visible, aria-hidden svgs, labelled icon-only
+# buttons, every dialog on useDialog. scripts/uxC.scan.mjs, src/contrastAudit.js.
+UXC_OUT=$(node scripts/uxC.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$UXC_OUT" ]; then
+  ok "UX review C: contrast >= 4.5:1 for muted/accents/button text in both themes + login, one focus ring (no bare outline none), svgs hidden, icon buttons labelled, dialogs on useDialog"
+else
+  fail "UX review C: $UXC_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

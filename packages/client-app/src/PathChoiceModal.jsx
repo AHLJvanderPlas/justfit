@@ -2,17 +2,20 @@
 // Since UAT R6 a new account answers this in onboarding's goal step; the modal stays for
 // "Wijzig pad" in Settings and for existing users without a primary_intent. Both write
 // pathPrefs.js's preferences and share the follow-up form (PathDetails.jsx).
-import { useState } from "react";
+import { useState, useRef } from "react";
 import api from "./apiClient.js";
 import { t, useLang } from "./i18n.js";
 import { DEFAULT_PATH_DETAILS, PATH_INTRO, pathLocked, savePath } from "./pathPrefs.js";
 import PathDetails from "./PathDetails.jsx";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 const START_LABEL = { running: "Start Running Coach →", cycling: "Start Cycling Coach →", military: "Start Military Coach →" };
 const TITLE = { running: "RUNNING", cycling: "CYCLING", military: "MILITARY" };
 
 export default function PathChoiceModal({ token, onComplete, isPro, entitlementKnown, onUpgrade }) {
   useLang();
+  const dlgRef = useRef(null);
+  useDialog(dlgRef); // a gate: no Escape, focus stays inside until a path is chosen
   const [step, setStep] = useState("pick"); // "pick" | "running" | "cycling" | "military"
   const [saving, setSaving] = useState(false);
   const [details, setDetails] = useState(DEFAULT_PATH_DETAILS);
@@ -32,7 +35,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, entitlementK
       { key: "military", icon: "◼", name: t("MILITARY"),         line: t("Keuring or Opleiding. We taper for you.") },
     ];
     return (
-      <div className="jf-pathmodal">
+      <div className="jf-pathmodal" ref={dlgRef} {...dialogAttrs(t("Pick your training path"))}>
         <div className="jf-pathmodal__inner">
           <div className="jf-pathmodal__eyebrow">{t("Welcome to JustFit.")}</div>
           <h1 className="jf-pathmodal__title">{t("PICK YOUR")}<br />{t("TRAINING PATH.")}</h1>
@@ -65,7 +68,7 @@ export default function PathChoiceModal({ token, onComplete, isPro, entitlementK
   }
 
   return (
-    <div className="jf-pathmodal">
+    <div className="jf-pathmodal" ref={dlgRef} {...dialogAttrs(t("Pick your training path"))}>
       <div className="jf-pathmodal__inner">
         <button type="button" onClick={() => setStep("pick")} className="jf-pathmodal__back">{t("← Back")}</button>
         <h2 className="jf-pathmodal__h2">{t(TITLE[step])}</h2>

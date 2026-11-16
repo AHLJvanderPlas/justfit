@@ -349,7 +349,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
         )}
         <button type="button" onClick={() => { setTplOpen(false); setTplMsg(null); }} className={chip(false, "jf-chip--tall")}>{t("Cancel")}</button>
       </div>
-      {tplMsg && <div className={`jf-sb-tpl__msg${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
+      {tplMsg && <div className={`jf-sb-tpl__msg${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`} role={tplMsg.err ? "alert" : "status"}>{tplMsg.text}</div>}
     </div>
   );
 
@@ -358,7 +358,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
   if (saved) {
     body = (
       <div className="jf-sb-saved">
-        <div className="jf-sb-saved__title">{t("Ready for today")}</div>
+        <h2 className="jf-sb-saved__title">{t("Ready for today")}</h2>
         {saved.pinsRemoved ? (
           <>
             <p className="jf-sb-saved__text">{t("The coach filled in your session. Some pins were left out for your safety:")}</p>
@@ -382,7 +382,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
             ))}
             {saved.assessmentOffer && (
               <div className="jf-sb-offer">
-                <div className="jf-sb-offer__title">{t("Your self-measurement is due")}</div>
+                <h2 className="jf-sb-offer__title">{t("Your self-measurement is due")}</h2>
                 <div className="jf-sb-offer__text">{t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}</div>
                 <button type="button" disabled={busy} onClick={() => save(true)} className={chip(true, "jf-chip--wide")}>
                   {busy ? t("Adding…") : t("Add self-measurement")}
@@ -391,7 +391,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
             )}
           </>
         )}
-        {error && <div className="jf-sheet__error">{error}</div>}
+        {error && <div className="jf-sheet__error" role="alert">{error}</div>}
         <button type="button" onClick={onClose} className="jf-primary">{t("Done")}</button>
       </div>
     );
@@ -486,7 +486,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
           </div>
         )}
 
-        {error && <div className="jf-sheet__error">{error}</div>}
+        {error && <div className="jf-sheet__error" role="alert">{error}</div>}
       </>
     );
   }
@@ -496,7 +496,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
       <button type="button" disabled={!steps.length} onClick={() => { setTplOpen(true); setTplMsg(null); }} className="jf-sb-quiet">
         {tpl ? t("Update template") : t("Save as template")}
       </button>
-      {tplMsg && <div className={`jf-sb-tpl__msg jf-sb-tpl__msg--center${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`}>{tplMsg.text}</div>}
+      {tplMsg && <div className={`jf-sb-tpl__msg jf-sb-tpl__msg--center${tplMsg.err ? " jf-sb-tpl__msg--err" : ""}`} role={tplMsg.err ? "alert" : "status"}>{tplMsg.text}</div>}
     </>
   );
 

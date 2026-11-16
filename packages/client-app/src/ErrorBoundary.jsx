@@ -25,7 +25,7 @@ export default class ErrorBoundary extends Component {
       <div className="jf-orphan jf-orphan--boundary">
         <div className="jf-orphan__card jf-orphan__card--center">
           <div className="jf-orphan__icon">⚠️</div>
-          <div className="jf-orphan__title">{t("Something went wrong")}</div>
+          <h2 className="jf-orphan__title">{t("Something went wrong")}</h2>
           <div className="jf-orphan__text">
             {t("An unexpected error occurred. Your data is safe — reload to continue.")}
           </div>

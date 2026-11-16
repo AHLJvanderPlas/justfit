@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, lazy, Suspense } from "react";
+import { useDialog, dialogAttrs, activateKey } from "./useDialog.js";
 import api from "./apiClient.js";
 import { logout, clearPlanCache } from "./authHelpers.js";
 import { C, display, ACCENT_COLORS, applyAccent, applyTheme, THEME_STORAGE_KEY } from "./tokens.js";
@@ -13,6 +14,7 @@ import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
 import { activeCoachOf, pathTitle } from "./coachPath.js";
 import { advancedRows } from "./settingsAdvanced.js";
 import { runChipSave, chipStatusText } from "./chipSave.js";
+import { announce } from "./announce.js";
 import { ftpEntered } from "./coachDisplay.js";   // UAT R4 — no FTP number before one was entered
 import { weeklyTarget, WEEK_TARGET_KEY } from "../../../functions/api/_shared/weekTarget.js";   // C-B32 — the one source
 
@@ -262,6 +264,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   );
   // FTP test modal
   const [showFtpTestModal, setShowFtpTestModal] = useState(false);
+  const ftpDlgRef = useRef(null), sexDlgRef = useRef(null), docDlgRef = useRef(null);
+  useDialog(ftpDlgRef, { onClose: () => setShowFtpTestModal(false), enabled: showFtpTestModal });
+  useDialog(sexDlgRef, { onClose: () => setShowSexWarning(false), enabled: showSexWarning });
+  useDialog(docDlgRef, { onClose: () => setActiveDoc(null), enabled: !!activeDoc });
+  const emailDlgRef = useRef(null), deleteDlgRef = useRef(null);
+  useDialog(emailDlgRef, { onClose: () => { if (!emailLoading) { setEmailStep(null); setEmailCode(""); setEmailInput(""); setEmailError(""); } }, enabled: !!emailStep });
+  useDialog(deleteDlgRef, { onClose: () => { if (!deleteLoading) { setDeleteStep(null); setDeleteText(""); setDeleteError(""); } }, enabled: !!deleteStep });
   const [ftpTestType, setFtpTestType] = useState('20min');
   const [ftpTestInput, setFtpTestInput] = useState('');
   const [ftpTestSaving, setFtpTestSaving] = useState(false);
@@ -296,6 +305,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
   const [advRow, setAdvRow] = useState(null);
   // UAT R5 — chips that save on tap: { id: "days" | "mins" | "exp" | "goal", state: "saving" | "saved" | "error" }
   const [chipSave, setChipSave] = useState({ id: null, state: "" });
+  useEffect(() => { if (chipSave.state) announce(chipStatusText(chipSave.state, t), chipSave.state === "error" ? "assertive" : "polite"); }, [chipSave]); // a chip that saves on tap says so
   const chipSeqRef = useRef(0);
 
   // Show conflict modal when 2+ coaches are active and no primary_intent is set
@@ -749,7 +759,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   ].map(({ id, label, sub }) => {
                     const sel = showAdvancedSchedule === id;
                     return (
-                      <button
+                      <button aria-pressed={sel}
                         key={String(id)}
                         onClick={() => {
                           if (id === true && !showAdvancedSchedule) {
@@ -765,8 +775,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           display: "flex", flexDirection: "column", alignItems: "center", gap: 3,
                         }}
                       >
-                        <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.emerald : C.text }}>{label}</span>
-                        <span style={{ fontSize: 11, color: sel ? C.emerald : C.muted, opacity: 0.8 }}>{sub}</span>
+                        <span style={{ fontSize: 12, fontWeight: 900, color: sel ? C.accentText : C.text }}>{label}</span>
+                        <span style={{ fontSize: 11, color: sel ? C.accentText : C.muted, opacity: 0.8 }}>{sub}</span>
                       </button>
                     );
                   })}
@@ -782,7 +792,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           padding: "8px 18px", borderRadius: 999, fontWeight: 700, fontSize: 13,
                           border: `1px solid ${planDuration === d ? C.emeraldBorder : C.border}`,
                           background: planDuration === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)",
-                          color: planDuration === d ? C.emerald : C.muted,
+                          color: planDuration === d ? C.accentText : C.muted,
                           cursor: "pointer",
                         }}
                       >
@@ -817,25 +827,25 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         const btnStyle = (disabled) => ({
                           width: 44, height: 44, borderRadius: 12, flexShrink: 0,
                           border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)",
-                          color: disabled ? C.subtle : C.text,
+                          color: disabled ? C.subtleText : C.text,
                           fontSize: 22, fontWeight: 300, cursor: disabled ? "default" : "pointer",
                           display: "flex", alignItems: "center", justifyContent: "center",
                         });
                         return (
                           <div key={key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <div style={{ width: 34, fontSize: 11, fontWeight: 900, color: isRest ? C.subtle : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
+                            <div style={{ width: 34, fontSize: 11, fontWeight: 900, color: isRest ? C.subtleText : C.muted, textTransform: "uppercase", letterSpacing: "0.08em", flexShrink: 0 }}>
                               {label}
                             </div>
                             <button
-                              onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.max(0, idx - 1)] }))}
+                              aria-label={t("Less time: {name}", { name: label })} onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.max(0, idx - 1)] }))}
                               disabled={idx === 0}
                               style={btnStyle(idx === 0)}
                             >−</button>
-                            <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 900, color: isRest ? C.muted : C.emerald }}>
+                            <div style={{ flex: 1, textAlign: "center", fontSize: 15, fontWeight: 900, color: isRest ? C.muted : C.accentText }}>
                               {fmtStep(val)}
                             </div>
                             <button
-                              onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.min(ADV_STEPS.length - 1, idx + 1)] }))}
+                              aria-label={t("More time: {name}", { name: label })} onClick={() => setWeeklySchedule(s => ({ ...s, [key]: ADV_STEPS[Math.min(ADV_STEPS.length - 1, idx + 1)] }))}
                               disabled={idx === ADV_STEPS.length - 1}
                               style={btnStyle(idx === ADV_STEPS.length - 1)}
                             >+</button>
@@ -887,9 +897,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: value > 0 ? C.text : C.muted }}>{label}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <button className="jf-tap" onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
-                        <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: value > 0 ? C.emerald : C.muted }}>{value}m</span>
-                        <button className="jf-tap" onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                        <button className="jf-tap" aria-label={t("Less time: {name}", { name: label })} onClick={onMinus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                        <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: value > 0 ? C.accentText : C.muted }}>{value}m</span>
+                        <button className="jf-tap" aria-label={t("More time: {name}", { name: label })} onClick={onPlus} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
                       </div>
                     </div>
                   );
@@ -899,7 +909,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     return (
                       <div style={{ marginBottom: 8 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, marginTop: 16 }}>
-                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
+                          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.accentText, textTransform: "uppercase", whiteSpace: "nowrap" }}>{title}</div>
                           <div style={{ flex: 1, height: 1, background: C.border }} />
                         </div>
                         {presetDefs.map(({ key, label }) => (
@@ -908,16 +918,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         ))}
                         {(profile.custom ?? []).map((c, idx) => (
                           <div key={idx} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 0", borderBottom: `1px solid ${C.border}` }}>
-                            <input
+                            <input aria-label={t("Activity name")}
                               value={c.label}
                               onChange={(e) => renameCustom(profileKey, idx, e.target.value)}
                               placeholder={t("e.g. Drive to gym")}
-                              style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 13, fontWeight: 700, outline: "none" }}
+                              style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, borderRadius: 8, padding: "4px 10px", color: C.text, fontSize: 16, fontWeight: 700 }}
                             />
-                            <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
-                            <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.emerald : C.muted }}>{c.minutes}m</span>
-                            <button className="jf-tap" onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
-                            <button className="jf-tap" onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: C.danger, cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
+                            <button className="jf-tap" aria-label={t("Less time")} onClick={() => stepCustom(profileKey, idx, -5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>−</button>
+                            <span style={{ width: 32, textAlign: "center", fontSize: 13, fontWeight: 900, color: c.minutes > 0 ? C.accentText : C.muted }}>{c.minutes}m</span>
+                            <button className="jf-tap" aria-label={t("More time")} onClick={() => stepCustom(profileKey, idx, 5)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, cursor: "pointer", fontSize: 16, lineHeight: 1 }}>+</button>
+                            <button className="jf-tap" aria-label={t("Remove")} onClick={() => removeCustom(profileKey, idx)} style={{ width: 28, height: 28, borderRadius: 8, border: `1px solid rgba(226,76,74,0.3)`, background: "rgba(226,76,74,0.08)", color: C.danger, cursor: "pointer", fontSize: 15, lineHeight: 1 }}>×</button>
                           </div>
                         ))}
                         {(profile.custom ?? []).length < 3 && (
@@ -935,7 +945,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <span />
                         <button
                           onClick={() => setOverheadEditMode((v) => !v)}
-                          style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.emerald : C.muted }}
+                          style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${overheadEditMode ? C.emeraldBorder : C.border}`, background: overheadEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: overheadEditMode ? C.accentText : C.muted }}
                         >
                           {overheadEditMode ? t("Done") : t("Edit")}
                         </button>
@@ -945,23 +955,25 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.8 }}>
                           {timeOverhead.enabled && (shortTotal > 0 || longTotal > 0) ? (
                             <span>
-                              {shortTotal > 0 && <span>{t("Quick session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{shortTotal} min</span> {t("overhead")}</span>}
-                              {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtle }}> · </span>}
-                              {longTotal > 0 && <span>{t("Full session")}: <span style={{ color: C.emerald, fontWeight: 800 }}>{longTotal} min</span> {t("overhead")}</span>}
+                              {shortTotal > 0 && <span>{t("Quick session")}: <span style={{ color: C.accentText, fontWeight: 800 }}>{shortTotal} min</span> {t("overhead")}</span>}
+                              {shortTotal > 0 && longTotal > 0 && <span style={{ color: C.subtleText }}> · </span>}
+                              {longTotal > 0 && <span>{t("Full session")}: <span style={{ color: C.accentText, fontWeight: 800 }}>{longTotal} min</span> {t("overhead")}</span>}
                             </span>
                           ) : (
-                            <span style={{ color: C.subtle, fontStyle: "italic" }}>{t("Not set — full window used for training")}</span>
+                            <span style={{ color: C.subtleText, fontStyle: "italic" }}>{t("Not set — full window used for training")}</span>
                           )}
                         </div>
                       ) : (
                         <div>
                           {/* Enable toggle */}
                           <div
+                            role="switch" aria-checked={!!timeOverhead.enabled} tabIndex={0} aria-label={t("Include overhead in planning")}
+                            onKeyDown={activateKey(() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled })))}
                             onClick={() => setTimeOverhead((o) => ({ ...o, enabled: !o.enabled }))}
                             style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "10px 12px", borderRadius: 12, marginBottom: 4, cursor: "pointer", background: timeOverhead.enabled ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${timeOverhead.enabled ? C.emeraldBorder : C.border}` }}
                           >
                             <div>
-                              <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.emerald : C.text }}>{t("Include overhead in planning")}</div>
+                              <div style={{ fontSize: 13, fontWeight: 800, color: timeOverhead.enabled ? C.accentText : C.text }}>{t("Include overhead in planning")}</div>
                               <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{t("Subtracts overhead from your available training window")}</div>
                             </div>
                             <div style={{ width: 36, height: 20, borderRadius: 999, background: timeOverhead.enabled ? C.emerald : C.subtle, position: "relative", flexShrink: 0, transition: "background 0.2s" }}>
@@ -983,7 +995,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <span />
                   <button
                     onClick={() => setEquipEditMode((v) => !v)}
-                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.emerald : C.muted }}
+                    style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${equipEditMode ? C.emeraldBorder : C.border}`, background: equipEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: equipEditMode ? C.accentText : C.muted }}
                   >
                     {equipEditMode ? t("Done") : t("Edit")}
                   </button>
@@ -993,12 +1005,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   /* ── Collapsed: show active chips only ── */
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginBottom: 20, minHeight: 32 }}>
                     {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                      <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No equipment — bodyweight only")}</span>
+                      <span style={{ fontSize: 12, color: C.subtleText, fontStyle: "italic" }}>{t("No equipment — bodyweight only")}</span>
                     ) : (
                       planEquipment.filter((v) => v !== "none").map((val) => {
                         const eq = ALL_EQUIPMENT.find((e) => e.value === val);
                         return eq ? (
-                          <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                          <span key={val} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText }}>
                             {t(eq.label)}
                           </span>
                         ) : null;
@@ -1015,14 +1027,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       onDrop={(e) => { e.preventDefault(); if (equipDragItem) moveEquip(equipDragItem, true); setEquipDragItem(null); setEquipDropZone(null); }}
                       style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${equipDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: equipDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
                     >
-                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.accentText, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                         {t("Your equipment")}
-                        <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
+                        <span style={{ background: C.emeraldDim, color: C.accentText, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                           {planEquipment.filter((v) => v !== "none").length}
                         </span>
                       </div>
                       {planEquipment.filter((v) => v !== "none").length === 0 ? (
-                        <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Drag items here or tap ✓ below")}</div>
+                        <div style={{ fontSize: 12, color: C.subtleText, fontStyle: "italic", padding: "4px 0" }}>{t("Drag items here or tap ✓ below")}</div>
                       ) : (
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                           {planEquipment.filter((v) => v !== "none").map((val) => {
@@ -1033,12 +1045,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                                 draggable
                                 onDragStart={(e) => { setEquipDragItem(val); e.dataTransfer.effectAllowed = "move"; }}
                                 onDragEnd={() => { setEquipDragItem(null); setEquipDropZone(null); }}
-                                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
+                                style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: equipDragItem === val ? 0.4 : 1 }}
                               >
                                 {t(eq.label)}
                                 <button
-                                  onClick={() => moveEquip(val, false)}
-                                  style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                                  aria-label={t("Remove {name}", { name: t(eq.label) })} onClick={() => moveEquip(val, false)}
+                                  style={{ background: "none", border: "none", color: C.accentText, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
                                   title={t("Remove")}
                                 >×</button>
                               </div>
@@ -1072,8 +1084,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                           >
                             {t(eq.label)}
                             <button
-                              onClick={() => moveEquip(eq.value, true)}
-                              style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                              aria-label={t("Add {name}", { name: t(eq.label) })} onClick={() => moveEquip(eq.value, true)}
+                              style={{ background: "none", border: "none", color: C.accentText, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
                               title={t("Add")}
                             >✓</button>
                           </div>
@@ -1089,7 +1101,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <span />
                     <button
                       onClick={() => setSportEditMode((v) => !v)}
-                      style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.emerald : C.muted }}
+                      style={{ padding: "4px 12px", borderRadius: 999, fontSize: 11, fontWeight: 800, cursor: "pointer", border: `1px solid ${sportEditMode ? C.emeraldBorder : C.border}`, background: sportEditMode ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: sportEditMode ? C.accentText : C.muted }}
                     >
                       {sportEditMode ? t("Done") : t("Edit")}
                     </button>
@@ -1101,12 +1113,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   {!sportEditMode ? (
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 6, minHeight: 32 }}>
                       {(sportPrefs.sports ?? []).length === 0 ? (
-                        <span style={{ fontSize: 12, color: C.subtle, fontStyle: "italic" }}>{t("No sports selected")}</span>
+                        <span style={{ fontSize: 12, color: C.subtleText, fontStyle: "italic" }}>{t("No sports selected")}</span>
                       ) : (
                         (sportPrefs.sports ?? []).map((id) => {
                           const sp = ALL_SPORTS.find((s) => s.id === id);
                           return sp ? (
-                            <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald }}>
+                            <span key={id} style={{ padding: "5px 12px", borderRadius: 999, fontSize: 12, fontWeight: 700, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText }}>
                               {t(sp.label)}
                             </span>
                           ) : null;
@@ -1122,14 +1134,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onDrop={(e) => { e.preventDefault(); if (sportDragItem) moveSport(sportDragItem, true); setSportDragItem(null); setSportDropZone(null); }}
                         style={{ borderRadius: 14, padding: "12px 14px", marginBottom: 10, border: `1.5px dashed ${sportDropZone === "active" ? C.emerald : C.emeraldBorder}`, background: sportDropZone === "active" ? C.emeraldDim : "rgba(var(--accent-rgb),0.04)", minHeight: 72, transition: "border-color 0.15s, background 0.15s" }}
                       >
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.emerald, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.accentText, textTransform: "uppercase", marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                           {t("Your sports")}
-                          <span style={{ background: C.emeraldDim, color: C.emerald, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
+                          <span style={{ background: C.emeraldDim, color: C.accentText, borderRadius: 999, padding: "1px 7px", fontSize: 11, fontWeight: 800 }}>
                             {(sportPrefs.sports ?? []).length}
                           </span>
                         </div>
                         {(sportPrefs.sports ?? []).length === 0 ? (
-                          <div style={{ fontSize: 12, color: C.subtle, fontStyle: "italic", padding: "4px 0" }}>{t("Tap ✓ below to add a sport")}</div>
+                          <div style={{ fontSize: 12, color: C.subtleText, fontStyle: "italic", padding: "4px 0" }}>{t("Tap ✓ below to add a sport")}</div>
                         ) : (
                           <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                             {(sportPrefs.sports ?? []).map((id) => {
@@ -1140,12 +1152,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                                   draggable
                                   onDragStart={(e) => { setSportDragItem(id); e.dataTransfer.effectAllowed = "move"; }}
                                   onDragEnd={() => { setSportDragItem(null); setSportDropZone(null); }}
-                                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
+                                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "5px 8px 5px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontSize: 12, fontWeight: 700, cursor: "grab", userSelect: "none", opacity: sportDragItem === id ? 0.4 : 1 }}
                                 >
                                   {t(sp.label)}
                                   <button
-                                    onClick={() => moveSport(id, false)}
-                                    style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
+                                    aria-label={t("Remove {name}", { name: t(sp.label) })} onClick={() => moveSport(id, false)}
+                                    style={{ background: "none", border: "none", color: C.accentText, cursor: "pointer", fontSize: 15, lineHeight: 1, padding: "0 2px", opacity: 0.7, fontWeight: 400 }}
                                     title={t("Remove")}
                                   >×</button>
                                 </div>
@@ -1179,8 +1191,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                             >
                               {t(sp.label)}
                               <button
-                                onClick={() => moveSport(sp.id, true)}
-                                style={{ background: "none", border: "none", color: C.emerald, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
+                                aria-label={t("Add {name}", { name: t(sp.label) })} onClick={() => moveSport(sp.id, true)}
+                                style={{ background: "none", border: "none", color: C.accentText, cursor: "pointer", fontSize: 13, lineHeight: 1, padding: "0 2px", fontWeight: 900 }}
                                 title={t("Add")}
                               >✓</button>
                             </div>
@@ -1276,8 +1288,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             </div>
           ))}
           {saveStatus === "saving" && <div className="jf-adv__save">{t("Saving…")}</div>}
-          {saveStatus === "saved"  && <div className="jf-adv__save jf-adv__save--ok">{t("All changes saved ✓")}</div>}
-          {saveStatus === "error"  && <div className="jf-adv__save jf-adv__save--err">{t("Save failed — check connection")}</div>}
+          {saveStatus === "saved"  && <div className="jf-adv__save jf-adv__save--ok" role="status">{t("All changes saved ✓")}</div>}
+          {saveStatus === "error"  && <div className="jf-adv__save jf-adv__save--err" role="alert">{t("Save failed — check connection")}</div>}
         </div>
       )}
     </div>
@@ -1297,7 +1309,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         ];
         const selected = TEST_TYPES.find(t => t.v === ftpTestType);
         return (
-          <div style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
+          <div ref={ftpDlgRef} {...dialogAttrs(t("FTP test"))} style={{ position: "fixed", inset: 0, background: "rgba(var(--bg-rgb),0.92)", zIndex: 70, display: "flex", alignItems: "flex-end", justifyContent: "center" }} onClick={() => setShowFtpTestModal(false)}>
             <div style={{ width: "100%", maxWidth: 560, background: C.sheet, borderRadius: "24px 24px 0 0", padding: "24px 20px calc(32px + env(safe-area-inset-bottom)) 20px", border: `1px solid ${C.border}` }} onClick={e => e.stopPropagation()}>
               <div style={{ width: 36, height: 4, borderRadius: 2, background: C.border, margin: "0 auto 20px" }} />
               <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 4 }}>FTP Test Result</div>
@@ -1307,7 +1319,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Test type</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {TEST_TYPES.map(t => (
-                    <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: ftpTestType === t.v ? C.emerald : C.muted }}>
+                    <button key={t.v} onClick={() => setFtpTestType(t.v)} style={{ padding: "6px 12px", borderRadius: 999, fontSize: 12, fontWeight: 800, cursor: "pointer", border: `1px solid ${ftpTestType === t.v ? C.emeraldBorder : C.border}`, background: ftpTestType === t.v ? C.emeraldDim : "rgba(var(--overlay-rgb),0.03)", color: ftpTestType === t.v ? C.accentText : C.muted }}>
                       {t.label}
                     </button>
                   ))}
@@ -1318,7 +1330,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>
                   {selected?.hint ?? 'Enter watts'}
                 </div>
-                <input
+                <input aria-label={t("Average watts")}
                   type="number" min={50} max={600} placeholder="e.g. 280"
                   value={ftpTestInput} onChange={e => setFtpTestInput(e.target.value)}
                   autoFocus
@@ -1328,7 +1340,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
               {previewFtp && (
                 <div style={{ marginBottom: 20, padding: "12px 16px", borderRadius: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}` }}>
-                  <div style={{ fontSize: 11, fontWeight: 900, color: C.emerald, marginBottom: 2 }}>New FTP</div>
+                  <div style={{ fontSize: 11, fontWeight: 900, color: C.accentText, marginBottom: 2 }}>New FTP</div>
                   <div style={{ fontSize: 28, fontWeight: 900, color: C.text }}>{previewFtp}W</div>
                   <div style={{ fontSize: 11, color: C.muted }}>{selected?.formula} = {previewFtp}W</div>
                 </div>
@@ -1348,7 +1360,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       })()}
 
       {activeDoc && (
-        <div style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "calc(80px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom)) 20px" }}>
+        <div ref={docDlgRef} {...dialogAttrs(t(activeDoc.title))} style={{ position: "fixed", inset: 0, background: C.bg, zIndex: 60, overflowY: "auto", padding: "calc(80px + env(safe-area-inset-top)) 20px calc(48px + env(safe-area-inset-bottom)) 20px" }}>
           <div style={{ position: "fixed", top: 0, left: 0, right: 0, zIndex: 61, background: C.bg, borderBottom: `1px solid ${C.border}`, paddingTop: "calc(16px + env(safe-area-inset-top))", paddingBottom: "16px", paddingLeft: "max(20px, env(safe-area-inset-left))", paddingRight: "max(20px, env(safe-area-inset-right))", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <button
               onClick={() => setActiveDoc(null)}
@@ -1361,7 +1373,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 href={activeDoc.externalUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                style={{ fontSize: 13, fontWeight: 800, color: C.emerald, textDecoration: "none" }}
+                style={{ fontSize: 13, fontWeight: 800, color: C.accentText, textDecoration: "none" }}
               >
                 See full page →
               </a>
@@ -1376,12 +1388,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {t(activeDoc.title)}
           </h2>
           <div style={{ marginBottom: 28 }}>
-            <div style={{ fontSize: 13, fontWeight: 900, color: C.emerald, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 900, color: C.accentText, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>
               Summary
             </div>
             {activeDoc.summaryBullets.map((bullet, i) => (
               <div key={i} style={{ display: "flex", gap: 10, marginBottom: 10, alignItems: "flex-start" }}>
-                <span style={{ color: C.emerald, fontWeight: 900, fontSize: 14, flexShrink: 0, marginTop: 1 }}>·</span>
+                <span style={{ color: C.accentText, fontWeight: 900, fontSize: 14, flexShrink: 0, marginTop: 1 }}>·</span>
                 <p style={{ fontSize: 14, color: C.text, lineHeight: 1.7, margin: 0, fontWeight: 600 }}>{bullet}</p>
               </div>
             ))}
@@ -1438,8 +1450,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       ) : (
         <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 28 }}>
           <button
+            aria-label={t("Back")}
             onClick={() => setSubView(null)}
-            style={{ padding: "8px 16px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontWeight: 900, fontSize: 18, cursor: "pointer", lineHeight: 1, flexShrink: 0 }}
+            className="jf-back-btn"
           >
             ‹
           </button>
@@ -1504,7 +1517,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           );
         };
         const chip = (on, onClick, label, key) => (
-          <button key={key ?? label} className={`jf-dc__chip${on ? " jf-dc__chip--on" : ""}`} onClick={onClick}>{label}</button>
+          <button aria-pressed={on} key={key ?? label} className={`jf-dc__chip${on ? " jf-dc__chip--on" : ""}`} onClick={onClick}>{label}</button>
         );
         const note = (title, body, tone = "") => (
           <div className={`jf-dc__note${tone ? ` jf-dc__note--${tone}` : ""}`}>
@@ -1552,7 +1565,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div className="jf-dc__label">{t("Your goal")}</div>
               <div className="jf-dc__goals">
                 {GOALS.map(g => (
-                  <button key={g.value} className={`jf-dc__goal${goalSel === g.value ? " jf-dc__goal--on" : ""}`} onClick={() => auto ? saveGeneralChip("goal", g.value, localExpLevel) : setGoalSel(g.value)}>
+                  <button aria-pressed={goalSel === g.value} key={g.value} className={`jf-dc__goal${goalSel === g.value ? " jf-dc__goal--on" : ""}`} onClick={() => auto ? saveGeneralChip("goal", g.value, localExpLevel) : setGoalSel(g.value)}>
                     <GoalIcon value={g.value} size={20} />
                     <span>{t(g.label)}</span>
                   </button>
@@ -1564,7 +1577,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div className="jf-dc__label">{t("Experience level")}</div>
               <div className="jf-dc__seg">
                 {EXPERIENCE.map(ex => (
-                  <button key={ex.value} className={`jf-dc__seg-btn${localExpLevel === ex.value ? " jf-dc__seg-btn--on" : ""}`} onClick={() => auto ? saveGeneralChip("exp", goalSel, ex.value) : setLocalExpLevel(ex.value)}>
+                  <button aria-pressed={localExpLevel === ex.value} key={ex.value} className={`jf-dc__seg-btn${localExpLevel === ex.value ? " jf-dc__seg-btn--on" : ""}`} onClick={() => auto ? saveGeneralChip("exp", goalSel, ex.value) : setLocalExpLevel(ex.value)}>
                     <span className="jf-dc__seg-title">{t(ex.label)}</span>
                   </button>
                 ))}
@@ -1735,7 +1748,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div className="jf-dc__label">{t("Mode")}</div>
                 <div className="jf-dc__seg">
                   {[["target", "Target date", "Assessment on a set date"], ["fit", "Fit target", "Goal level, no fixed date"], ["open", "Open", "No goal or end date"]].map(([v, label, sub]) => (
-                    <button key={v} className={`jf-dc__seg-btn${milMode === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => setMilMode(v)}>
+                    <button aria-pressed={milMode === v} key={v} className={`jf-dc__seg-btn${milMode === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => setMilMode(v)}>
                       <span className="jf-dc__seg-title">{t(label)}</span>
                       <span className="jf-dc__seg-sub">{t(sub)}</span>
                     </button>
@@ -1748,7 +1761,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <div className="jf-dc__label">{t("Track")}</div>
                     <div className="jf-dc__seg">
                       {[["keuring", "Keuring", "Fitness assessment · Basis → K6"], ["opleiding", "Opleiding", "Training programme · O1 → O6"]].map(([v, title, sub]) => (
-                        <button key={v} className={`jf-dc__seg-btn${milTrack === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => { setMilTrack(v); setMilCluster(3); }}>
+                        <button aria-pressed={milTrack === v} key={v} className={`jf-dc__seg-btn${milTrack === v ? " jf-dc__seg-btn--on" : ""}`} onClick={() => { setMilTrack(v); setMilCluster(3); }}>
                           <span className="jf-dc__seg-title">{title}</span>
                           <span className="jf-dc__seg-sub">{t(sub)}</span>
                         </button>
@@ -1833,7 +1846,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <div className="jf-dc">
             {/* ── JE PAD ── */}
             <div className="jf-dc__section">
-              <div className="jf-dc__eyebrow">{t("Your path")}</div>
+              <h2 className="jf-dc__eyebrow">{t("Your path")}</h2>
               <div className="jf-dc__card">
                 <div className="jf-dc__path-head">
                   {activeCoach === "military" && <MilitaryIcon size={20} />}
@@ -1852,7 +1865,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {/* ── the active coach, expanded ── */}
             {activeCoach !== "general" && (
               <div className="jf-dc__section">
-                <div className="jf-dc__eyebrow">{t(activeCoach === "military" ? "MILITARY COACH" : activeCoach === "running" ? "RUNNING COACH" : "CYCLING COACH")}</div>
+                <h2 className="jf-dc__eyebrow">{t(activeCoach === "military" ? "MILITARY COACH" : activeCoach === "running" ? "RUNNING COACH" : "CYCLING COACH")}</h2>
                 <div className="jf-dc__card">{blockFor(activeCoach)}</div>
               </div>
             )}
@@ -1861,7 +1874,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
             {/* ── ANDERE COACHES ── */}
             <div className="jf-dc__section">
-              <div className="jf-dc__eyebrow">{t("Other coaches")}</div>
+              <h2 className="jf-dc__eyebrow">{t("Other coaches")}</h2>
               <div className="jf-dc__others">
                 {others.map(id => (
                   <div key={id} className="jf-dc__other">
@@ -1878,7 +1891,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
             {/* ── TRAININGSDAGEN · SESSIEDUUR ── */}
             <div className="jf-dc__section">
-              <div className="jf-dc__eyebrow">{t("Training days")}</div>
+              <h2 className="jf-dc__eyebrow">{t("Training days")}</h2>
               <div className="jf-dc__days">
                 {[2, 3, 4, 5].map(n => <button key={n} className={`jf-dc__day${daysPerWeek === n ? " jf-dc__day--on" : ""}`} aria-pressed={daysPerWeek === n} onClick={() => handleDays(n)}>{n}x</button>)}
               </div>
@@ -1887,7 +1900,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 : t("No weekly target — the planner plans a session every day.")}</div>}
             </div>
             <div className="jf-dc__section">
-              <div className="jf-dc__eyebrow">{t("Session length")}</div>
+              <h2 className="jf-dc__eyebrow">{t("Session length")}</h2>
               <div className="jf-dc__days">
                 {[15, 30, 45, 60].map(m => <button key={m} className={`jf-dc__day${sessionMins === m ? " jf-dc__day--on" : ""}`} aria-pressed={sessionMins === m} onClick={() => handleMins(m)}>{m}m</button>)}
               </div>
@@ -1897,7 +1910,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             {/* UAT R5 — Materiaal stays visible: the kit decides which exercises exist at all (and the
                 running coach needs the shoes). The full editor lives in Geavanceerd; this row opens it. */}
             <div className="jf-dc__section">
-              <div className="jf-dc__eyebrow">{t("Equipment")}</div>
+              <h2 className="jf-dc__eyebrow">{t("Equipment")}</h2>
               <button className="jf-dc__kit" onClick={() => openAdvanced("equipment")}>
                 <span className="jf-dc__kit-val">{advRows.find((r) => r.id === "equipment")?.value}</span>
                 <span className="jf-dc__chev" aria-hidden="true">›</span>
@@ -1916,7 +1929,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && (<>
       {/* ── Known Injuries ──────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Known Injuries")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -1932,7 +1945,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
             ].map(({ k, l }) => {
               const active = (prefs.preferences?.chronic_injury_areas ?? []).includes(k);
               return (
-                <button
+                <button aria-pressed={active}
                   key={k}
                   onClick={() => {
                     const current = prefs.preferences?.chronic_injury_areas ?? [];
@@ -1942,7 +1955,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       .then(() => onUpdate(p => ({ ...p, preferences: newPrefs })))
                       .catch(() => {});
                   }}
-                  style={{ padding: "8px 16px", borderRadius: 14, background: active ? "rgba(239,68,68,0.15)" : "rgba(var(--overlay-rgb),0.05)", color: active ? C.danger : C.subtle, border: active ? "1px solid rgba(239,68,68,0.4)" : `1px solid ${C.border}`, fontWeight: active ? 700 : 500, fontSize: 13, cursor: "pointer" }}
+                  className={`jf-warn-chip${active ? " jf-warn-chip--on" : ""}`}
                 >
                   {l}
                 </button>
@@ -1960,19 +1973,19 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Body profile — you sub-view ──────────────────────── */}
       {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Your profile")}
         </div>
         <Glass style={{ padding: 24 }}>
           {/* Display name */}
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Display name")}</div>
-            <input
+            <input aria-label={t("Display name")}
               type="text"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
               placeholder={t("Your name")}
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontWeight: 700, boxSizing: "border-box" }}
             />
           </div>
 
@@ -1993,7 +2006,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       setProfileSex(opt.value);
                     }
                   }}
-                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: profileSex === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                  style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${profileSex === opt.value ? C.emeraldBorder : C.border}`, background: profileSex === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: profileSex === opt.value ? C.accentText : C.muted, cursor: "pointer" }}
                 >
                   {t(opt.label)}
                 </button>
@@ -2005,16 +2018,16 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Weight")}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input
+              <input aria-label={t("Weight")}
                 type="number"
                 value={profileWeight}
                 onChange={(e) => setProfileWeight(e.target.value)}
                 placeholder={profileWeightUnit === "kg" ? t("e.g. 70") : t("e.g. 154")}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontWeight: 700 }}
               />
               <button
                 onClick={() => setProfileWeightUnit(u => u === "kg" ? "lbs" : "kg")}
-                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
+                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
               >
                 {profileWeightUnit}
               </button>
@@ -2024,12 +2037,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           <div style={{ marginBottom: 20 }}>
             <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>{t("Height")}</div>
             <div style={{ display: "flex", gap: 8 }}>
-              <input
+              <input aria-label={t("Height")}
                 type="number"
                 value={profileHeight}
                 onChange={(e) => setProfileHeight(e.target.value)}
                 placeholder={profileHeightUnit === "cm" ? t("e.g. 175") : t("e.g. 69")}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 15, fontWeight: 700, outline: "none" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontWeight: 700 }}
               />
               <button
                 onClick={() => {
@@ -2041,7 +2054,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     if (profileHeight) setProfileHeight(String(Math.round(parseFloat(profileHeight) * 2.54)));
                   }
                 }}
-                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
+                style={{ padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 13, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, cursor: "pointer", minWidth: 52, flexShrink: 0 }}
               >
                 {profileHeightUnit}
               </button>
@@ -2053,7 +2066,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               if (!wkg || !hcm || hcm === 0) return null;
               const bmi = wkg / ((hcm / 100) ** 2);
               const { label, color } = bmi < 18.5 ? { label: t("Underweight"), color: "#60a5fa" }
-                : bmi < 25 ? { label: t("Normal"), color: C.emerald }
+                : bmi < 25 ? { label: t("Normal"), color: C.accentText }
                 : bmi < 30 ? { label: t("Overweight"), color: C.amber }
                 : bmi < 35 ? { label: t("Obese I"), color: "#f97316" }
                 : { label: t("Obese II"), color: C.danger };
@@ -2066,7 +2079,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </div>
                   {isObese && (
                     <div style={{ marginTop: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${C.border}` }}>
-                      <div style={{ fontSize: 12, color: C.emerald, lineHeight: 1.7, fontWeight: 700, marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, color: C.accentText, lineHeight: 1.7, fontWeight: 700, marginBottom: 8 }}>
                         {t("Consistency and will always produce results — every session counts.")}
                       </div>
                       <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7 }}>
@@ -2149,7 +2162,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   <button
                     key={opt.value}
                     onClick={() => setCycleTrackingMode(opt.value)}
-                    style={{ flex: 1, padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${cycleTrackingMode === opt.value ? C.emeraldBorder : C.border}`, background: cycleTrackingMode === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleTrackingMode === opt.value ? C.emerald : C.muted, cursor: "pointer" }}
+                    style={{ flex: 1, padding: "10px 16px", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${cycleTrackingMode === opt.value ? C.emeraldBorder : C.border}`, background: cycleTrackingMode === opt.value ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleTrackingMode === opt.value ? C.accentText : C.muted, cursor: "pointer" }}
                   >
                     {opt.label}
                   </button>
@@ -2159,11 +2172,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <>
                   <div style={{ marginBottom: 12 }}>
                     <div style={{ fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("Last period start")}</div>
-                    <input
+                    <input aria-label={t("Last period start")}
                       type="date"
                       value={lastPeriodStart}
                       onChange={(e) => setLastPeriodStart(e.target.value)}
-                      style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, fontWeight: 700, boxSizing: "border-box", outline: "none" }}
+                      style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontWeight: 700, boxSizing: "border-box" }}
                     />
                   </div>
                   <div>
@@ -2173,7 +2186,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <button
                           key={d}
                           onClick={() => setCycleLength(d)}
-                          style={{ padding: "6px 12px", borderRadius: 10, fontWeight: 900, fontSize: 13, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleLength === d ? C.emerald : C.muted, cursor: "pointer" }}
+                          style={{ padding: "6px 12px", borderRadius: 10, fontWeight: 900, fontSize: 13, border: `1px solid ${cycleLength === d ? C.emeraldBorder : C.border}`, background: cycleLength === d ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)", color: cycleLength === d ? C.accentText : C.muted, cursor: "pointer" }}
                         >
                           {d}
                         </button>
@@ -2215,7 +2228,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   >
                     {pregnancySaving ? t("Saving…") : t("Enable perimenopause mode →")}
                   </button>
-                  <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5 }}>
+                  <div style={{ fontSize: 11, color: C.subtleText, lineHeight: 1.5 }}>
                     {t("Pregnancy mode: full journey from conception to 3 months postnatal. Perimenopause mode: lowers stress threshold, caps intensity at moderate, pauses cycle phase rules.")}
                   </div>
                 </div>
@@ -2265,12 +2278,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 14, padding: 16 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 2 of 2 — Your due date")}</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("When is your estimated due date?")}</div>
-                  <input
+                  <input aria-label={t("Due date")}
                     type="date"
                     value={pregnancyDueDate}
                     min={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setPregnancyDueDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ fontSize: 11, color: C.muted, marginBottom: 14, lineHeight: 1.6 }}>
                     {t("Your due date helps us calculate your trimester and adapt sessions accordingly. You can update it anytime.")}
@@ -2370,13 +2383,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           )}
 
           {saveStatus === "saving" && <div style={{ fontSize: 12, color: C.muted, textAlign: "center" }}>{t("Saving…")}</div>}
-          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: "var(--accent)", textAlign: "center", fontWeight: 700 }}>{t("All changes saved ✓")}</div>}
+          {saveStatus === "saved"  && <div style={{ fontSize: 12, color: C.accentText, textAlign: "center", fontWeight: 700 }}>{t("All changes saved ✓")}</div>}
           {saveStatus === "error"  && <div style={{ fontSize: 12, color: C.danger, textAlign: "center" }}>{t("Save failed — check connection")}</div>}
         </Glass>
 
         {/* Sex-change warning modal */}
         {showSexWarning && (
           <div
+            ref={sexDlgRef} {...dialogAttrs(t("Change sex setting?"))}
             onClick={() => setShowSexWarning(false)}
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 200, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
           >
@@ -2402,7 +2416,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 {cycleTrackingMode === "smart" && (
                   <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 12, background: "rgba(var(--accent-rgb),0.06)", border: `1px solid ${C.emeraldBorder}` }}>
                     <Icons.refresh size={16} c={C.emerald} />
-                    <span style={{ fontSize: 13, fontWeight: 700, color: C.emerald }}>{t("Smart cycle tracking")}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.accentText }}>{t("Smart cycle tracking")}</span>
                   </div>
                 )}
               </div>
@@ -2430,7 +2444,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "account" && (<>
         {/* ── Subscription section ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Abonnement</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>Abonnement</div>
           <Glass style={{ padding: 24 }}>
             {(() => {
               // Lazy-load subscription data when this section first renders
@@ -2459,7 +2473,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         <div style={{ fontSize: 16, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>JustFit Pro</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{planLabel}{ebLabel}</div>
                       </div>
-                      <div style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 900, background: isGrace ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)", color: isGrace ? C.warning : C.emerald }}>
+                      <div style={{ padding: "4px 10px", borderRadius: 8, fontSize: 11, fontWeight: 900, background: isGrace ? "rgba(245,158,11,0.15)" : "rgba(16,185,129,0.12)", color: isGrace ? C.warning : C.accentText }}>
                         {isGrace ? "Betalingsprobleem" : "Actief"}
                       </div>
                     </div>
@@ -2527,7 +2541,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           }
           return (
             <div style={{ marginBottom: 32 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Early Access</div>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>Early Access</div>
               <Glass style={{ padding: 20 }}>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -2537,7 +2551,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     </div>
                   </div>
                   <button
-                    onClick={toggleEarlyAccess}
+                    role="switch" aria-checked={!!earlyAccessOn} aria-label="Vroege toegang nieuwe functies" onClick={toggleEarlyAccess}
                     style={{ flexShrink: 0, width: 44, height: 26, borderRadius: 13, border: "none", cursor: "pointer", transition: "background 0.2s",
                       background: earlyAccessOn ? "var(--accent)" : "rgba(var(--overlay-rgb),0.1)",
                       position: "relative" }}
@@ -2546,7 +2560,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </button>
                 </div>
                 {earlyAccessOn && (
-                  <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 12, color: C.emerald }}>
+                  <div style={{ marginTop: 12, padding: "8px 12px", borderRadius: 10, background: "rgba(16,185,129,0.08)", border: "1px solid rgba(16,185,129,0.2)", fontSize: 12, color: C.accentText }}>
                     Early access actief — je ontvangt nieuwe functies zodra ze beschikbaar zijn.
                   </div>
                 )}
@@ -2558,7 +2572,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* ── Referral section ── */}
         {!!prefs.email && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Geef een vriend een cadeau</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>Geef een vriend een cadeau</div>
             <Glass style={{ padding: 24 }}>
               {(() => {
                 if (!referralData && !referralLoading) {
@@ -2576,14 +2590,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     </div>
                     {/* Referral code display */}
                     <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 16 }}>
-                      <div style={{ flex: 1, background: "rgba(16,185,129,0.08)", border: `1px solid ${C.emeraldBorder}`, borderRadius: 10, padding: "10px 14px", fontFamily: "monospace", fontSize: 18, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald }}>{code}</div>
+                      <div style={{ flex: 1, background: "rgba(16,185,129,0.08)", border: `1px solid ${C.emeraldBorder}`, borderRadius: 10, padding: "10px 14px", fontFamily: "monospace", fontSize: 18, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText }}>{code}</div>
                       <button
                         onClick={() => { navigator.clipboard?.writeText(code); }}
                         style={{ padding: "10px 14px", borderRadius: 10, border: `1px solid ${C.border}`, background: "transparent", color: C.muted, fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}
                       >Kopieer</button>
                     </div>
                     {stats.rewarded > 0 && (
-                      <div style={{ fontSize: 12, color: C.emerald, marginBottom: 16 }}>
+                      <div style={{ fontSize: 12, color: C.accentText, marginBottom: 16 }}>
                         ✓ {stats.rewarded} vriend{stats.rewarded !== 1 ? 'en' : ''} beloond
                       </div>
                     )}
@@ -2591,15 +2605,15 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 16, marginTop: 4 }}>
                       <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: C.muted, textTransform: "uppercase", marginBottom: 8 }}>Code van een vriend invullen</div>
                       {redeemState === "done" ? (
-                        <div style={{ fontSize: 13, color: C.emerald, fontWeight: 700 }}>✓ 14 dagen Pro toegevoegd!</div>
+                        <div style={{ fontSize: 13, color: C.accentText, fontWeight: 700 }}>✓ 14 dagen Pro toegevoegd!</div>
                       ) : (
                         <div style={{ display: "flex", gap: 8 }}>
-                          <input
+                          <input aria-label={t("Redeem code")}
                             value={redeemCode}
                             onChange={e => { setRedeemCode(e.target.value.toUpperCase()); setRedeemMsg(""); }}
                             placeholder="JF…"
                             maxLength={12}
-                            style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 14, fontFamily: "monospace", outline: "none" }}
+                            style={{ flex: 1, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 10, padding: "10px 12px", color: C.text, fontSize: 16, fontFamily: "monospace" }}
                           />
                           <button
                             disabled={redeemState === "loading" || !redeemCode.trim()}
@@ -2625,7 +2639,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         )}
 
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>{t("Email & identity")}</div>
           <Glass style={{ padding: 24 }}>
             {/* UAT R5 — a guest has no email: one row that opens the guest-convert flow, no Resend / Enter code */}
             {prefs.email === null ? (
@@ -2645,7 +2659,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{prefs.email ?? "—"}</div>
                     <div style={{ fontSize: 12, color: "#10b981", fontWeight: 700, marginTop: 2 }}>✓ {t("Verified")}</div>
                   </div>
-                  <button onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
+                  <button onClick={() => { setEmailStep("change_enter"); setEmailInput(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.accentText }}>
                     {t("Change email →")}
                   </button>
                 </div>
@@ -2660,7 +2674,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       <button disabled={emailLoading} onClick={async () => { setEmailLoading(true); await api.resendVerification().catch(() => {}); setEmailLoading(false); setEmailSuccess(t("Verification email sent")); setTimeout(() => setEmailSuccess(""), 4000); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", fontSize: 12, fontWeight: 900, color: C.muted }}>
                         {emailLoading ? t("Sending…") : t("Resend")}
                       </button>
-                      <button onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.emerald }}>
+                      <button onClick={() => { setEmailStep("verify_code"); setEmailCode(""); setEmailError(""); }} style={{ padding: "10px 14px", borderRadius: 14, cursor: "pointer", border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, fontSize: 12, fontWeight: 900, color: C.accentText }}>
                         {t("Enter code")}
                       </button>
                     </div>
@@ -2690,7 +2704,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "privacy" && (<>
         {/* ── Privacy Centre header ── */}
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>{t("Privacy Centre")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 8 }}>{t("Privacy Centre")}</div>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
             {t("JustFit stores only what is needed to run your training. Your data is never sold and never used for advertising. Below is an honest account of what we hold and who can see it.")}
           </div>
@@ -2698,7 +2712,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── What we store ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("What we store")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>{t("What we store")}</div>
           <Glass style={{ padding: 0 }}>
             {[
               { label: t("Identity"), detail: t("Email address, display name"), purpose: t("Account login and essential notifications"), visible: t("JustFit only") },
@@ -2711,12 +2725,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div key={row.label} style={{ padding: "14px 20px", borderBottom: i < arr.length - 1 ? `1px solid ${C.border}` : "none" }}>
                 <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 8, marginBottom: 3 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>{row.label}</div>
-                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: row.trainer ? C.warning : C.emerald, textTransform: "uppercase", flexShrink: 0 }}>
+                  <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: row.trainer ? C.warning : C.accentText, textTransform: "uppercase", flexShrink: 0 }}>
                     {row.trainer ? t("Trainer visible") : t("Private")}
                   </div>
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.5 }}>{row.detail}</div>
-                <div style={{ fontSize: 11, color: C.subtle, marginTop: 3, lineHeight: 1.4 }}>{t("Used for: {what}", { what: row.purpose })}</div>
+                <div style={{ fontSize: 11, color: C.subtleText, marginTop: 3, lineHeight: 1.4 }}>{t("Used for: {what}", { what: row.purpose })}</div>
                 {row.trainer && (
                   <div style={{ fontSize: 11, color: C.warning, marginTop: 3 }}>{row.visible}</div>
                 )}
@@ -2728,7 +2742,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* ── Trainer visibility (only when connected to a gym) ── */}
         {prefs.gym_name && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Trainer visibility")}</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>{t("Trainer visibility")}</div>
             <Glass style={{ padding: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 8 }}>{t("Connected")}: {prefs.gym_name}</div>
               <div style={{ fontSize: 12, color: C.muted, lineHeight: 1.7, marginBottom: 12 }}>
@@ -2743,11 +2757,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── Integration data (Strava) ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Integration data")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>{t("Integration data")}</div>
           <Glass style={{ padding: 20 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text }}>Strava</div>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.emerald : C.subtle, textTransform: "uppercase" }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.08em", color: prefs.strava_connected ? C.accentText : C.subtleText, textTransform: "uppercase" }}>
                 {prefs.strava_connected ? t("Connected") : t("Not connected")}
               </div>
             </div>
@@ -2762,7 +2776,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {/* ── Data controls ── */}
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>{t("Your controls")}</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>{t("Your controls")}</div>
           <Glass style={{ padding: 24 }}>
             <div style={{ marginBottom: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Export your data")}</div>
@@ -2780,10 +2794,10 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   setExportMsg("Downloaded.");
                 } catch { setExportMsg("Export failed — please try again."); }
                 setExporting(false);
-              }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: exporting ? C.subtle : C.muted, opacity: exporting ? 0.6 : 1 }}>
+              }} style={{ padding: "10px 18px", borderRadius: 14, fontSize: 13, fontWeight: 800, cursor: exporting ? "default" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: exporting ? C.subtleText : C.muted, opacity: exporting ? 0.6 : 1 }}>
                 {exporting ? t("Preparing…") : t("Download my data (JSON)")}
               </button>
-              {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.emerald, marginTop: 8 }}>{t(exportMsg)}</div>}
+              {exportMsg && <div style={{ fontSize: 12, fontWeight: 700, color: exportMsg.startsWith("Export failed") ? "#f43f5e" : C.accentText, marginTop: 8 }}>{t(exportMsg)}</div>}
             </div>
             <div style={{ borderTop: `1px solid ${C.border}`, paddingTop: 20 }}>
               <div style={{ fontSize: 13, fontWeight: 800, color: C.text, marginBottom: 4 }}>{t("Delete your account")}</div>
@@ -2799,14 +2813,14 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Integrations ──────────────────────────────────────────────────── */}
       {subView === "coach" && stravaAvailable && (
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Integrations")}
         </div>
         <Glass style={{ padding: 20 }}>
           {/* Header row */}
           <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 12 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: "rgba(252,76,2,0.12)", border: "1px solid rgba(252,76,2,0.3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+              <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none">
                 <path d="M15.387 17.944l-2.089-4.116h-3.065L15.387 24l5.15-10.172h-3.066l-2.084 4.116z" fill="#FC4C02" />
                 <path d="M11.094 13.828l2.525-4.977 2.524 4.977h2.948L15.619 6H13.62l-4.952 10.172h2.426z" fill="#FC4C02" opacity="0.8" />
               </svg>
@@ -2902,7 +2916,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   </div>
                 </div>
                 <button
-                  onClick={() => handleStravaPushToggle(!stravaConnection.push_enabled)}
+                  role="switch" aria-checked={!!stravaConnection.push_enabled} aria-label={t("Upload sessions to Strava")} onClick={() => handleStravaPushToggle(!stravaConnection.push_enabled)}
                   disabled={stravaPushSaving}
                   aria-pressed={!!stravaConnection.push_enabled}
                   style={{ flexShrink: 0, width: 46, height: 26, borderRadius: 13, cursor: "pointer", padding: 3, border: `1px solid ${stravaConnection.push_enabled ? "rgba(252,76,2,0.5)" : C.border}`, background: stravaConnection.push_enabled ? "rgba(252,76,2,0.25)" : "rgba(var(--overlay-rgb),0.04)", display: "flex", justifyContent: stravaConnection.push_enabled ? "flex-end" : "flex-start", alignItems: "center" }}
@@ -2945,25 +2959,25 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         {/* Push notifications */}
         {'Notification' in window && 'serviceWorker' in navigator && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>Notificaties</div>
             <Glass style={{ padding: 20 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                 <div style={{ fontSize: 14, fontWeight: 800, color: C.text }}>Dagelijkse trainingsherinnering</div>
                 {!effectiveIsPro && (
-                  <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: "var(--accent)", textTransform: "uppercase" }}>Pro</span>
+                  <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", padding: "2px 6px", borderRadius: 4, background: "rgba(var(--accent-rgb),0.12)", color: C.accentText, textTransform: "uppercase" }}>Pro</span>
                 )}
               </div>
               <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, lineHeight: 1.6 }}>Ontvang een melding als je je training voor vandaag nog niet hebt gedaan.</div>
-              {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.emerald : C.danger, marginBottom: 12 }}>{pushMsg}</div>}
+              {pushMsg && <div style={{ fontSize: 12, color: pushMsg.startsWith('✓') ? C.accentText : C.danger, marginBottom: 12 }}>{pushMsg}</div>}
               {pushState === "denied" && <div style={{ fontSize: 12, color: C.danger, marginBottom: 12 }}>Notificaties geblokkeerd. Sta ze toe via je browserinstellingen.</div>}
               {!effectiveIsPro ? (
                 <button onClick={onUpgrade}
-                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: "var(--accent)" }}>
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: "pointer", border: "1px solid rgba(var(--accent-rgb),0.3)", background: "rgba(var(--accent-rgb),0.08)", color: C.accentText }}>
                   Upgrade naar Pro →
                 </button>
               ) : pushState !== "subscribed" && Notification.permission !== "granted" ? (
                 <button onClick={handleEnablePush} disabled={pushState === "requesting" || pushState === "denied"}
-                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: pushState === "denied" ? 0.4 : 1 }}>
+                  style={{ width: "100%", padding: "11px 16px", borderRadius: 12, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.accentText, fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", opacity: pushState === "denied" ? 0.4 : 1 }}>
                   {pushState === "requesting" ? "Bezig…" : "Inschakelen"}
                 </button>
               ) : (
@@ -2978,7 +2992,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
         {passkeySupported && (
           <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
               Security
             </div>
             <Glass style={{ padding: 20 }}>
@@ -2991,7 +3005,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   fontSize: 12, padding: "10px 14px", borderRadius: 10, marginBottom: 14,
                   background: passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.1)" : "rgba(226,76,74,0.1)",
                   border: `1px solid ${passkeyMsg.startsWith("✓") ? "rgba(var(--accent-rgb),0.3)" : "rgba(226,76,74,0.3)"}`,
-                  color: passkeyMsg.startsWith("✓") ? C.emerald : C.danger,
+                  color: passkeyMsg.startsWith("✓") ? C.accentText : C.danger,
                 }}>
                   {t(passkeyMsg)}
                 </div>
@@ -3003,7 +3017,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                   width: "100%", padding: "11px 16px", borderRadius: 12,
                   background: addingPasskey ? "rgba(var(--overlay-rgb),0.03)" : C.emeraldDim,
                   border: `1px solid ${C.emeraldBorder}`,
-                  color: C.emerald, fontWeight: 800, fontSize: 13,
+                  color: C.accentText, fontWeight: 800, fontSize: 13,
                   cursor: addingPasskey ? "not-allowed" : "pointer",
                   opacity: addingPasskey ? 0.6 : 1,
                 }}
@@ -3019,7 +3033,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "you" && (
       <div style={{ marginBottom: 32 }}>
         {/* ── Appearance ── */}
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Appearance")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -3050,7 +3064,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       flex: 1, padding: "9px 0", borderRadius: 12, fontWeight: 900, fontSize: 13, cursor: "pointer",
                       border: `1px solid ${active ? C.emeraldBorder : C.border}`,
                       background: active ? C.emeraldDim : "rgba(var(--overlay-rgb),0.04)",
-                      color: active ? C.emerald : C.muted,
+                      color: active ? C.accentText : C.muted,
                     }}
                   >
                     {opt.label}
@@ -3079,6 +3093,8 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <button
                   key={ac.id}
                   title={t(ac.name)}
+                  aria-label={t(ac.name)}
+                  aria-pressed={selected}
                   onClick={() => {
                     setAccentHex(ac.hex);
                     applyAccent(ac.hex);
@@ -3088,11 +3104,9 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     borderRadius: "50%",
                     background: ac.hex,
                     border: selected ? `3px solid ${C.text}` : "3px solid transparent",
-                    outline: selected ? `2px solid ${ac.hex}` : "none",
-                    outlineOffset: 2,
                     cursor: "pointer",
                     padding: 0,
-                    boxShadow: selected ? `0 0 0 1px ${ac.hex}` : "none",
+                    boxShadow: selected ? `0 0 0 3px ${C.bg}, 0 0 0 5px ${ac.hex}` : "none",
                     transition: "transform 0.12s, box-shadow 0.12s",
                     transform: selected ? "scale(1.15)" : "scale(1)",
                     flexShrink: 0,
@@ -3111,7 +3125,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {subView === "privacy" && (<>
       {/* ── Feedback ── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Feedback")}
         </div>
         <Glass style={{ padding: 24 }}>
@@ -3126,12 +3140,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               <div style={{ fontSize: 13, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
                 {t("Bugs, ideas, or just a note — we read everything.")}
               </div>
-              <textarea
+              <textarea aria-label={t("Your message")}
                 value={feedbackText}
                 onChange={(e) => setFeedbackText(e.target.value)}
                 placeholder={t("Type your message here…")}
                 rows={4}
-                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontWeight: 500, resize: "vertical", fontFamily: "inherit", outline: "none", lineHeight: 1.5 }}
+                style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 16, fontWeight: 500, resize: "vertical", fontFamily: "inherit", lineHeight: 1.5 }}
               />
               <button
                 disabled={feedbackSending || feedbackText.trim().length === 0}
@@ -3149,7 +3163,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                     setFeedbackSending(false);
                   }
                 }}
-                style={{ marginTop: 12, width: "100%", padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.emerald, cursor: feedbackSending || feedbackText.trim().length === 0 ? "not-allowed" : "pointer", opacity: feedbackSending || feedbackText.trim().length === 0 ? 0.5 : 1 }}
+                style={{ marginTop: 12, width: "100%", padding: "12px 0", borderRadius: 14, fontWeight: 900, fontSize: 14, border: `1px solid ${C.emeraldBorder}`, background: C.emeraldDim, color: C.accentText, cursor: feedbackSending || feedbackText.trim().length === 0 ? "not-allowed" : "pointer", opacity: feedbackSending || feedbackText.trim().length === 0 ? 0.5 : 1 }}
               >
                 {feedbackSending ? t("Sending…") : t("Submit feedback")}
               </button>
@@ -3160,7 +3174,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* ── Information ─────────────────────────────────────── */}
       <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Information")}
         </div>
         <Glass style={{ padding: 20 }}>
@@ -3189,7 +3203,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
       {/* ── Your body — only shown to female users, you sub-view ── */}
       {subView === "you" && prefs.sex === "female" && (bodyMode === "pregnant" || bodyMode === "postnatal") && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Your body")}
           </div>
 
@@ -3211,11 +3225,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
               {pregnancyDueDate && (
                 <>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 6 }}>{t("Due date")}</div>
-                  <input
+                  <input aria-label={t("Due date")}
                     type="date"
                     value={pregnancyDueDate}
                     onChange={(e) => setPregnancyDueDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <button
                     disabled={pregnancySaving}
@@ -3255,12 +3269,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ background: "rgba(251,191,36,0.06)", border: "1px solid rgba(251,191,36,0.2)", borderRadius: 10, padding: 14, marginBottom: 12 }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: C.warningBright, marginBottom: 10 }}>{t("Step 1 of 2 — Birth date")}</div>
                   <div style={{ fontSize: 12, color: C.muted, marginBottom: 8 }}>{t("When did your baby arrive?")}</div>
-                  <input
+                  <input aria-label={t("Birth date")}
                     type="date"
                     value={postnatalBirthDate}
                     max={new Date().toISOString().split("T")[0]}
                     onChange={(e) => setPostnatalBirthDate(e.target.value)}
-                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 14, outline: "none", fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
+                    style={{ width: "100%", padding: "9px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: 12, boxSizing: "border-box" }}
                   />
                   <div style={{ display: "flex", gap: 8 }}>
                     <button onClick={() => setPostnatalSetupStep(0)} style={{ flex: 1, padding: "8px 12px", borderRadius: 9, fontSize: 12, fontWeight: 700, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.03)", color: C.muted, cursor: "pointer" }}>{t("Cancel")}</button>
@@ -3383,7 +3397,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         <div style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.border}`, background:C.bgCard, display:"flex", alignItems:"center", justifyContent:"space-between", gap:12 }}>
           <div>
             <div style={{ fontSize:13, fontWeight:700, color:C.muted, marginBottom:2 }}>{t("Delete Account")}</div>
-            <div style={{ fontSize:12, color:C.subtle, lineHeight:1.5 }}>
+            <div style={{ fontSize:12, color: C.subtleText, lineHeight:1.5 }}>
               {t("Permanently removes your account and all data.")}
             </div>
           </div>
@@ -3420,7 +3434,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 setPrimaryIntent(opt.key);
                 setShowConflictModal(false);
                 try { await api.saveProfile(token, { preferences: { primary_intent: opt.key } }); } catch { /* ignore */ }
-              }} style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.emeraldBorder}`, background:C.emeraldDim, color:C.emerald, fontWeight:900, fontSize:16, cursor:"pointer", textAlign:"left" }}>
+              }} style={{ padding:"14px 16px", borderRadius:14, border:`1px solid ${C.emeraldBorder}`, background:C.emeraldDim, color: C.accentText, fontWeight:900, fontSize:16, cursor:"pointer", textAlign:"left" }}>
                 <div style={{ fontSize:18, fontWeight:900 }}>{opt.label}</div>
                 <div style={{ fontSize:12, fontWeight:500, color:"rgba(16,185,129,0.7)", marginTop:2 }}>{opt.sub}</div>
               </button>
@@ -3431,7 +3445,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* Email verify / change modal */}
       {emailStep && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
+        <div ref={emailDlgRef} {...dialogAttrs(t("Email"))} style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!emailLoading) { setEmailStep(null); setEmailCode(""); setEmailInput(""); setEmailError(""); } }}
         >
           <div style={{ width:"100%", maxWidth:360, background:C.sheet, border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
@@ -3443,12 +3457,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
                   {t("Enter the 6-digit code sent to {email}.", { email: prefs.email })}
                 </div>
-                <input
+                <input aria-label={t("Verification code")} autoComplete="one-time-code"
                   type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
                   value={emailCode}
                   onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
                   placeholder="123456" autoFocus
-                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
                 {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3467,7 +3481,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onUpdate({ ...prefs, email_verified: true });
                       } else { setEmailError(res.error ?? "Invalid code"); }
                     }}
-                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.accentText, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
                     {emailLoading ? t("Verifying…") : t("Verify")}
                   </button>
                 </div>
@@ -3479,11 +3493,11 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
                   {t("We'll send a verification link and code to your new address.")}
                 </div>
-                <input
+                <input aria-label={t("New email address")} autoComplete="email"
                   type="email" value={emailInput}
                   onChange={e => { setEmailInput(e.target.value); setEmailError(""); }}
                   placeholder={t("new@email.com")} autoFocus
-                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none" }}
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:16, fontWeight:700 }}
                 />
                 {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3500,7 +3514,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                       if (res.ok) { setEmailStep("change_code"); setEmailCode(""); setEmailError(""); }
                       else { setEmailError(res.error ?? "Something went wrong"); }
                     }}
-                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || !emailInput.includes("@")) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || !emailInput.includes("@")) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || !emailInput.includes("@")) ? "default" : "pointer" }}>
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || !emailInput.includes("@")) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || !emailInput.includes("@")) ? C.muted : C.accentText, fontWeight:900, fontSize:14, cursor:(emailLoading || !emailInput.includes("@")) ? "default" : "pointer" }}>
                     {emailLoading ? t("Sending…") : t("Send verification")}
                   </button>
                 </div>
@@ -3512,12 +3526,12 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
                   {t("Enter the 6-digit code sent to {email}. Or click the link in that email.", { email: emailInput })}
                 </div>
-                <input
+                <input aria-label={t("Verification code")} autoComplete="one-time-code"
                   type="text" inputMode="numeric" pattern="[0-9]*" maxLength={6}
                   value={emailCode}
                   onChange={e => { setEmailCode(e.target.value.replace(/\D/g, "")); setEmailError(""); }}
                   placeholder="123456" autoFocus
-                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, outline:"none", textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
+                  style={{ padding:"14px", borderRadius:12, border:`1px solid ${emailError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:24, fontWeight:900, textAlign:"center", letterSpacing:"0.2em", fontFamily:"monospace" }}
                 />
                 {emailError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(emailError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3536,7 +3550,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                         onUpdate({ ...prefs, email: emailInput, email_verified: true });
                       } else { setEmailError(res.error ?? "Invalid code"); }
                     }}
-                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.emerald, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
+                    style={{ flex:1, padding:"12px 0", borderRadius:12, border:`1px solid ${C.emeraldBorder}`, background:(emailLoading || emailCode.length !== 6) ? "rgba(16,185,129,0.05)" : C.emeraldDim, color:(emailLoading || emailCode.length !== 6) ? C.muted : C.accentText, fontWeight:900, fontSize:14, cursor:(emailLoading || emailCode.length !== 6) ? "default" : "pointer" }}>
                     {emailLoading ? t("Confirming…") : t("Confirm change")}
                   </button>
                 </div>
@@ -3548,7 +3562,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
 
       {/* Delete account modal */}
       {deleteStep && (
-        <div style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
+        <div ref={deleteDlgRef} {...dialogAttrs(t("Delete account"))} style={{ position:"fixed", inset:0, zIndex:200, display:"flex", alignItems:"center", justifyContent:"center", padding:24, background:"rgba(var(--bg-rgb),0.85)" }}
           onClick={() => { if (!deleteLoading) { setDeleteStep(null); setDeleteText(""); setDeleteError(""); } }}
         >
           <div style={{ width:"100%", maxWidth:360, background:C.sheet, border:`1px solid ${C.border}`, borderRadius:20, padding:28, display:"flex", flexDirection:"column", gap:20 }}
@@ -3585,13 +3599,13 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
                 <div style={{ fontSize:14, color:C.muted, lineHeight:1.6 }}>
                   {t("Type {word} to confirm.", { word: t("delete") })}
                 </div>
-                <input
+                <input aria-label={t("Type DELETE to confirm")}
                   type="text"
                   value={deleteText}
                   onChange={e => { setDeleteText(e.target.value); setDeleteError(""); }}
                   placeholder={t("delete")}
                   autoFocus
-                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:15, fontWeight:700, outline:"none", fontFamily:"monospace" }}
+                  style={{ padding:"12px 14px", borderRadius:12, border:`1px solid ${deleteError ? "rgba(226,76,74,0.6)" : C.border}`, background:"rgba(var(--overlay-rgb),0.04)", color:C.text, fontSize:16, fontWeight:700, fontFamily:"monospace" }}
                 />
                 {deleteError && <div style={{ fontSize:12, color:C.danger, marginTop:-12 }}>{t(deleteError)}</div>}
                 <div style={{ display:"flex", gap:10 }}>
@@ -3636,7 +3650,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: "0.1em",
-          color: C.subtle,
+          color: C.subtleText,
           textTransform: "uppercase",
           textAlign: "center",
           marginTop: 40,

@@ -67,7 +67,7 @@ export function DcpCard({ dcp, mil = null, militaryActive = false, sex, nowMs, o
   return (
     <Glass className="jf-norm-card">
       <div className="jf-norm-card__head">
-        <div className="jf-norm-card__title">{header}</div>
+        <h2 className="jf-norm-card__title">{header}</h2>
         <div className="jf-norm-card__meta">{age} {t("yr")} · {sex === "female" ? t("woman") : t("man")}</div>
       </div>
 

@@ -246,11 +246,11 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
                     {skipBtn(x)}
                   </div>
                   {x.rows.some((r) => { const s = rowState(r, x.unit); return s.error; })
-                    ? <div className="jf-log-card__error">{t("Use whole numbers: sets 1–20, rest up to 600 s. Shorthand like 3x3, 2x4 works too.")}</div>
+                    ? <div className="jf-log-card__error" role="alert">{t("Use whole numbers: sets 1–20, rest up to 600 s. Shorthand like 3x3, 2x4 works too.")}</div>
                     : c.expanded?.values
                       ? <div className="jf-log-card__sum">{summary(c)}</div>
                       : c.expanded?.error === "too_many"
-                        ? <div className="jf-log-card__error">{t("At most 20 sets per exercise.")}</div>
+                        ? <div className="jf-log-card__error" role="alert">{t("At most 20 sets per exercise.")}</div>
                         : <div className="jf-log-card__sum jf-log-card__sum--todo">{x.unit === "sec" ? t("Fill in the seconds per set.") : t("Fill in the reps per set.")}</div>}
                 </>
               )}
@@ -270,7 +270,7 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
               onClick={() => setRpe((cur) => (cur === v ? null : v))}>{label}</button>
           ))}
         </div>
-        {error && <div className="jf-sheet__error">{error}</div>}
+        {error && <div className="jf-sheet__error" role="alert">{error}</div>}
       </>
     );
     footer = (

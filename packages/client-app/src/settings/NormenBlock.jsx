@@ -54,7 +54,7 @@ export default function NormenBlock({ prefs, assessmentPlanned, onSaveDcp, onMea
 
   return (
     <div className="jf-norm">
-      <div className="jf-norm__eyebrow">{t("Standards")}</div>
+      <h2 className="jf-norm__eyebrow">{t("Standards")}</h2>
       <div className="jf-norm__panel">
         {mil.active && (
           <div className="jf-norm__keuring">

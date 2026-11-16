@@ -14,7 +14,7 @@ const FEATURES = [
 
 function CheckIcon() {
   return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <polyline points="20 6 9 17 4 12" />
     </svg>
   );
@@ -80,7 +80,7 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
         </button>
 
         {/* Header */}
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 8 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 8 }}>
           Upgrade
         </div>
         <h1 style={{ ...display(44), color: C.text, margin: "0 0 8px", lineHeight: 1.05 }}>
@@ -102,17 +102,17 @@ export default function ProGate({ onBack, earlyBirdRemaining: initialEb }) {
           {CARDS.map(card => {
             const active = selected === card.id;
             return (
-              <button key={card.id} onClick={() => setSelected(card.id)}
+              <button aria-pressed={active} key={card.id} onClick={() => setSelected(card.id)}
                 style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", padding: "18px 16px", borderRadius: 20, cursor: "pointer", textAlign: "left", fontFamily: "inherit",
                   border: `1px solid ${active ? "var(--accent-border, rgba(16,185,129,0.3))" : C.border}`,
                   background: active ? "rgba(var(--accent-rgb),0.08)" : C.bgCard }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: active ? "var(--accent)" : C.muted, textTransform: "uppercase", marginBottom: 10 }}>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: active ? C.accentText : C.muted, textTransform: "uppercase", marginBottom: 10 }}>
                   {card.label}
                 </div>
                 {card.strike && (
                   <div style={{ fontSize: 13, color: C.faint, textDecoration: "line-through", marginBottom: 2 }}>{card.strike}</div>
                 )}
-                <div style={{ ...display(28), color: active ? "var(--accent)" : C.text, lineHeight: 1 }}>
+                <div style={{ ...display(28), color: active ? C.accentText : C.text, lineHeight: 1 }}>
                   {card.price}
                 </div>
                 <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>{card.sub}</div>

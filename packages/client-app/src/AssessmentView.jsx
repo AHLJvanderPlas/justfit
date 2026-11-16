@@ -12,6 +12,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { C, display } from "./tokens.js";
 import api from "./apiClient.js";
+import { t } from "./i18n.js";
 
 const AXIS_LABELS = {
   push: "Push", pull: "Pull", legs: "Legs",
@@ -29,7 +30,7 @@ function Ring({ fraction, label, sub, color }) {
   const r = 88, circ = 2 * Math.PI * r;
   return (
     <div style={{ position: "relative", width: 200, height: 200 }}>
-      <svg width="200" height="200" viewBox="0 0 200 200">
+      <svg aria-hidden="true" width="200" height="200" viewBox="0 0 200 200">
         <circle cx="100" cy="100" r={r} fill="none" style={{ stroke: "rgba(var(--overlay-rgb),0.07)" }} strokeWidth="10" />
         <circle
           cx="100" cy="100" r={r} fill="none" stroke={color} strokeWidth="10"
@@ -176,7 +177,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
                 {p.tests.map((t) => AXIS_LABELS[t.axis] ?? t.axis).join(" · ")}
               </div>
               {p.unmeasured?.length > 0 && (
-                <div style={{ fontSize: 11, color: C.subtle, marginTop: 5 }}>
+                <div style={{ fontSize: 11, color: C.subtleText, marginTop: 5 }}>
                   {p.unmeasured.map((a) => AXIS_LABELS[a] ?? a).join(", ")} stays estimated — no equipment-free test exists for it
                 </div>
               )}
@@ -184,7 +185,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
           ))}
         </div>
 
-        <p style={{ fontSize: 11, color: C.subtle, lineHeight: 1.6, marginTop: 20 }}>
+        <p style={{ fontSize: 11, color: C.subtleText, lineHeight: 1.6, marginTop: 20 }}>
           Stop any test when your form breaks, not when it hurts. These scores are a coarse
           reference, not a clinical measurement — the number that matters is how it changes.
         </p>
@@ -282,7 +283,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
         </p>
 
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-          <input
+          <input aria-label={t("Your count")}
             type="number" inputMode="numeric" value={draft}
             onChange={(e) => setDraft(e.target.value)}
             style={{ flex: 1, padding: "16px 18px", borderRadius: 14, fontSize: 28, fontWeight: 900,
@@ -334,7 +335,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
                 </span>
                 <span style={{ fontSize: 15, fontWeight: 900, color: C.text, minWidth: 34, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{r.score}</span>
                 <span style={{ fontSize: 12, fontWeight: 700, minWidth: 44, textAlign: "right",
-                               color: d == null ? C.subtle : d > 0 ? accentHex : d < 0 ? C.danger : C.muted }}>
+                               color: d == null ? C.subtleText : d > 0 ? accentHex : d < 0 ? C.danger : C.muted }}>
                   {d == null ? "—" : d > 0 ? `▲ ${d}` : d < 0 ? `▼ ${Math.abs(d)}` : "="}
                 </span>
               </div>
@@ -343,7 +344,7 @@ export default function AssessmentView({ config, onDone, onBack, accentHex = "#1
         </div>
 
         {ins.unmeasured?.length > 0 && (
-          <p style={{ fontSize: 11, color: C.subtle, lineHeight: 1.6, marginBottom: 18 }}>
+          <p style={{ fontSize: 11, color: C.subtleText, lineHeight: 1.6, marginBottom: 18 }}>
             {ins.unmeasured.map((u) => u.label).join(" and ")} were not measured — no equipment-free
             test gives an honest reading. They stay estimated from your sessions.
           </p>

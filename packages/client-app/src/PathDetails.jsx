@@ -70,7 +70,7 @@ export default function PathDetails({ path, value, onChange }) {
         {value.milMode === "target" && (
           <>
             <div className="jf-path__label">{t("Assessment date (optional)")}</div>
-            <input type="date" className="jf-path__date" value={value.milTargetDate} min={new Date().toISOString().slice(0, 10)}
+            <input aria-label={t("Assessment date (optional)")} type="date" className="jf-path__date" value={value.milTargetDate} min={new Date().toISOString().slice(0, 10)}
               onChange={(e) => set("milTargetDate", e.target.value)} />
           </>
         )}

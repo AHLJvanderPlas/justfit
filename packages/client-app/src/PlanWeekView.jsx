@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo, lazy, Suspense } from "react";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 import { C } from "./tokens.js";
 import { Icons } from "./icons.jsx";
 import { estimateMins, fmtDayStrip } from "./planUtils.js";
@@ -31,6 +32,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
   const [upcomingPlans, setUpcomingPlans] = useState([]);
   const [loadingUpcoming, setLoadingUpcoming] = useState(!!userId);
   const [deleteTarget, setDeleteTarget] = useState(null);
+  const deleteRef = useRef(null);
+  useDialog(deleteRef, { onClose: () => { setDeleteTarget(null); setDeleteInput(""); }, enabled: !!deleteTarget });
   const [deleteInput, setDeleteInput] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [deleteToast, setDeleteToast] = useState("");
@@ -166,12 +169,12 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     <div style={{ padding: "0 0 32px" }}>
       <div style={{ marginBottom: 28 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <div style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>
+          <h1 style={{ fontSize: 26, fontWeight: 900, letterSpacing: "-0.02em", color: C.text }}>
             {weekOffset === 0 ? t('This Week') : weekOffset === 1 ? t('Next Week') : weekOffset === -1 ? t('Last Week') : `${weekOffset > 0 ? '+' : ''}${weekOffset}w`}
-          </div>
+          </h1>
           <div style={{ display: "flex", gap: 4 }}>
-            <button onClick={() => setWeekOffset(o => o - 1)} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted }}>‹</button>
-            <button onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: weekOffset >= 1 ? "not-allowed" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: weekOffset >= 1 ? C.subtle : C.muted }}>›</button>
+            <button aria-label={t("Previous week")} onClick={() => setWeekOffset(o => o - 1)} className="jf-weeknav">‹</button>
+            <button aria-label={t("Next week")} onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} className="jf-weeknav">›</button>
           </div>
         </div>
         <div style={{ fontSize: 13, color: C.muted }} data-testid="week-range">{weekRangeLabel(weekStart, weekEnd, lang)}</div>
@@ -221,7 +224,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
       {/* Today's plan — only when viewing current week */}
       {weekOffset === 0 && plan && plan.slot_type !== "rest" && (
         <div style={{ marginBottom: 32 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
             {t("Today's Plan")}
           </div>
           <Glass style={{ padding: "16px 20px" }}>
@@ -236,7 +239,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                 {(() => { const chip = deriveChipLabel(plan.rule_trace, plan.session_notes); return chip ? <div style={{ marginTop: 4 }}><AdaptationChip label={t(chip)} /></div> : null; })()}
               </div>
               {estimateMins(plan) && (
-                <div style={{ padding: "4px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 12, fontWeight: 800, color: C.emerald, flexShrink: 0 }}>
+                <div style={{ padding: "4px 12px", borderRadius: 999, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, fontSize: 12, fontWeight: 800, color: C.accentText, flexShrink: 0 }}>
                   ~{estimateMins(plan)} min
                 </div>
               )}
@@ -253,7 +256,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {/* Coming up \u2014 hidden for past-week views */}
       {weekOffset >= 0 && <div style={{ marginBottom: 32 }}>
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Coming Up")}
         </div>
         {loadingUpcoming ? (
@@ -305,7 +308,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
         </div>
       )}
       {history && history.length > 0 && (
-        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 16 }}>
+        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 16 }}>
           {t("Completed Sessions")}
         </div>
       )}
@@ -364,7 +367,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                   <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
                     <div style={{ width: 40, height: 40, borderRadius: 12, flexShrink: 0, background: isStravaCard ? "rgba(252,76,2,0.12)" : C.emeraldDim, display: "flex", alignItems: "center", justifyContent: "center" }}>
                       {isStravaCard ? <SportIcon size={20} c="rgba(252,76,2,0.8)" /> : (
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
+                        <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5">
                           <polyline points="20 6 9 17 4 12" />
                         </svg>
                       )}
@@ -471,7 +474,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
                         style={{ width: 32, height: 32, borderRadius: 10, background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: C.danger, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}
                         aria-label={t("Delete session")}
                       >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                        <svg aria-hidden="true" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                           <polyline points="3 6 5 6 21 6" />
                           <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
                           <path d="M10 11v6M14 11v6" />
@@ -489,19 +492,19 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
 
       {/* Delete confirmation modal */}
       {deleteTarget && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(var(--bg-rgb),0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+        <div ref={deleteRef} {...dialogAttrs(t("Delete session?"))} style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(var(--bg-rgb),0.85)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
           <Glass style={{ padding: 28, maxWidth: 360, width: "100%" }}>
             <div style={{ fontSize: 18, fontWeight: 900, color: C.text, marginBottom: 8 }}>{t("Delete session?")}</div>
             <div style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>
               {t("This will permanently remove your session of {date}. Type {word} to confirm.", { date: longDate(deleteTarget.date), word: t("DELETE") })}
             </div>
-            <input
+            <input aria-label={t("Type DELETE to confirm")}
               type="text"
               value={deleteInput}
               onChange={(e) => setDeleteInput(e.target.value)}
               placeholder={t("Type DELETE")}
               autoFocus
-              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 15, fontWeight: 700, boxSizing: "border-box", outline: "none", marginBottom: 16 }}
+              style={{ width: "100%", padding: "10px 14px", borderRadius: 14, background: "rgba(var(--overlay-rgb),0.06)", border: `1px solid ${deleteInput === "DELETE" ? "rgba(248,113,113,0.5)" : C.border}`, color: C.text, fontSize: 16, fontWeight: 700, boxSizing: "border-box", marginBottom: 16 }}
             />
             <div style={{ display: "flex", gap: 10 }}>
               <button

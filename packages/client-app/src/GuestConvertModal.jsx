@@ -1,10 +1,14 @@
 // Guest → account conversion. Moved out of App.jsx (F4); lazy.
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { C } from "./tokens.js";
 import api from "./apiClient.js";
+import { t } from "./i18n.js";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 // ─── GUEST CONVERT MODAL ──────────────────────────────────────────────────────
 export default function GuestConvertModal({ onClose, onConverted }) {
+  const dlgRef = useRef(null);
+  useDialog(dlgRef, { onClose });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [saving, setSaving] = useState(false);
@@ -29,26 +33,26 @@ export default function GuestConvertModal({ onClose, onConverted }) {
   };
 
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.65)" }} onClick={onClose}>
+    <div ref={dlgRef} {...dialogAttrs(t("Keep your data"))} style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.65)" }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 32 }}>
         <div style={{ fontSize: 20, fontWeight: 900, letterSpacing: "-0.02em", color: C.text, marginBottom: 6 }}>Keep your data</div>
         <p style={{ fontSize: 13, color: C.muted, marginBottom: 24, lineHeight: 1.5 }}>Add an email and password so you can log back in from any device.</p>
 
-        <input
+        <input aria-label={t("Email address")}
           type="email"
           placeholder="Email address"
           value={email}
           onChange={e => setEmail(e.target.value)}
           autoComplete="email"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: 10, outline: "none" }}
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: 10 }}
         />
-        <input
+        <input aria-label={t("Password")}
           type="password"
           placeholder="Password (min. 8 characters)"
           value={password}
           onChange={e => setPassword(e.target.value)}
           autoComplete="new-password"
-          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", marginBottom: error ? 10 : 20, outline: "none" }}
+          style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 16, fontFamily: "inherit", marginBottom: error ? 10 : 20 }}
         />
         {error && <div style={{ fontSize: 12, color: C.danger, marginBottom: 16 }}>{error}</div>}
 

@@ -1,7 +1,8 @@
 // "Can't do this today?" sheet. Moved out of App.jsx (F4); lazy.
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { C } from "./tokens.js";
 import { t, useLang } from "./i18n.js";
+import { useDialog, dialogAttrs } from "./useDialog.js";
 
 // ─── WHY NOT MODAL ────────────────────────────────────────────────────────────
 const WHY_NOT_OPTIONS = [
@@ -19,6 +20,8 @@ const WHY_NOT_OPTIONS = [
 // the user's OWN session, the adapt chips would replace it, so they first ask
 // (the override is durable — only a confirmed action replaces it, W4.1).
 export default function WhyNotModal({ onRegen, onRestDay, onClose, userAuthored }) {
+  const dlgRef = useRef(null);
+  useDialog(dlgRef, { onClose });
   useLang();
   const [pending, setPending] = useState(null);
   const pick = (opt) => {
@@ -27,7 +30,7 @@ export default function WhyNotModal({ onRegen, onRestDay, onClose, userAuthored 
     onRegen(opt.checkin, false);
   };
   return (
-    <div style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
+    <div ref={dlgRef} {...dialogAttrs(t("What's getting in the way?"))} style={{ position: "fixed", inset: 0, zIndex: 100, display: "flex", alignItems: "center", justifyContent: "center", padding: 20, background: "rgba(0,0,0,0.6)" }} onClick={onClose}>
       <div onClick={e => e.stopPropagation()} style={{ width: "100%", maxWidth: 420, background: C.sheet, border: `1px solid ${C.border}`, borderRadius: 24, padding: 28 }}>
         <div style={{ fontSize: 18, fontWeight: 900, letterSpacing: "-0.02em", marginBottom: 8 }}>{t("What's getting in the way?")}</div>
         <p style={{ fontSize: 13, color: C.muted, marginBottom: 20, lineHeight: 1.5 }}>{t("We'll adjust today's plan to fit your situation.")}</p>

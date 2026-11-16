@@ -25,7 +25,7 @@ test('settings — navigate to Account sub-view and back', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign out' }).last()).toBeVisible();
 
   // Back to landing
-  await page.getByRole('button', { name: '‹' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'SETTINGS' })).toBeVisible();
 
   // Landing → Privacy
@@ -45,7 +45,7 @@ test('settings — chips reflect the saved value after reload', async ({ page })
   await expect(four).toBeVisible({ timeout: 10_000 });
   await expect(four).toHaveAttribute('aria-pressed', 'false');
   await four.click();
-  await expect(page.getByText('Saved', { exact: true })).toBeVisible({ timeout: 10_000 });
+  await expect(page.locator('.jf-dc__chipline').getByText('Saved', { exact: true })).toBeVisible({ timeout: 10_000 });
   // The old "Save · <goal>" button is gone; the goal chips save on tap too.
   await expect(page.getByRole('button', { name: /^Save · / })).toHaveCount(0);
 
@@ -74,7 +74,7 @@ test('settings — Advanced settings is collapsed by default and holds Daily che
   await expect(page.getByRole('button', { name: /^Daily check-in\s*Once a day/ })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Available equipment/ })).toBeVisible();
   // Jij no longer carries the planner block.
-  await page.getByRole('button', { name: '‹' }).click();
+  await page.getByRole('button', { name: 'Back', exact: true }).click();
   await page.getByRole('button', { name: /^You/ }).click();
   await expect(page.getByText('Daily Planning', { exact: true })).toHaveCount(0);
   await expect(page.getByText('Known Injuries', { exact: true })).toBeVisible({ timeout: 10_000 });

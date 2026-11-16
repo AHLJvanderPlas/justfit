@@ -43,7 +43,7 @@ export function MyTrainingsCard({ templates, onUse, onEdit, onCreate, onDelete, 
   const list = templates ?? [];
   return (
     <div className="jf-mt">
-      <div className="jf-mt__eyebrow">{t("MY TRAININGS")}</div>
+      <h2 className="jf-mt__eyebrow">{t("MY TRAININGS")}</h2>
       <div className="jf-mt__panel">
         {list.length === 0 ? (
           <>
@@ -90,7 +90,7 @@ export function MyTrainingsCard({ templates, onUse, onEdit, onCreate, onDelete, 
                     </button>
                   </div>
                 )}
-                {error?.id === tpl.id && <div className="jf-mt__error">{error.text}</div>}
+                {error?.id === tpl.id && <div className="jf-mt__error" role="alert">{error.text}</div>}
               </div>
             ))}
             <button type="button" onClick={onCreate} className="jf-mt__add">
@@ -120,12 +120,12 @@ export function OwnSessionAssessmentOffer({ plan, onUse }) {
   };
   return (
     <div className="jf-own-offer">
-      <div className="jf-own-offer__title">{t("Your self-measurement is due")}</div>
+      <h2 className="jf-own-offer__title">{t("Your self-measurement is due")}</h2>
       <div className="jf-own-offer__text">{t("Add two max-effort sets (push-ups and sit-ups, 2 minutes each) to the end of this session?")}</div>
       <button type="button" className="jf-own-offer__btn" disabled={busy} onClick={add}>
         {busy ? t("Adding…") : t("Add self-measurement")}
       </button>
-      {error && <div className="jf-own-offer__error">{error}</div>}
+      {error && <div className="jf-own-offer__error" role="alert">{error}</div>}
     </div>
   );
 }
@@ -173,7 +173,7 @@ export function TemplatePickList({ templates, busy = false, onPick, onEdit, onDe
           <button type="button" onClick={() => setConfirmId(tpl.id)} className="jf-mt-btn">{t("Delete")}</button>
         </div>
       ))}
-      {error === tpl.id && <div className="jf-mt__error">{t("Could not delete this training — check your connection and try again.")}</div>}
+      {error === tpl.id && <div className="jf-mt__error" role="alert">{t("Could not delete this training — check your connection and try again.")}</div>}
     </div>
   ));
 }

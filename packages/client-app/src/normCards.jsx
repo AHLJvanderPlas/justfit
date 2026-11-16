@@ -66,7 +66,7 @@ export function WaarStaIk({ prefs, nowMs, onMeasure, measurePlanned }) {
   if (!anyNormOn(prefs)) return null;
   return (
     <div className="jf-wsi">
-      <div className="jf-wsi__eyebrow">{t("WHERE DO I STAND")}</div>
+      <h2 className="jf-wsi__eyebrow">{t("WHERE DO I STAND")}</h2>
       <KeuringCard mil={mil} nowMs={nowMs} />
       <DcpCard dcp={dcp} mil={mil} militaryActive={!!mil.active} sex={prefs?.sex ?? "male"} nowMs={nowMs} onMeasure={onMeasure} measurePlanned={measurePlanned} />
     </div>

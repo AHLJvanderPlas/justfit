@@ -7,6 +7,7 @@
 (function (root) {
   var EN = {
     page_title: 'JustFit.cc — Login',
+    h1_login: 'Sign in to JustFit', aria_mode: 'Sign in or create an account', aria_method: 'Sign-in method',
     tab_login: 'Sign in', tab_signup: 'Create account',
     passkey: 'Use Face ID / Touch ID', passkey_windows: 'Use Windows Hello', passkey_android: 'Use Fingerprint / Face Unlock',
     passkey_wait: 'Waiting for biometrics…', or: 'or',
@@ -45,6 +46,7 @@
   };
   var NL = {
     page_title: 'JustFit.cc — Inloggen',
+    h1_login: 'Inloggen bij JustFit', aria_mode: 'Inloggen of een account maken', aria_method: 'Inlogmethode',
     tab_login: 'Inloggen', tab_signup: 'Account maken',
     passkey: 'Gebruik Face ID / Touch ID', passkey_windows: 'Gebruik Windows Hello', passkey_android: 'Gebruik vingerafdruk / gezichtsherkenning',
     passkey_wait: 'Wachten op biometrie…', or: 'of',
@@ -104,6 +106,8 @@
     for (i = 0; i < els.length; i++) els[i].textContent = T(els[i].getAttribute('data-i18n'));
     els = document.querySelectorAll('[data-i18n-ph]');
     for (i = 0; i < els.length; i++) els[i].setAttribute('placeholder', T(els[i].getAttribute('data-i18n-ph')));
+    els = document.querySelectorAll('[data-i18n-aria]');
+    for (i = 0; i < els.length; i++) els[i].setAttribute('aria-label', T(els[i].getAttribute('data-i18n-aria')));
   }
   root.JF_LOGIN = { lang: lang, T: T, apply: apply };
   apply();

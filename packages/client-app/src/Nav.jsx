@@ -7,7 +7,7 @@ const COACH_NAV_ITEM = {
   label: "Coach",
   icon: (a, dot) => (
     <div className="jf-nav__icon">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
@@ -23,7 +23,7 @@ const NAV_ITEMS = [
     id: "today",
     label: "Today",
     icon: (a) => (
-      <svg
+      <svg aria-hidden="true"
         width="22"
         height="22"
         viewBox="0 0 24 24"
@@ -48,7 +48,7 @@ const NAV_ITEMS = [
     id: "plan",
     label: "This Week",
     icon: (a) => (
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke={a ? "var(--accent)" : "var(--muted)"} strokeWidth="2">
         <rect width="18" height="18" x="3" y="4" rx="2" />
         <line x1="16" y1="2" x2="16" y2="6" />
         <line x1="8" y1="2" x2="8" y2="6" />
@@ -63,7 +63,7 @@ const NAV_ITEMS = [
     id: "settings",
     label: "Settings",
     icon: (a) => (
-      <svg
+      <svg aria-hidden="true"
         width="22"
         height="22"
         viewBox="0 0 24 24"
@@ -85,7 +85,7 @@ export default function Nav({ view, setView, hasTrainer, coachDot }) {
   // UAT R6 — the nav is laid out from --nav-h (styles.css); .jf-page pads every view by the
   // same number, so the last row of any screen scrolls fully above it.
   return (
-    <nav className="jf-nav">
+    <nav className="jf-nav" aria-label={t("Main navigation")}>
       <div className={`jf-nav__row${items.length > 4 ? " jf-nav__row--5" : ""}`}>
         {items.map((item) => {
           const active = view === item.id;

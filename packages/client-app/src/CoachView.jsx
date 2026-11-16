@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { useDialog, dialogAttrs, activateKey } from "./useDialog.js";
 import { C, display, eyebrow, mono } from "./tokens.js";
 import { Glass } from "./uiComponents.jsx";
 import { GOALS, EXPERIENCE } from "./appConstants.js";
@@ -50,6 +51,12 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
   // ── Messaging state ──
   const [msgSheet, setMsgSheet] = useState(false);
+  // The four trainer sheets share one dialog behaviour (useDialog.js).
+  const supportRef = useRef(null), switchRef = useRef(null), profileRef = useRef(null), msgRef = useRef(null);
+  useDialog(supportRef, { onClose: () => setSupportSheet(false), enabled: !!supportSheet });
+  useDialog(switchRef, { onClose: () => setSwitchSheet(false), enabled: !!switchSheet });
+  useDialog(profileRef, { onClose: () => setProfileSheet(null), enabled: !!profileSheet });
+  useDialog(msgRef, { onClose: () => setMsgSheet(false), enabled: !!msgSheet });
   const [messages, setMessages] = useState([]);
   const [msgInput, setMsgInput] = useState("");
   const [msgSending, setMsgSending] = useState(false);
@@ -248,10 +255,10 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           ← Terug
         </button>
         <div style={{ background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 24, padding: "28px 24px" }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 14 }}>Gegevensdeling</div>
-          <div style={{ ...display(26, 900), color: C.text, lineHeight: 1.1, marginBottom: 16 }}>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.accentText, textTransform: "uppercase", marginBottom: 14 }}>Gegevensdeling</div>
+          <h1 style={{ ...display(26, 900), color: C.text, lineHeight: 1.1, marginBottom: 16 }}>
             Je trainer wil je begeleiden
-          </div>
+          </h1>
           <div style={{ fontSize: 14, color: C.muted, lineHeight: 1.7, marginBottom: 8 }}>
             <strong style={{ color: C.text }}>{trainer?.display_name ?? "Je trainer"}</strong>
             {td?.gym_name ? ` van ${td.gym_name}` : ""} krijgt toegang tot je trainingsgeschiedenis, doelen en gezondheidsgegevens om je zo goed mogelijk te begeleiden.
@@ -271,6 +278,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           </button>
           <div style={{ marginTop: 12, textAlign: "center" }}>
             <span
+              role="button" tabIndex={0} onKeyDown={activateKey(() => setView("today"))}
               onClick={() => setView("today")}
               style={{ fontSize: 12, color: C.muted, cursor: "pointer", textDecoration: "underline" }}
             >
@@ -294,14 +302,14 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         </button>
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between" }}>
           <div>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("COACH")}</div>
-            <div style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</div>
+            <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("COACH")}</h2>
+            <h1 style={{ ...display(36, 900), color: C.text, lineHeight: 1.05, letterSpacing: "-0.02em" }}>{coachLabel}</h1>
           </div>
           <button
             onClick={() => onNavigateSettings()}
             style={{ display: "flex", alignItems: "center", gap: 5, padding: "7px 13px", borderRadius: 99, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.muted, cursor: "pointer", fontSize: 11, fontWeight: 700, fontFamily: "inherit", flexShrink: 0, marginTop: 2 }}
           >
-            <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg aria-hidden="true" width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
             </svg>
             {t("Settings")}
@@ -326,12 +334,12 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
       {/* ── Primary intent — only where it settles a conflict: two or more active coaches (UAT R3) ── */}
       {multiCoach && <div style={{ marginBottom: 28 }}>
-        <div style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>{t("PRIMARY INTENT")}</div>
+        <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 12 }}>{t("PRIMARY INTENT")}</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {intents.map(({ id, label, headline, available }) => {
             const active = primary === id;
             return (
-              <button
+              <button aria-pressed={active}
                 key={id}
                 onClick={() => available && handleIntent(id)}
                 style={{
@@ -369,14 +377,14 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {/* ── Conflict resolution ── */}
       {multiCoach && (
         <Glass style={{ padding: "16px 20px", marginBottom: 28 }}>
-          <div style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("CONFLICT RESOLUTION")}</div>
+          <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 8 }}>{t("CONFLICT RESOLUTION")}</h2>
           <div style={{ fontSize: 13, color: C.muted, lineHeight: 1.6 }}>
             {primary === "military" ? t("Military drives Today. Other coaches adapt.")
              : primary === "running" ? t("Running drives Today. Other coaches fill rest days.")
              : primary === "cycling" ? t("Cycling drives Today. Other coaches fill gaps.")
              : t("General training runs when no coach claims today.")}
           </div>
-          <button onClick={() => onNavigateSettings()} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: "var(--accent)", fontFamily: "inherit", padding: 0, marginTop: 8 }}>
+          <button onClick={() => onNavigateSettings()} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: C.accentText, fontFamily: "inherit", padding: 0, marginTop: 8 }}>
             {t("Change primary →")}
           </button>
         </Glass>
@@ -388,7 +396,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         const exp = EXPERIENCE.find(e => e.value === (prefs.experience_level ?? "beginner")) ?? EXPERIENCE[0];
         return (
           <Glass style={{ padding: 20, marginBottom: 20, display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+            <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
               <GoalIcon value={currentGoal.value} size={20} />
             </div>
             <div>
@@ -398,7 +406,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 {t(exp.label)}
               </span>
             </div>
-            <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtle, fontStyle: "italic" }}>{t("Change in Settings →")}</div>
+            <div style={{ marginLeft: "auto", fontSize: 11, color: C.subtleText, fontStyle: "italic" }}>{t("Change in Settings →")}</div>
           </Glass>
         );
       })()}
@@ -422,8 +430,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             <Glass style={{ padding: 20, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
+                    <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                   </div>
                   <div>
                     <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 1 }}>{t("Running Coach")}</div>
@@ -445,9 +453,9 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const next = sessionInWeek === s.n - 1;
                   return (
                     <div key={s.n} style={{ flex: 1, padding: "5px 4px", borderRadius: 8, textAlign: "center", background: done ? "var(--accent-dim)" : next ? "rgba(var(--overlay-rgb),0.05)" : "rgba(var(--overlay-rgb),0.02)", border: `1px solid ${done ? "var(--accent-border)" : next ? C.border : "rgba(var(--overlay-rgb),0.04)"}` }}>
-                      <div style={{ fontSize: 11, fontWeight: 900, color: done ? "var(--accent)" : next ? C.text : C.subtle, letterSpacing: "0.06em" }}>{s.day}</div>
-                      <div style={{ fontSize: 11, color: done ? "var(--accent)" : next ? C.muted : C.subtle, marginTop: 1 }}>{s.type}</div>
-                      {done && <div style={{ fontSize: 11, color: "var(--accent)" }}>✓</div>}
+                      <div style={{ fontSize: 11, fontWeight: 900, color: done ? C.accentText : next ? C.text : C.subtleText, letterSpacing: "0.06em" }}>{s.day}</div>
+                      <div style={{ fontSize: 11, color: done ? C.accentText : next ? C.muted : C.subtleText, marginTop: 1 }}>{s.type}</div>
+                      {done && <div style={{ fontSize: 11, color: C.accentText }}>✓</div>}
                     </div>
                   );
                 })}
@@ -457,7 +465,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                   const done = unlockedTargets.includes(String(t));
                   const isCurrent = t === (rc.target_km ?? 5);
                   return (
-                    <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? "var(--accent-border)" : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(var(--overlay-rgb),0.02)", color: isCurrent ? "var(--accent)" : done ? C.muted : C.subtle }}>
+                    <div key={t} style={{ padding: "4px 10px", borderRadius: 999, fontSize: 11, fontWeight: 800, border: `1px solid ${isCurrent ? "var(--accent-border)" : done ? "rgba(var(--accent-rgb),0.2)" : C.border}`, background: isCurrent ? "rgba(var(--accent-rgb),0.12)" : done ? "rgba(var(--accent-rgb),0.06)" : "rgba(var(--overlay-rgb),0.02)", color: isCurrent ? C.accentText : done ? C.muted : C.subtleText }}>
                       {done ? "✓ " : ""}{t}km
                     </div>
                   );
@@ -482,8 +490,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 })}
               </div>
               <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 10 }}>
-                <span style={{ fontSize: 11, color: C.subtle }}>{t("Week {w}", { w: 1 })}</span>
-                <span style={{ fontSize: 11, color: C.subtle }}>{t("Week {w}", { w: totalWeeks })}</span>
+                <span style={{ fontSize: 11, color: C.subtleText }}>{t("Week {w}", { w: 1 })}</span>
+                <span style={{ fontSize: 11, color: C.subtleText }}>{t("Week {w}", { w: totalWeeks })}</span>
               </div>
               <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
                 {[["var(--accent)", t("Completed")], ["rgba(var(--accent-rgb),0.6)", t("Current (week {w})", { w: week })], [C.border, t("Upcoming")]].map(([bg, label]) => (
@@ -497,8 +505,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* Insight */}
             <Glass style={{ padding: "16px 20px", marginBottom: 20 }}>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 12 }}>
-                <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
+                <div style={{ width: 34, height: 34, borderRadius: 10, background: "var(--accent-dim)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
+                  <svg aria-hidden="true" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" /></svg>
                 </div>
                 <div>
                   <div style={{ fontSize: 12, fontWeight: 900, color: C.text, marginBottom: 2 }}>
@@ -616,24 +624,24 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             </div>
             {pmcHasData && (
               <div>
-                <svg viewBox={`0 0 ${pmcChartW} ${pmcChartH}`} width="100%" height={pmcChartH} style={{ display: "block", overflow: "visible" }}>
+                <svg aria-hidden="true" viewBox={`0 0 ${pmcChartW} ${pmcChartH}`} width="100%" height={pmcChartH} style={{ display: "block", overflow: "visible" }}>
                   <polyline points={atlPts} fill="none" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" strokeLinejoin="round" />
                   <polyline points={ctlPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
                 <div style={{ display: "flex", gap: 12, marginTop: 4, marginBottom: 10 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: "var(--accent)" }}>
-                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" /></svg>
+                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: C.accentText }}>
+                    <svg aria-hidden="true" width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" style={{ stroke: "var(--accent)" }} strokeWidth="2" strokeLinecap="round" /></svg>
                     CTL fitness
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 11, color: C.warning }}>
-                    <svg width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
+                    <svg aria-hidden="true" width="16" height="4"><line x1="0" y1="2" x2="16" y2="2" stroke={C.warning} strokeWidth="1.5" strokeDasharray="4 3" strokeLinecap="round" /></svg>
                     ATL fatigue
                   </div>
                 </div>
                 <div style={{ display: "flex", gap: 8 }}>
-                  {[{ label: 'CTL', value: pmcLatest.ctl, color: "var(--accent)" }, { label: 'ATL', value: pmcLatest.atl, color: C.warning }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
+                  {[{ label: 'CTL', value: pmcLatest.ctl, color: C.accentText }, { label: 'ATL', value: pmcLatest.atl, color: C.warning }, { label: 'TSB', value: pmcLatest.tsb, color: tsbColor }].map(({ label, value, color }) => (
                     <div key={label} style={{ flex: 1, background: C.bgCard, border: `1px solid ${C.border}`, borderRadius: 10, padding: "6px 8px", textAlign: "center" }}>
-                      <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</div>
+                      <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 2 }}>{label}</h2>
                       <div style={{ ...mono(13), color, fontWeight: 700 }}>{value.toFixed(0)}</div>
                     </div>
                   ))}
@@ -647,8 +655,8 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             )}
             {ftpSparkN >= 2 && (
               <div style={{ marginTop: 14 }}>
-                <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</div>
-                <svg viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
+                <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 6 }}>{t("FTP PROGRESS")}</h2>
+                <svg aria-hidden="true" viewBox={`0 0 ${ftpSparkW} ${ftpSparkH}`} width="100%" height={ftpSparkH} style={{ display: "block", overflow: "visible" }}>
                   <polyline points={ftpPts} fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   {ftpHistory.map((h, i) => {
                     const x = (i / (ftpSparkN - 1)) * ftpSparkW;
@@ -658,7 +666,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 </svg>
                 <div style={{ display: "flex", justifyContent: "space-between", marginTop: 2 }}>
                   <div style={{ fontSize: 11, color: C.muted }}>{ftpHistory[0].ftp_watts}W</div>
-                  <div style={{ ...mono(11), color: "var(--accent)", fontWeight: 700 }}>{t("{w} W current", { w: ftpHistory[ftpSparkN - 1].ftp_watts })}</div>
+                  <div style={{ ...mono(11), color: C.accentText, fontWeight: 700 }}>{t("{w} W current", { w: ftpHistory[ftpSparkN - 1].ftp_watts })}</div>
                 </div>
               </div>
             )}
@@ -673,11 +681,11 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               ];
               return (
                 <div style={{ marginTop: 14 }}>
-                  <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 8 }}>{t("POWER ZONES")}</div>
+                  <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 8 }}>{t("POWER ZONES")}</h2>
                   {ZONES.map(z => (
                     <div key={z.n} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 5 }}>
                       <div style={{ fontSize: 11, color: C.muted }}>Z{z.n} · {z.name}</div>
-                      <div style={{ ...mono(11), color: z.n >= 4 ? "var(--accent)" : C.muted, fontWeight: 700 }}>
+                      <div style={{ ...mono(11), color: z.n >= 4 ? C.accentText : C.muted, fontWeight: 700 }}>
                         {z.hi ? `${z.lo}–${z.hi} W` : `${z.lo}+ W`}
                       </div>
                     </div>
@@ -758,7 +766,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* KeuringReadinessCard — open/fit mode */}
             {mode !== 'target' && track === 'keuring' && (lastCooper || weakest) && (
               <Glass style={{ padding: 16, marginBottom: 12 }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', color: 'var(--accent)', textTransform: 'uppercase', marginBottom: 10 }}>{t("Cooper reference")}</div>
+                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: '0.14em', color: C.accentText, textTransform: 'uppercase', marginBottom: 10 }}>{t("Cooper reference")}</div>
                 {lastCooper ? (
                   <div style={{ fontSize: 13, color: C.text, marginBottom: weakest ? 10 : 0 }}>
                     {t("Last Cooper:")} <strong>{lastCooper.toLocaleString("nl-NL")} m</strong>
@@ -789,7 +797,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* Level ladder */}
             <Glass style={{ padding: 20, marginBottom: 12 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 16 }}>
-                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: "var(--accent)" }}>
+                <div style={{ width: 36, height: 36, borderRadius: 10, background: "var(--accent-dim)", border: "1px solid var(--accent-border)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, color: C.accentText }}>
                   <MilitaryIcon size={20} />
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
@@ -822,7 +830,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         border: isTarget ? `1px solid ${accentHex}` : "none",
                         transition: "background 0.3s ease",
                       }} />
-                      <span style={{ fontSize: 11, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtle, letterSpacing: "0.04em" }}>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: isCurrent ? accentHex : isTarget ? `${accentHex}80` : C.subtleText, letterSpacing: "0.04em" }}>
                         {milClL(track, lvl)}
                       </span>
                       {isCurrent && <span style={{ fontSize: 11, color: accentHex, fontWeight: 900 }}>{t("NOW")}</span>}
@@ -837,7 +845,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             </Glass>
             {/* Coach Insights */}
             <div style={{ marginBottom: 20 }}>
-              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: "var(--accent)", textTransform: "uppercase", marginBottom: 12 }}>
+              <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 12 }}>
                 {t("Coach Insights")}
               </div>
               <Glass style={{ padding: 20 }}>
@@ -848,12 +856,12 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("Cooper test")}</div>
                         {cooperBenchmark
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{lastCooper.toLocaleString("nl-NL")} m <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{cooperLevel ? t("({level} level)", { level: milClL(track, cooperLevel) }) : t("Below K1")}</span></div>
-                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("No test recorded")}</div>}
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtleText }}>{t("No test recorded")}</div>}
                         {nextCooperTarget && clusterCurrent < maxLevel && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
                             {t("{level} requires ≥{m} m", { level: milClL(track, nextLevel), m: nextCooperTarget })}
                             {cooperGap != null && cooperGap > 0 && <span style={{ color: C.warning, fontWeight: 700 }}> · {t("{m} m to go", { m: cooperGap })}</span>}
-                            {cooperGap === 0 && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · {t("achieved")}</span>}
+                            {cooperGap === 0 && <span style={{ color: C.accentText, fontWeight: 700 }}> · {t("achieved")}</span>}
                           </div>
                         )}
                       </div>
@@ -861,15 +869,15 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.1em", color: C.muted, textTransform: "uppercase", marginBottom: 6 }}>{t("March weight")}</div>
                         {maxOwnedKg !== null
                           ? <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>{maxOwnedKg} kg <span style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>{t("max")}</span></div>
-                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtle }}>{t("Not set")}</div>}
+                          : <div style={{ fontSize: 13, fontWeight: 700, color: C.subtleText }}>{t("Not set")}</div>}
                         {nextMarchTarget && clusterCurrent < maxLevel && (
                           <div style={{ fontSize: 11, color: C.muted, marginTop: 4 }}>
                             {t("{level} target: {kg} kg", { level: milClL(track, nextLevel), kg: nextMarchTarget })}
-                            {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: "var(--accent)", fontWeight: 700 }}> · {t("ready")}</span>}
+                            {maxOwnedKg !== null && maxOwnedKg >= nextMarchTarget && <span style={{ color: C.accentText, fontWeight: 700 }}> · {t("ready")}</span>}
                             {maxOwnedKg !== null && maxOwnedKg < nextMarchTarget && <span style={{ color: C.warning, fontWeight: 700 }}> · {t("{kg} kg short", { kg: nextMarchTarget - maxOwnedKg })}</span>}
                           </div>
                         )}
-                        {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtle, marginTop: 4 }}>{t("Set weights in Settings →")}</div>}
+                        {maxOwnedKg === null && <div style={{ fontSize: 11, color: C.subtleText, marginTop: 4 }}>{t("Set weights in Settings →")}</div>}
                       </div>
                     </div>
                     <div style={{ height: 1, background: C.border, marginBottom: 16 }} />
@@ -896,7 +904,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               </Glass>
             </div>
             {/* Defensie disclaimer */}
-            <div style={{ fontSize: 11, color: C.subtle, lineHeight: 1.5, marginBottom: 12 }}>
+            <div style={{ fontSize: 11, color: C.subtleText, lineHeight: 1.5, marginBottom: 12 }}>
               JustFit is niet gelieerd aan Defensie of het Ministerie van Defensie. De normen zijn gebaseerd op openbaar beschikbare informatie.
             </div>
           </>
@@ -906,7 +914,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {/* ── Jouw trainer card (profile + sessions + groepslessen + credits) ── */}
       {trainer && (
         <Glass style={{ padding: 20, marginBottom: 16 }}>
-          <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>JOUW TRAINER</div>
+          <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>JOUW TRAINER</h2>
           <div style={{ display: "flex", gap: 14, alignItems: "flex-start", marginBottom: 14 }}>
             <div style={{ width: 64, height: 64, borderRadius: 16, background: C.subtle, flexShrink: 0, overflow: "hidden", display: "flex", alignItems: "center", justifyContent: "center" }}>
               {trainer.photo_url
@@ -951,7 +959,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             {/* Berichten button */}
             <button
               onClick={handleOpenMessages}
-              style={{ position: "relative", flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${unreadCount > 0 ? 'rgba(var(--accent-rgb),0.4)' : C.border}`, background: unreadCount > 0 ? 'rgba(var(--accent-rgb),0.06)' : "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: unreadCount > 0 ? 'var(--accent)' : C.muted }}
+              style={{ position: "relative", flex: 1, padding: "10px 14px", borderRadius: 10, border: `1px solid ${unreadCount > 0 ? 'rgba(var(--accent-rgb),0.4)' : C.border}`, background: unreadCount > 0 ? 'rgba(var(--accent-rgb),0.06)' : "rgba(var(--overlay-rgb),0.04)", cursor: "pointer", fontFamily: "inherit", fontSize: 13, fontWeight: 700, color: unreadCount > 0 ? C.accentText : C.muted }}
             >
               Berichten
               {unreadCount > 0 && (
@@ -981,7 +989,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           {/* ── Geplande sessies ── */}
           {clientSessions && clientSessions.length > 0 && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>GEPLANDE SESSIES</div>
+              <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>GEPLANDE SESSIES</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                 {clientSessions.map(s => {
                   const isPast = s.starts_at_ms < nowMs;
@@ -1041,7 +1049,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
           {/* ── Open groepslessen ── */}
           {availableSessions && availableSessions.length > 0 && (
             <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-              <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>OPEN GROEPSLESSEN</div>
+              <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 12 }}>OPEN GROEPSLESSEN</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 {availableSessions.map(s => {
                   const isFull = s.max_capacity !== null && s.enrolled_count >= s.max_capacity;
@@ -1061,7 +1069,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         <button
                           onClick={() => !isFull && !isEnrolling && handleEnroll(s.id)}
                           disabled={isFull || isEnrolling}
-                          style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 10, border: "none", background: isFull ? C.border : 'rgba(var(--accent-rgb),0.12)', color: isFull ? C.muted : 'var(--accent)', fontFamily: "inherit", fontWeight: 900, fontSize: 11, cursor: (isFull || isEnrolling) ? "not-allowed" : "pointer", opacity: isEnrolling ? 0.6 : 1 }}
+                          style={{ flexShrink: 0, padding: "7px 13px", borderRadius: 10, border: "none", background: isFull ? C.border : 'rgba(var(--accent-rgb),0.12)', color: isFull ? C.muted : C.accentText, fontFamily: "inherit", fontWeight: 900, fontSize: 11, cursor: (isFull || isEnrolling) ? "not-allowed" : "pointer", opacity: isEnrolling ? 0.6 : 1 }}
                         >
                           {isEnrolling ? "…" : isFull ? "Vol" : "Inschrijven"}
                         </button>
@@ -1086,7 +1094,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             const totalRemaining = clientPackages.reduce((s, p) => s + p.sessions_remaining, 0);
             return (
               <div style={{ marginTop: 18, paddingTop: 18, borderTop: `1px solid ${C.border}` }}>
-                <div style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</div>
+                <h2 style={{ ...eyebrow, fontSize: 11, color: C.muted, marginBottom: 10 }}>SESSIE CREDITS</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {clientPackages.map(p => {
                     const pct = p.sessions_total > 0 ? p.sessions_remaining / p.sessions_total : 0;
@@ -1118,7 +1126,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
         const todayStr = new Date().toISOString().slice(0, 10);
         return (
           <Glass style={{ padding: 20, marginBottom: 16 }}>
-            <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>{t("YOUR PROGRAMME")}</div>
+            <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>{t("YOUR PROGRAMME")}</h2>
             {assignments.map(a => {
               const sessions = a.sessions ?? [];
               const completed = sessions.filter(s => s.status === 'completed').length;
@@ -1138,7 +1146,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         {a.gym_name} · {a.sessions_per_week}x/week · {a.duration_weeks} weeks
                       </div>
                     </div>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: 'var(--accent)', flexShrink: 0, marginLeft: 12 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: C.accentText, flexShrink: 0, marginLeft: 12 }}>
                       {completed}/{total}
                     </div>
                   </div>
@@ -1165,15 +1173,15 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         }}>
                           <span style={{ fontSize: 13, fontWeight: 900, color: statusColor, width: 14, textAlign: 'center', flexShrink: 0 }}>{statusIcon}</span>
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.text : isPast ? C.subtle : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            <div style={{ fontSize: 13, fontWeight: isToday ? 800 : 600, color: isToday ? C.text : isPast ? C.subtleText : C.text, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                               {s.session_name ?? 'Session'}
                             </div>
-                            <div style={{ fontSize: 11, color: C.subtle }}>{dateLabel}</div>
+                            <div style={{ fontSize: 11, color: C.subtleText }}>{dateLabel}</div>
                           </div>
                           {isToday && s.status === 'scheduled' && (
                             <button
                               onClick={() => setView('today')}
-                              style={{ fontSize: 11, fontWeight: 800, color: 'var(--accent)', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, flexShrink: 0 }}
+                              style={{ fontSize: 11, fontWeight: 800, color: C.accentText, background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit', padding: 0, flexShrink: 0 }}
                             >
                               Start →
                             </button>
@@ -1192,7 +1200,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {/* ── Ons team ── */}
       {gymTeam && gymTeam.length > 1 && (
         <Glass style={{ padding: 20, marginBottom: 16 }}>
-          <div style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>ONS TEAM</div>
+          <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 14 }}>ONS TEAM</h2>
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
             {gymTeam.map(t => (
               <button
@@ -1208,7 +1216,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: C.text, marginBottom: 2 }}>
                     {t.display_name ?? "Trainer"}
-                    {t.is_assigned && <span style={{ marginLeft: 6, fontSize: 11, color: "var(--accent)", fontWeight: 900 }}>JOUW</span>}
+                    {t.is_assigned && <span style={{ marginLeft: 6, fontSize: 11, color: C.accentText, fontWeight: 900 }}>JOUW</span>}
                   </div>
                   <div style={{ display: "flex", alignItems: "center", fontSize: 11, color: C.muted }}>
                     {availDot(t.availability_status)}
@@ -1231,13 +1239,13 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
       {/* ── Support sheet ── */}
       {supportSheet && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+        <div ref={supportRef} {...dialogAttrs(t("Ask for help"))} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSupportSheet(false)} />
           <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
             {activeSupport ? (
               <>
-                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>HULPVERZOEK</div>
+                <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>HULPVERZOEK</h2>
                 {activeSupport.status === 'accepted' && activeSupport.reply_message ? (
                   <>
                     <div style={{ fontSize: 13, fontWeight: 700, color: C.success, marginBottom: 8 }}>✓ {activeSupport.accepted_by?.display_name ?? "Trainer"} heeft gereageerd</div>
@@ -1257,20 +1265,20 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               </>
             ) : (
               <>
-                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VRAAG OM HULP</div>
+                <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VRAAG OM HULP</h2>
                 {trainer && (
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                     {availDot(trainer.availability_status)}
                     <span style={{ fontSize: 13, color: C.muted }}>{trainer.display_name ?? "Trainer"} — {trainer.availability_status === 'available' ? "Beschikbaar" : "Bezig"}</span>
                   </div>
                 )}
-                <textarea
+                <textarea aria-label={t("Message to your trainer")}
                   value={supportMsg}
                   onChange={e => setSupportMsg(e.target.value)}
                   placeholder="Schrijf je vraag…"
                   maxLength={500}
                   rows={4}
-                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
+                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 16, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 6 }}
                 />
                 <div style={{ fontSize: 11, color: C.muted, textAlign: "right", marginBottom: 12 }}>{supportMsg.length} / 500</div>
                 {gymModel === 'zzp' && gymTeam && gymTeam.filter(t => !t.is_assigned && t.availability_status !== 'offline').length > 0 && (
@@ -1278,7 +1286,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                     <input type="checkbox" checked={supportBroadcast} onChange={e => setSupportBroadcast(e.target.checked)} style={{ marginTop: 2 }} />
                     <div>
                       <div style={{ fontSize: 13, fontWeight: 700, color: C.muted }}>Stuur naar alle beschikbare trainers</div>
-                      <div style={{ fontSize: 11, color: C.subtle, marginTop: 2 }}>Jouw trainingsdata is dan zichtbaar voor de trainer die reageert.</div>
+                      <div style={{ fontSize: 11, color: C.subtleText, marginTop: 2 }}>Jouw trainingsdata is dan zichtbaar voor de trainer die reageert.</div>
                     </div>
                   </label>
                 )}
@@ -1297,13 +1305,13 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
       {/* ── Switch sheet ── */}
       {switchSheet && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+        <div ref={switchRef} {...dialogAttrs(t("Switch trainer"))} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setSwitchSheet(false)} />
           <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 40px", maxHeight: "85dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 20px" }} />
             {switchStep === "select" ? (
               <>
-                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>WISSEL VAN TRAINER</div>
+                <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>WISSEL VAN TRAINER</h2>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
                   {(gymTeam ?? []).filter(t => !t.is_assigned).map(t => {
                     const availLabel = t.availability_status === 'available' ? "Beschikbaar" : t.availability_status === 'busy' ? "Bezig" : "Offline";
@@ -1319,7 +1327,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 700, color: C.text }}>{t.display_name}</div>
                           {t.specialties?.length > 0 && <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{t.specialties.slice(0, 2).join(" · ")}</div>}
-                          <div style={{ fontSize: 11, color: C.subtle, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{availDot(t.availability_status)}{availLabel}</div>
+                          <div style={{ fontSize: 11, color: C.subtleText, marginTop: 2, display: "flex", alignItems: "center", gap: 5 }}>{availDot(t.availability_status)}{availLabel}</div>
                         </div>
                       </button>
                     );
@@ -1329,14 +1337,14 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
               </>
             ) : (
               <>
-                <div style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VERZOEK AAN {(switchTarget?.display_name ?? "TRAINER").toUpperCase()}</div>
-                <textarea
+                <h2 style={{ ...eyebrow, color: C.muted, marginBottom: 16 }}>VERZOEK AAN {(switchTarget?.display_name ?? "TRAINER").toUpperCase()}</h2>
+                <textarea aria-label={t("Message to your trainer")}
                   value={switchMsg}
                   onChange={e => setSwitchMsg(e.target.value)}
                   placeholder="Optioneel bericht aan de gym…"
                   maxLength={300}
                   rows={3}
-                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 12 }}
+                  style={{ width: "100%", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, borderRadius: 12, padding: 14, color: C.text, fontSize: 16, fontFamily: "inherit", resize: "none", boxSizing: "border-box", marginBottom: 12 }}
                 />
                 <div style={{ fontSize: 12, color: C.muted, marginBottom: 16, padding: "10px 12px", borderRadius: 10, background: "rgba(var(--overlay-rgb),0.03)", border: `1px solid ${C.border}` }}>
                   {gymModel === 'zzp'
@@ -1358,7 +1366,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
 
       {/* ── Team member profile sheet ── */}
       {profileSheet && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
+        <div ref={profileRef} {...dialogAttrs(t("Trainer profile"))} style={{ position: "fixed", inset: 0, zIndex: 60, display: "flex", flexDirection: "column", justifyContent: "flex-end" }}>
           <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.6)" }} onClick={() => setProfileSheet(null)} />
           <div style={{ position: "relative", background: C.sheet, borderRadius: "20px 20px 0 0", padding: "24px 20px 48px", maxHeight: "80dvh", overflowY: "auto" }}>
             <div style={{ width: 36, height: 4, borderRadius: 2, background: C.subtle, margin: "0 auto 24px" }} />
@@ -1400,7 +1408,7 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
       {msgSheet && (
         <>
           <div onClick={() => setMsgSheet(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 40 }} />
-          <div style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.sheet, borderRadius: "24px 24px 0 0", padding: "0 0 env(safe-area-inset-bottom)", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
+          <div ref={msgRef} {...dialogAttrs(t("Messages"))} style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, background: C.sheet, borderRadius: "24px 24px 0 0", padding: "0 0 env(safe-area-inset-bottom)", maxHeight: "80dvh", display: "flex", flexDirection: "column" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "18px 20px 12px" }}>
               <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
                 {trainer?.display_name ?? "Trainer"} — Berichten
@@ -1425,15 +1433,16 @@ export default function CoachView({ prefs, plan, onUpdate, onNavigateSettings, o
             </div>
             {msgError && <div style={{ fontSize: 11, color: "#f43f5e", padding: "0 20px 8px" }}>{msgError}</div>}
             <div style={{ display: "flex", gap: 8, padding: "8px 16px 16px", borderTop: `1px solid ${C.border}` }}>
-              <input
+              <input aria-label={t("Message")}
                 value={msgInput}
                 onChange={e => setMsgInput(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); handleSendMessage(); } }}
                 placeholder="Stuur een bericht…"
                 maxLength={1000}
-                style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontSize: 13, fontFamily: "inherit", outline: "none" }}
+                style={{ flex: 1, padding: "10px 14px", borderRadius: 12, border: `1px solid ${C.border}`, background: C.bgCard, color: C.text, fontSize: 16, fontFamily: "inherit" }}
               />
               <button
+                aria-label={t("Send")}
                 onClick={handleSendMessage}
                 disabled={msgSending || !msgInput.trim()}
                 style={{ padding: "10px 16px", borderRadius: 12, border: "none", background: 'var(--accent)', color: C.onAccent, fontFamily: "inherit", fontWeight: 900, fontSize: 13, cursor: (msgSending || !msgInput.trim()) ? "not-allowed" : "pointer", opacity: (msgSending || !msgInput.trim()) ? 0.5 : 1 }}

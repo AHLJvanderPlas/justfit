@@ -13,7 +13,7 @@ export const AdaptationChip = ({ label }) => (
       letterSpacing: "0.06em",
       textTransform: "uppercase",
       background: "rgba(var(--accent-rgb),0.1)",
-      color: "var(--accent)",
+      color: C.accentText,
       border: "1px solid rgba(var(--accent-rgb),0.25)",
       borderRadius: 999,
       padding: "3px 10px",
@@ -46,6 +46,7 @@ export const Glass = ({ children, style = {}, onClick, ...rest }) => (
 // ─── TOGGLE ROW ──────────────────────────────────────────────────────────────
 export const Toggle = ({ label, sub, active, onToggle }) => (
   <button
+    role="switch" aria-checked={!!active}
     onClick={onToggle}
     style={{
       display: "flex",
