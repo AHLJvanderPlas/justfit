@@ -88,6 +88,7 @@ export const RULE_POLICY = {
   R596: 'adaptive_safety',
   R597: 'adaptive_safety',
   R598: 'adaptive_safety',
+  R601: 'adaptive_safety',
   R999: 'adaptive_safety',
 };
 
@@ -199,6 +200,9 @@ export const RULE_LABELS = {
   R596: { category: 'Training adaptation', text: 'Defence protocol work left out — no military coach is active.' },
   R597: { category: 'Training adaptation', text: 'Variety check — no two exercises train the same movement today.' },
   R598: { category: 'Training adaptation', text: 'Self-measurement inside this session: max push-ups and sit-ups over two minutes.' },
+  // Finding 6 — R601 (_shared/budgetFill.js): sets restored / exercises added so an
+  // ordinary day fills the session length the user chose. Structure, not news.
+  R601: { category: 'Training adaptation', text: 'Session topped up to the time you chose.' },
   R999: { category: 'Training adaptation', text: 'Rest day — you set this weekday as a rest day.' },
   // C-B32 — the weekly training-days target (functions/api/_shared/weekTarget.js).
   // {n} is the target, read off the trace's "target=N" (dynamic: 'weektarget').
@@ -378,11 +382,12 @@ export const TODAY_RULE_CODES = new Set([
 ]);
 export const STRUCTURAL_RULE_CODES = new Set([
   'R500', 'R502', 'R518', 'R519', 'R524', 'R525', 'R550', 'R551', 'R552', 'R553', 'R554',
-  'R560', 'R561', 'R590', 'R591', 'R593', 'R594', 'R595', 'R596', 'R597',
+  'R560', 'R561', 'R590', 'R591', 'R593', 'R594', 'R595', 'R596', 'R597', 'R601',
 ]);
 // R519 is today's only when a situational factor is among its reasons.
 const STRUCTURAL_VOLUME_REASONS = new Set(['experience', 'bodyweight', 'bodyweight_up', 'floor']);
 
+const R510_TODAY = /micro|no_time|Shorter today/i;
 const _tagsOf = (s) => { try { return JSON.parse(s?.tags_json || '[]'); } catch { return []; } };
 const _hasRunStep = (steps) => steps.some(s => _tagsOf(s).some(t => t === 'run_interval' || t === 'run_continuous' || t === 'running'));
 const _hasCardioStep = (steps) => steps.some(s => s.category === 'cardio' || _tagsOf(s).includes('cardio'));
@@ -394,7 +399,10 @@ const _hasCardioStep = (steps) => steps.some(s => s.category === 'cardio' || _ta
  */
 export function ruleKind(code, lines = [], steps = null, entry = null) {
   const text = lines.join(' | ');
-  if (code === 'R510') return /micro|no_time|Short session/i.test(text) || !/Normal session/.test(text) ? 'today' : 'hidden';
+  // Finding 6 — R510 is news only when today's time was cut: a micro session, or less
+  // time than the user's own session length. Their own 20 minutes is not "adjusted"
+  // (older plans traced "Short session (≤20 min)" for exactly that — hidden too).
+  if (code === 'R510') return R510_TODAY.test(text) ? 'today' : 'hidden';
   if (code === 'R516') {
     if (/no_gear|traveling/.test(text)) return 'today';
     if (/Equipment filter from profile/.test(text)) return 'hidden';
@@ -487,8 +495,8 @@ export function deriveCoachSentence(ruleTrace, sessionNotes, bodyMode = 'standar
     if (restSkip?.has(code) || !SENTENCE_VARIANTS[code]) return false;
     const lines = trace.filter(t => t.includes(code));
     if (!lines.length) return false;
-    // R510 carries the card only for a micro session; "Short session" is no news.
-    if (code === 'R510' && !/micro|no_time/i.test(lines.join(' ')) && /session/i.test(lines.join(' '))) return false;
+    // R510 carries the card only for a micro session; a shorter day says so in the chip.
+    if (code === 'R510' && !/micro|no_time/i.test(lines.join(' '))) return false;
     const kind = ruleKind(code, lines, steps);
     return kind !== 'hidden' && !(code === 'R516' && kind !== 'today');
   });
@@ -547,7 +555,11 @@ export function deriveChipLabel(ruleTrace, sessionNotes) {
   if (traceStr.includes('R540'))                          return 'Postnatal phase';
   if (traceStr.includes('R530') || traceStr.includes('R531') || traceStr.includes('R532')) return 'Pregnancy-adapted';
   if (traceStr.includes('R514'))                          return 'Rest day — pain';
-  if (traceStr.includes('R510'))                          return 'Time-adjusted';
+  // Finding 6 — every plan traces R510, so its mere presence is no reason: the chip
+  // names the cut (micro / less time than usual) or stays away.
+  const r510 = (ruleTrace ?? []).map(String).filter(l => l.includes('R510')).join(' ');
+  if (/micro|no_time/i.test(r510))                        return 'Micro: little time today';
+  if (/Shorter today/.test(r510))                         return 'Shorter: less time today';
   if (traceStr.includes('R516'))                          return 'Bodyweight only';
   if (traceStr.includes('R515'))                          return 'Low-impact mode';
   if (traceStr.includes('R513'))                          return 'Mobility focus';

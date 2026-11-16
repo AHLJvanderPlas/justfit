@@ -23,6 +23,7 @@ import { estimateMins } from '../packages/client-app/src/planUtils.js';
 import { RULE_LABELS, INTERNAL_RULE_CODES, parseVolumeTrace } from '../packages/client-app/src/messagePolicy.js';
 import { isoWeekStart, isoWeekday, addDays } from '../functions/api/_shared/weekTarget.js';   // dates only — the decision is asserted below, not imported
 import { loadAreas } from '../functions/api/_shared/injuryLoad.js';   // finding 0 — the property asks the planner's own load model
+import { estimateSessionSec } from '../functions/api/_shared/session.js';   // finding 6 — fills-budget reads raw minutes
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -404,6 +405,30 @@ const PERSONAS = [
   { id: 'week-3x-nothing-done', weeklyTarget: 3, trainedFor: () => [] },
   // No target: the same daily history changes nothing — never a rest day.
   { id: 'week-unset-trained-daily', trainedFor: EVERY_DAY },
+
+  // ── Finding 6 — the session fills the time the user chose (R601) ──
+  // General path, no check-in, every experience level at 20/30/45 min, with and
+  // without dumbbells. Property `fills-budget`: 70–110% of the budget every date.
+  ...[20, 30, 45].flatMap(budget => ['beginner', 'intermediate', 'advanced'].flatMap(experience => [
+    { id: `fill-${experience}-${budget}`, budget, experience, fill: true },
+    { id: `fill-${experience}-${budget}-db`, budget, experience, equipment: ['none', 'dumbbell'], fill: true },
+  ])),
+  // The same beginner on days when less is the point: R601 must stay away.
+  { id: 'nofill-sleep', budget: 20, experience: 'beginner', checkIn: { sleep_hours: 4 }, noFill: true },        // R511
+  { id: 'nofill-energy', budget: 20, experience: 'beginner', checkIn: { energy: 3 }, noFill: true },            // R512
+  { id: 'nofill-stress', budget: 20, experience: 'beginner', checkIn: { stress: 8 }, noFill: true },            // R513
+  { id: 'nofill-mood', budget: 20, experience: 'beginner', checkIn: { mood: 3 }, noFill: true, expectIntensity: 'low' }, // R517
+  { id: 'nofill-recovery', budget: 20, experience: 'beginner', checkIn: { recovery_mode: true }, noFill: true }, // R559
+  { id: 'nofill-returning', budget: 20, experience: 'beginner', lastWorkoutDate: daysAgo(30), noFill: true },   // R558
+  { id: 'nofill-micro', budget: 20, experience: 'beginner', checkIn: { no_time: true }, expectSlot: 'micro', noFill: true }, // R510
+  { id: 'nofill-pregnant', budget: 20, experience: 'beginner', sex: 'female', noFill: true,
+    pregnancyContext: { mode: 'pregnant', week: 20, trimester: 2 } },
+  { id: 'nofill-postnatal', budget: 20, experience: 'beginner', sex: 'female', noFill: true,
+    pregnancyContext: { mode: 'postnatal', postnatal_phase: 'rebuilding', postnatal_cleared_for_exercise: 1, postnatal_birth_type: 'vaginal' } },
+  { id: 'nofill-forced-measurement', budget: 20, experience: 'beginner', noFill: true, expectAssessment: true,
+    militaryCoach: { active: false, dcp: DCP }, sportPrefs: DCP_SPORT, opts: { forceAssessment: true } },
+  { id: 'nofill-military', budget: 20, experience: 'beginner', goal: 'military', primary_intent: 'military', noFill: true,
+    militaryCoach: MIL({ block_session_index: 1 }), conditioning: 55 },
 ];
 
 // ── Assertions ───────────────────────────────────────────────────────────────
@@ -411,7 +436,7 @@ const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
   'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s', 'week-target',
-  'injury-safe'];
+  'injury-safe', 'fills-budget'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -745,6 +770,32 @@ for (const p of PERSONAS) {
           bad.length ? `loads an injured area [${areas}]: ${bad.join(', ')}` : `${steps.length} step(s), none loads ${areas.join('/')}`);
       }
     }
+
+    // ── 13. The session fills the chosen time (finding 6, R601) ──
+    // fill personas: 70–110% of the budget in raw minutes (estimateSessionSec), and a
+    // beginner keeps the R502 rep scale and never exceeds the goal's base sets (3).
+    // Every persona: R601 never fires on a day where less is the point — micro, rest,
+    // a sleep / energy / stress / mood / return / recovery downgrade, pregnancy or
+    // postnatal, a coach programme, a forced measurement.
+    {
+      const fired = trace.some(t => t.startsWith('R601'));
+      const lessToday = trace.some(t => /^R5(11|12|13|17|35|36|58|59)\b|^R526 .*stress/.test(t));
+      const excluded = isRest || out.slot_type === 'micro' || lessToday || !!p.pregnancyContext?.mode?.match(/^(pregnant|postnatal)$/)
+        || !!(p.runCoach || p.cyclingCoach || p.militaryCoach?.active) || !!p.opts?.forceAssessment || !!p.noFill;
+      const bad = [];
+      if (fired && excluded) bad.push(`R601 topped up a session it must leave alone: ${trace.filter(t => /^R(5\d\d|601)/.test(t) && /R601|R51[0-3]|R517|R55[89]|R53[56]|R526/.test(t)).join(' | ')}`);
+      if (p.fill && !isRest) {
+        const mins = estimateSessionSec(steps) / 60;
+        if (mins < budget * 0.70 || mins > budget * 1.10) bad.push(`~${mins.toFixed(1)} min is outside 70–110% of the ${budget}-min budget`);
+        if (p.experience === 'beginner') {
+          const over = steps.filter(s => (s.sets ?? 1) > 3);
+          if (over.length) bad.push(`a beginner was given more than the goal's base sets: ${over.map(s => `${s.exercise_slug}×${s.sets}`).join(', ')}`);
+          if (!trace.some(t => t.startsWith('R502') && t.includes('×0.80'))) bad.push('the beginner rep scale (R502 ×0.80) is gone');
+        }
+      }
+      say('fills-budget', bad.length ? 'FAIL' : 'PASS', bad.length ? bad.join('; ')
+        : p.fill ? `~${(estimateSessionSec(steps) / 60).toFixed(1)} of ${budget} min${fired ? ' (R601)' : ''}` : (fired ? 'R601 on an ordinary day' : 'no top-up'));
+    }
   }  // ── end of the date sweep ──
 
   // Decided 2026-10-04: an unmeasured user is allowed 20 min of continuous
@@ -1076,6 +1127,26 @@ for (const p of PERSONAS) {
     check(preservesUserPlan({ generated_by: 'user' }, {}) === true, 'W4.1 an auto-generate would overwrite a user-authored plan');
     check(preservesUserPlan({ generated_by: 'user' }, { replace_user_plan: true }) === false, 'W4.1 replace_user_plan must allow an explicit replacement');
     check(preservesUserPlan({ generated_by: 'engine' }, {}) === false, 'W4.1 an engine plan must stay replaceable');
+  }
+
+  // R601 (finding 6) — a bonus session and a user-built session are the user's own
+  // size: never topped up. The ordinary twin must fill, or this compares nothing.
+  {
+    const beginner20 = { budget: 20, experience: 'beginner' };
+    const r601 = (o) => (o.rule_trace ?? []).some(t => String(t).startsWith('R601'));
+    check(r601(plan(beginner20)), 'R601 regression is vacuous: the ordinary 20-min beginner was not topped up');
+    const bonusArgs = build(beginner20); bonusArgs[9] = true;
+    check(!r601(runPlanner(...bonusArgs)), 'R601 topped up a bonus session');
+    const ctx = buildPlannerGuardContext(...build(beginner20));
+    const own = assembleCustomSession(ctx, [{ exercise_id: idOf('push-up') }], { nowMs: 1 });
+    check(own.status === 200 && (own.plan?.steps ?? []).length === 1 && !r601(own.plan ?? {}), 'R601 touched a user-built session');
+  }
+  // R510 (finding 6) — "shorter" only when today's time is below the user's own length.
+  {
+    const r510 = (o) => (o.rule_trace ?? []).map(String).find(t => t.startsWith('R510')) ?? '';
+    check(/Normal session/.test(r510(plan({ budget: 20 }))), `R510 called the user's own 20 minutes adjusted: "${r510(plan({ budget: 20 }))}"`);
+    check(/Shorter today/.test(r510(plan({ budget: 30, checkIn: { time_budget: 20 } }))), 'R510 did not say a 20-min check-in on a 30-min profile is shorter');
+    check(/Normal session/.test(r510(plan({ budget: 30, checkIn: { time_budget: 30 } }))), 'R510 called a check-in equal to the profile length shorter');
   }
 
   // R595 — nothing longer than the session it sits in.

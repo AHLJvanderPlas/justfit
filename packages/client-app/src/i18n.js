@@ -627,7 +627,8 @@ const NL = {
   'Postnatal phase': 'Postnatale fase',
   'Pregnancy-adapted': 'Zwangerschapsaangepast',
   'Rest day \u2014 pain': 'Rustdag \u2014 pijn',
-  'Time-adjusted': 'Tijd aangepast',
+  'Micro: little time today': 'Micro: weinig tijd vandaag',
+  'Shorter: less time today': 'Korter: minder tijd vandaag',
   'Bodyweight only': 'Alleen lichaamsgewicht',
   'Low-impact mode': 'Lage impact modus',
   'Mobility focus': 'Mobiliteitsfocus',
@@ -798,6 +799,7 @@ const NL = {
   'Variety check — no two exercises train the same movement today.': 'Variatiecheck — geen twee oefeningen die vandaag dezelfde beweging trainen.',
   'Self-measurement inside this session: max push-ups and sit-ups over two minutes.': 'Zelfmeting in deze sessie: maximaal aantal push-ups en sit-ups in twee minuten.',
   'Rest day — you set this weekday as a rest day.': 'Rustdag — je hebt deze weekdag als rustdag ingesteld.',
+  'Session topped up to the time you chose.': 'Sessie aangevuld tot je gekozen tijd.',
   // C-B32 — the weekly training-days target (R599 / R600)
   'Your weekly target ({n}x) is reached — rest today.': 'Je weekdoel ({n}x) is gehaald — vandaag rust.',
   'Rest today — your {n} training days are spread over the week.': 'Vandaag rust — je {n} trainingsdagen worden over de week verdeeld.',

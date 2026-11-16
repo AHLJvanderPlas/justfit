@@ -12,6 +12,7 @@ import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec, roundTo5Sec } from './_shared/session.js';
 import { applyRestDays, weekTargetApplies, TRAINED_DAYS_SQL, trainedDaysFrom } from './_shared/weekTarget.js';   // C-B32
 import { loadsAny, injuryAreasFor, planLoadsAny } from './_shared/injuryLoad.js';   // finding 0 — R563's one load model
+import { applyBudgetFill } from './_shared/budgetFill.js';   // finding 6 — R601
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
 // Re-exported for existing importers (the request harnesses import them from here).
@@ -1421,7 +1422,7 @@ function _initPlannerContext(date, checkIn, exercises, prefs, templates, complet
     goal, expLevel, runCoach,
     weightKg, heightCm, bmi, sex,
     effectiveEquip, forceBodyweight, profileBodyweightOnly,
-    rawBudget, budget, unlimited,
+    rawBudget, budget, unlimited, prefBudget,
     isStandardMode, inSpecialMode,
 
     blockedWeekdays: new Set(prefs?.preferences?.blocked_weekdays ?? []),
@@ -1597,15 +1598,13 @@ function _applySafetyPolicies(ctx) {
     }
   }
 
-  // R510
+  // R510 — "shorter" only when today's time (check-in, weekly schedule, overhead) is below the user's own length.
   if (ctx.budget <= 10 || checkIn?.no_time) {
     ctx.slot_type = 'micro';
     ctx.trace.push('R510 — Time ≤10 min or no_time → micro session');
-  } else if (ctx.budget <= 20) {
-    ctx.trace.push('R510 — Short session (≤20 min)');
-  } else {
-    ctx.trace.push('R510 — Normal session (>20 min)');
-  }
+  } else if (!ctx.unlimited && ctx.rawBudget < ctx.prefBudget) {
+    ctx.trace.push(`R510 — Shorter today: ${ctx.budget} min instead of your usual ${ctx.prefBudget} (today=${ctx.budget} usual=${ctx.prefBudget})`);
+  } else ctx.trace.push(`R510 — Normal session (your own ${ctx.budget} min)`);
 
   // Bonus session overrides
   if (ctx.bonusSession) {
@@ -3009,7 +3008,8 @@ function _assembleSession(ctx) {
   let floorHits = 0;
   const _floored = (f) => { if (f < floorF) { floorHits++; return floorF; } return f; };
 
-  const steps = ctx.slot_type === 'rest' ? [] : ctx.cyclingProgramOverride ? [ctx.cyclingProgramOverride.step] : selection.map(ex => {
+  const fixedIds = new Set();
+  const buildStep = (ex, tally = true) => {   // tally=false: R601 trying a candidate, counted only when kept
     const metrics   = JSON.parse(ex.metrics_json || '{}');
     const exTags    = JSON.parse(ex.tags_json || '[]');
     const isRunWarmup   = exTags.includes('run_warmup');
@@ -3037,6 +3037,7 @@ function _assembleSession(ctx) {
       || ex.slug === 'easy-jog-warmup'
       || ex.slug === 'cooldown-walk';
 
+    if (metrics.fixed_sets || isLongCardio || isFixedDuration) fixedIds.add(ex.id);
     let sets;
     if (ctx.slot_type === 'micro' || isGentleMode || isLongCardio) {
       sets = 1;
@@ -3053,16 +3054,16 @@ function _assembleSession(ctx) {
     const isBodyweightReps = exTags.includes('bodyweight');
     if (reps) {
       if (energyF !== 1) ctx.trace.push(`R512 — Low energy → ${ex.name} reps ×0.6`);
-      if (repScale !== 1.0) r502Reps++;
+      if (tally && repScale !== 1.0) r502Reps++;
       const bwF = isBodyweightReps ? bw.scale : 1;
-      if (bwF !== 1) r524Count++;
+      if (tally && bwF !== 1) r524Count++;
       reps = Math.round(reps * _floored(energyF * repScale * sitF * bwF));
     }
     if (duration && !isFixedDuration) {
       if (energyF !== 1) ctx.trace.push(`R512 — Low energy → ${ex.name} duration ×0.6`);
       // R502's duration leg spares long cardio and run warm-ups (audit §1).
       const expF = (!isLongCardio && !isRunWarmup) ? repScale : 1;
-      if (expF !== 1.0) r502Dur++;
+      if (tally && expF !== 1.0) r502Dur++;
       duration = roundTo5Sec(duration * _floored(energyF * expF * sitF));   // UAT D6 — 5 s steps
     }
 
@@ -3093,12 +3094,15 @@ function _assembleSession(ctx) {
       ...(measures ? { max_effort: true, measures, measure_window_sec: ctx.dcpMeasure.windowSec } : {}),
       coaching_note:        coachingNote,
     });
-  });
-  // R598 — a template or coach session that lacks a movement still gets measured.
-  ensureMeasurementSteps(ctx, steps);
+  };
+  const steps = ctx.slot_type === 'rest' ? [] : ctx.cyclingProgramOverride ? [ctx.cyclingProgramOverride.step] : selection.map(ex => buildStep(ex));
+  ensureMeasurementSteps(ctx, steps);   // R598 — a template or coach session that lacks a movement still gets measured
+  // R601 — finding 6: top a session that falls well short of the chosen time back up (_shared/budgetFill.js).
+  const fill = applyBudgetFill(ctx, steps, { setCap: goalSetsBase, isFixed: (st) => fixedIds.has(st.exercise_id),
+    safePool: _safePool, buildStep: (ex) => buildStep(ex, false), familyOf: movementFamily });
+  for (const ex of fill?.added ?? []) buildStep(ex);   // tally the kept picks for R502/R524
 
-  // R502 — one line for both legs. Reported after the map so timed work cannot
-  // be rescaled silently again.
+  // R502 — one line for both legs, after the map (and R601) so timed work cannot be rescaled silently.
   if (repScale !== 1.0 && (r502Reps > 0 || r502Dur > 0)) {
     ctx.trace.push(`R502 — Experience (${expLevel}) → ×${repScale.toFixed(2)} on reps of ${r502Reps} exercise(s) and duration of ${r502Dur} exercise(s)`);
   }
@@ -3107,9 +3111,7 @@ function _assembleSession(ctx) {
   if (ctx.militarySessionType === 'kracht_marsen' && ctx.militaryMarchSec > 0 && ctx.slot_type !== 'rest') {
     const marchEx = exercises.find(ex => ex.slug === R574_MARCH_SLUG);
     if (marchEx) {
-      // W3.4 — dedupe defensively: whatever path put a march in the session, the
-      // prescription below is the only one. Appended after scaling, so its
-      // duration is the programme's minutes exactly — it is fixed by construction.
+      // W3.4 — dedupe: the prescription below is the only march; appended after scaling, so its minutes are exact.
       for (let i = steps.length - 1; i >= 0; i--) if (steps[i].exercise_slug === R574_MARCH_SLUG) steps.splice(i, 1);
       const kgLabel = ctx.militaryMarchKg > 0 ? `${ctx.militaryMarchKg} kg` : 'bodyweight';
       steps.push(makePlanStep(marchEx, {
@@ -3393,10 +3395,7 @@ function _assembleSession(ctx) {
 }
 
 
-// Session time in seconds is _shared/session.js estimateSessionSec — the
-// client's estimateMins() arithmetic, unrounded. The client rounds up to the
-// next 5 minutes; the fit below aims at the raw budget, so what the user reads
-// never exceeds it by more than that rounding (used by _fitToBudget below).
+// Session time = _shared/session.js estimateSessionSec (the client's estimateMins, unrounded); the fit aims at the raw budget.
 
 /**
  * W3.4 — bound TOTAL session time.

@@ -564,10 +564,14 @@ import { runPlanner } from "./functions/api/plan.js";
 
 const errs = [];
 const src = fs.readFileSync("functions/api/plan.js", "utf8");
-// C-B32 — the rest-day rules (R999, R599, R600) trace from _shared/weekTarget.js.
+// C-B32 — the rest-day rules (R999, R599, R600) trace from _shared/weekTarget.js;
+// finding 6 — R601 traces from _shared/budgetFill.js.
 const planLines = src.split("\n");
-const lines = [...planLines, ...fs.readFileSync("functions/api/_shared/weekTarget.js", "utf8").split("\n")];
-const where = (n) => n <= planLines.length ? "plan.js:" + n : "_shared/weekTarget.js:" + (n - planLines.length);
+const weekLines = fs.readFileSync("functions/api/_shared/weekTarget.js", "utf8").split("\n");
+const lines = [...planLines, ...weekLines, ...fs.readFileSync("functions/api/_shared/budgetFill.js", "utf8").split("\n")];
+const where = (n) => n <= planLines.length ? "plan.js:" + n
+  : n <= planLines.length + weekLines.length ? "_shared/weekTarget.js:" + (n - planLines.length)
+  : "_shared/budgetFill.js:" + (n - planLines.length - weekLines.length);
 const balance = (t) => [...t].reduce((n, c) => n + (c === "(" ? 1 : c === ")" ? -1 : 0), 0);
 
 // ── 1. every traced R-code is labelled or explicitly internal ──
@@ -1524,7 +1528,7 @@ fi
 # measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
 # 2026-11-01 (C-B32): plan.js 3688 → 3686 — R999 moved to _shared/weekTarget.js with the weekly target.
 # 2026-11-16 (finding 0): plan.js 3686 → 3677 — R563's tag map became _shared/injuryLoad.js.
-PLAN_CEILING=3677
+PLAN_CEILING=3676
 # 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
 # 2026-11-01 (UAT release 6): App.jsx 1780 → 1769 — the check-in time budget moved to checkinQuick.js, the page container to .jf-page.
 APP_CEILING=1769
