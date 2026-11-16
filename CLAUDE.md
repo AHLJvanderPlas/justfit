@@ -1129,7 +1129,7 @@ adds +15s for pregnancy/postnatal on top of this.
 | R512 | energy ≤3 (out of 10) | reps/duration × 0.6 |
 | R513 | stress ≥7 (out of 10) | category = 'mobility' |
 | R514 | pain_level ≥2 AND (scope=general OR unset) | slot_type = 'rest'; scope='specific' with named areas → R562–R565 instead |
-| R562–R565 | injury_areas from checkin.pain_areas + prefs.chronic_injury_areas | R563: filter pool by loads_knee/loads_shoulder/loads_lower_back/loads_ankle; R564: supplement if pool<3; R565: add coaching note |
+| R562–R565 | injury_areas from checkin.pain_areas + prefs.chronic_injury_areas (`injuryAreasFor`) | R563: remove every exercise whose `loadAreas()` (`_shared/injuryLoad.js`: loads_* tags ∪ muscles/tags/equipment/words) meets an injured area — pool guard (also on rest days), military template rows, the R574 march, military run days (knee/ankle → strength), the free adapt path (a stored session that loads a sore area is re-planned); R564: supplement if pool<3; R565: add coaching note |
 | R515 | no_clothing | filter: low_impact + no floor tag |
 | R516 | no_gear or traveling | filter: equipment_required = ["none"] |
 | R520–R525 | cycle phase signals | intensity/volume adjustments per phase |
@@ -1241,7 +1241,7 @@ Calculated server-side from executions table:
 | Plan without check-in | ✅ Live — Skip button generates plan from settings (null checkin); on load, loads stored plan from D1 or auto-generates if none exists; manual mode never shows check-in prompt |
 | Equipment selector (machines) | ✅ Live — treadmill, stationary bike, indoor bike, rowing machine added to EQUIPMENT_OPTIONS; null equipment defaults to bodyweight-only in R516 |
 | Goal SVG icons | ✅ Live — 6 outlined polygon icons (health=cross, strength=arrow, fat_loss=flame, muscle=dumbbell, endurance=chevrons, mobility=figure); positioned at 2/3 from left / 1/3 from top; used in goal picker + Dashboard + Settings |
-| Injury-aware filtering | ✅ Live — R562–R565: check-in pain scope (general→rest, specific+areas→filter); chronic_injury_areas in preferences_json; loads_knee/shoulder/lower_back/ankle tags on ~182 exercises (migration 0021) |
+| Injury-aware filtering | ✅ Live — R562–R565: check-in pain scope (general→rest, specific+areas→filter); chronic_injury_areas in preferences_json; loads_knee/shoulder/lower_back/ankle tags on ~182 exercises (migration 0021). ⬜ Finding 0 fix built 2026-11-16 (branch ux0): derived load model `_shared/injuryLoad.js`; migration 0125 (tags + substitutions) not yet applied |
 | Progression tab | ✅ Live — full feature: scoring engine (diminishing-return gains + exponential decay per mode), 6-axis body profile (Push/Pull/Legs/Core/Cardio/Mobility), custom SVG hexagonal radar chart, goal fit ring, key insights (strongest/weakest/biggest gap), axis breakdown bars, planner explanation, chart mode tabs (Power/Endurance/Balanced/Mobility), goal target compare overlay, rebuild-from-history debug button; DB: migration 0014 (user_progression + user_progression_events); API: /api/progression (GET + POST + POST?action=recompute); progression updated on every workout completion in execution.js; planner R550-R560 rules for weak-axis bias + mobility maintenance |
 | Sport preferences in Settings | ✅ Live — "Endurance Sports" section: Running/Cycling/Rowing/Swimming/Walking/Mixed Cardio toggles + primary sport selector; stored in preferences_json.sport_prefs via /api/progression POST; sport-aware bias on/off toggle (sport_prefs.bias_enabled); deep-merge in profile.js preserves bias_enabled on re-onboarding |
 | Planner R550–R561 | ✅ Live — progression-aware rules: R550 profile load, R551 weak-axis compensation (reorders pool; prefers sport_support:{primary} tagged exercises within gap axis), R552 mode-aware note, R553 mobility decay maintenance, R554 explainability in rule_trace, R560 sport-aware bias layer (complement vectors × weighted average → ±12pt target nudge; volume-scaled guardrail on legs/conditioning: 0 sessions=100%, 1-2=80%, 3-4=60%, 5+=40%; bypassed when sport coach prescribes the session or bias_enabled=false), R561 sport mobility injection (appends one sport_mobility:{primary} tagged exercise per standard session) |
@@ -1360,6 +1360,40 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 (`d2f8fc7`, 2026-11-01) — see the block below. Open follow-up (not a bug in this repo): Cloudflare's
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
+
+### Built 2026-11-16 (branch ux0, NOT deployed) — finding 0: the injury filter covers every exercise
+
+- **Root cause** (`docs/UI_UX_REVIEW_2026-11-16.md` finding 0): R563 filtered on `loads_*` tags that
+  migration 0021 put on the library as it was then; 284 of 480 active rows had none (plyo-push-up
+  among them), trainer/gym custom rows never could. Reproduced on the baseline: R563 ran
+  ("397 → 339") and plyo-push-up still reached a chronic-shoulder + shoulder-pain plan on 5 of 60 dates.
+- **`functions/api/_shared/injuryLoad.js`** (pure, no imports): `loadAreas(ex)` = explicit tags ∪
+  joint muscles ∪ working muscles ∪ tags ∪ equipment ∪ EN/NL words; when unsure it loads (an
+  unreadable strength row loads all four); mobility/recovery only count what sits at the joint;
+  breathing loads nothing. Inference table in the header. `loadsAny`, `injuryAreasFor`, `planLoadsAny`.
+  Used by: the R563 guard (registered on rest days too, so `_safePool`, R564, pins and the
+  custom_steps advisory pass follow), the R573a template rows (< 3 safe → guarded pool), R573's
+  military pool (now needs 8 distinct movement families), the R574 march (left out when it loads an
+  injured area), military run days (knee/ankle → strength, `computeMilitaryPhase(…, injuryAreas)`),
+  the free adapt path (re-plans instead of rescaling), `GET /api/exercises` (`load_areas` per row).
+  Plans carry `injury_areas`. Trainer custom rows now pass their muscles to the planner.
+- **Migration 0125** (GENERATED: `scripts/generate-injury-load-migration.mjs` from
+  `scripts/fixtures/exercise-injury-load.json`, review table `docs/injury-load-tags.md`): loads_*
+  tags on 291 rows (shoulder 119, knee 158, lower_back 82, ankle 133), 598 substitution links on
+  314 rows so every active row offers ≥ 2 (Cooper test excepted, 0113), appended behind NOT EXISTS,
+  assert table at the end. **Apply with `node scripts/migrate.mjs apply
+  migrations/0125_injury_load_tags.sql`, then `npm run baseline:seeds`.** Until it is applied smoke
+  X-28 reports it UNRECORDED (by design). The code is correct without it (e2e runs on the untagged baseline).
+- **WorkoutView**: the alternatives sheet drops swaps that load `plan.injury_areas` ∪ chronic
+  (`src/safeAlternatives.js`); with nothing left it shows a reassurance line and "Deze oefening
+  overslaan" (the existing skip), "Oorspronkelijke houden" stays. `.jf-alt-empty`.
+- Guards: smoke **I1** (no `loads_` literal under functions/ outside injuryLoad.js) + **I2**
+  (baseline + 0125 in sqlite: every strength/cardio row decided, tags = loadAreas(), ≥ 2 active
+  substitutions) — `scripts/injuryLoad.scan.mjs`; matrix property 13 **injury-safe** (21 new personas:
+  chronic × 4 areas, gym, Omar p13, pain-only, two areas, military strength/march/run × 4 areas; fixture
+  183 → 209 rows with plyo-push-up and 25 untagged strength/military rows); request harness block 14;
+  e2e `journey-injury.spec.js`. vitest 575 → **598**; matrix 50 × 12 → **71 × 13**; e2e 31 → **32**.
+  plan.js 3686 → **3677**; inline styles 1749 → **1748** (both ceilings lowered).
 
 ### Shipped 2026-11-01 — C-B32: the weekly training-days target places rest days
 

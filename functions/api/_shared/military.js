@@ -1,6 +1,11 @@
 // Military Coach constants and scheduling helpers (R570–R582)
 // Used by plan.js runPlanner for military training session selection.
 
+import { loadsAny } from './injuryLoad.js';
+
+// What a military run day loads, asked of the one load model (a running row).
+const RUN_PROBE = { slug: 'run', category: 'cardio', tags_json: '["running","cardio"]' };
+
 // Military Coach constants (R570–R582)
 // ---------------------------------------------------------------------------
 
@@ -57,7 +62,7 @@ export const BLOCK_VOLUMES = [0.75, 0.85, 1.00, 1.10, 0.60, 0.90];
 //   recovery_mode or general pain → rest override
 //   low energy → intensity downgrade (interval → duurloop, duurloop → kracht)
 //   poor sleep → volume ×0.85
-export function computeMilitaryPhase(milCoach, checkIn, date) {
+export function computeMilitaryPhase(milCoach, checkIn, date, injuryAreas = []) {
   const todayMs    = new Date(date + 'T12:00:00Z').getTime();
   const blockIdx   = milCoach.block_session_index ?? 0;  // 0–3 = training; ≥4 = rest earned
   const blockNum   = milCoach.block_number ?? 1;          // total blocks since enrollment
@@ -113,6 +118,12 @@ export function computeMilitaryPhase(milCoach, checkIn, date) {
       sessionType = 'kracht';     // downgrade to strength (safest low-energy option)
       checkInOverride = 'low_energy';
     }
+  }
+  // R563 — a run day for an athlete whose injured area running loads (knee, ankle — the same
+  // load model the pool filter uses, injuryLoad.js) becomes a strength day from the guarded pool.
+  if (['duurloop', 'interval', 'cooper_test'].includes(sessionType) && loadsAny(RUN_PROBE, injuryAreas)) {
+    sessionType = 'kracht';
+    checkInOverride = checkInOverride ?? 'injury';
   }
   if (sleep <= 5) milVol *= 0.85; // poor sleep → volume reduction regardless of session type
 

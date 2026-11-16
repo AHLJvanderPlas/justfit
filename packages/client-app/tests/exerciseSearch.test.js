@@ -162,10 +162,11 @@ describe('the fixture library (scripts/fixtures/planner-exercises.json)', () => 
     const r = filterLibrary(fixture, { query: 'opdrukken', owned: ['none'] });
     expect(r.results[0].name).toBe('Push-up');
   });
-  it('a bodyweight profile: 40 shown of 117 (the fixture has 183 rows, not the live 482)', () => {
-    expect(fixture).toHaveLength(183);
+  // 183 → 209 rows (finding 0): the injury matrix needs rows migration 0021 never tagged.
+  it('a bodyweight profile: 40 shown of 137 (the fixture has 209 rows, not the live 480)', () => {
+    expect(fixture).toHaveLength(209);
     const r = filterLibrary(fixture, { owned: ['none'] });
-    expect(r).toMatchObject({ shown: 40, total: 117 });
+    expect(r).toMatchObject({ shown: 40, total: 137 });
     expect(r.results).toHaveLength(40);
   });
   it('the Cooper test does not lead an empty-query list; tests are the last section', () => {

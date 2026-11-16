@@ -1,0 +1,3191 @@
+{
+  "about": "Reviewed source for migrations/0125_injury_load_tags.sql and docs/injury-load-tags.md. Generated with --propose, reviewed row by row, regenerated SQL with the default mode. tags.add must equal what functions/api/_shared/injuryLoad.js infers.",
+  "tags": {
+    "12-minute-cooper-test": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running"
+    },
+    "12-minuten-loop": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running"
+    },
+    "alternating-front-kick": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, standing single-leg work; ankle: standing single-leg work"
+    },
+    "burpee": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle chest, muscle shoulders (secondary), word \"burpee\"; lower_back: muscle full_body"
+    },
+    "cross-country-ski-step": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "cycling-hill-climb": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike; ankle: muscle calves"
+    },
+    "cycling-intervals-indoor": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike"
+    },
+    "cycling-outdoor-easy": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment road_bike; ankle: muscle calves"
+    },
+    "cycling-pyramid-effort": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads, equipment exercise_bike, equipment indoor_bike"
+    },
+    "cycling-sprint-intervals": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike; ankle: word \"sprint\""
+    },
+    "cycling-sweet-spot": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike"
+    },
+    "cycling-tempo-effort": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike"
+    },
+    "cycling-zone2-ride": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike; ankle: muscle calves"
+    },
+    "grapevine-step": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs"
+    },
+    "hardlopen-zone-1-10-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-1-1x5-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-1-2200-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-1-2700-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-1-5-minuten-warmup": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-1-7-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-10-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-12-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-2700-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-2x10-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-2x8-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-30-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-35-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-3x2-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-40-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-45-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-50-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-5x1-5-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-6-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-2-8-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-12-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-1x2-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-1x3-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-1x4-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-2-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-2700-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-2x3-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-2x5-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-2x6-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3x1-minuut": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3x2-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3x3-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3x6-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-3x8-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-4-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-5-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-3-8-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-2700-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-3x2-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-4x1-minuut": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-4x45-seconden": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-5x1-minuut": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-4-6x1-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, word \"hardlopen\""
+    },
+    "hardlopen-zone-5-2700-meter": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, impact (high_impact)"
+    },
+    "hardlopen-zone-5-4x30-seconden": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, impact (high_impact)"
+    },
+    "hardlopen-zone-5-6x30-seconden": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, impact (high_impact)"
+    },
+    "hardlopen-zone-5-6x45-seconden": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag running; ankle: muscle calves, tag running, impact (high_impact)"
+    },
+    "heel-dig-march": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle legs, word \"march\"; ankle: muscle tibialis_anterior, muscle calves, word \"heel\""
+    },
+    "high-knees": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps, impact (high_impact)"
+    },
+    "jump-rope-basic": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary)"
+    },
+    "jump-rope-intervals": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary)"
+    },
+    "jump-rope-simulation": {
+      "add": [
+        "shoulder",
+        "knee",
+        "ankle"
+      ],
+      "why": "shoulder: muscle shoulders; knee: impact (high_impact), word \"jump\", word \"springen\"; ankle: muscle calves, impact (high_impact), word \"jump\""
+    },
+    "jumping-jack": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "jumping-jacks": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders; lower_back: muscle full_body"
+    },
+    "lateral-knee-raise": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs"
+    },
+    "lateral-shuffle-drill": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads"
+    },
+    "low-impact-jumping-jacks": {
+      "add": [
+        "shoulder",
+        "ankle"
+      ],
+      "why": "shoulder: muscle shoulders; ankle: word \"springen\""
+    },
+    "march-in-place": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle legs, word \"march\"; ankle: word \"march\""
+    },
+    "marsen-5-5-km-u-10-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-20-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-20-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-25-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag march; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-25-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-2x10-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-30-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-3x5-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-5-5-km-u-5-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-20-minuten-rugzak-10kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-20-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-20-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-25-minuten-rugzak-10kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-2x10-minuten-rugzak-25kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-2x10-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-2x8-minuten-rugzak-35kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-30-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag march; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-40-minuten": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, tag march; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-4x5-minuten-rugzak-10kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-6-minuten-rugzak-45kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "marsen-6-km-u-8-minuten-rugzak-45kg": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back, equipment rucksack; knee: muscle quads, muscle hamstrings, tag march; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: muscle calves, tag march, tag walking"
+    },
+    "modified-burpee": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders, word \"burpee\"; lower_back: muscle full_body"
+    },
+    "mountain-climbers": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: impact (medium_impact); ankle: impact (medium_impact)"
+    },
+    "outdoor-bike-hiit": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quadriceps, muscle hamstrings, equipment road_bike; ankle: muscle calves"
+    },
+    "outdoor-bike-zone2": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quadriceps, muscle hamstrings, equipment road_bike; ankle: muscle calves"
+    },
+    "reverse-lunge-kick": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: standing single-leg work"
+    },
+    "rowing-2k-time-trial": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle shoulders, muscle arms, equipment rowing_machine; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-intervals": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle shoulders, muscle arms, equipment rowing_machine; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-power-strokes": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle arms, equipment rowing_machine, word \"roeien\"; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-pyramid-intervals": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle arms, equipment rowing_machine, word \"roeien\"; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-steady-state": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle shoulders, muscle arms, equipment rowing_machine; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-technique-drill": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: equipment rowing_machine, word \"roeien\"; knee: muscle legs, equipment rowing_machine"
+    },
+    "rowing-zone2": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: equipment rowing_machine, word \"roeien\"; knee: muscle legs, equipment rowing_machine"
+    },
+    "seated-cardio-punch": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders, muscle arms, word \"punch\""
+    },
+    "shadow-boxing": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders, muscle arms, word \"boxing\""
+    },
+    "shuffle-tap": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle legs; ankle: muscle calves, word \"shuffle\""
+    },
+    "sprint-in-place": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs, impact (high_impact), word \"sprint\""
+    },
+    "squat-pulse": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves"
+    },
+    "standing-twist-march": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: word \"march\"; ankle: word \"march\""
+    },
+    "static-bike-hiit": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quadriceps, muscle hamstrings, equipment exercise_bike; ankle: muscle calves"
+    },
+    "static-bike-zone2": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quadriceps, muscle hamstrings, equipment exercise_bike; ankle: muscle calves"
+    },
+    "stationary-bike-steady": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment exercise_bike; ankle: muscle calves"
+    },
+    "steady-indoor-cycle": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, equipment indoor_bike; ankle: muscle calves"
+    },
+    "step-touch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs"
+    },
+    "trail-hike-steady": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs, equipment trail_shoes, word \"hike\""
+    },
+    "weighted-march": {
+      "add": [
+        "shoulder",
+        "knee",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back; knee: muscle quads, muscle hamstrings, word \"march\"; ankle: muscle calves, word \"march\""
+    },
+    "wide-step-touch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle legs"
+    },
+    "mountain-climber": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, impact (high_impact); ankle: impact (high_impact)"
+    },
+    "active-thoracic-rotation": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle rotator_cuff"
+    },
+    "ankle-mobility-circles": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle ankles, muscle calves, muscle tibialis_anterior"
+    },
+    "calf-stretch-wall": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle gastrocnemius, muscle soleus, muscle achilles_tendon"
+    },
+    "cat-cow": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle spine"
+    },
+    "cat-cow-flow": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle erector_spinae, muscle spine"
+    },
+    "cat-cow-pregnancy": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle spine, muscle lower_back"
+    },
+    "chest-opener-arms": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle chest, muscle anterior_deltoids"
+    },
+    "couch-stretch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads, knee-loaded position"
+    },
+    "cross-body-shoulder-stretch": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle rear_deltoids, muscle rotator_cuff"
+    },
+    "deep-squat-hold": {
+      "add": [
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "knee: knee-loaded position; lower_back: muscle spine; ankle: muscle ankles"
+    },
+    "downward-dog": {
+      "add": [
+        "shoulder",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle shoulders; lower_back: muscle spine; ankle: muscle calves"
+    },
+    "half-kneeling-hip-opener": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: knee-loaded position"
+    },
+    "hip-flexor-stretch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps"
+    },
+    "lunge-thoracic-rotation": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: knee-loaded position"
+    },
+    "lying-hamstring-stretch": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves"
+    },
+    "mat-supine-spinal-twist": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "overhead-reach-stretch": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats, muscle shoulders; lower_back: muscle spine"
+    },
+    "pelvic-tilt-lying": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "pelvic-tilt-standing": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "pigeon-pose": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: knee-loaded position"
+    },
+    "run-warmup-high-knees-march": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves, run warm-up"
+    },
+    "run-warmup-hip-circles": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: run warm-up"
+    },
+    "run-warmup-leg-swings": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: run warm-up"
+    },
+    "seated-hamstring-stretch": {
+      "add": [
+        "lower_back",
+        "ankle"
+      ],
+      "why": "lower_back: muscle lower_back; ankle: muscle calves"
+    },
+    "seated-pelvic-roll": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "seated-spinal-twist": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle spine"
+    },
+    "shoulder-circles-active": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle rotator_cuff, muscle deltoids"
+    },
+    "shoulder-roll-stretch": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "side-lying-full-stretch": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats, muscle shoulders; lower_back: muscle spine"
+    },
+    "side-lying-quad-stretch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps"
+    },
+    "standing-forward-fold": {
+      "add": [
+        "lower_back",
+        "ankle"
+      ],
+      "why": "lower_back: muscle lower_back; ankle: muscle calves"
+    },
+    "standing-hamstring-stretch": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves"
+    },
+    "standing-pelvic-rock": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "standing-quad-stretch": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps"
+    },
+    "standing-side-stretch": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats"
+    },
+    "thoracic-extension-chair": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle chest, muscle shoulders"
+    },
+    "thread-the-needle": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "wall-chest-stretch": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle chest, muscle anterior_deltoids"
+    },
+    "warrior-i-pose": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle shoulders; knee: muscle quadriceps"
+    },
+    "ankle-pumps": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves, muscle ankles, muscle tibialis_anterior"
+    },
+    "childs-pose": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders (secondary); lower_back: muscle back"
+    },
+    "foam-roll-calves": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle gastrocnemius, muscle soleus, muscle achilles_tendon"
+    },
+    "foam-roll-hip-flexors": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle rectus_femoris"
+    },
+    "foam-roll-it-band": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle iliotibial_band, muscle vastus_lateralis"
+    },
+    "foam-roll-lats": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle latissimus_dorsi, muscle teres_major"
+    },
+    "foam-roll-quads": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps, muscle rectus_femoris"
+    },
+    "foam-roll-upper-back": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle erector_spinae"
+    },
+    "gentle-hip-circles": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "happy-baby-pose": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "legs-up-wall": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "neck-shoulder-self-massage": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "self-massage-feet": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle feet, muscle plantar_fascia, muscle calves"
+    },
+    "supine-knee-to-chest": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back"
+    },
+    "wrist-ankle-circles": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle ankles"
+    },
+    "graaftest": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders, word \"graaftest\"; knee: muscle quads (secondary); lower_back: loaded rotation, word \"graaftest\""
+    },
+    "til-draagtest-full-exercise": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats, word \"draagtest\"; knee: muscle quads (secondary), word \"draagtest\"; lower_back: word \"draagtest\""
+    },
+    "til-draagtest-gewicht-plaatsen-naar-heupen": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats (secondary), word \"draagtest\"; knee: muscle quads, word \"draagtest\"; lower_back: word \"draagtest\""
+    },
+    "air-squat": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves (secondary)"
+    },
+    "anchored-sit-up": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"sit_up\""
+    },
+    "back-squat": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: impact (high_impact)"
+    },
+    "band-bent-over-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, muscle rhomboids"
+    },
+    "band-bicep-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps_brachii, muscle brachialis, tag pull"
+    },
+    "band-lateral-walk": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads"
+    },
+    "band-pallof-press": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary)"
+    },
+    "band-row-seated": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_deltoid, muscle rhomboids"
+    },
+    "band-seated-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, muscle rhomboids"
+    },
+    "band-single-arm-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, tag pull"
+    },
+    "band-wood-chop": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders (secondary); lower_back: loaded rotation, word \"wood_chop\""
+    },
+    "barbell-bent-over-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, muscle rhomboids"
+    },
+    "barbell-calf-raise": {
+      "add": [
+        "knee",
+        "lower_back"
+      ],
+      "why": "knee: equipment squat_rack; lower_back: equipment barbell"
+    },
+    "barbell-deadlift": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats (secondary)"
+    },
+    "barbell-front-squat": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: equipment barbell"
+    },
+    "barbell-good-morning": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: equipment squat_rack"
+    },
+    "barbell-overhead-press": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: equipment squat_rack"
+    },
+    "barbell-reverse-lunge": {
+      "add": [
+        "lower_back",
+        "ankle"
+      ],
+      "why": "lower_back: equipment barbell; ankle: standing single-leg work"
+    },
+    "barbell-romanian-deadlift": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle hamstrings"
+    },
+    "bear-crawl": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads"
+    },
+    "bear-crawl-hold": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), weight on the hands (quadruped), word \"crawl\"; knee: muscle quads (secondary)"
+    },
+    "bench-hip-thrust-bodyweight": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: tag hinge, word \"thrust\""
+    },
+    "bench-step-up": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves (secondary), standing single-leg work"
+    },
+    "bent-knee-sit-up": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: word \"sit_up\""
+    },
+    "bicycle-crunch": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"crunch\""
+    },
+    "bird-dog": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: weight on the hands (quadruped); lower_back: muscle lower_back"
+    },
+    "cable-biceps-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps, tag pull, tag upper_body"
+    },
+    "cable-pallof-press": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), equipment cable"
+    },
+    "cable-woodchop": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), equipment cable; lower_back: loaded rotation, word \"woodchop\", word \"wood_chop\""
+    },
+    "clean-pull": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle lats, muscle traps, muscle upper_back; knee: muscle hamstrings, impact (high_impact); lower_back: tag olympic, word \"clean\"; ankle: impact (high_impact)"
+    },
+    "cobra-press-up": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: word \"press_up\", word \"press\"; lower_back: muscle lower_back, tag prone (back extension)"
+    },
+    "copenhagen-plank": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: word \"plank\"; knee: muscle adductors"
+    },
+    "dead-hang": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle spine"
+    },
+    "deadlift": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats (secondary); knee: muscle hamstrings; lower_back: equipment barbell, word \"deadlift\""
+    },
+    "donkey-kick": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: weight on the hands (quadruped)"
+    },
+    "doorway-isometric-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, muscle rhomboids"
+    },
+    "dumbbell-bent-over-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_deltoid, muscle rhomboids"
+    },
+    "dumbbell-bicep-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps"
+    },
+    "dumbbell-concentration-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps_brachii, tag pull"
+    },
+    "dumbbell-deadlift": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle hamstrings"
+    },
+    "dumbbell-farmers-walk": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle traps; knee: muscle legs; lower_back: word \"farmers\"; ankle: word \"walk\""
+    },
+    "dumbbell-hammer-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps, muscle brachioradialis"
+    },
+    "dumbbell-hip-thrust": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: word \"thrust\""
+    },
+    "dumbbell-overhead-tricep-ext": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle triceps"
+    },
+    "dumbbell-reverse-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle brachialis, muscle brachioradialis, tag pull"
+    },
+    "dumbbell-romanian-deadlift": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle hamstrings"
+    },
+    "dumbbell-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_delts (secondary), muscle upper_back"
+    },
+    "dumbbell-shrug": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle traps"
+    },
+    "dumbbell-side-lunge": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: standing single-leg work"
+    },
+    "dumbbell-single-arm-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_deltoid, muscle rhomboids"
+    },
+    "dumbbell-single-leg-rdl": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle hamstrings, standing single-leg work; ankle: standing single-leg work"
+    },
+    "dumbbell-suitcase-carry": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle traps; lower_back: word \"carry\""
+    },
+    "dumbbell-sumo-deadlift": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quadriceps, muscle adductors, muscle hamstrings"
+    },
+    "dumbbell-tricep-kickback": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle triceps"
+    },
+    "dumbbell-wood-chop": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "ez-bar-biceps-curl": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle biceps, tag pull, tag upper_body"
+    },
+    "fire-hydrant": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: weight on the hands (quadruped)"
+    },
+    "flutter-kicks": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"flutter\""
+    },
+    "forward-lunge": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves (secondary), standing single-leg work"
+    },
+    "front-squat": {
+      "add": [
+        "shoulder",
+        "knee",
+        "ankle"
+      ],
+      "why": "shoulder: muscle upper_back; knee: muscle quads, impact (high_impact), word \"squat\"; ankle: impact (high_impact)"
+    },
+    "glute-bridge": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back (secondary)"
+    },
+    "hand-release-push-up": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle chest, muscle anterior_deltoid, muscle triceps"
+    },
+    "hanging-leg-raise": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"leg_raise\""
+    },
+    "heup-brug": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: muscle lower_back (secondary)"
+    },
+    "high-pull": {
+      "add": [
+        "shoulder",
+        "knee",
+        "ankle"
+      ],
+      "why": "shoulder: muscle deltoids, muscle traps, muscle biceps; knee: muscle hamstrings, impact (high_impact); ankle: impact (high_impact)"
+    },
+    "hollow-body-hold": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors)"
+    },
+    "inverted-row-feet-elevated": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rhomboids, muscle upper_back"
+    },
+    "inverted-row-table": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_deltoid, muscle rhomboids"
+    },
+    "kettlebell-clean": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary)"
+    },
+    "kettlebell-deadlift": {
+      "add": [
+        "shoulder",
+        "knee"
+      ],
+      "why": "shoulder: muscle traps; knee: muscle hamstrings"
+    },
+    "kettlebell-farmers-carry": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle traps, tag carry; lower_back: tag carry, word \"carry\", word \"farmers\""
+    },
+    "kettlebell-halo": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle anterior_deltoid, muscle medial_deltoid, muscle rotator_cuff"
+    },
+    "kettlebell-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, tag pull"
+    },
+    "kettlebell-single-leg-rdl": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: standing single-leg work; ankle: standing single-leg work"
+    },
+    "kettlebell-swing": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders"
+    },
+    "kettlebell-turkish-get-up": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle quads (secondary)"
+    },
+    "leg-curl-machine": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle hamstrings, equipment leg_curl_machine; ankle: muscle calves (secondary)"
+    },
+    "lunge": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: impact (high_impact), standing single-leg work"
+    },
+    "machine-calf-press": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: equipment leg_press"
+    },
+    "mat-hip-bridge-march": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: tag hinge"
+    },
+    "mat-prone-swimmer": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle rear_delts; lower_back: muscle lower_back"
+    },
+    "nordic-hamstring-curl": {
+      "add": [
+        "knee"
+      ],
+      "why": "knee: muscle hamstrings, word \"nordic\""
+    },
+    "optillen-vanaf-de-grond": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle lats (secondary); knee: muscle quads, word \"optillen\"; lower_back: word \"tillen\", word \"optillen\""
+    },
+    "optillen-vanaf-de-grond-rugzak": {
+      "add": [
+        "shoulder",
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "shoulder: muscle lats (secondary), equipment rucksack; knee: muscle quads, equipment rucksack, word \"optillen\"; lower_back: tag weighted, equipment rucksack, word \"rugzak\"; ankle: equipment rucksack"
+    },
+    "plank-pull-through": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), word \"plank\"; lower_back: muscle back (secondary)"
+    },
+    "plyo-push-up": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle chest, muscle delts_front (secondary), tag push"
+    },
+    "reverse-crunch": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: tag crunch, word \"crunch\""
+    },
+    "reverse-plank": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle rear_deltoid, muscle triceps, word \"plank\"; lower_back: muscle erector_spinae"
+    },
+    "scissor-jump": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves, impact (high_impact), word \"jump\""
+    },
+    "seated-cable-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle rear_delts (secondary), muscle upper_back"
+    },
+    "shoulder-tap": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle delts_front (secondary)"
+    },
+    "side-plank-hip-dip": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), word \"dip\", word \"plank\""
+    },
+    "single-leg-deadlift": {
+      "add": [
+        "knee",
+        "lower_back",
+        "ankle"
+      ],
+      "why": "knee: muscle hamstrings, standing single-leg work; lower_back: word \"deadlift\"; ankle: standing single-leg work"
+    },
+    "sit-up": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"sit_up\""
+    },
+    "soleus-wall-sit": {
+      "add": [
+        "ankle"
+      ],
+      "why": "ankle: muscle calves, tag calf"
+    },
+    "sphinx-hold": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: muscle shoulders; lower_back: muscle lower_back, tag prone (back extension)"
+    },
+    "split-squat": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, standing single-leg work, word \"squat\"; ankle: standing single-leg work"
+    },
+    "squat": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, muscle hamstrings, impact (high_impact); ankle: impact (high_impact)"
+    },
+    "squat-calf-raise": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, word \"squat\"; ankle: muscle calves, word \"calf\""
+    },
+    "squat-jump": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, impact (plyometric), word \"squat\"; ankle: muscle calves (secondary), impact (plyometric), word \"jump\""
+    },
+    "stability-ball-hamstring-curl": {
+      "add": [
+        "knee",
+        "lower_back"
+      ],
+      "why": "knee: muscle hamstrings; lower_back: tag hinge"
+    },
+    "stability-ball-plank": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary), word \"plank\""
+    },
+    "stability-ball-stir-the-pot": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders (secondary)"
+    },
+    "step-up": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, standing single-leg work, word \"step_up\"; ankle: standing single-leg work"
+    },
+    "suitcase-carry": {
+      "add": [
+        "shoulder",
+        "lower_back"
+      ],
+      "why": "shoulder: tag carry; lower_back: tag carry, word \"carry\""
+    },
+    "towel-door-row": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle lats, muscle upper_back, muscle rhomboids"
+    },
+    "tricep-chair-dip": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle shoulders, muscle triceps, word \"dip\""
+    },
+    "v-up": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), word \"v_up\""
+    },
+    "voorwaartse-plank": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: muscle delts_front (secondary), word \"plank\""
+    },
+    "walking-lunges": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, standing single-leg work, word \"lunges\"; ankle: standing single-leg work"
+    },
+    "weighted-sit-up": {
+      "add": [
+        "lower_back"
+      ],
+      "why": "lower_back: trunk flexion (rectus abdominis + hip flexors), tag weighted, word \"sit_up\""
+    },
+    "wissel-sprongen": {
+      "add": [
+        "knee",
+        "ankle"
+      ],
+      "why": "knee: muscle quads, impact (plyometric), word \"sprong\"; ankle: muscle calves (secondary), impact (plyometric), word \"sprong\""
+    },
+    "zijwaartse-plank": {
+      "add": [
+        "shoulder"
+      ],
+      "why": "shoulder: word \"plank\""
+    }
+  },
+  "loads_nothing": {
+    "standing-bicycle": "no joint-loading muscle, tag, equipment or word: obliques, hip_flexors, core",
+    "band-dead-bug": "no joint-loading muscle, tag, equipment or word: core, abs",
+    "band-hip-abduction-standing": "no joint-loading muscle, tag, equipment or word: glute_medius, hip_abductors, tensor_fasciae_latae",
+    "dead-bug": "no joint-loading muscle, tag, equipment or word: core, transverse_abdominis",
+    "stability-ball-dead-bug": "no joint-loading muscle, tag, equipment or word: core, abs",
+    "standing-hip-abduction": "no joint-loading muscle, tag, equipment or word: hip_abductors, glutes"
+  },
+  "substitutions": {
+    "12-minuten-loop": [
+      "hardlopen-zone-1-5-minuten-warmup",
+      "hardlopen-zone-1-10-minuten"
+    ],
+    "360-breathing": [
+      "exhalation-core-engagement",
+      "pelvic-floor-breathing",
+      "inner-thigh-squeeze",
+      "kegel-elevator",
+      "kegel-hold"
+    ],
+    "478-breathing": [
+      "breath-counting",
+      "cooling-breath"
+    ],
+    "5-senses-grounding": [
+      "supported-side-lying-rest",
+      "eye-palming",
+      "gratitude-reflection",
+      "savasana"
+    ],
+    "air-squat": [
+      "wall-sit"
+    ],
+    "alternate-nostril-breathing": [
+      "breath-counting",
+      "cooling-breath",
+      "humming-bee-breath",
+      "labour-breathing-prep"
+    ],
+    "ankle-pumps": [
+      "self-massage-feet"
+    ],
+    "assisted-pull-up-band": [
+      "band-row-seated",
+      "band-seated-row"
+    ],
+    "assisted-pull-up-machine": [
+      "assisted-pull-up-band",
+      "band-row-seated"
+    ],
+    "band-bent-over-row": [
+      "band-seated-row"
+    ],
+    "band-dead-bug": [
+      "dead-bug",
+      "stability-ball-dead-bug"
+    ],
+    "band-lat-pulldown": [
+      "band-seated-row",
+      "doorway-isometric-row"
+    ],
+    "band-pallof-press": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "band-seated-row": [
+      "band-row-seated",
+      "assisted-pull-up-band"
+    ],
+    "band-single-arm-row": [
+      "band-seated-row",
+      "doorway-isometric-row"
+    ],
+    "band-wood-chop": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "barbell-back-squat": [
+      "wall-sit",
+      "sumo-squat",
+      "barbell-front-squat"
+    ],
+    "barbell-bench-press": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "barbell-bent-over-row": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "barbell-calf-raise": [
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "barbell-deadlift": [
+      "good-morning-bodyweight",
+      "glute-bridge"
+    ],
+    "barbell-front-squat": [
+      "wall-sit",
+      "barbell-back-squat"
+    ],
+    "barbell-good-morning": [
+      "good-morning-bodyweight",
+      "glute-bridge"
+    ],
+    "barbell-hip-thrust": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "barbell-overhead-press": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "barbell-reverse-lunge": [
+      "walking-lunges",
+      "split-squat"
+    ],
+    "barbell-romanian-deadlift": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "bear-crawl-hold": [
+      "modified-plank",
+      "donkey-kick"
+    ],
+    "bench-hip-thrust-bodyweight": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "bench-step-up": [
+      "step-up",
+      "walking-lunges"
+    ],
+    "bent-knee-calf-raise": [
+      "calf-raise",
+      "toe-walk",
+      "heel-walk"
+    ],
+    "bicycle-crunch": [
+      "reverse-crunch"
+    ],
+    "body-scan-meditation": [
+      "supported-side-lying-rest"
+    ],
+    "box-breathing": [
+      "alternate-nostril-breathing"
+    ],
+    "breath-counting": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "burpee": [
+      "modified-burpee"
+    ],
+    "cable-biceps-curl": [
+      "inverted-row-table",
+      "doorway-isometric-row"
+    ],
+    "cable-pallof-press": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "cable-triceps-pushdown": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "cable-woodchop": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "calf-raise": [
+      "bent-knee-calf-raise",
+      "toe-walk"
+    ],
+    "cat-cow-pregnancy": [
+      "seated-pelvic-roll",
+      "standing-pelvic-rock"
+    ],
+    "chest-opener-arms": [
+      "wall-chest-stretch"
+    ],
+    "chest-press-machine": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "clamshell": [
+      "side-lying-hip-abduction",
+      "supported-glute-bridge"
+    ],
+    "cobra-press-up": [
+      "bird-dog",
+      "donkey-kick"
+    ],
+    "cooldown-walk": [
+      "march-in-place",
+      "heel-dig-march"
+    ],
+    "cooling-breath": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "cooling-down": [
+      "body-scan-meditation",
+      "box-breathing"
+    ],
+    "copenhagen-plank": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "cross-body-shoulder-stretch": [
+      "shoulder-roll-stretch",
+      "thread-the-needle"
+    ],
+    "curtsy-lunge": [
+      "lateral-lunge"
+    ],
+    "deadlift": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "deep-core-activation": [
+      "supported-glute-bridge",
+      "exhalation-core-engagement"
+    ],
+    "diamond-push-up": [
+      "incline-push-up",
+      "knee-push-up"
+    ],
+    "dip-station-dip": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "donkey-kick": [
+      "fire-hydrant",
+      "modified-plank"
+    ],
+    "doorway-isometric-row": [
+      "inverted-row-feet-elevated",
+      "towel-door-row"
+    ],
+    "downward-dog": [
+      "seated-hamstring-stretch",
+      "lying-hamstring-stretch"
+    ],
+    "dumbbell-calf-raise": [
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "dumbbell-deadlift": [
+      "good-morning-bodyweight"
+    ],
+    "dumbbell-farmers-walk": [
+      "kettlebell-farmers-carry"
+    ],
+    "dumbbell-front-raise": [
+      "dumbbell-lateral-raise",
+      "dumbbell-incline-chest-press"
+    ],
+    "dumbbell-lateral-raise": [
+      "knee-push-up"
+    ],
+    "dumbbell-overhead-tricep-ext": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "dumbbell-suitcase-carry": [
+      "suitcase-carry"
+    ],
+    "dumbbell-sumo-deadlift": [
+      "glute-bridge"
+    ],
+    "dumbbell-tricep-kickback": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "dumbbell-wood-chop": [
+      "modified-plank"
+    ],
+    "easy-jog-warmup": [
+      "march-in-place",
+      "cooldown-walk"
+    ],
+    "eccentric-calf-raise-step": [
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "exhalation-core-engagement": [
+      "360-breathing",
+      "supported-glute-bridge",
+      "deep-core-activation",
+      "pelvic-floor-breathing"
+    ],
+    "eye-palming": [
+      "supported-side-lying-rest",
+      "5-senses-grounding"
+    ],
+    "ez-bar-biceps-curl": [
+      "inverted-row-table",
+      "doorway-isometric-row"
+    ],
+    "fire-hydrant": [
+      "standing-hip-abduction",
+      "donkey-kick"
+    ],
+    "foam-roll-calves": [
+      "self-massage-feet"
+    ],
+    "forearm-wrist-stretch": [
+      "neck-stretch"
+    ],
+    "gentle-hip-circles": [
+      "supine-knee-to-chest",
+      "happy-baby-pose"
+    ],
+    "glute-bridge": [
+      "good-morning-bodyweight"
+    ],
+    "good-morning-bodyweight": [
+      "glute-bridge"
+    ],
+    "graaftest": [
+      "til-draagtest-full-exercise",
+      "optillen-vanaf-de-grond"
+    ],
+    "gratitude-reflection": [
+      "supported-side-lying-rest",
+      "5-senses-grounding"
+    ],
+    "hanging-knee-raise": [
+      "modified-plank",
+      "dead-bug"
+    ],
+    "hardlopen-zone-1-10-minuten": [
+      "hardlopen-zone-1-1x5-minuten",
+      "hardlopen-zone-1-2200-meter",
+      "12-minuten-loop",
+      "hardlopen-zone-1-2700-meter",
+      "hardlopen-zone-1-7-minuten"
+    ],
+    "hardlopen-zone-1-1x5-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-2200-meter",
+      "hardlopen-zone-1-2700-meter",
+      "hardlopen-zone-1-5-minuten-warmup",
+      "hardlopen-zone-1-7-minuten"
+    ],
+    "hardlopen-zone-1-2200-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-1-2700-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-1-5-minuten-warmup": [
+      "hardlopen-zone-1-7-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-1-7-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten",
+      "hardlopen-zone-1-5-minuten-warmup"
+    ],
+    "hardlopen-zone-2-10-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-12-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-2700-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-2x10-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-2x8-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-30-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-35-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-3x2-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-40-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-45-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-50-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-5x1-5-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-6-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-2-8-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-12-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-1x2-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-1x3-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-1x4-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-2-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-2700-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-2x3-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-2x5-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-2x6-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3x1-minuut": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3x2-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3x3-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3x6-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-3x8-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-4-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-5-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-3-8-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-2700-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-3x2-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-4x1-minuut": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-4x45-seconden": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-5x1-minuut": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-4-6x1-minuten": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-5-2700-meter": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-5-4x30-seconden": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-5-6x30-seconden": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "hardlopen-zone-5-6x45-seconden": [
+      "hardlopen-zone-1-10-minuten",
+      "hardlopen-zone-1-1x5-minuten"
+    ],
+    "heel-dig-march": [
+      "march-in-place",
+      "standing-twist-march"
+    ],
+    "heel-slides": [
+      "supported-glute-bridge"
+    ],
+    "heel-walk": [
+      "toe-walk",
+      "bent-knee-calf-raise"
+    ],
+    "heup-brug": [
+      "standing-hip-abduction",
+      "glute-bridge"
+    ],
+    "hip-flexor-stretch": [
+      "standing-quad-stretch"
+    ],
+    "humming-bee-breath": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "inner-thigh-squeeze": [
+      "supported-glute-bridge",
+      "360-breathing"
+    ],
+    "inverted-row-feet-elevated": [
+      "doorway-isometric-row",
+      "towel-door-row"
+    ],
+    "jump-rope-basic": [
+      "jumping-jack",
+      "jump-rope-simulation"
+    ],
+    "jump-rope-intervals": [
+      "jump-rope-basic",
+      "jumping-jack"
+    ],
+    "jump-rope-simulation": [
+      "jumping-jack",
+      "high-knees"
+    ],
+    "jumping-jack": [
+      "jump-rope-simulation"
+    ],
+    "jumping-jacks": [
+      "low-impact-jumping-jacks"
+    ],
+    "kegel-elevator": [
+      "supported-glute-bridge",
+      "360-breathing"
+    ],
+    "kegel-hold": [
+      "supported-glute-bridge",
+      "360-breathing"
+    ],
+    "kegel-pulses": [
+      "supported-glute-bridge",
+      "360-breathing"
+    ],
+    "kettlebell-clean": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "kettlebell-clean-and-press": [
+      "knee-push-up",
+      "modified-plank"
+    ],
+    "kettlebell-farmers-carry": [
+      "modified-plank",
+      "donkey-kick"
+    ],
+    "kettlebell-front-rack-squat": [
+      "wall-sit",
+      "kettlebell-goblet-squat"
+    ],
+    "kettlebell-goblet-squat": [
+      "kettlebell-front-rack-squat"
+    ],
+    "kettlebell-high-pull": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "kettlebell-row": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "kettlebell-snatch": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "kettlebell-strict-press": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "kettlebell-turkish-get-up": [
+      "modified-plank",
+      "knee-push-up"
+    ],
+    "kettlebell-windmill": [
+      "modified-plank",
+      "plank"
+    ],
+    "knee-push-up": [
+      "wall-push-up"
+    ],
+    "labour-breathing-prep": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "lat-pulldown": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "lateral-lunge": [
+      "curtsy-lunge"
+    ],
+    "leg-curl-machine": [
+      "leg-extension-machine",
+      "nordic-hamstring-curl"
+    ],
+    "leg-extension-machine": [
+      "leg-press",
+      "wall-sit"
+    ],
+    "leg-press": [
+      "wall-sit",
+      "sumo-squat"
+    ],
+    "legs-up-wall": [
+      "supported-side-lying-rest"
+    ],
+    "low-impact-jumping-jacks": [
+      "step-touch"
+    ],
+    "machine-calf-press": [
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "machine-hack-squat": [
+      "wall-sit",
+      "sumo-squat"
+    ],
+    "machine-shoulder-press": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "march-in-place": [
+      "heel-dig-march",
+      "standing-twist-march"
+    ],
+    "marsen-5-5-km-u-10-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-20-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-20-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-25-minuten": [
+      "marsen-6-km-u-30-minuten",
+      "marsen-6-km-u-40-minuten"
+    ],
+    "marsen-5-5-km-u-25-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-2x10-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-30-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-3x5-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-5-5-km-u-5-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-20-minuten-rugzak-10kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-20-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-20-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-25-minuten-rugzak-10kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-2x10-minuten-rugzak-25kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-2x10-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-2x8-minuten-rugzak-35kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-30-minuten": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-40-minuten"
+    ],
+    "marsen-6-km-u-40-minuten": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-4x5-minuten-rugzak-10kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-6-minuten-rugzak-45kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "marsen-6-km-u-8-minuten-rugzak-45kg": [
+      "marsen-5-5-km-u-25-minuten",
+      "marsen-6-km-u-30-minuten"
+    ],
+    "mat-hip-bridge-march": [
+      "glute-bridge",
+      "bench-hip-thrust-bodyweight"
+    ],
+    "mat-prone-swimmer": [
+      "good-morning-bodyweight",
+      "sphinx-hold"
+    ],
+    "mat-supine-spinal-twist": [
+      "seated-spinal-twist",
+      "seated-straddle-stretch"
+    ],
+    "mindful-body-check": [
+      "supported-side-lying-rest"
+    ],
+    "modified-burpee": [
+      "low-impact-jumping-jacks",
+      "seated-cardio-punch"
+    ],
+    "modified-plank": [
+      "knee-push-up"
+    ],
+    "neck-shoulder-self-massage": [
+      "shoulder-roll-stretch",
+      "neck-half-circles"
+    ],
+    "neck-stretch": [
+      "forearm-wrist-stretch"
+    ],
+    "negative-pull-up": [
+      "pull-up",
+      "scapular-pull-up"
+    ],
+    "ocean-breath": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "optillen-vanaf-de-grond": [
+      "til-draagtest-gewicht-plaatsen-naar-heupen",
+      "graaftest"
+    ],
+    "optillen-vanaf-de-grond-rugzak": [
+      "optillen-vanaf-de-grond",
+      "til-draagtest-full-exercise"
+    ],
+    "outdoor-bike-hiit": [
+      "outdoor-bike-zone2",
+      "cycling-outdoor-easy"
+    ],
+    "outdoor-bike-zone2": [
+      "cycling-outdoor-easy",
+      "cooldown-walk"
+    ],
+    "overhead-reach-stretch": [
+      "side-lying-full-stretch",
+      "standing-side-stretch"
+    ],
+    "pec-deck-fly": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "pelvic-floor-breathing": [
+      "360-breathing",
+      "exhalation-core-engagement"
+    ],
+    "pelvic-tilt-lying": [
+      "pelvic-tilt-standing",
+      "supported-glute-bridge"
+    ],
+    "pelvic-tilt-standing": [
+      "pelvic-tilt-lying",
+      "supported-glute-bridge"
+    ],
+    "pike-push-up": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "plank-pull-through": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "plyo-push-up": [
+      "push-up",
+      "knee-push-up"
+    ],
+    "pogo-hops": [
+      "heel-dig-march",
+      "skater-hop"
+    ],
+    "prone-hip-extension": [
+      "supported-glute-bridge",
+      "world-greatest-stretch"
+    ],
+    "pursed-lip-breathing": [
+      "alternate-nostril-breathing"
+    ],
+    "reverse-crunch": [
+      "bicycle-crunch"
+    ],
+    "run-continuous-level-10": [
+      "run-continuous-level-7",
+      "run-continuous-level-8"
+    ],
+    "run-continuous-level-11": [
+      "run-continuous-level-10",
+      "run-continuous-level-7"
+    ],
+    "run-continuous-level-12": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-13": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-14": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-15": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-16": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-17": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-18": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-19": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-20": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-21": [
+      "run-continuous-level-10",
+      "run-continuous-level-11"
+    ],
+    "run-continuous-level-7": [
+      "easy-jog-warmup",
+      "easy-run-outdoor"
+    ],
+    "run-continuous-level-8": [
+      "run-continuous-level-7",
+      "easy-jog-warmup"
+    ],
+    "run-continuous-level-9": [
+      "run-continuous-level-7",
+      "run-continuous-level-8"
+    ],
+    "run-interval-level-1": [
+      "easy-jog-warmup",
+      "brisk-walk"
+    ],
+    "run-interval-level-2": [
+      "run-interval-level-1",
+      "trail-run-easy"
+    ],
+    "run-interval-level-3": [
+      "run-interval-level-1",
+      "run-interval-level-2"
+    ],
+    "run-interval-level-4": [
+      "run-interval-level-1",
+      "run-interval-level-2"
+    ],
+    "run-interval-level-5": [
+      "run-interval-level-1",
+      "run-interval-level-2"
+    ],
+    "run-interval-level-6": [
+      "run-interval-level-1",
+      "run-interval-level-2"
+    ],
+    "run-warmup-calf-raises": [
+      "calf-stretch-wall",
+      "run-warmup-high-knees-march"
+    ],
+    "run-warmup-high-knees-march": [
+      "supported-wall-squat",
+      "run-warmup-calf-raises"
+    ],
+    "run-warmup-hip-circles": [
+      "run-warmup-leg-swings",
+      "half-kneeling-hip-opener"
+    ],
+    "run-warmup-leg-swings": [
+      "supported-glute-bridge",
+      "run-warmup-hip-circles"
+    ],
+    "savasana": [
+      "supported-side-lying-rest",
+      "5-senses-grounding"
+    ],
+    "scapular-pull-up": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated",
+      "negative-pull-up"
+    ],
+    "seated-cable-row": [
+      "band-seated-row",
+      "assisted-pull-up-band"
+    ],
+    "seated-calf-raise": [
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "seated-pelvic-roll": [
+      "supported-glute-bridge",
+      "seated-spinal-twist"
+    ],
+    "self-massage-feet": [
+      "ankle-pumps",
+      "foam-roll-calves"
+    ],
+    "shoulder-roll-stretch": [
+      "cross-body-shoulder-stretch"
+    ],
+    "shoulder-tap": [
+      "voorwaartse-plank",
+      "modified-plank",
+      "zijwaartse-plank"
+    ],
+    "side-lying-full-stretch": [
+      "overhead-reach-stretch",
+      "seated-spinal-twist"
+    ],
+    "side-lying-hip-abduction": [
+      "clamshell"
+    ],
+    "side-lying-quad-stretch": [
+      "standing-quad-stretch"
+    ],
+    "side-plank": [
+      "modified-plank",
+      "side-plank-hip-dip"
+    ],
+    "side-plank-hip-dip": [
+      "modified-plank",
+      "side-plank"
+    ],
+    "single-leg-calf-raise": [
+      "bent-knee-calf-raise"
+    ],
+    "single-leg-deadlift": [
+      "glute-bridge"
+    ],
+    "skater-hop": [
+      "squat-pulse",
+      "pogo-hops"
+    ],
+    "soleus-wall-sit": [
+      "wall-sit",
+      "bent-knee-calf-raise"
+    ],
+    "sphinx-hold": [
+      "superman-hold",
+      "cobra-press-up"
+    ],
+    "split-squat": [
+      "walking-lunges"
+    ],
+    "sprint-in-place": [
+      "easy-jog-warmup",
+      "march-in-place"
+    ],
+    "squat-calf-raise": [
+      "soleus-wall-sit",
+      "bent-knee-calf-raise"
+    ],
+    "squat-jump": [
+      "wall-sit",
+      "split-squat"
+    ],
+    "squat-pulse": [
+      "march-in-place",
+      "step-touch"
+    ],
+    "stability-ball-dead-bug": [
+      "dead-bug",
+      "band-dead-bug"
+    ],
+    "stability-ball-hamstring-curl": [
+      "glute-bridge",
+      "good-morning-bodyweight"
+    ],
+    "stability-ball-plank": [
+      "stability-ball-dead-bug",
+      "modified-plank"
+    ],
+    "stability-ball-stir-the-pot": [
+      "stability-ball-dead-bug",
+      "modified-plank"
+    ],
+    "standing-figure-four": [
+      "clamshell"
+    ],
+    "standing-forward-fold": [
+      "seated-hamstring-stretch"
+    ],
+    "standing-hamstring-stretch": [
+      "seated-straddle-stretch"
+    ],
+    "standing-pelvic-rock": [
+      "seated-pelvic-roll",
+      "cat-cow-pregnancy"
+    ],
+    "standing-quad-stretch": [
+      "side-lying-quad-stretch",
+      "hip-flexor-stretch"
+    ],
+    "standing-side-stretch": [
+      "thread-the-needle",
+      "cross-body-shoulder-stretch"
+    ],
+    "standing-twist-march": [
+      "march-in-place",
+      "heel-dig-march"
+    ],
+    "static-bike-hiit": [
+      "static-bike-zone2",
+      "stationary-bike-steady"
+    ],
+    "static-bike-zone2": [
+      "stationary-bike-steady",
+      "cooldown-walk"
+    ],
+    "stationary-bike-steady": [
+      "static-bike-zone2"
+    ],
+    "step-touch": [
+      "wide-step-touch",
+      "lateral-knee-raise"
+    ],
+    "step-up": [
+      "walking-lunges"
+    ],
+    "straight-arm-pulldown": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "suitcase-carry": [
+      "dumbbell-suitcase-carry",
+      "modified-plank"
+    ],
+    "sumo-squat": [
+      "wall-sit"
+    ],
+    "superman-hold": [
+      "good-morning-bodyweight",
+      "glute-bridge"
+    ],
+    "supported-side-lying-rest": [
+      "savasana",
+      "body-scan-meditation"
+    ],
+    "supported-wall-squat": [
+      "seated-butterfly"
+    ],
+    "tension-release-visualization": [
+      "supported-side-lying-rest"
+    ],
+    "thoracic-extension-chair": [
+      "thread-the-needle"
+    ],
+    "thread-the-needle": [
+      "shoulder-roll-stretch"
+    ],
+    "tibialis-raise": [
+      "heel-walk",
+      "bent-knee-calf-raise"
+    ],
+    "til-draagtest-full-exercise": [
+      "til-draagtest-gewicht-plaatsen-naar-heupen",
+      "optillen-vanaf-de-grond"
+    ],
+    "til-draagtest-gewicht-plaatsen-naar-heupen": [
+      "til-draagtest-full-exercise",
+      "optillen-vanaf-de-grond"
+    ],
+    "toe-walk": [
+      "heel-walk",
+      "bent-knee-calf-raise",
+      "calf-raise"
+    ],
+    "towel-door-row": [
+      "doorway-isometric-row",
+      "inverted-row-feet-elevated"
+    ],
+    "trail-hike-steady": [
+      "heel-dig-march",
+      "march-in-place"
+    ],
+    "trail-hill-repeats": [
+      "trail-hike-steady",
+      "heel-dig-march"
+    ],
+    "treadmill-hiit": [
+      "easy-jog-warmup",
+      "treadmill-zone2"
+    ],
+    "treadmill-zone2": [
+      "easy-jog-warmup",
+      "treadmill-hiit"
+    ],
+    "tricep-chair-dip": [
+      "knee-push-up",
+      "wall-push-up"
+    ],
+    "voorwaartse-plank": [
+      "shoulder-tap",
+      "modified-plank"
+    ],
+    "walking-lunges": [
+      "reverse-lunge",
+      "split-squat"
+    ],
+    "wall-chest-stretch": [
+      "cross-body-shoulder-stretch",
+      "chest-opener-arms"
+    ],
+    "wall-push-up": [
+      "knee-push-up",
+      "modified-plank"
+    ],
+    "wall-sit": [
+      "sumo-squat",
+      "supported-wall-squat"
+    ],
+    "warming-up": [
+      "leg-swings-front-back",
+      "leg-swings-lateral"
+    ],
+    "warrior-i-pose": [
+      "hip-flexor-stretch",
+      "side-lying-quad-stretch"
+    ],
+    "wide-step-touch": [
+      "step-touch",
+      "lateral-knee-raise"
+    ],
+    "wissel-sprongen": [
+      "walking-lunges",
+      "wall-sit"
+    ],
+    "world-greatest-stretch": [
+      "seated-straddle-stretch"
+    ],
+    "wrist-ankle-circles": [
+      "ankle-pumps"
+    ],
+    "yawn-sigh-breath": [
+      "478-breathing",
+      "alternate-nostril-breathing"
+    ],
+    "zijwaartse-plank": [
+      "modified-plank",
+      "shoulder-tap"
+    ]
+  },
+  "no_substitute": {
+    "12-minute-cooper-test": "A standardised test has no substitute (0113): the result is only comparable when the test itself is done. \"Deze oefening overslaan\" is the way out."
+  }
+}

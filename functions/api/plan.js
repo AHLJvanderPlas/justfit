@@ -11,6 +11,7 @@ import { musclesFromJson } from './_shared/muscles.js';
 import { makePlanStep, prescribedStep } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec, roundTo5Sec } from './_shared/session.js';
 import { applyRestDays, weekTargetApplies, TRAINED_DAYS_SQL, trainedDaysFrom } from './_shared/weekTarget.js';   // C-B32
+import { loadsAny, injuryAreasFor, planLoadsAny } from './_shared/injuryLoad.js';   // finding 0 — R563's one load model
 import {
   parsePlanRequest, decideExistingPlan, needsExistingPlan, unknownPinsError, CUSTOM_STEP_LIMITS, customStepsShapeError, flattenCheckin } from './_shared/planRequest.js';
 // Re-exported for existing importers (the request harnesses import them from here).
@@ -164,9 +165,9 @@ export async function onRequestPost({ request, env }) {
     const pinErr = unknownPinsError(req, allExercises);
     if (pinErr) return Response.json(pinErr.body, { status: pinErr.status });
 
-    // Adapt path: scale today's session to the check-in without regenerating the
-    // exercise selection — the stored session when there is one (decision 'adapt').
-    if (existing.decision === 'adapt' || (req.adapt_mode && req.base_plan)) {
+    // Adapt path: scale the stored session (decision 'adapt') to the check-in without re-selecting —
+    // unless it loads an area that hurts today; then it is re-planned (R563, finding 0).
+    if ((existing.decision === 'adapt' || (req.adapt_mode && req.base_plan)) && !planLoadsAny(existing.plan ?? req.base_plan, injuryAreasFor(effectiveCheckin, prefs))) {
       const adapted = adaptExistingPlan(existing.plan ?? req.base_plan, effectiveCheckin);
       const planId = await _upsertDayPlan(env, user_id, date, adapted,
         { generatedBy: 'adapt_free', engineVersion: 'v1.9.0', seed: 'adapt' });
@@ -257,7 +258,7 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
     user_id
       ? env.DB.prepare(
           `SELECT e.id, e.name, e.name_nl, e.category AS exercise_type, e.equipment_required_json,
-                  e.instructions_markdown, g.branding_json
+                  e.instructions_markdown, e.primary_muscles_json, e.secondary_muscles_json, g.branding_json
            FROM exercises e
            JOIN gyms g ON g.id = e.gym_id
            JOIN gym_memberships gm ON gm.gym_id = e.gym_id AND gm.user_id = ? AND gm.status = 'active'
@@ -353,6 +354,9 @@ async function _loadPlannerInputs(env, user_id, coach_sim) {
         name: ce.name, name_nl: ce.name_nl ?? null,
         category: ce.exercise_type ?? 'strength',
         tags_json: '[]',
+        // Finding 0 — the trainer's muscles let R563 read the row (injuryLoad.js); without
+        // them an unreadable custom strength row counts as loading every area.
+        primary_muscles_json: ce.primary_muscles_json ?? null, secondary_muscles_json: ce.secondary_muscles_json ?? null,
         equipment_required_json: ce.equipment_required_json ?? '["none"]',
         media_json: null,
         instructions_json: ce.instructions_markdown
@@ -551,7 +555,7 @@ async function _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCh
   if (user_id && !bonus_session && isMilCoachActiveForFetch) {
     try {
       const milCoachPrefs = prefs.preferences.military_coach;
-      const prePhase = computeMilitaryPhase(milCoachPrefs, effectiveCheckin, date);
+      const prePhase = computeMilitaryPhase(milCoachPrefs, effectiveCheckin, date, injuryAreasFor(effectiveCheckin, prefs));
       const { cyclePosn, clusterLive, sessionType: preSessionType } = prePhase;
 
       // Only strength sessions are DB-backed; run/cooper use progressive level logic
@@ -566,7 +570,7 @@ async function _loadMilitaryTemplateItems(env, user_id, date, prefs, effectiveCh
 
         const tmResult = await env.DB.prepare(`
           SELECT e.id, e.slug, e.name, e.name_nl, e.category, e.tags_json, e.equipment_required_json,
-                 e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json
+                 e.metrics_json, e.instructions_json, e.alternatives_json, e.media_json, e.primary_muscles_json, e.secondary_muscles_json
           FROM program_templates pt
           JOIN program_template_items pti ON pt.id = pti.program_template_id
           JOIN exercises e ON pti.exercise_id = e.id
@@ -1654,25 +1658,16 @@ function _applySafetyPolicies(ctx) {
     ctx.trace.push(`R514 — Pain ≥${T.PAIN_REST} (${painScope ?? 'unset'}) → rest session`);
   }
 
-  // R562–R565
-  const INJURY_TAG_MAP = {
-    knee: 'loads_knee', shoulder: 'loads_shoulder',
-    lower_back: 'loads_lower_back', ankle: 'loads_ankle',
-  };
-  const chronicAreas = prefs?.preferences?.chronic_injury_areas ?? [];
-  const injuryAreas  = [...new Set([...(isSpecificPain ? painAreas : []), ...chronicAreas])];
+  // R562–R565 — the areas (check-in specific pain ∪ chronic) and what loads them come from
+  // _shared/injuryLoad.js: explicit loads_* tags ∪ what the row itself shows (finding 0). The
+  // guard is registered on rest days too, so a rest-day mobility session respects it.
+  const injuryAreas = injuryAreasFor(checkIn, prefs);
   ctx.injuryAreas = injuryAreas;
+  const poolBefore = ctx.pool.length;
+  if (injuryAreas.length > 0) _poolGuard(ctx, 'injury', 'R563', (ex) => !loadsAny(ex, injuryAreas));
 
   if (injuryAreas.length > 0 && ctx.slot_type !== 'rest') {
-    const forbiddenTags = injuryAreas.map(a => INJURY_TAG_MAP[a]).filter(Boolean);
-    if (forbiddenTags.length > 0) {
-      const before = ctx.pool.length;
-      _poolGuard(ctx, 'injury', 'R563', (ex) => {
-        const tags = JSON.parse(ex.tags_json || '[]');
-        return !forbiddenTags.some(ft => tags.includes(ft));
-      });
-      ctx.trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${before} → ${ctx.pool.length} exercises`);
-    }
+    ctx.trace.push(`R563 — Injury filter [${injuryAreas.join(',')}]: ${poolBefore} → ${ctx.pool.length} exercises`);
     if (ctx.pool.length < 3) {
       // W3.0 — the top-up re-applies every guard so far (R596 included), not just
       // the injury tags; it used to read the unfiltered library.
@@ -2328,7 +2323,7 @@ function _selectCoachBlueprint(ctx) {
   if (militaryActive) {
     const {
       milWeek, blockIdx, cyclePosn, milGroup, sessionType, milVol, checkInOverride,
-    } = computeMilitaryPhase(milCoach, checkIn, date);
+    } = computeMilitaryPhase(milCoach, checkIn, date, ctx.injuryAreas);
     ctx.milWeekComputed   = milWeek;
     ctx.militarySessionType = sessionType;
     ctx.volumeMultiplier  = Math.min(ctx.volumeMultiplier, milVol);
@@ -2390,22 +2385,18 @@ function _selectCoachBlueprint(ctx) {
 
     } else {
       // R573–R575 strength / march / circuit
-      if (ctx.militaryTemplateItems && ctx.militaryTemplateItems.length >= 3) {
-        let dbItems = sessionType === 'kracht_marsen'
-          ? ctx.militaryTemplateItems.filter(ex => !JSON.parse(ex.tags_json || '[]').includes('march'))
-          : ctx.militaryTemplateItems;
-        if (ctx.injuryAreas.length > 0) {
-          const safe = dbItems.filter(ex => {
-            const tags = JSON.parse(ex.tags_json || '[]');
-            return !ctx.injuryAreas.some(a => tags.includes(`loads_${a}`));
-          });
-          if (safe.length >= 3) dbItems = safe;
-        }
+      // R563 — template rows that load an injured area are dropped (injuryLoad.js); with
+      // fewer than 3 left the session comes from the guarded military pool below instead.
+      const dbItems = (ctx.militaryTemplateItems ?? [])
+        .filter(ex => sessionType !== 'kracht_marsen' || !JSON.parse(ex.tags_json || '[]').includes('march'))
+        .filter(ex => !loadsAny(ex, ctx.injuryAreas));
+      if (dbItems.length >= 3) {
         ctx.militaryDbSelection = dbItems;
         ctx.trace.push(`R573a — Military DB session: ${dbItems.length} exercises from program_templates`);
       } else {
         const milPool = ctx.pool.filter(ex => JSON.parse(ex.tags_json || '[]').includes('military'));
-        if (milPool.length >= 3) {
+        // Finding 0 — judged on distinct movements (a session's worth): an injury can leave three sit-up variants.
+        if (new Set(milPool.map(ex => movementFamily(ex.slug))).size >= 8) {
           ctx.pool = milPool;
           ctx.trace.push(`R573 — Military pool${ctx.militaryTemplateItems !== null ? ' (DB items insufficient — fallback)' : ''}: ${milPool.length} military-tagged exercises`);
         } else {
@@ -2423,10 +2414,10 @@ function _selectCoachBlueprint(ctx) {
 
       if (sessionType === 'kracht_marsen') {
         const prescribedKg  = MIL_MARCH_KG[milGroup]?.[cyclePosn - 1] ?? 0;
-        const prescribedSec = MIL_MARCH_SEC[milGroup]?.[cyclePosn - 1] ?? 0;
-        const injuryCap     = ctx.injuryAreas.includes('lower_back') ? 15
-          : ctx.injuryAreas.includes('knee') ? 0 : 999;
-        const weightCap     = Math.min(prescribedKg, injuryCap);
+        // R563 — a march that loads an injured area (injuryLoad.js) is not prescribed at all.
+        const prescribedSec = loadsAny(exercises.find(ex => ex.slug === R574_MARCH_SLUG), ctx.injuryAreas) ? 0
+          : MIL_MARCH_SEC[milGroup]?.[cyclePosn - 1] ?? 0;
+        const weightCap     = prescribedKg;
         const ownedWeights  = Array.isArray(milCoach.pack_weights_available_kg) && milCoach.pack_weights_available_kg.length > 0
           ? milCoach.pack_weights_available_kg
           : milCoach.pack_weight_max_kg != null ? [milCoach.pack_weight_max_kg] : null;
@@ -2438,10 +2429,8 @@ function _selectCoachBlueprint(ctx) {
         }
         ctx.militaryMarchSec = prescribedSec;
 
-        if (ctx.injuryAreas.includes('knee') && prescribedSec > 0) {
-          ctx.trace.push('R577 — Knee injury: weighted march replaced with walking lunge');
-          const lungeEx = _safePool(ctx, exercises).find(ex => ex.slug === 'walking-lunge' || ex.slug === 'lunge');
-          if (lungeEx) ctx.pool = [lungeEx, ...ctx.pool.filter(ex => ex.id !== lungeEx.id)];
+        if (prescribedSec === 0 && ctx.injuryAreas.length > 0) {
+          ctx.trace.push(`R563 — March left out: it loads an injured area [${ctx.injuryAreas.join(',')}]`);
         } else if (prescribedSec > 0) {
           ctx.trace.push(`R574 — March: ${ctx.militaryMarchKg} kg × ${prescribedSec / 60} min (prescribed ${prescribedKg} kg)`);
         }
@@ -3345,6 +3334,7 @@ function _assembleSession(ctx) {
     steps:            orderedSteps,
     experience_level: ctx.expLevel ?? 'intermediate',
     coach_priority:   COACH_PRIORITY,
+    injury_areas:     ctx.injuryAreas,   // finding 0 — the alternatives sheet filters by these
     // R598 — true only when both measurement sets are IN the session (dcpMeasure.js).
     assessment_planned: hasBothMeasurements(orderedSteps),
     // W4.4 — present only when the user pinned exercises. `pinned` lists the pins
@@ -3377,7 +3367,7 @@ function _assembleSession(ctx) {
         blockNum: retBlockNum, blockIdx: retBlockIdx, cyclePosn: retCyclePosn,
         inBaseBuild: retInBaseBuild, milGroup: retGroup,
         clusterLive: retClusterLive, isPostAssessment: retIsPostAssess,
-      } = computeMilitaryPhase(milCoach, checkIn, date);
+      } = computeMilitaryPhase(milCoach, checkIn, date, ctx.injuryAreas);
       return {
         week:                   retBlockNum,
         day:                    retBlockIdx,
@@ -3671,6 +3661,7 @@ export function assembleCustomSession(ctx, rawSteps, { safetyAck = false, includ
     steps,
     experience_level: ctx.expLevel ?? 'intermediate',
     coach_priority:   COACH_PRIORITY,
+    injury_areas:     ctx.injuryAreas ?? [],
     assessment_planned: assessmentPlanned,
     rule_trace:       [USER_PLAN_TRACE],
     run_program:      null,

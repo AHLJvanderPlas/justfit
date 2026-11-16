@@ -12,6 +12,7 @@ import { t, useLang, getLang, exerciseName } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
 import { stopSummary } from "./sessionOutcome.js";
 import { timerFace } from "./timerFace.js";
+import { injuryAreasOf, safeAlternatives } from "./safeAlternatives.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -442,13 +443,15 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     const slugs = altJson ? (JSON.parse(altJson)?.substitutions ?? []) : [];
     if (!slugs.length) { setAltExercises([]); return; }
     setAltLoading(true);
+    // Finding 0 — never offer a swap that loads an area that hurts today.
+    const areas = injuryAreasOf(plan, prefs);
     try {
       const found = await api.getExercisesBySlugs(slugs);
-      setAltExercises(found);
+      setAltExercises(safeAlternatives(found, areas));
       cacheExercises(found);   // write-through: available offline next time
     } catch {
       const cached = await getCachedExercises(slugs);
-      setAltExercises(cached); // serve from IDB when network unavailable
+      setAltExercises(safeAlternatives(cached, areas)); // serve from IDB when network unavailable
     } finally {
       setAltLoading(false);
     }
@@ -1505,7 +1508,12 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             {altLoading ? (
               <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14 }}>{t('Loading...')}</div>
             ) : altExercises.length === 0 ? (
-              <div style={{ padding: "32px 20px", textAlign: "center", color: C.muted, fontSize: 14, fontStyle: "italic" }}>{t('No alternatives found for this exercise.')}</div>
+              <div className="jf-alt-empty" data-testid="alt-empty">
+                <p className="jf-alt-empty__text">{t("There is no suitable alternative right now. It's fine to skip this exercise \u2014 the rest of your session still counts.")}</p>
+                <button type="button" className="jf-alt-empty__skip" onClick={() => { setShowAlternatives(false); handleSkipExercise(); }}>
+                  {t('Skip this exercise')}
+                </button>
+              </div>
             ) : (
               <div style={{ padding: "8px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
                 {altExercises.map((alt) => {

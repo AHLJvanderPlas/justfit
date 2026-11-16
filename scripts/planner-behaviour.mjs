@@ -22,6 +22,7 @@ import { runPlanner, movementFamily, isLongContinuousCardio, continuousCardioCap
 import { estimateMins } from '../packages/client-app/src/planUtils.js';
 import { RULE_LABELS, INTERNAL_RULE_CODES, parseVolumeTrace } from '../packages/client-app/src/messagePolicy.js';
 import { isoWeekStart, isoWeekday, addDays } from '../functions/api/_shared/weekTarget.js';   // dates only — the decision is asserted below, not imported
+import { loadAreas } from '../functions/api/_shared/injuryLoad.js';   // finding 0 — the property asks the planner's own load model
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -37,7 +38,8 @@ const exercises = rows.map((r, i) => ({
   id: 'ex' + i, slug: r.slug, name: r.name, name_nl: r.name_nl, category: r.category,
   tags_json: r.tags_json, equipment_required_json: r.equipment_required_json,
   metrics_json: r.metrics_json, instructions_json: null, alternatives_json: null,
-  primary_muscles_json: '[]', secondary_muscles_json: '[]', media_json: null,
+  // Finding 0 — the muscles are real library data and the injury load model reads them.
+  primary_muscles_json: r.primary_muscles_json ?? '[]', secondary_muscles_json: r.secondary_muscles_json ?? '[]', media_json: null,
 }));
 
 // ── Properties that land with a later wave ───────────────────────────────────
@@ -248,6 +250,18 @@ const PERSONAS = [
   // deleted and the matrix still passes — which is no coverage at all.
   { id: 'military-short-cardio', budget: 25, goal: 'fat_loss', primary_intent: 'military',
     militaryCoach: MIL({ block_session_index: 1 }), conditioning: 55 },                         // R595
+  // Finding 0 — the military paths with an injury: the programme-template strength day
+  // (R573a), the march day (R574) and the run days (R571/R572/Cooper) for every area.
+  ...['shoulder', 'knee', 'lower_back', 'ankle'].flatMap(area => [
+    { id: `military-injury-${area}-strength`, budget: 60, goal: 'military', primary_intent: 'military', chronic: [area],
+      equipment: GYM_KIT, militaryCoach: MIL({ block_session_index: 1 }),
+      militaryTemplate: [...K1_STRENGTH, 'plyo-push-up', 'squat-jump', 'clean-pull', 'voorwaartse-plank'], conditioning: 55 },
+    { id: `military-injury-${area}-march`, budget: 60, goal: 'military', primary_intent: 'military', chronic: [area],
+      militaryCoach: MIL({ block_session_index: 3 }), conditioning: 55 },
+    { id: `military-injury-${area}-run`, budget: 60, goal: 'military', primary_intent: 'military', chronic: [area],
+      militaryCoach: MIL({ block_session_index: 0, block_number: 2 }), conditioning: 55,
+      prescribed: area === 'shoulder' || area === 'lower_back' },                              // knee/ankle: R563 turns the run into strength
+  ]),
   { id: 'military-k3-cooper', budget: 60, goal: 'military', primary_intent: 'military',
     militaryCoach: MIL({ block_session_index: 0, block_number: 1, last_cooper_distance_m: null }),
     conditioning: 55, prescribed: true },
@@ -290,6 +304,22 @@ const PERSONAS = [
     forbid: { tags: ['loads_knee'] } },                                                        // R563
   { id: 'injury-shoulder', chronic: ['shoulder'], forbid: { tags: ['loads_shoulder'] } },      // R563
   { id: 'pain-general', checkIn: { pain_level: 3, pain_scope: 'general' }, expectRest: true },  // R514
+  // Finding 0 (UI/UX review 2026-11-16) — property `injury-safe`: no step loads an injured
+  // area by loadAreas() (explicit loads_* tags ∪ what the row shows), on every date. The
+  // fixture carries rows 0021 never tagged (plyo-push-up, squat-jump, clean-pull, the
+  // military planks …) so the gap is exercised, not just the tagged library.
+  { id: 'injury-chronic-shoulder', chronic: ['shoulder'] },                                    // R563
+  { id: 'injury-chronic-knee', chronic: ['knee'] },                                            // R563
+  { id: 'injury-chronic-lower-back', chronic: ['lower_back'] },                                // R563
+  { id: 'injury-chronic-ankle', chronic: ['ankle'] },                                          // R563
+  { id: 'injury-chronic-shoulder-gym', chronic: ['shoulder'], goal: 'strength', equipment: GYM_KIT,
+    checkIn: { equipment_profile_id: 'gym' } },                                                 // R563 + R518
+  // The reviewed account: chronic shoulder AND shoulder pain in today's check-in.
+  { id: 'injury-omar-p13', chronic: ['shoulder'], experience: 'intermediate',
+    checkIn: { pain_level: 2, pain_scope: 'specific', pain_areas: ['shoulder'] } },             // R562 + R563
+  { id: 'injury-pain-only-shoulder', checkIn: { pain_level: 3, pain_scope: 'specific', pain_areas: ['shoulder'] } },
+  { id: 'injury-pain-only-lower-back', checkIn: { pain_level: 2, pain_scope: 'specific', pain_areas: ['lower_back'] } },
+  { id: 'injury-two-areas', chronic: ['knee'], checkIn: { pain_level: 2, pain_scope: 'specific', pain_areas: ['shoulder'] } },
   { id: 'recovery-mode', checkIn: { recovery_mode: true }, expectIntensity: 'low',
     onlyCategories: ['mobility', 'recovery'] },                                                // R559
 
@@ -380,7 +410,8 @@ const PERSONAS = [
 const errs = [];
 const results = [];                              // [{persona, property, state, detail}]
 const PROPS = ['contraindications', 'time-budget', 'pool-floor', 'prescription',
-  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s', 'week-target'];
+  'variety', 'step-vs-session', 'volume-floor', 'trace-labels', 'pins', 'dcp-delivery', 'timed-5s', 'week-target',
+  'injury-safe'];
 const unlabelledSeen = new Set();                // the W2.1 work list, observed
 
 const exById  = new Map(exercises.map(e => [e.id, e]));
@@ -694,6 +725,24 @@ for (const p of PERSONAS) {
         const bad = met ? (!isRest || !r599) : (r599 || (r600 && !isRest));
         say('week-target', bad ? 'FAIL' : 'PASS',
           bad ? `${done}/${p.weeklyTarget} done: slot ${out.slot_type}, R599=${r599}, R600=${r600}` : `${done}/${p.weeklyTarget} done → ${isRest ? (r599 ? 'R599 rest' : 'R600 rest') : 'session'}`);
+      }
+    }
+
+    // ── 12. Injury-safe (finding 0) ──
+    // The persona's injury areas (chronic ∪ the check-in's specific pain) never meet a
+    // step's load, asked of the planner's own model on the LIBRARY row (a step that
+    // dropped its muscles cannot hide its load). And an injury never empties a
+    // session: a non-rest day carries at least one step.
+    {
+      const pain = p.checkIn?.pain_scope === 'specific' ? (p.checkIn.pain_areas ?? []) : [];
+      const areas = [...new Set([...(p.chronic ?? []), ...pain])];
+      if (!areas.length) say('injury-safe', 'PASS', 'no injury');
+      else {
+        const bad = steps.filter(s => { const l = loadAreas(exById.get(s.exercise_id) ?? s); return areas.some(a => l.has(a)); })
+          .map(s => `${s.exercise_slug}[${[...loadAreas(exById.get(s.exercise_id) ?? s)].filter(a => areas.includes(a))}]`);
+        if (!isRest && !steps.length) bad.push('empty session on a training day');
+        say('injury-safe', bad.length ? 'FAIL' : 'PASS',
+          bad.length ? `loads an injured area [${areas}]: ${bad.join(', ')}` : `${steps.length} step(s), none loads ${areas.join('/')}`);
       }
     }
   }  // ── end of the date sweep ──

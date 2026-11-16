@@ -717,6 +717,21 @@ case "$DUPN" in
   *)   fail "exercise library lists a name twice: ${DUPN} — deactivate or rename the duplicate (see migrations/0123_exercise_dedupe.sql)" ;;
 esac
 
+# ── I1/I2 — finding 0: one injury load model, and the data agrees with it ──
+# R563 filtered on loads_* tags that migration 0021 added to the library as it was
+# then; 284 of 480 rows (plyo-push-up among them) had none, so a user with a chronic
+# shoulder complaint was prescribed explosive push-ups. I1: only
+# functions/api/_shared/injuryLoad.js may test a loads_* tag. I2: the baseline + the
+# injury-load migration(s) in sqlite — every strength/cardio row has a loads_* tag or
+# is on the fixture's loads_nothing list, the tags equal loadAreas(), and every active
+# exercise offers ≥ 2 active substitutions. Details: scripts/injuryLoad.scan.mjs.
+if IL_OUT=$(node scripts/injuryLoad.scan.mjs 2>&1 | grep -v -i "experimentalwarning\|trace-warnings"); then
+  ok "injury load: $IL_OUT"
+else
+  echo "$IL_OUT" | sed 's/^/      /'
+  fail "injury load model / data (node scripts/injuryLoad.scan.mjs)"
+fi
+
 # ── B1 — no inline script anywhere; script-src carries no 'unsafe-inline' ──
 # The CSP allowed 'unsafe-inline' for scripts because of exactly two inline
 # blocks: the pre-paint theme resolver in index.html and the decorative wave
@@ -782,7 +797,8 @@ fi
 # 1890 → 1749 (2026-11-01): UAT release 6 — onboarding (.jf-ob*), the path modal and its follow-up
 # (.jf-pathmodal* / .jf-path*), the nav (.jf-nav*), the page container (.jf-page), the timed set
 # (.jf-timer*) and the Today title moved to classes.
-STYLE_CEILING=1749
+# 1749 → 1748 (2026-11-16): finding 0 — the alternatives sheet's empty state is .jf-alt-empty.
+STYLE_CEILING=1748
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -919,7 +935,7 @@ fi
 # with the failure message and the summary never printed.
 BEHAV=$(node scripts/planner-behaviour.mjs 2>&1) || true
 if [ "$BEHAV" = "OK" ]; then
-  ok "planner behaviour: 50 personas x 12 properties x 60 dates hold end-to-end, nothing waived (12 = the weekly target places rest days only when met or on pace — C-B32)"
+  ok "planner behaviour: 71 personas x 13 properties x 60 dates hold end-to-end, nothing waived (13 = injury-safe: no step loads an injured area by loadAreas(), finding 0)"
 else
   fail "planner behaviour: ${BEHAV}"
 fi
@@ -1505,7 +1521,8 @@ fi
 # 2026-11-01 (coach-dcp R1): plan.js 3726 → 3688 — R598's due check and the
 # measurement sets moved to _shared/dcpMeasure.js (ensureMeasurementSteps).
 # 2026-11-01 (C-B32): plan.js 3688 → 3686 — R999 moved to _shared/weekTarget.js with the weekly target.
-PLAN_CEILING=3686
+# 2026-11-16 (finding 0): plan.js 3686 → 3677 — R563's tag map became _shared/injuryLoad.js.
+PLAN_CEILING=3677
 # 2026-11-01 (UAT release 3): App.jsx 1799 → 1780 — the banner milestone tables moved to bodyBanner.js.
 # 2026-11-01 (UAT release 6): App.jsx 1780 → 1769 — the check-in time budget moved to checkinQuick.js, the page container to .jf-page.
 APP_CEILING=1769

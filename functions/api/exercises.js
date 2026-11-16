@@ -1,3 +1,5 @@
+import { loadAreas } from './_shared/injuryLoad.js';
+
 export async function onRequestGet({ request, env }) {
   try {
     const url = new URL(request.url);
@@ -5,7 +7,8 @@ export async function onRequestGet({ request, env }) {
     const category = url.searchParams.get('category');
 
     let query = `SELECT id, slug, name, name_nl, category, tags_json, equipment_required_json, 
-                        instructions_json, metrics_json, alternatives_json
+                        instructions_json, metrics_json, alternatives_json,
+                        primary_muscles_json, secondary_muscles_json
                  FROM exercises WHERE is_active = 1
                    -- This endpoint is PUBLIC (no session), so it cannot scope by
                    -- membership: gym-private rows are never served here. Members
@@ -29,6 +32,11 @@ export async function onRequestGet({ request, env }) {
         return required.every(t => exTags.includes(t));
       });
     }
+
+    // Finding 0 — each row says which injury areas it loads (the planner's own model), so
+    // the workout's alternatives sheet never offers a swap that loads a sore area.
+    exercises = exercises.map(({ primary_muscles_json: _p, secondary_muscles_json: _s, ...ex }) =>
+      ({ ...ex, load_areas: [...loadAreas({ ...ex, primary_muscles_json: _p, secondary_muscles_json: _s })] }));
 
     return Response.json({ exercises });
   } catch (e) {

@@ -83,10 +83,10 @@ db.exec(`
   CREATE UNIQUE INDEX idx_daily_checkins_user_date ON daily_checkins(user_id, date);
 `);
 const insEx = db.prepare(`INSERT INTO exercises (id, slug, name, category, tags_json, equipment_required_json, metrics_json,
-  primary_muscles_json, alternatives_json, is_active, name_nl) VALUES (?,?,?,?,?,?,?,?,?,?,?)`);
+  primary_muscles_json, alternatives_json, is_active, name_nl, secondary_muscles_json) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`);
 rows.forEach((r, i) => insEx.run('ex' + i, r.slug, r.name, r.category, r.tags_json, r.equipment_required_json,
-  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1, r.name_nl ?? null));
-insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0, null);
+  r.metrics_json, r.primary_muscles_json ?? '[]', r.alternatives_json ?? null, 1, r.name_nl ?? null, r.secondary_muscles_json ?? null));
+insEx.run('ex-retired', 'retired-move', 'Retired move', 'strength', '[]', '["none"]', '{"supports":["reps"]}', '[]', null, 0, null, null);
 // A gym-private row (gym_id set). No gyms/gym_memberships tables exist in this
 // harness, so NOBODY is a member here: the row must be invisible to the planner,
 // to pins and to custom_steps. Only the base query's `gym_id IS NULL` keeps it out.
@@ -120,6 +120,9 @@ const users = {
   // UAT D3 / D4.
   pchg:  { goal: 'health' },
   chk:   { goal: 'health' },
+  // Finding 0 — p13 Omar: chronic shoulder complaint, shoulder pain in today's check-in.
+  omar:     { goal: 'health', prefs: { chronic_injury_areas: ['shoulder'] } },
+  omarfree: { goal: 'health', prefs: { chronic_injury_areas: ['shoulder'] } },
 };
 for (const [id, u] of Object.entries(users)) {
   db.prepare('INSERT INTO users (id) VALUES (?)').run(id);
@@ -129,6 +132,7 @@ for (const [id, u] of Object.entries(users)) {
       u.sex ?? 'male', 75, 178);
 }
 db.prepare(`INSERT INTO entitlements VALUES ('ent-pro','pro','active',?)`).run(Date.now() + 86400000 * 30);
+db.prepare(`INSERT INTO entitlements VALUES ('ent-omar','omar','active',?)`).run(Date.now() + 86400000 * 30);
 // Due date 140 days after DATE → pregnancy week 20, trimester 2.
 const due = new Date(Date.parse(DATE + 'T12:00:00Z') + 140 * 86400000).toISOString().slice(0, 10);
 db.prepare(`INSERT INTO cycle_profile (user_id, mode, pregnancy_due_date) VALUES ('preg','pregnant',?)`).run(due);
@@ -455,6 +459,39 @@ const S = (slug, extra = {}) => ({ exercise_id: idOf(slug), ...extra });
   db.prepare(`UPDATE daily_checkins SET date = '2026-10-04' WHERE id = 'dc-chk'`).run();
   const old = await post('chk', { pinned_exercise_ids: [idOf('dead-bug')] });
   check(!(old.body.plan?.rule_trace ?? []).some(t => /R559/.test(t)), "yesterday's stored check-in leaked into today's plan");
+}
+
+// 14. Finding 0 (UI/UX review 2026-11-16) — a shoulder injury + shoulder pain in the
+//     check-in: today's plan carries no step that loads the shoulder (by the planner's
+//     own load model, which also reads rows 0021 never tagged), it says which areas it
+//     protected (`injury_areas`, read by the alternatives sheet), and a free user's
+//     STORED session that loads the shoulder is re-planned instead of merely rescaled.
+{
+  const { loadAreas } = await import('../functions/api/_shared/injuryLoad.js');
+  const byId = new Map(rows.map((r, i) => ['ex' + i, r]));
+  const shoulderSteps = (plan) => (plan?.steps ?? []).filter(st => loadAreas(byId.get(st.exercise_id) ?? st).has('shoulder')).map(st => st.exercise_slug);
+  const checkin = { pain_level: 2, checkin_json: { pain_level: 2, pain_scope: 'specific', pain_areas: ['shoulder'], feeling: 2 } };
+  const r = await post('omar', { checkin });
+  check(r.status === 200 && (r.body.plan?.steps ?? []).length > 0, `omar: no session, got ${r.status} ${JSON.stringify(r.body).slice(0, 160)}`);
+  check(shoulderSteps(r.body.plan).length === 0, `omar: the plan loads the shoulder: ${shoulderSteps(r.body.plan).join(', ')}`);
+  check((r.body.plan?.injury_areas ?? []).includes('shoulder'), `omar: plan.injury_areas must name the shoulder, got ${JSON.stringify(r.body.plan?.injury_areas)}`);
+  check((r.body.plan?.rule_trace ?? []).some(t => /^R563/.test(t)), 'omar: no R563 trace line');
+
+  // The free user had a session stored before the injury reached the profile: plyo-push-up first.
+  const before = { slot_type: 'main', intensity: 'moderate', session_name: 'Gebalanceerde sessie', rule_trace: ['R500'],
+    steps: [{ exercise_id: idOf('plyo-push-up'), exercise_slug: 'plyo-push-up', name: 'Plyo Push-Up', category: 'strength',
+      tags_json: rows[Number(idOf('plyo-push-up').slice(2))].tags_json, sets: 3, target_reps: 12, rest_sec: 45 },
+      { exercise_id: idOf('dead-bug'), exercise_slug: 'dead-bug', name: 'Dead Bug', category: 'strength', tags_json: '[]', sets: 3, target_reps: 10, rest_sec: 45 }] };
+  db.prepare(`INSERT INTO day_plans (id, user_id, date, plan_json, generated_by, created_at_ms, updated_at_ms) VALUES ('dp-omarfree','omarfree',?,?,'engine',1,1)`)
+    .run(DATE, JSON.stringify(before));
+  const f = await post('omarfree', { adapt_mode: true, checkin });
+  check(f.status === 200 && !(f.body.plan?.steps ?? []).some(st => st.exercise_slug === 'plyo-push-up'),
+    `omarfree: the adapt path kept plyo-push-up for a sore shoulder: ${(f.body.plan?.steps ?? []).map(st => st.exercise_slug).join(', ')}`);
+  check(shoulderSteps(f.body.plan).length === 0 && !(f.body.plan?.rule_trace ?? []).includes('adapt:free_tier'),
+    `omarfree: expected a re-planned, shoulder-safe session, got ${shoulderSteps(f.body.plan).join(', ')} / ${(f.body.plan?.rule_trace ?? []).slice(-2).join(' | ')}`);
+  // Without the pain the same stored session (no chronic area loaded) is only rescaled.
+  const g = await post('free', { adapt_mode: true, checkin: { energy: 3 } });
+  check(g.status === 200, `free adapt without an injury must still work, got ${g.status}`);
 }
 
 process.stdout.write(errs.length ? errs.join('; ') : 'OK');
