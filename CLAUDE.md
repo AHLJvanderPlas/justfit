@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-16 (branch uxe, NOT deployed) — UX review release E: onboarding, login and the builder labels (findings 13, 14, 16; vitest 722 → 737, smoke 109 → 110, e2e 36 → 46)
+### Shipped 2026-11-16 — UX review release E: onboarding layout, one login path in emerald, builder column labels (vitest 737, smoke 110, e2e 46; **UX review releases 0–E complete**, `docs/UI_UX_REVIEW_2026-11-16.md`)
 
 - **Onboarding (13)** `OnboardingModal.jsx`: the body is a scroll box ABOVE the footer (`.jf-ob__scroll` > `.jf-ob__body`, not an overlay) with a fade
   (`.jf-ob__fade`, shown only while more follows; scroll resets per step); About you = name, sex, experience as three chips in one row with the

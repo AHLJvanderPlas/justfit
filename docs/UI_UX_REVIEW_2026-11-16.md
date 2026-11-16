@@ -108,7 +108,22 @@ for a button on the wrong screen, or a sheet was still open). The fifth exposed 
 - A skeleton for the Today card while the plan loads; desktop width is a stretched phone.
 - Re-run this review in the light theme and with two non-default accent colours.
 
-## Suggested order
+## Status — all releases live 2026-11-16
+
+| Release | Findings | Commit |
+|---|---|---|
+| 0 | 0 (injury filter, migration 0125) | b920e6c |
+| A | 1, 2, 4 | dce9aec |
+| B | 3 (69 exercises, migration 0126), 5, 6, 12 | 264c26e … a92033c |
+| C | 7, 8, 9 | ca4d41e … cf1fca6 |
+| D | 10, 11, 15, 17 | 6f93995 + 853f85a |
+| E | 13, 14, 16 | 98e83ee … 0c8a983 |
+
+Open follow-ups are in ROADMAP: C-B34 (coach runs ignore injuries), C-B35 (lower-back rehab moves),
+C-B36 (Dutch instructions for the remaining exercises), C-B37 (mobility/endurance length; many
+exercises for beginners). P3 polish items of this review were not built.
+
+## Suggested order (as planned)
 
 | Release | Content | Size |
 |---|---|---|
