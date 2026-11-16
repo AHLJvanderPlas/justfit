@@ -808,7 +808,9 @@ fi
 # share and "Toon alles" buttons moved to .jf-signout / .jf-back-btn / .jf-warn-chip / .jf-ci-chip / .jf-weeknav / .jf-quiet-btn.
 # 1661 → 1624 (2026-11-16): UX review D — the Today header (TodayHeader, .jf-today-head / .jf-checkin-btn), the merged week
 # card (.jf-weekcard*), the goal link and the back controls (.jf-back) moved to classes; the goal card is gone.
-STYLE_CEILING=1624
+# 1624 → 1613 (2026-11-16): UX review E — GuestConvertModal (.jf-gc*); the onboarding, builder and login files were
+# already class-based (0 inline styles) and the login page lost every style="" attribute.
+STYLE_CEILING=1613
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1679,7 +1681,7 @@ const i = h.indexOf("/login-i18n.js"), j = h.indexOf("/login.js");
 if (i < 0 || j < 0 || i > j) errs.push("login-i18n.js must load before login.js");
 if ((h.match(/data-i18n=/g) || []).length < 25) errs.push("login.html has fewer than 25 data-i18n hooks");
 if (/<script(?![^>]*\bsrc=)[^>]*>/i.test(h)) errs.push("login.html has an inline script (CSP is script-src self)");
-for (const id of ["tab-signup","tab-login","email","password","accept-check","submit-btn","guest-btn","mt-password"]) if (!h.includes("id=\"" + id + "\"")) errs.push("login.html lost #" + id);
+for (const id of ["tab-signup","tab-login","email","password","accept-check","submit-btn","magic-btn","guest-btn","guest-accept-check","mt-password"]) if (!h.includes("id=\"" + id + "\"")) errs.push("login.html lost #" + id);
 process.stdout.write(errs.join("; "));' 2>&1)
 if [ -z "$R4_OUT" ]; then
   ok "UAT R4: login.html has its i18n hooks, loads login-i18n.js first, no inline script, e2e ids intact"
@@ -1706,13 +1708,16 @@ const i18n = fs.readFileSync("packages/client-app/src/i18n.js", "utf8");
 const theme = (i18n.match(/"Theme": "([^"]+)"/) || [])[1], app = (i18n.match(/\x27Appearance\x27: \x27([^\x27]+)\x27/) || [])[1];
 if (!theme || theme === app) errs.push("Theme and Appearance both read " + app + " in Dutch (two Weergave headings)");
 const lh = fs.readFileSync("packages/client-app/public/login.html", "utf8");
-if (/id="guest-section"[^>]*display:\s*none/.test(lh)) errs.push("login.html hides #guest-section");
-if (/guest-section/.test(fs.readFileSync("packages/client-app/public/login.js", "utf8"))) errs.push("login.js toggles #guest-section again (guest access belongs on both tabs)");
+if (/id="guest-section"[^>]*\bhidden\b/.test(lh)) errs.push("login.html hides #guest-section");
+// UX review E: the guest section is its own block; only the forgot / magic-link views may hide it, never the e-mail / password / sign-up states
+const ljs = fs.readFileSync("packages/client-app/public/login.js", "utf8");
+const lsv = ljs.slice(ljs.indexOf("function setView("), ljs.indexOf("function showForgot("));
+if (!lsv || /guest-section/.test(lsv)) errs.push("login.js setView() toggles #guest-section again (guest access belongs in every sign-in state)");
 const dash = fs.readFileSync("packages/client-app/src/Dashboard.jsx", "utf8");
 if (!/<CoachingCard /.test(dash) || /jf_coach_discovery_dismissed/.test(dash)) errs.push("Dashboard must render <CoachingCard>, not the old inline discovery card");
 process.stdout.write(errs.join("; "));' 2>&1)
 if [ -z "$R5_OUT" ]; then
-  ok "UAT R5: no Opslaan · <doel> button, one Appearance + one Cycle tracking, Geavanceerd closed, guest button on both tabs, CoachingCard"
+  ok "UAT R5: no Opslaan · <doel> button, one Appearance + one Cycle tracking, Geavanceerd closed, guest section in every sign-in state, CoachingCard"
 else
   fail "UAT R5: $R5_OUT"
 fi
@@ -1771,6 +1776,17 @@ if [ -z "$UXD_OUT" ]; then
   ok "UX review D: header on Today only, one BackLink, sign-out at the bottom of Account (confirmed), one week card, no Training goal card"
 else
   fail "UX review D: $UXD_OUT"
+fi
+
+# ── UX review E — onboarding, login and the builder labels ─────────────────
+# The onboarding scroll area ends above the footer with a fade; session length before equipment, four options +
+# "More equipment"; "Sla deze stap over" on About only. The login page is one path (one primary, no tabs, guest in
+# its own section, no style attributes, emerald). The builder rows carry real column labels. scripts/uxE.scan.mjs.
+UXE_OUT=$(node scripts/uxE.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$UXE_OUT" ]; then
+  ok "UX review E: onboarding scroll area above the footer + fade, length before equipment, one skip; login one path, emerald, no inline styles; builder column labels"
+else
+  fail "UX review E: $UXE_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

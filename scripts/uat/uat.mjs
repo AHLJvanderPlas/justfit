@@ -177,17 +177,17 @@ export async function flowSignup(run, page) {
   } else {
     if (!(await click(run, page.locator(`[data-path="${path}"]`), `path ${path}`))) return run.end();
     await page.waitForTimeout(400); await run.shot(page, `onboarding-1b-${path}`);
-    if (path === 'running') await choose(run, page.locator('button').filter({ hasText: re('^10\\s*km$') }), '10 km');
-    if (path === 'cycling') await choose(run, page.locator('button').filter({ hasText: re('Build fitness|Conditie') }), 'sub-goal');
+    if (path === 'running') await choose(run, page.locator('.jf-ob button').filter({ hasText: re('^10\\s*km$') }), '10 km');
+    if (path === 'cycling') await choose(run, page.locator('.jf-ob button').filter({ hasText: re('Build fitness|Conditie') }), 'sub-goal');
     if (path === 'military') {
-      await choose(run, page.locator('button').filter({ hasText: re('^Keuring') }), 'Keuring');
-      const date = page.locator('input[type=date]'); if (await visible(date, 800)) { await date.first().fill(new Date(Date.now() + 70 * 86_400_000).toISOString().slice(0, 10)); run.tap(); }
+      await choose(run, page.locator('.jf-ob button').filter({ hasText: re('^Keuring') }), 'Keuring');
+      const date = page.locator('.jf-ob input[type=date]'); if (await visible(date, 800)) { await date.first().fill(new Date(Date.now() + 70 * 86_400_000).toISOString().slice(0, 10)); run.tap(); }
     }
     if (!(await next())) return run.end();
   }
   await page.waitForTimeout(400); await run.shot(page, 'onboarding-2-about-you'); await onboardingEndCheck(run, page, 'onboarding-about');
   if (p.name) await fill(run, page.getByPlaceholder(re('What should we call you|Hoe mogen we je noemen')), p.name, 'name');
-  await choose(run, page.locator('button').filter({ hasText: re(p.sex === 'female' ? '^(Female|Vrouw)$' : '^(Male|Man)$') }), 'sex');
+  await choose(run, page.locator('.jf-ob button').filter({ hasText: re(p.sex === 'female' ? '^(Female|Vrouw)$' : '^(Male|Man)$') }), 'sex');
   await choose(run, page.locator('.jf-ob__exp .jf-ob__opt').nth(p.expIdx ?? 0), 'experience');
   if (!(await next())) return run.end();
   await page.waitForTimeout(400); await run.shot(page, 'onboarding-3-equipment-time'); await onboardingEndCheck(run, page, 'onboarding-setup');

@@ -1362,6 +1362,31 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-16 (branch uxe, NOT deployed) — UX review release E: onboarding, login and the builder labels (findings 13, 14, 16; vitest 722 → 737, smoke 109 → 110, e2e 36 → 46)
+
+- **Onboarding (13)** `OnboardingModal.jsx`: the body is a scroll box ABOVE the footer (`.jf-ob__scroll` > `.jf-ob__body`, not an overlay) with a fade
+  (`.jf-ob__fade`, shown only while more follows; scroll resets per step); About you = name, sex, experience as three chips in one row with the
+  one-line description underneath (fits 320 × 568; leads hide under 640 px height); Materiaal en tijd = session length first (45 min pre-selected), then
+  none / dumbbell / resistance_bands / pull_up_bar and "Meer materiaal" (starts open when a hidden option is already selected), then sports. "Sla deze
+  stap over" was the same handler as Doorgaan on every step: it stays on **About you only** (nothing pre-answered); gone from goal, path and setup.
+  Same payloads, savePath, waiver, Fietsen lock, useDialog. Tap count 8 (gate personas), 9 for guest / expat flows, 12 for the cycling+Indoor-bike
+  persona (sport path card + sub-goal + Doorgaan + "Meer materiaal"; not a gate persona).
+- **Login (14)** `login.html` / `login.js` / `login-i18n.js`: ONE path — e-mail + "Ga verder met e-mail" (magic link, existing and new; an unknown address
+  lands on the sign-up form via magic.html / `?magic=` needsSignup). Quiet link buttons: password (`#mt-password`, 1 tap, + "Wachtwoord vergeten?"),
+  passkey `#passkey-btn` (when WebAuthn is available, 1 tap), "Account maken" `#tab-signup` (1 tap: e-mail, password, consent), back `#tab-login` /
+  `#mt-magic`. Guest = own section below (`#guest-section`, consent `#guest-accept-check`, `#guest-btn` disabled until ticked). One `.btn-primary` visible
+  per state. Ids removed: `#magic-email` (merged into `#email`), `#method-switcher`, `#passkey-section`, `#forgot-alert` (all messages: `#main-alert`,
+  role=alert, always in the page). Emerald (#10b981, the app's dark tokens) replaces coral on login, the wave canvas (`login-wave.js`, still off for
+  reduced motion / < 600 px); magic.html / reset-password.html were already emerald (ink on the button, AA muted). No `style=` attribute on the page
+  (the `<style>` block stays; CSP unchanged). The marketing zone (pillars, Today mockup) was removed from the markup in e96c13a, so only its orphan CSS was
+  deleted — it was not re-added.
+- **Builder (16)** `SetRow` (`sessionSheet.jsx`): column labels Sets · Herhalingen / Seconden · Rust above the first row of each card in Samenstellen and
+  Registreren, real `<label for>`; aria-labels, parsing and payload unchanged.
+- Guards: smoke **UX review E** (`scripts/uxE.scan.mjs`, each rule broken once and seen failing), `tests/uxReviewE.test.js`, loginI18n structure tests,
+  contrast audit now expects emerald; e2e `journey-login.spec.js` (7), `journey-onboarding.spec.js` (3: 320 × 568 audit of every step, order, "Meer
+  materiaal", re-do, fade), builder label asserts in `journey-own-training.spec.js`; UAT runner audits the onboarding scroll end and scopes its
+  onboarding locators to `.jf-ob`. Inline styles 1624 → **1613** (GuestConvertModal → `.jf-gc*`); App.jsx 1703 (unchanged).
+
 ### Shipped 2026-11-16 — UX review release D: Today and chrome (one week card, no static goal card, title as header off Today, one BackLink, Uitloggen in Account; manager fix: the goal shows once and R601 does not carry the coach line; vitest 722, smoke 109, e2e 36)
 
 - **Today (10)** one week card (`.jf-weekcard`): the 7-day strip + ONE status line "1 van 3 trainingsdagen · nog 2 te gaan" /
@@ -1389,7 +1414,7 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
   (text that used the FILL colour `--subtle`; `C.subtleText`), `--on-disabled`, `--accent-text` (per theme, derived in
   `applyAccent()`; `C.accentText`). Accents needing a text variant: dark violet, indigo, rose, fuchsia; light all 11. Dark ink
   `#020617` on the accent-filled button is ≥ 4.5:1 for all 11 accents. `::placeholder` = `--muted`. Login page: its own
-  `--muted` / `--accent-text` / `--on-accent` (ink on the coral buttons, was white 3.7:1). Never write `color: C.emerald`,
+  `--muted` / `--accent-text` / `--on-accent` (ink on the accent buttons, was white 3.7:1; coral until UX review E, now emerald). Never write `color: C.emerald`,
   `var(--accent)` or `C.subtle` for text again (smoke fails).
 - **Keyboard / screen reader (8)** one global `:focus-visible` 2 px ring (`--focus-ring` = accent text); inline `outline: none`
   gone; the only `outline: none` left is `[tabindex="-1"]:focus` (programmatic focus targets) and `.jf-wo-tap` (own
