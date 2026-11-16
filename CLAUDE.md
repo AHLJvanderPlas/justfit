@@ -1404,6 +1404,11 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
   e2e `journey-injury.spec.js`. vitest 575 → **598**; matrix 50 × 12 → **71 × 13**; e2e 31 → **32**.
   plan.js 3686 → **3677**; inline styles 1749 → **1748** (both ceilings lowered).
 
+- (release A, manager fix) "Set afronden" on a timed set records seconds — elapsed while the clock
+  runs, the prescribed duration when it was never started (`timerFace.finishedSetValue`); it used
+  to record the rep counter, the source of "1 set × 0s" in Deze week. Commits dce9aec + e-fix,
+  live 2026-11-16. vitest 613, smoke 106, e2e 33, inline styles 1672.
+
 ### Shipped 2026-11-16 — UX review release 0: the injury filter covers every exercise (`docs/UI_UX_REVIEW_2026-11-16.md` finding 0)
 
 - A user with a chronic shoulder complaint and shoulder pain in the check-in was prescribed
