@@ -1,7 +1,7 @@
 -- =============================================================================
 -- JustFit — Cycling Workouts Seed (Executable Snapshot)
 -- File: migrations/baseline/1030_seed_cycling.sql
--- Generated: 2026-11-01T04:35:55.551Z
+-- Generated: 2026-11-16T12:27:59.956Z
 --
 -- Bootstrap order: run AFTER 1010_schema_training.sql
 --
