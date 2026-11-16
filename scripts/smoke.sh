@@ -798,7 +798,9 @@ fi
 # (.jf-pathmodal* / .jf-path*), the nav (.jf-nav*), the page container (.jf-page), the timed set
 # (.jf-timer*) and the Today title moved to classes.
 # 1749 → 1748 (2026-11-16): finding 0 — the alternatives sheet's empty state is .jf-alt-empty.
-STYLE_CEILING=1748
+# 1748 → 1672 (2026-11-16): UX review A — the WorkoutView header, working phase (title, steppers, counter, tap
+# zone, bottom bar), the wake-lock tip and the session rating moved to .jf-wo-* / .jf-rate classes.
+STYLE_CEILING=1672
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1716,6 +1718,17 @@ if [ -z "$R6_OUT" ]; then
   ok "UAT R6: 11 px text floor, one nav height for nav + pages, 44 px nav items and sheet closes, one check-in payload, one path writer"
 else
   fail "UAT R6: $R6_OUT"
+fi
+
+# ── UX review A — the exercise screen ───────────────────────────────────────
+# One primary button in the working-phase bar, name and set once (not in the header), the session
+# rating is three buttons that store 3 / 5 / 8 (what the server reads), the wake-lock tip sits below
+# the header and can be dismissed, new controls keep their 44 / 56 px hit areas. scripts/uxA.scan.mjs.
+UXA_OUT=$(node scripts/uxA.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$UXA_OUT" ]; then
+  ok "UX review A: one primary in the set bar, name and set once, three-button rating = 3/5/8, dismissible wake-lock tip, 44/56 px hit areas"
+else
+  fail "UX review A: $UXA_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)

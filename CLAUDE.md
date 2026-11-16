@@ -965,11 +965,12 @@ Button label: "Show alternatives" (standard) or "This doesn't feel right" (pregn
 ### Session feedback (phase: "sessionFeedback")
 
 ```
-[😰 Too hard]  [😌 Just right]  [💪 Too easy]   Skip rating
+Hoe zwaar was dit?   [Te licht]  [Net goed]  [Te zwaar]   (nothing pre-selected, each >= 56 px)
+Notitie toevoegen (link, expands the note)   [Sessie opslaan →] (enabled once one is chosen)   Beoordeling overslaan
 ```
 
-Maps to `perceived_exertion`: 8 / 5 / 3 / null. Calls `onComplete(durationSec, perceivedExertion, stepsActualRef.current)`.
-
+`src/sessionRating.js` maps the buttons to `perceived_exertion` **3 / 5 / 8** (skip = null) and calls
+`onComplete(durationSec, perceivedExertion, stepsActualRef.current, notes)`. The RPE 1–10 slider is gone (UX review A).
 `perceived_exertion` feeds the consistency score resilience bonus (low PE = resilience).
 
 ### Wake Lock
@@ -1000,7 +1001,7 @@ useEffect(() => {
 }, [phase]);
 ```
 
-Fallback: amber banner shown below header when `wakeLockDenied === true` and phase is active.
+Fallback (UX review A): when `wakeLockDenied`, ONE dismissible amber line (`src/wakeTip.js`, `.jf-wo-tip`, × 44 px) sits inside the first exercise's instruction screen, below the header; leaving that screen or dismissing it marks it seen for the day (`jf_waketip_<date>`, try/catch). It never sits above the header.
 
 ### Pregnancy/postnatal adaptations
 
@@ -1360,6 +1361,14 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 (`d2f8fc7`, 2026-11-01) — see the block below. Open follow-up (not a bug in this repo): Cloudflare's
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
+
+### Built 2026-11-16 (branch uxa, NOT deployed) — UX review release A: the exercise screen (`docs/UI_UX_REVIEW_2026-11-16.md` findings 1, 2, 4)
+
+- **Working screen** (rep and timed): header = Cancel · "n van m oefeningen" · progress (no name, no "SET n/m"); body = "SET 1 VAN 2", the name once, a quiet target stepper (44 px ghost buttons), the 0 / 10 counter and tap zone. The rep dots are gone (the counter says it once). Bottom bar: "Set afronden →" is the only `.jf-primary` (56 px, widest); "Overslaan" and "Alternatieven tonen" / "Dit voelt niet goed" are two quiet text actions (44 px). Data paths unchanged (`handleSetDone`, skip, alternatives incl. the injury-safe sheet, safe stop). Classes `.jf-wo-*`.
+- **Wake-lock tip**: `src/wakeTip.js`; see the Wake Lock section.
+- **Session rating**: three buttons, stored 3 / 5 / 8 (`src/sessionRating.js`). Consumers checked: score.js (`<= 4` resilience), execution.js (TSS modifier `{3,5,8}`, R576 `=== 3` / `=== 8`), AwardsView (`=== 8` / `=== 3`), HistoryView week label (`>= 7` / `<= 4`), strava-push description. The old slider sent 1–10 and only 3/5/8 ever reached the rules; old stored values need no migration. All three paths (today, bonus, own training) render the same WorkoutView feedback phase. LogSessionSheet keeps its own 3 chips (same 3/5/8).
+- Guards: smoke **UX review A** (`scripts/uxA.scan.mjs`: one primary in the bar, no name/set in the header, no range input / "RPE", state starts null, values 3,5,8 in step with execution.js, tip below the header + dismissible, 44/56 px hit areas); e2e assertions in `journey-workout.spec.js` + a wake-lock tip journey; `tests/uxReviewA.test.js`. Inline styles 1748 → **1672** (ceiling lowered).
+- Noticed, not changed: on a timed set the bar's "Set afronden" calls `handleSetDone(repCount)` (records 0 s) — pre-existing; the in-body Start / "Vroeg klaar" is the timed path.
 
 ### Built 2026-11-16 (branch ux0, NOT deployed) — finding 0: the injury filter covers every exercise
 

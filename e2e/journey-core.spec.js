@@ -71,6 +71,7 @@ test('signup, onboard, check in, complete a workout and see it in history', asyn
     await page.getByRole('button', { name: 'Skip', exact: true }).click();
   }
   await expect(logSession).toBeVisible();
+  await page.getByRole('button', { name: 'Just right' }).click();
   await logSession.click();
 
   // ── History shows the completed session ─────────────────────────────────

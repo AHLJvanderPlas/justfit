@@ -116,6 +116,7 @@ test('coach-dcp (f) — DCP end to end: switch on, measure in today\'s session, 
   expect(counted, 'both measurement sets should run on the max-effort screen').toEqual([12, 15]);
   expect(metaChecked, 'both measurement instruction screens read "Max · 2 min"').toBe(2);
   await expect(sessionDone).toBeVisible();
+  await page.getByRole('button', { name: 'Just right' }).click();
   await page.getByRole('button', { name: 'Log session →' }).click();
 
   // The execution wrote the baseline (R598 → execution.js recordDcpMeasurement)…

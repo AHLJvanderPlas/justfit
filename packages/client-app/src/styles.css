@@ -1053,7 +1053,7 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   min-height: 48px; padding: 14px 32px; border-radius: 16px; font-family: inherit; font-weight: 700; font-size: 15px; cursor: pointer;
   background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
 }
-.jf-wo-working { max-width: 560px; margin: 0 auto; padding: 24px 20px 120px; display: flex; flex-direction: column; gap: 20px; }
+.jf-wo-working { max-width: 560px; margin: 0 auto; padding: 24px 20px 176px; display: flex; flex-direction: column; gap: 20px; }
 @media (max-height: 700px) {
   .jf-wo-working { padding-top: 14px; gap: 12px; }
   .jf-timer__count { font-size: 60px; margin-bottom: 10px; }
@@ -1272,3 +1272,112 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   font: inherit; font-size: 14px; font-weight: 700; color: var(--accent);
   background: rgba(var(--accent-rgb), 0.12); border: 1px solid rgba(var(--accent-rgb), 0.3);
 }
+
+/* ── UX review A — the exercise screen: say it once, one primary action ──
+   Header = cancel · "n van m oefeningen" · progress; the exercise name and the set live in the body. */
+.jf-wo-head { flex-shrink: 0; border-bottom: 1px solid rgba(var(--overlay-rgb), 0.08); background: var(--bg); }
+.jf-wo-head__in { max-width: 560px; margin: 0 auto; padding: 8px 20px 10px; }
+.jf-wo-head__row { display: flex; justify-content: space-between; align-items: center; }
+.jf-wo-head__btn {
+  min-width: 72px; min-height: 44px; display: flex; align-items: center; padding: 4px 0; cursor: pointer;
+  font: inherit; font-size: 13px; font-weight: 700; color: var(--muted); background: none; border: none;
+}
+.jf-wo-head__btn--end { justify-content: flex-end; }
+.jf-wo-head__side { min-width: 72px; display: flex; justify-content: flex-end; }
+.jf-wo-head__count { font-size: 12px; font-weight: 700; color: var(--muted); text-align: center; }
+.jf-wo-head__bar {
+  display: block; width: 100%; height: 4px; margin-top: 4px; border: none; border-radius: 2px; overflow: hidden;
+  -webkit-appearance: none; appearance: none; background: rgba(var(--overlay-rgb), 0.08); color: var(--accent);
+}
+.jf-wo-head__bar::-webkit-progress-bar { background: transparent; }
+.jf-wo-head__bar::-webkit-progress-value { background: currentColor; border-radius: 2px; transition: width 0.4s ease; }
+.jf-wo-head__bar::-moz-progress-bar { background: currentColor; border-radius: 2px; }
+
+/* Wake-lock tip: one dismissible line inside the first instruction screen, not above the header. */
+.jf-wo-tip {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 0 0 14px;
+  border-radius: 14px; background: var(--amber-dim); border: 1px solid var(--amber-border);
+}
+.jf-wo-tip__text { font-size: 12px; line-height: 1.4; color: var(--amber); padding: 8px 0; }
+.jf-wo-tip__x {
+  flex-shrink: 0; width: 44px; height: 44px; font: inherit; font-size: 22px; line-height: 1; cursor: pointer;
+  color: var(--amber); background: none; border: none;
+}
+
+/* Working phase */
+.jf-wo-title { text-align: center; }
+.jf-wo-title__set { font-size: 13px; font-weight: 900; color: var(--muted); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 4px; }
+.jf-wo-title__name { margin: 0; font-size: 28px; font-weight: 900; color: var(--text); letter-spacing: -0.02em; }
+.jf-wo-title__then { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.jf-wo-ss { display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 6px; }
+.jf-wo-ss__dot { width: 7px; height: 7px; border-radius: 4px; background: rgba(var(--overlay-rgb), 0.18); transition: width 0.2s; }
+.jf-wo-ss__dot--on { width: 22px; background: var(--accent); }
+.jf-wo-ss__label { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; margin-left: 4px; }
+
+/* Target / load stepper: quiet — ghost buttons, small value. */
+.jf-wo-step { display: flex; align-items: center; justify-content: center; gap: 6px; }
+.jf-wo-step__btn {
+  width: 44px; height: 44px; min-width: 44px; border-radius: 12px; cursor: pointer; font: inherit; font-size: 20px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; touch-action: manipulation;
+  background: transparent; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted);
+}
+.jf-wo-step__mid { min-width: 120px; text-align: center; }
+.jf-wo-step__val { font-size: 14px; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+.jf-wo-step__val--set { color: var(--text); }
+.jf-wo-step__sub { font-size: 11px; font-weight: 600; color: var(--muted); margin-top: 2px; font-variant-numeric: tabular-nums; }
+.jf-wo-step__toast { font-size: 11px; font-weight: 700; color: var(--accent); margin-top: 2px; }
+
+/* Rep counter + tap zone (the dots are gone: the counter says it once). */
+.jf-wo-count { text-align: center; margin-bottom: 16px; }
+.jf-wo-count__n { font-size: 64px; font-weight: 900; letter-spacing: -0.04em; line-height: 1; color: var(--text); font-variant-numeric: tabular-nums; transition: color 0.2s; }
+.jf-wo-count__n--done { color: var(--accent); }
+.jf-wo-count__target { font-size: 24px; font-weight: 700; color: var(--muted); margin-left: 6px; }
+.jf-wo-clock { text-align: center; margin-bottom: 14px; }
+.jf-wo-clock__label { font-size: 11px; font-weight: 900; letter-spacing: 0.12em; color: var(--muted); text-transform: uppercase; margin-bottom: 4px; }
+.jf-wo-clock__time { font-size: 38px; font-weight: 900; line-height: 1; color: var(--accent); font-variant-numeric: tabular-nums; }
+.jf-wo-clock__time--warn { color: var(--amber); }
+.jf-wo-tapwrap { position: relative; }
+.jf-wo-tapring { position: absolute; inset: 0; border-radius: 20px; border: 2px solid var(--accent); animation: tapRing 0.35s ease-out forwards; pointer-events: none; }
+.jf-wo-tap {
+  width: 100%; min-height: 220px; border-radius: 20px; cursor: pointer; font: inherit; color: var(--accent);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+  background: rgba(var(--accent-rgb), 0.08); border: 2px solid rgba(var(--accent-rgb), 0.2);
+  transition: background 0.15s, border-color 0.15s; -webkit-tap-highlight-color: transparent; outline: none;
+}
+.jf-wo-tap:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.jf-wo-tap--done { background: rgba(var(--accent-rgb), 0.15); border-color: rgba(var(--accent-rgb), 0.4); cursor: default; }
+.jf-wo-tap--flash { background: rgba(var(--accent-rgb), 0.25); border-color: rgba(var(--accent-rgb), 0.55); animation: tapScale 0.15s ease-out; }
+.jf-wo-tap__label { font-size: 11px; font-weight: 900; letter-spacing: 0.14em; text-transform: uppercase; }
+.jf-wo-tap__plus { width: 52px; height: 52px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: rgba(var(--accent-rgb), 0.15); border: 1.5px solid rgba(var(--accent-rgb), 0.35); }
+.jf-wo-quiet {
+  width: 100%; min-height: 44px; margin-top: 10px; border-radius: 14px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700;
+  background: transparent; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted);
+}
+
+/* Bottom bar: ONE primary (accent, widest), two quiet text actions under it, all >= 44 px. */
+.jf-wo-bar { position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg); border-top: 1px solid rgba(var(--overlay-rgb), 0.08); padding: 10px 16px max(12px, env(safe-area-inset-bottom)); }
+.jf-wo-bar__in { max-width: 528px; margin: 0 auto; display: flex; flex-direction: column; gap: 2px; }
+.jf-wo-bar__primary { height: 56px; font-size: 18px; }
+.jf-wo-bar__quiet { display: flex; gap: 8px; }
+.jf-wo-bar__link {
+  flex: 1; min-height: 44px; padding: 0 8px; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; color: var(--muted);
+  background: none; border: none; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+@media (max-height: 700px) { .jf-wo-working { padding-bottom: 168px; } }
+
+/* Session rating — three big buttons, nothing pre-selected. */
+.jf-wo-fb { max-width: 560px; margin: 0 auto; padding: 40px 20px max(32px, env(safe-area-inset-bottom)); display: flex; flex-direction: column; align-items: center; gap: 20px; }
+.jf-wo-fb__head { text-align: center; }
+.jf-wo-fb__title { font-size: 32px; font-weight: 900; color: var(--text); letter-spacing: -0.03em; margin: 0 0 8px; }
+.jf-wo-fb__q { font-size: 18px; font-weight: 700; color: var(--text); margin: 0; }
+.jf-rate { width: 100%; display: flex; flex-direction: column; gap: 10px; }
+.jf-rate__btn {
+  width: 100%; min-height: 64px; border-radius: 16px; cursor: pointer; font: inherit; font-size: 18px; font-weight: 800; color: var(--text);
+  background: rgba(var(--overlay-rgb), 0.05); border: 2px solid rgba(var(--overlay-rgb), 0.08);
+}
+.jf-rate__btn[aria-pressed="true"] { background: var(--accent-dim); border-color: var(--accent); color: var(--accent); }
+.jf-wo-link {
+  min-height: 44px; padding: 0 12px; cursor: pointer; font: inherit; font-size: 14px; font-weight: 600; color: var(--muted);
+  background: none; border: none; text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+.jf-wo-note { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; font: inherit; font-size: 14px; resize: none; color: var(--text); background: rgba(var(--overlay-rgb), 0.04); border: 1px solid rgba(var(--overlay-rgb), 0.08); }

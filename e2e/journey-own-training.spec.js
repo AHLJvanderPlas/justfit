@@ -125,7 +125,7 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
     if (await ready.isVisible()) { await ready.click(); continue; }
     if (await allDone.isVisible()) {
       await expect(allDone).toHaveText(/All 5 reps done/);
-      await expect(page.getByText('Set 1/1', { exact: true })).toBeVisible();
+      await expect(page.getByText('Set 1 of 1', { exact: true })).toBeVisible();
       if (!tapped && (await tapZone.isVisible())) { await tapZone.click(); await tapZone.click(); tapped = true; }
       await allDone.click();
       continue;
@@ -135,6 +135,7 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   }
   expect(tapped, 'the push-up set should have been counted in WorkoutView').toBe(true);
   await expect(sessionDone).toBeVisible();
+  await page.getByRole('button', { name: 'Just right' }).click();
   await page.getByRole('button', { name: 'Log session →' }).click();
 
   // The done card of the extra: it shows the session and asks, default no (§6).

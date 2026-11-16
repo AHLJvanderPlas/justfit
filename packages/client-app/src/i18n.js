@@ -355,6 +355,15 @@ const NL = {
   'Low effort \u2014 could do much more': 'Lage inspanning \u2014 kon veel meer doen',
   'Log session \u2192': 'Sessie opslaan \u2192',
   'Skip rating': 'Beoordeling overslaan',
+  // UX review A — the three-button session rating, the quiet stepper labels
+  'How hard was this?': 'Hoe zwaar was dit?',
+  'Too easy': 'Te licht',
+  'Too hard': 'Te zwaar',
+  'Add a note': 'Notitie toevoegen',
+  'Shorter': 'Korter',
+  'Longer': 'Langer',
+  'Fewer reps': 'Minder herhalingen',
+  'More reps': 'Meer herhalingen',
 
   // === WORKOUT VIEW — alternatives sheet ===
   'Alternatives for {name}': 'Alternatieven voor {name}',

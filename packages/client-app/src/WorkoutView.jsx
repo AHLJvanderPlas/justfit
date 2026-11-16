@@ -13,6 +13,8 @@ import { maxEffortMeta } from "./dcpUi.js";
 import { stopSummary } from "./sessionOutcome.js";
 import { timerFace } from "./timerFace.js";
 import { injuryAreasOf, safeAlternatives } from "./safeAlternatives.js";
+import { RATINGS, ratingToExertion, canSaveRating } from "./sessionRating.js";
+import { wakeTipSeenToday, markWakeTipSeen, wakeTipVisible } from "./wakeTip.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 function ExerciseGif({ gifUrl, name }) {
@@ -85,7 +87,9 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   // Alternatives
   const isPregnancyMode = bodyMode === "pregnant" || bodyMode === "postnatal";
   const [showBreathingReminder, setShowBreathingReminder] = useState(false);
-  const [rpeValue, setRpeValue] = useState(5);
+  const [rating, setRating] = useState(null);          // UX review A — "easy" | "right" | "hard"; nothing pre-selected
+  const [noteOpen, setNoteOpen] = useState(false);
+  const [wakeTipOpen, setWakeTipOpen] = useState(() => !wakeTipSeenToday());
   // C-F6 — load for the current exercise. Seeded from what the athlete lifted last
   // time (target_weight_kg) and carried forward between sets of the same exercise.
   const [weightKg, setWeightKg] = useState(0);
@@ -192,6 +196,12 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       if (wakeLockRef.current) { wakeLockRef.current.release(); wakeLockRef.current = null; }
     };
   }, [phase]);
+
+  // Wake-lock tip (UX review A): shown once, on the first instruction screen; leaving that screen counts as seen.
+  function dismissWakeTip() { setWakeTipOpen(false); markWakeTipSeen(); }
+  useEffect(() => {
+    if (wakeLockDenied && phase === "working") { setWakeTipOpen(false); markWakeTipSeen(); }
+  }, [wakeLockDenied, phase]);
 
   // ── Rest countdown ───────────────────────────────────────────────────────────
   useEffect(() => {
@@ -408,7 +418,8 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
     onComplete(durationSec, null, stepsActualRef.current, sessionNotes.trim() || null, stop);
   }
 
-  function handleFinishSession(perceivedExertion) {
+  function handleFinishSession(ratingKey) {
+    const perceivedExertion = ratingToExertion(ratingKey);   // 3 | 5 | 8 | null
     const durationSec = Math.floor((Date.now() - startTimeRef.current) / 1000);
     onComplete(durationSec, perceivedExertion, stepsActualRef.current, sessionNotes.trim() || null);
   }
@@ -553,41 +564,20 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
         );
       })()}
 
-      {/* Wake lock fallback — non-intrusive hint if screen lock can't be prevented */}
-      {wakeLockDenied && ["instruction","working","resting"].includes(phase) && (
-        <div style={{ flexShrink: 0, background: "rgba(245,158,11,0.12)", borderBottom: "1px solid rgba(245,158,11,0.25)", padding: "8px 20px", textAlign: "center" }}>
-          <span style={{ fontSize: 12, color: C.amber }}>{t('Tip: disable auto-lock in Phone Settings to keep your screen on.')}</span>
-        </div>
-      )}
-
-      {/* Session header */}
+      {/* Session header — cancel, "n of m exercises", progress. The exercise name and the set live in the body, once. */}
       {phase !== "sessionFeedback" && phase !== "overview" && (
-        <div style={{ flexShrink: 0, borderBottom: `1px solid ${C.border}`, background: C.bg }}>
-          <div style={{ maxWidth: 560, margin: "0 auto", padding: "14px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <button onClick={() => setShowCancel(true)} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center" }}>
-                {t('← Cancel')}
-              </button>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 14, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>
-                  {exerciseName(phase === "resting" ? exercises[exIdx] : cur)}
-                </div>
-                <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                  {t('{n} of {total} exercises', { n: exIdx + 1, total: totalExercises })}
-                </div>
-              </div>
-              <div style={{ minWidth: 56, textAlign: "right" }}>
-                {phase === "resting" || phase === "working"
-                  ? <span style={{ fontSize: 12, fontWeight: 900, color: C.emerald, letterSpacing: "0.06em", textTransform: "uppercase" }}>{t('Set {current}/{total}', { current: currentSet, total: totalSets })}</span>
-                  : phase === "instruction" && exIdx > 0
-                  ? <button onClick={handlePrevExercise} style={{ fontSize: 13, fontWeight: 700, color: C.muted, background: "none", border: "none", cursor: "pointer", padding: "4px 0", minHeight: 44, display: "flex", alignItems: "center", marginLeft: "auto" }}>{t('← Prev')}</button>
+        <div className="jf-wo-head">
+          <div className="jf-wo-head__in">
+            <div className="jf-wo-head__row">
+              <button type="button" className="jf-wo-head__btn" onClick={() => setShowCancel(true)}>{t('← Cancel')}</button>
+              <div className="jf-wo-head__count">{t('{n} of {total} exercises', { n: exIdx + 1, total: totalExercises })}</div>
+              <div className="jf-wo-head__side">
+                {phase === "instruction" && exIdx > 0
+                  ? <button type="button" className="jf-wo-head__btn jf-wo-head__btn--end" onClick={handlePrevExercise}>{t('← Prev')}</button>
                   : null}
               </div>
             </div>
-            {/* Progress bar */}
-            <div style={{ marginTop: 10, height: 4, background: "rgba(var(--overlay-rgb),0.08)", borderRadius: 2, overflow: "hidden" }}>
-              <div style={{ height: "100%", width: `${progressPct}%`, background: C.emerald, borderRadius: 2, transition: "width 0.4s ease" }} />
-            </div>
+            <progress className="jf-wo-head__bar" max={100} value={progressPct} aria-hidden="true" />
           </div>
         </div>
       )}
@@ -871,6 +861,13 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <>
             <div style={{ maxWidth: 560, margin: "0 auto", padding: "24px 20px 100px", display: "flex", flexDirection: "column", gap: 16, position: "relative" }}>
 
+              {wakeTipVisible({ denied: wakeLockDenied, open: wakeTipOpen, phase, exIdx }) && (
+                <div className="jf-wo-tip" role="note" data-testid="wake-tip">
+                  <span className="jf-wo-tip__text">{t('Tip: disable auto-lock in Phone Settings to keep your screen on.')}</span>
+                  <button type="button" className="jf-wo-tip__x" aria-label={t('Close')} onClick={dismissWakeTip}>{"\u00d7"}</button>
+                </div>
+              )}
+
               {/* Trainer gym logo badge — top-right, custom exercises only */}
               {cur.trainer_logo_url && (
                 <div style={{ position: "absolute", top: 24, right: 20, width: 36, height: 36, borderRadius: 8, background: cur.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, border: "1px solid rgba(var(--overlay-rgb),0.12)" }}>
@@ -1031,99 +1028,61 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           );
         })()}
 
-        {/* ── WORKING PHASE ── */}
+        {/* ── WORKING PHASE — name once, set once, one primary action (UX review A) ── */}
         {phase === "working" && cur && (
           <div className="jf-wo-working">
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontSize: 13, fontWeight: 900, color: C.muted, letterSpacing: "0.1em", textTransform: "uppercase", marginBottom: 4 }}>
-                {t('Set {current} of {total}', { current: currentSet, total: totalSets })}
-              </div>
+            <div className="jf-wo-title">
               {/* ── C-F10: superset position — which exercise of the pair, and what's next ── */}
               {isGrouped && (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, marginBottom: 6 }}>
+                <div className="jf-wo-ss">
                   {groupMembers.map((mi, k) => (
-                    <div key={mi} style={{
-                      width: k === posInGroup ? 22 : 7, height: 7, borderRadius: 4,
-                      background: k === posInGroup ? C.emerald : "rgba(var(--overlay-rgb),0.18)",
-                      transition: "width 0.2s",
-                    }} />
+                    <div key={mi} className={`jf-wo-ss__dot${k === posInGroup ? " jf-wo-ss__dot--on" : ""}`} />
                   ))}
-                  <div style={{ fontSize: 11, fontWeight: 700, color: C.emerald, letterSpacing: "0.08em", textTransform: "uppercase", marginLeft: 4 }}>
-                    {t('Superset')}
-                  </div>
+                  <div className="jf-wo-ss__label">{t('Superset')}</div>
                 </div>
               )}
-              <div style={{ fontSize: 28, fontWeight: 900, color: C.text, letterSpacing: "-0.02em" }}>{exerciseName(cur)}</div>
+              <div className="jf-wo-title__set">{t('Set {current} of {total}', { current: currentSet, total: totalSets })}</div>
+              <h1 className="jf-wo-title__name">{exerciseName(cur)}</h1>
               {isGrouped && !isLastInGroup && (
-                <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
-                  {t('then')} {exerciseName(stepAt(groupMembers[posInGroup + 1]))}
-                </div>
+                <div className="jf-wo-title__then">{t('then')} {exerciseName(stepAt(groupMembers[posInGroup + 1]))}</div>
               )}
             </div>
 
-            {/* ── Difficulty override row — not on a measurement set: it has no target to adjust ── */}
-            {!isMaxEffort && <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-              <button
-                onClick={() => handleAdjust(isTimeBased ? -10 : -2)}
-                style={{ width: 48, height: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                −
-              </button>
-              <div style={{ minWidth: 120, textAlign: "center" }}>
-                <div style={{ fontSize: 15, fontWeight: 900, color: C.text }}>
+            {/* ── Target stepper — quiet; not on a measurement set: it has no target to adjust ── */}
+            {!isMaxEffort && <div className="jf-wo-step">
+              <button type="button" className="jf-wo-step__btn" aria-label={isTimeBased ? t('Shorter') : t('Fewer reps')} onClick={() => handleAdjust(isTimeBased ? -10 : -2)}>−</button>
+              <div className="jf-wo-step__mid">
+                <div className="jf-wo-step__val">
                   {isTimeBased
                     ? `${adjustedDuration ?? cur.target_duration_sec ?? 30}s`
                     : t("{n} reps", { n: targetReps })}
                 </div>
-                {adjustLabel && (
-                  <div style={{ fontSize: 11, color: C.emerald, fontWeight: 700, marginTop: 2, transition: "opacity 0.3s" }}>
-                    {adjustLabel}
-                  </div>
-                )}
+                {adjustLabel && <div className="jf-wo-step__toast">{adjustLabel}</div>}
               </div>
-              <button
-                onClick={() => handleAdjust(isTimeBased ? 10 : 2)}
-                style={{ width: 48, height: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center" }}
-              >
-                +
-              </button>
+              <button type="button" className="jf-wo-step__btn" aria-label={isTimeBased ? t('Longer') : t('More reps')} onClick={() => handleAdjust(isTimeBased ? 10 : 2)}>+</button>
             </div>}
 
             {/* ── C-F6: load row — only for exercises that declare a weight ── */}
             {supportsWeight && (
-              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
-                <button
-                  aria-label={t('Less weight')}
-                  onClick={() => setWeightKg((w) => Math.max(0, Math.round((w - weightStep) * 4) / 4))}
-                  style={{ width: 48, height: 48, minWidth: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", touchAction: "manipulation" }}
-                >
-                  −
-                </button>
-                <div style={{ minWidth: 130, textAlign: "center" }}>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: weightKg > 0 ? C.text : C.muted, fontVariantNumeric: "tabular-nums" }}>
+              <div className="jf-wo-step">
+                <button type="button" className="jf-wo-step__btn" aria-label={t('Less weight')}
+                  onClick={() => setWeightKg((w) => Math.max(0, Math.round((w - weightStep) * 4) / 4))}>−</button>
+                <div className="jf-wo-step__mid">
+                  <div className={`jf-wo-step__val${weightKg > 0 ? " jf-wo-step__val--set" : ""}`}>
                     {weightKg > 0 ? `${weightKg} kg` : t('Bodyweight')}
                   </div>
-                  {/* ── C-F8: what you actually did last time, beside today's target.
-                       This comparison is where progression becomes something you feel
-                       rather than a number computed out of sight. ── */}
+                  {/* ── C-F8: what you actually did last time, beside today's target. ── */}
                   {cur?.last_performance?.weight_kg > 0 ? (
-                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2, fontVariantNumeric: "tabular-nums" }}>
+                    <div className="jf-wo-step__sub">
                       {t('Last time')}: {cur.last_performance.weight_kg} kg
                       {cur.last_performance.reps ? ` × ${cur.last_performance.reps}` : ''}
                     </div>
                   ) : (
-                    <div style={{ fontSize: 11, color: C.muted, fontWeight: 600, marginTop: 2 }}>
-                      {weightLabel ?? t('Weight')}
-                    </div>
+                    <div className="jf-wo-step__sub">{weightLabel ?? t('Weight')}</div>
                   )}
                 </div>
-                <button
-                  aria-label={t('More weight')}
-                  onClick={() => setWeightKg((w) => Math.round((w + weightStep) * 4) / 4)}
-                  style={{ width: 48, height: 48, minWidth: 48, borderRadius: 14, fontWeight: 900, fontSize: 20, background: "rgba(var(--overlay-rgb),0.05)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", touchAction: "manipulation" }}
-                >
-                  +
-                </button>
+                <button type="button" className="jf-wo-step__btn" aria-label={t('More weight')}
+                  onClick={() => setWeightKg((w) => Math.round((w + weightStep) * 4) / 4)}>+</button>
               </div>
             )}
 
@@ -1146,106 +1105,64 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       </button>
                     ) : (
                       <button type="button" className="jf-timer__early" onClick={() => { setTimerRunning(false); handleSetDone(totalDur - timerRemaining); }}>
-                        {t('\u25a0 Done early')}
+                        {t('■ Done early')}
                       </button>
                     )}
                   </div>
                 );
               })()
             ) : (
-              /* ── Rep-based exercise ── */
+              /* ── Rep-based exercise — the counter says it once; the dots are gone ── */
               (() => {
                 const isComplete = !isMaxEffort && repCount >= targetReps;
-                const dotCount = isMaxEffort ? 0 : Math.min(10, targetReps);
-                const tapBg = tapFlash
-                  ? "rgba(var(--accent-rgb),0.25)"
-                  : isComplete
-                  ? "rgba(var(--accent-rgb),0.15)"
-                  : "rgba(var(--accent-rgb),0.08)";
-                const tapBorder = tapFlash
-                  ? "rgba(var(--accent-rgb),0.55)"
-                  : isComplete
-                  ? "rgba(var(--accent-rgb),0.4)"
-                  : "rgba(var(--accent-rgb),0.2)";
                 const tapLabel = isComplete ? t("SET COMPLETE") : tapFlash ? t("COUNTED!") : t("TAP TO COUNT REP");
                 const mmss = `${Math.floor(timerRemaining / 60)}:${String(timerRemaining % 60).padStart(2, "0")}`;
-                const clockColor = timerRemaining <= 10 ? C.amber : C.emerald;
 
                 return (
                   <div>
-                    {/* R598 — the measurement clock. Replaces the rep dots: there is
-                        no target to tick off, the only limit is the window. */}
+                    {/* R598 — the measurement clock: there is no target to tick off, the only limit is the window. */}
                     {isMaxEffort && (
-                      <div style={{ textAlign: "center", marginBottom: 14 }}>
-                        <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.12em", color: C.muted, textTransform: "uppercase", marginBottom: 4 }}>
-                          {t("Max reps — time remaining")}
-                        </div>
-                        <div style={{ fontSize: 38, fontWeight: 900, lineHeight: 1, color: clockColor, fontVariantNumeric: "tabular-nums" }}>
-                          {mmss}
-                        </div>
+                      <div className="jf-wo-clock">
+                        <div className="jf-wo-clock__label">{t("Max reps — time remaining")}</div>
+                        <div className={`jf-wo-clock__time${timerRemaining <= 10 ? " jf-wo-clock__time--warn" : ""}`}>{mmss}</div>
                       </div>
                     )}
-                    {/* Rep dots */}
-                    <div style={{ display: "flex", justifyContent: "center", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
-                      {Array.from({ length: dotCount }).map((_, i) => (
-                        <div key={i} style={{ width: 12, height: 12, borderRadius: "50%", background: repCount > i ? C.emerald : "rgba(var(--overlay-rgb),0.15)", transition: "background 0.15s", flexShrink: 0 }} />
-                      ))}
-                      {targetReps > 10 && repCount > 10 && (
-                        <span style={{ fontSize: 12, fontWeight: 700, color: C.emerald, alignSelf: "center", marginLeft: 4 }}>+{repCount - 10}</span>
-                      )}
-                    </div>
 
-                    {/* Rep count display */}
-                    <div style={{ textAlign: "center", marginBottom: 20 }}>
-                      <span style={{ fontSize: 64, fontWeight: 900, letterSpacing: "-0.04em", lineHeight: 1, color: isComplete ? C.emerald : C.text, fontVariantNumeric: "tabular-nums", transition: "color 0.2s" }}>
-                        {repCount}
-                      </span>
-                      {!isMaxEffort && (
-                        <span style={{ fontSize: 24, fontWeight: 700, color: C.muted, marginLeft: 6 }}>/ {targetReps}</span>
-                      )}
+                    <div className="jf-wo-count" aria-live="off">
+                      <span className={`jf-wo-count__n${isComplete ? " jf-wo-count__n--done" : ""}`}>{repCount}</span>
+                      {!isMaxEffort && <span className="jf-wo-count__target">/ {targetReps}</span>}
                     </div>
 
                     {/* Big tap zone */}
-                    <div style={{ position: "relative" }}>
-                      {/* Ring flash */}
-                      {tapFlash && (
-                        <div style={{ position: "absolute", inset: 0, borderRadius: 20, border: `2px solid ${C.emerald}`, animation: "tapRing 0.35s ease-out forwards", pointerEvents: "none" }} />
-                      )}
+                    <div className="jf-wo-tapwrap">
+                      {tapFlash && <div className="jf-wo-tapring" />}
                       <button
+                        type="button"
                         onClick={handleRepTapped}
                         disabled={isComplete}
-                        style={{ width: "100%", minHeight: 220, borderRadius: 20, background: tapBg, border: `2px solid ${tapBorder}`, color: C.emerald, cursor: isComplete ? "default" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 12, transition: "background 0.15s, border-color 0.15s", WebkitTapHighlightColor: "transparent", animation: tapFlash ? "tapScale 0.15s ease-out" : "none", outline: "none" }}
+                        className={`jf-wo-tap${tapFlash ? " jf-wo-tap--flash" : isComplete ? " jf-wo-tap--done" : ""}`}
                       >
-                        <span style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.14em", textTransform: "uppercase" }}>
-                          {tapLabel}
-                        </span>
+                        <span className="jf-wo-tap__label">{tapLabel}</span>
                         {!isComplete && (
-                          <div style={{ width: 52, height: 52, borderRadius: "50%", background: "rgba(var(--accent-rgb),0.15)", border: "1.5px solid rgba(var(--accent-rgb),0.35)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                          <div className="jf-wo-tap__plus">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 5v14M5 12h14"/></svg>
                           </div>
                         )}
                         {isComplete && (
-                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke={C.emerald} strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+                          <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
                         )}
                       </button>
                     </div>
 
-                    {/* All reps done shortcut. On a measurement set there is no
-                        target to shortcut to, so it becomes "stop here" — form
-                        failure ends the set, and that count is the measurement. */}
+                    {/* All reps done shortcut. On a measurement set there is no target to shortcut to,
+                        so it becomes "stop here" — form failure ends the set, and that count is the measurement. */}
                     {isMaxEffort ? (
-                      <button
-                        onClick={() => { setTimerRunning(false); handleSetDone(repCount); }}
-                        style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}
-                      >
+                      <button type="button" className="jf-wo-quiet" onClick={() => { setTimerRunning(false); handleSetDone(repCount); }}>
                         {t('Stop — form is going ({n})', { n: repCount })}
                       </button>
                     ) : !isComplete && (
-                      <button
-                        onClick={() => handleSetDone(targetReps)}
-                        style={{ width: "100%", marginTop: 12, padding: "14px 0", borderRadius: 16, fontWeight: 800, fontSize: 14, background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, color: C.emerald, cursor: "pointer" }}
-                      >
-                        {t('\u2713 All {n} reps done', { n: targetReps })}
+                      <button type="button" className="jf-wo-quiet" onClick={() => handleSetDone(targetReps)}>
+                        {t('✓ All {n} reps done', { n: targetReps })}
                       </button>
                     )}
                   </div>
@@ -1253,27 +1170,18 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
               })()
             )}
 
-            {/* Bottom actions */}
-            <div className="jf-wo-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, background: C.bg, borderTop: `1px solid ${C.border}`, padding: "12px 16px max(24px, env(safe-area-inset-bottom))" }}>
-              <div style={{ maxWidth: 528, margin: "0 auto", display: "flex", gap: 10 }}>
-                <button
-                  onClick={handleSkipExercise}
-                  style={{ flex: 1, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 12, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
-                >
-                  {t('Skip')}
+            {/* Bottom bar — "Set afronden" is the only primary button; skip and alternatives are quiet text actions. */}
+            <div className="jf-wo-bar">
+              <div className="jf-wo-bar__in">
+                <button type="button" className="jf-primary jf-wo-bar__primary" onClick={() => handleSetDone(repCount)}>
+                  {t('Finish set →')}
                 </button>
-                <button
-                  onClick={handleOpenAlternatives}
-                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 13, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}`, color: C.muted, cursor: "pointer" }}
-                >
-                  {isPregnancyMode ? t("This doesn't feel right") : t("Show alternatives")}
-                </button>
-                <button
-                  onClick={() => handleSetDone(repCount)}
-                  style={{ flex: 2, padding: "13px 0", borderRadius: 14, fontWeight: 700, fontSize: 14, background: "rgba(var(--overlay-rgb),0.08)", border: `1px solid ${C.border}`, color: C.text, cursor: "pointer" }}
-                >
-                  {t('Finish set \u2192')}
-                </button>
+                <div className="jf-wo-bar__quiet">
+                  <button type="button" className="jf-wo-bar__link" onClick={handleSkipExercise}>{t('Skip')}</button>
+                  <button type="button" className="jf-wo-bar__link" onClick={handleOpenAlternatives}>
+                    {isPregnancyMode ? t("This doesn't feel right") : t("Show alternatives")}
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -1373,115 +1281,44 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
           );
         })()}
 
-        {/* ── SESSION FEEDBACK PHASE ── */}
-        {phase === "sessionFeedback" && (() => {
-          // Detect session type for contextual RPE labels
-          const sessionName = plan?.session_name ?? '';
-          const isCyclingSession = sessionName.toLowerCase().includes('cycling') ||
-            exercises.some(e => JSON.parse(e.tags_json||'[]').includes('cycling'));
-          const isRunSession = sessionName.toLowerCase().includes('run') ||
-            exercises.some(e => JSON.parse(e.tags_json||'[]').includes('running'));
-          const isStrengthSession = !isCyclingSession && !isRunSession &&
-            exercises.length > 0 &&
-            exercises.filter(e => e.category === 'strength').length > exercises.length / 2;
-          const isCardio = isCyclingSession || isRunSession ||
-            exercises.some(e => e.category === 'cardio' || JSON.parse(e.tags_json||'[]').includes('cardio'));
-
-          // RPE label config based on session type
-          const getRpeConfig = (v) => {
-            if (isStrengthSession) {
-              if (v <= 3) return { label: t("Too light"), sub: t("Add weight or reps next session"), color: C.info };
-              if (v <= 6) return { label: t("Just right"), sub: t("Weight and reps were appropriate"), color: C.emerald };
-              if (v <= 9) return { label: t("Hard"), sub: t("At your limit \u2014 hold or progress slowly"), color: C.amber };
-              return { label: t("Too heavy"), sub: t("Reduce weight or reps next session"), color: C.dangerStrong };
-            }
-            // Cardio / general
-            if (v <= 2) return { label: t("Very easy"), sub: isCardio ? t("Zone 1 · Recovery pace") : t("Barely any effort"), color: C.info };
-            if (v <= 4) return { label: t("Easy"), sub: isCardio ? t("Zone 2 · Comfortable, conversational") : t("Low effort \u2014 could do much more"), color: C.emerald };
-            if (v <= 6) return { label: t("Moderate"), sub: isCardio ? t("Zone 3 · Breathing harder") : t("Good effort"), color: "#84cc16" };
-            if (v <= 8) return { label: t("Hard"), sub: isCardio ? t("Zone 4\u20135 · Pushing your limits") : t("Near your limit"), color: C.amber };
-            return { label: t("Maximum"), sub: isCardio ? t("Zone 5+ · At or near your limit") : t("Max effort \u2014 could not have done more"), color: C.dangerStrong };
-          };
-
-          const rpeConfig = getRpeConfig(rpeValue);
-          return (
-            <div style={{ maxWidth: 560, margin: "0 auto", padding: "48px 20px max(48px, env(safe-area-inset-bottom))", display: "flex", flexDirection: "column", alignItems: "center", gap: 28 }}>
-              <div style={{ textAlign: "center" }}>
-                <div style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 8 }}>{t('Session done!')}</div>
-                <p style={{ fontSize: 14, color: C.muted, lineHeight: 1.5 }}>
-                  {isStrengthSession ? t("How was the weight and effort?") : t("Rate your effort (RPE)")}
-                </p>
-              </div>
-
-              {/* RPE number + label */}
-              <div style={{ textAlign: "center", width: "100%" }}>
-                <div style={{ fontSize: 72, fontWeight: 900, color: rpeConfig.color, lineHeight: 1, letterSpacing: "-0.03em", transition: "color 0.2s" }}>{rpeValue}</div>
-                <div style={{ fontSize: 20, fontWeight: 900, color: rpeConfig.color, marginTop: 4, transition: "color 0.2s" }}>{rpeConfig.label}</div>
-                <div style={{ fontSize: 13, color: C.muted, marginTop: 6 }}>{rpeConfig.sub}</div>
-              </div>
-
-              {/* Slider */}
-              <div style={{ width: "100%", padding: "0 4px" }}>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={rpeValue}
-                  onChange={e => { setRpeValue(+e.target.value); navigator.vibrate?.(12); }}
-                  style={{ width: "100%", height: 8, borderRadius: 999, accentColor: rpeConfig.color, cursor: "pointer", outline: "none" }}
-                />
-                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 6 }}>
-                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? t("Too light") : t("Very easy")}</span>
-                  <span style={{ fontSize: 11, fontWeight: 700, color: C.muted }}>RPE 1–10</span>
-                  <span style={{ fontSize: 11, color: C.muted }}>{isStrengthSession ? t("Too heavy") : t("Maximum")}</span>
-                </div>
-              </div>
-
-              {/* Zone indicator dots */}
-              <div style={{ display: "flex", gap: 4, alignItems: "center" }}>
-                {[1,2,3,4,5,6,7,8,9,10].map(n => {
-                  const cfg = getRpeConfig(n);
-                  return (
-                    <div
-                      key={n}
-                      onClick={() => { setRpeValue(n); navigator.vibrate?.(12); }}
-                      style={{ width: n === rpeValue ? 28 : 20, height: n === rpeValue ? 28 : 20, borderRadius: "50%", background: n === rpeValue ? cfg.color : "rgba(var(--overlay-rgb),0.08)", border: n === rpeValue ? `2px solid ${cfg.color}` : `1px solid ${C.border}`, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", transition: "all 0.15s", flexShrink: 0 }}
-                    >
-                      {n === rpeValue && <span style={{ fontSize: 11, fontWeight: 900, color: C.onStatus }}>{n}</span>}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Optional session note */}
-              <div style={{ width: "100%" }}>
-                <textarea
-                  value={sessionNotes}
-                  onChange={e => setSessionNotes(e.target.value)}
-                  placeholder={t("Add a note (optional)")}
-                  maxLength={500}
-                  rows={2}
-                  style={{ width: "100%", boxSizing: "border-box", padding: "12px 14px", borderRadius: 14, border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: C.text, fontSize: 14, fontFamily: "inherit", resize: "none", outline: "none" }}
-                />
-              </div>
-
-              <button
-                onClick={() => handleFinishSession(rpeValue)}
-                style={{ width: "100%", padding: "18px 0", borderRadius: 20, fontSize: 16, fontWeight: 900, background: rpeConfig.color, border: "none", color: C.onStatus, cursor: "pointer", letterSpacing: "-0.01em", transition: "background 0.2s" }}
-              >
-                {t('Log session \u2192')}
-              </button>
-
-              <button
-                onClick={() => handleFinishSession(null)}
-                style={{ fontSize: 13, color: C.muted, background: "none", border: "none", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
-              >
-                {t('Skip rating')}
-              </button>
+        {/* ── SESSION FEEDBACK PHASE — three buttons, nothing pre-selected (UX review A, finding 4) ── */}
+        {phase === "sessionFeedback" && (
+          <div className="jf-wo-fb" data-testid="session-rating">
+            <div className="jf-wo-fb__head">
+              <h1 className="jf-wo-fb__title">{t('Session done!')}</h1>
+              <p className="jf-wo-fb__q" id="jf-rate-q">{t('How hard was this?')}</p>
             </div>
-          );
-        })()}
+
+            <div className="jf-rate" role="group" aria-labelledby="jf-rate-q">
+              {RATINGS.map((r) => (
+                <button key={r.key} type="button" className="jf-rate__btn" aria-pressed={rating === r.key}
+                  onClick={() => { setRating(r.key); navigator.vibrate?.(12); }}>
+                  {t(r.label)}
+                </button>
+              ))}
+            </div>
+
+            {noteOpen ? (
+              <textarea
+                className="jf-wo-note"
+                value={sessionNotes}
+                onChange={e => setSessionNotes(e.target.value)}
+                placeholder={t("Add a note (optional)")}
+                aria-label={t("Add a note")}
+                maxLength={500}
+                rows={2}
+              />
+            ) : (
+              <button type="button" className="jf-wo-link" onClick={() => setNoteOpen(true)}>{t('Add a note')}</button>
+            )}
+
+            <button type="button" className="jf-primary" disabled={!canSaveRating(rating)} onClick={() => handleFinishSession(rating)}>
+              {t('Log session \u2192')}
+            </button>
+
+            <button type="button" className="jf-wo-link" onClick={() => handleFinishSession(null)}>{t('Skip rating')}</button>
+          </div>
+        )}
       </div>
 
       {/* ── ALTERNATIVES BOTTOM SHEET ── */}
