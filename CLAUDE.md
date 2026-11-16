@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-16 (branch uxd, NOT deployed) — UX review release D: Today and chrome (findings 10, 11, 15, 17; vitest 711 → 722, smoke 108 → 109, e2e 35 → 36)
+### Shipped 2026-11-16 — UX review release D: Today and chrome (one week card, no static goal card, title as header off Today, one BackLink, Uitloggen in Account; manager fix: the goal shows once and R601 does not carry the coach line; vitest 722, smoke 109, e2e 36)
 
 - **Today (10)** one week card (`.jf-weekcard`): the 7-day strip + ONE status line "1 van 3 trainingsdagen · nog 2 te gaan" /
   "… · weekdoel gehaald" (`weekStatus.weekLineState`, the C-B32 ISO-week count and target), tapping it opens Deze week; the sentence
