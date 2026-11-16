@@ -3,6 +3,29 @@
 // upcoming day. Now the strip selects a day and ONE row follows it; "Aankomend"
 // shows two days and "Hele week →" the rest.
 import { inLogWindow } from "./logSession.js";
+import { isoWeekStart, addDays } from "../../../functions/api/_shared/weekTarget.js";
+
+/**
+ * UX review finding 12 — "Deze week" is the ISO week, Monday → Sunday, everywhere: the week
+ * pill, the C-B32 target and Voortgang already counted it; the tab's strip was a rolling
+ * "last 7 days". `offset` moves by whole weeks (‹ ›). One helper, built on the server's own
+ * isoWeekStart so the two cannot disagree. Dates are YYYY-MM-DD.
+ */
+export function weekBounds(today, offset = 0) {
+  const start = addDays(isoWeekStart(today), offset * 7);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(start, i));
+  return { start, end: days[6], days };
+}
+
+/** "ma 16 – zo 22 nov" / "ma 30 nov – zo 6 dec" (en: "Mon 16 – Sun 22 Nov"). */
+export function weekRangeLabel(start, end, lang = "nl") {
+  const loc = lang === "en" ? "en-GB" : "nl-NL";
+  const d = (iso) => new Date(`${iso}T12:00:00Z`);
+  const part = (iso, opts) => d(iso).toLocaleDateString(loc, { timeZone: "UTC", ...opts }).replace(/\./g, "");
+  const sameMonth = start.slice(0, 7) === end.slice(0, 7);
+  const from = sameMonth ? part(start, { weekday: "short", day: "numeric" }) : part(start, { weekday: "short", day: "numeric", month: "short" });
+  return `${from} \u2013 ${part(end, { weekday: "short", day: "numeric", month: "short" })}`;
+}
 
 export const UPCOMING_PREVIEW = 2;
 

@@ -9,7 +9,7 @@ import { t, useLang, exerciseName } from "./i18n.js";
 import { logDayLabel, summarizeLogged } from "./logSession.js";
 import { pickerContextFrom } from "./exerciseSearch.js";
 import { stepResult, sessionMinutes } from "./setFormat.js";   // finding 5
-import { selectedDay, dayRowKind, upcomingShown, previewWeekSim } from "./weekPlan.js";   // UAT R3 — one row, not seven
+import { selectedDay, dayRowKind, upcomingShown, previewWeekSim, weekBounds, weekRangeLabel } from "./weekPlan.js";   // UAT R3 — one row, not seven
 import { weekOutcomeCounts } from "./weekStatus.js";
 import { weekTargetApplies, weeklyTarget } from "../../../functions/api/_shared/weekTarget.js";   // C-B32
 
@@ -144,12 +144,8 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
     })();
   }, [userId, today, runEnrolled, cycleActive, milActive, isPro, planSessionName, upcomingDates, weekTarget, todayPlanned, todayDone]);
 
-  // Build 7-day window shifted by weekOffset
-  const days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today + "T12:00:00");
-    d.setDate(d.getDate() - 6 + i + weekOffset * 7);
-    return d.toISOString().split("T")[0];
-  });
+  // Finding 12 — the ISO week (Mon → Sun) shifted by weekOffset; the same week the pill and the target count.
+  const { days, start: weekStart, end: weekEnd } = weekBounds(today, weekOffset);
 
   const dayNames = [t("Sun"), t("Mon"), t("Tue"), t("Wed"), t("Thu"), t("Fri"), t("Sat")];
   const longDate = (iso) => new Date(iso + "T12:00:00").toLocaleDateString(lang === "en" ? "en" : "nl-NL", { weekday: "long", month: "short", day: "numeric" });
@@ -178,7 +174,7 @@ export default function PlanWeekView({ history, plan, userId, onDeleteExecution,
             <button onClick={() => setWeekOffset(o => Math.min(o + 1, 1))} disabled={weekOffset >= 1} style={{ padding: "6px 10px", borderRadius: 10, fontSize: 14, fontWeight: 900, cursor: weekOffset >= 1 ? "not-allowed" : "pointer", border: `1px solid ${C.border}`, background: "rgba(var(--overlay-rgb),0.04)", color: weekOffset >= 1 ? C.subtle : C.muted }}>›</button>
           </div>
         </div>
-        <div style={{ fontSize: 13, color: C.muted }}>{weekOffset === 0 ? t('Your last 7 days at a glance') : weekOffset > 0 ? t('Upcoming plan preview') : t('Past week history')}</div>
+        <div style={{ fontSize: 13, color: C.muted }} data-testid="week-range">{weekRangeLabel(weekStart, weekEnd, lang)}</div>
         {weekOffset === 0 && weekTarget > 0 && (() => {
           const wk = weekOutcomeCounts(history, prefs, prefs?.training_goal, today);
           return <div className="jf-weektarget" data-testid="week-target">{t("{done} of {target} training days this week", { done: wk.done, target: wk.target })}</div>;

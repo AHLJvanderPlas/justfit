@@ -1741,7 +1741,7 @@ fi
 # one set formatter, Deze week = the ISO week. scripts/uxB.scan.mjs.
 UXB_OUT=$(node scripts/uxB.scan.mjs 2>/dev/null | head -8 | tr "\n" ";")
 if [ -z "$UXB_OUT" ]; then
-  ok "UX review B: Dutch instructions valid and complete (baseline + 0126), one instructions helper, one set formatter, every number labelled"
+  ok "UX review B: Dutch instructions valid and complete (baseline + 0126), one instructions helper, one set formatter, every number labelled, Deze week = ISO week"
 else
   fail "UX review B: $UXB_OUT"
 fi

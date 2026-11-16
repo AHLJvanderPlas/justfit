@@ -29,14 +29,36 @@ test('Deze week: one "Log a training" row, two upcoming days, "Whole week →" f
   await pickGeneralPath(page);
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
   await page.getByRole('button', { name: 'This Week' }).click();
-  await expect(page.getByText('Your last 7 days at a glance')).toBeVisible();
-  // Seven days in the strip, one row to log the selected one (it used to be seven rows).
+  // UX review finding 12 — the strip is the ISO week, Monday → Sunday, today marked; the
+  // subtitle names it ("Mon 16 – Sun 22 Nov"), never "the last 7 days".
+  await expect(page.getByText('Your last 7 days at a glance')).toHaveCount(0);
+  await expect(page.getByTestId('week-range')).toHaveText(/^Mon \d{1,2}( [A-Z][a-z]{2})? – Sun \d{1,2} [A-Z][a-z]{2}$/);
   await expect(page.locator('.jf-weekstrip__day')).toHaveCount(7);
+  await expect(page.locator('.jf-weekstrip__name').first()).toHaveText('Mon');
+  await expect(page.locator('.jf-weekstrip__name').last()).toHaveText('Sun');
+  await expect(page.locator('.jf-weekstrip__day--today')).toHaveCount(1);
+  const todayIdx = await page.evaluate(() => (new Date(new Date().toISOString().slice(0, 10) + 'T12:00:00Z').getUTCDay() + 6) % 7);
+  await expect(page.locator('.jf-weekstrip__day').nth(todayIdx)).toHaveClass(/jf-weekstrip__day--today/);
+  await expect(page.locator('.jf-weekstrip__day--future')).toHaveCount(6 - todayIdx);
+  // Today is selected and nothing is recorded: one row to log it (it used to be seven rows).
   await expect(page.getByRole('button', { name: 'Log a training' })).toHaveCount(1);
-  // Pick a past day: the row follows it, still one.
-  await page.locator('.jf-weekstrip__day').nth(3).click();
-  await expect(page.getByRole('button', { name: 'Log a training' })).toHaveCount(1);
+  // A past day of this week: the row follows it, still one. A future day: nothing to log.
+  if (todayIdx > 0) {
+    await page.locator('.jf-weekstrip__day').nth(todayIdx - 1).click();
+    await expect(page.getByRole('button', { name: 'Log a training' })).toHaveCount(1);
+  }
+  if (todayIdx < 6) {
+    await page.locator('.jf-weekstrip__day').nth(todayIdx + 1).click();
+    await expect(page.getByRole('button', { name: 'Log a training' })).toHaveCount(0);
+  }
   await expect(page.locator('.jf-weekstrip__day--sel')).toHaveCount(1);
+  // ‹ last week: still Monday → Sunday, then back.
+  await page.getByRole('button', { name: '‹' }).click();
+  await expect(page.locator('.jf-weekstrip__name').first()).toHaveText('Mon');
+  await expect(page.locator('.jf-weekstrip__day--today')).toHaveCount(0);
+  await page.getByRole('button', { name: '›' }).click();
+  await expect(page.locator('.jf-weekstrip__day--today')).toHaveCount(1);
+  await page.locator('.jf-weekstrip__day').nth(todayIdx).click();
   // Aankomend: at most two days until the whole week is asked for.
   const whole = page.getByRole('button', { name: 'Whole week →' });
   await expect(whole).toBeVisible({ timeout: 45_000 });

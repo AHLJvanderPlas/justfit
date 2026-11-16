@@ -77,5 +77,14 @@ for (const f of readdirSync(SRC).filter(f => /\.(jsx?|mjs)$/.test(f))) {
   if (/t\("SESSIONS"\)/.test(src('HistoryView.jsx'))) errs.push('B2 HistoryView.jsx: the week card counts training days — label it TRAINING DAYS, not SESSIONS');
 }
 
+// ── B3 ──
+{
+  const pw = (() => { try { return read(`${SRC}/PlanWeekView.jsx`); } catch { return ''; } })();
+  if (!/weekBounds\(today, weekOffset\)/.test(pw)) errs.push('B3 PlanWeekView.jsx: the strip must be the ISO week from weekBounds(today, weekOffset)');
+  if (/Your last 7 days at a glance|getDate\(\) - 6 \+ i/.test(pw)) errs.push('B3 PlanWeekView.jsx still shows a rolling 7-day window');
+  const wp = (() => { try { return read(`${SRC}/weekPlan.js`); } catch { return ''; } })();
+  if (!/import \{[^}]*isoWeekStart[^}]*\} from "\.\.\/\.\.\/\.\.\/functions\/api\/_shared\/weekTarget\.js"/.test(wp)) errs.push('B3 weekPlan.js must build the week on _shared/weekTarget.js isoWeekStart');
+}
+
 process.stdout.write(errs.join('\n') + (errs.length ? '\n' : ''));
 process.exit(errs.length ? 1 : 0);
