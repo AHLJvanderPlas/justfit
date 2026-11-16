@@ -11,7 +11,7 @@ import { cacheExercises, getCachedExercises } from "./offlineCache.js";
 import { t, useLang, getLang, exerciseName } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
 import { stopSummary } from "./sessionOutcome.js";
-import { timerFace } from "./timerFace.js";
+import { timerFace, finishedSetValue } from "./timerFace.js";
 import { injuryAreasOf, safeAlternatives } from "./safeAlternatives.js";
 import { RATINGS, ratingToExertion, canSaveRating } from "./sessionRating.js";
 import { wakeTipSeenToday, markWakeTipSeen, wakeTipVisible } from "./wakeTip.js";
@@ -1173,7 +1173,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             {/* Bottom bar — "Set afronden" is the only primary button; skip and alternatives are quiet text actions. */}
             <div className="jf-wo-bar">
               <div className="jf-wo-bar__in">
-                <button type="button" className="jf-primary jf-wo-bar__primary" onClick={() => handleSetDone(repCount)}>
+                <button type="button" className="jf-primary jf-wo-bar__primary" onClick={() => { const v = finishedSetValue({ timeBased: isTimeBased, running: timerRunning, remaining: timerRemaining, total: adjustedDuration ?? cur?.target_duration_sec ?? 30, repCount }); if (isTimeBased) setTimerRunning(false); handleSetDone(v); }}>
                   {t('Finish set →')}
                 </button>
                 <div className="jf-wo-bar__quiet">
