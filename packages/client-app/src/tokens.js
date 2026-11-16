@@ -1,3 +1,5 @@
+import { accentText } from "./contrast.js";
+
 // ─── DESIGN TOKENS ────────────────────────────────────────────────────────────
 // Every theme-dependent value is a CSS custom property so the palette can be
 // swapped at :root without touching the ~2,100 inline style objects that read
@@ -49,6 +51,12 @@ export const C = {
   mutedStrong:  "rgba(var(--overlay-rgb),0.55)",
   faint:        "rgba(var(--overlay-rgb),0.32)",
   subtle:       "var(--subtle)",
+  // --subtle is a FILL (disabled backgrounds, toggle tracks, dividers) and never meets 3:1 as
+  // text. Text that was --subtle uses this: dimmer than muted, still >= 4.5:1 (smoke: uxC).
+  subtleText:   "var(--subtle-text)",
+  // The accent as TEXT: the accent itself where it reads, else a tint (dark) or shade (light).
+  // Derived per accent and per theme in applyAccent(); fills keep C.emerald.
+  accentText:   "var(--accent-text)",
   amber:        "var(--amber)",
   // C-F7 recovery ramp — mid-band fills for the muscle map. Strong enough to
   // read at small sizes, unlike the 0.08–0.10 *Dim tokens used for card washes.
@@ -116,6 +124,9 @@ export function applyAccent(hex) {
   root.style.setProperty("--accent-rgb",    rgb);
   root.style.setProperty("--accent-dim",    `rgba(${rgb},0.15)`);
   root.style.setProperty("--accent-border", `rgba(${rgb},0.3)`);
+  // Text variants (>= 4.5:1 on every surface of the theme); styles.css picks one by data-theme.
+  root.style.setProperty("--accent-text-dark",  accentText(hex, THEMES.dark,  "dark"));
+  root.style.setProperty("--accent-text-light", accentText(hex, THEMES.light, "light"));
 }
 
 
@@ -124,13 +135,17 @@ export function applyAccent(hex) {
 // keeps following it — the listener stays attached so a change at sunset applies
 // without a reload.
 
-const THEMES = {
+export const THEMES = {
   dark: {
     "--bg":           "#020617",
     "--bg-rgb":       "2,6,23",
     "--text":         "#f8fafc",
-    "--muted":        "#64748b",
+    // WCAG 2.1 AA (UX review C, finding 7): muted was #64748b = 4.24:1 on the page and 3.4:1 on a
+    // sheet card. #8f9db2 is >= 4.5:1 on every dark surface; scripts/uxC.scan.mjs enforces it.
+    "--muted":        "#8f9db2",
     "--subtle":       "#334155",
+    "--subtle-text":  "#7d8a9e",
+    "--on-disabled":  "#94a3b8",   // text on the disabled primary button (--subtle fill)
     "--overlay-rgb":  "255,255,255",
     "--sheet":        "#0f172a",
     "--text-soft":    "#cbd5e1",
@@ -168,11 +183,13 @@ const THEMES = {
     "--bg":           "#f7f8fa",
     "--bg-rgb":       "247,248,250",
     "--text":         "#0f172a",
-    "--muted":        "#5b6675",
+    "--muted":        "#4d5867",
     "--subtle":       "#94a3b8",
+    "--subtle-text":  "#5f6876",
+    "--on-disabled":  "#334155",
     "--overlay-rgb":  "0,0,0",
     "--sheet":        "#ffffff",
-    "--text-soft":    "#475569",
+    "--text-soft":    "#334155",
     "--label":        "rgba(var(--overlay-rgb),0.72)",
     "--danger":       "#dc2626",
     "--warning":        "#b45309",

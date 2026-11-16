@@ -12,11 +12,12 @@
     var light = m === "light" || (m === "system" &&
       window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches);
     var t = light
-      ? { "--bg": "#f7f8fa", "--text": "#0f172a", "--muted": "#5b6675", "--subtle": "#94a3b8", "--overlay-rgb": "0,0,0" }
-      : { "--bg": "#020617", "--text": "#f8fafc", "--muted": "#64748b", "--subtle": "#334155", "--overlay-rgb": "255,255,255" };
+      ? { "--bg": "#f7f8fa", "--text": "#0f172a", "--muted": "#4d5867", "--subtle": "#94a3b8", "--overlay-rgb": "0,0,0" }
+      : { "--bg": "#020617", "--text": "#f8fafc", "--muted": "#8f9db2", "--subtle": "#334155", "--overlay-rgb": "255,255,255" };
     for (var k in t) document.documentElement.style.setProperty(k, t[k]);
     document.documentElement.style.colorScheme = light ? "light" : "dark";
     document.documentElement.dataset.theme = light ? "light" : "dark";
+    document.documentElement.lang = localStorage.getItem("jf_lang") === "en" ? "en" : "nl"; // the UI language, default Dutch
     var meta = document.querySelector('meta[name="theme-color"]');
     if (meta) meta.setAttribute("content", t["--bg"]);
   } catch { /* storage blocked — dark stays */ }
