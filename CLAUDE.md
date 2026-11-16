@@ -1395,6 +1395,28 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
   e2e `journey-injury.spec.js`. vitest 575 → **598**; matrix 50 × 12 → **71 × 13**; e2e 31 → **32**.
   plan.js 3686 → **3677**; inline styles 1749 → **1748** (both ceilings lowered).
 
+### Shipped 2026-11-16 — UX review release 0: the injury filter covers every exercise (`docs/UI_UX_REVIEW_2026-11-16.md` finding 0)
+
+- A user with a chronic shoulder complaint and shoulder pain in the check-in was prescribed
+  `plyo-push-up`: R563 filtered on `loads_*` tags that migration 0021 gave the library as it was
+  then; 284 of 480 active rows carried none. `functions/api/_shared/injuryLoad.js` `loadAreas()`
+  (explicit tags ∪ what muscles, tags, equipment and name show; unsure = loads) is now the ONLY
+  injury test — smoke fails on a `loads_` check anywhere else under `functions/`.
+- **Migration 0125** (generated: `scripts/generate-injury-load-migration.mjs` +
+  `scripts/fixtures/exercise-injury-load.json`; review table `docs/injury-load-tags.md`) wrote the
+  same answer into the data: 291 rows tagged (shoulder 119, knee 158, lower back 82, ankle 133)
+  and 598 substitution links so every active row has ≥ 2 (Cooper test excepted). Ledger 126.
+- The free adapt path rebuilds a stored plan that loads a sore area (it used to only rescale).
+- Alternatives sheet: filtered by the user's injury areas (`safeAlternatives.js`); when none is
+  safe it offers "Deze oefening overslaan" instead of a dead end.
+- Military: marches are left out for any injured area; run days become strength days with a
+  knee/ankle injury; the military pool is used only with ≥ 8 distinct movements.
+- vitest 575 → **598**; matrix 71 personas × 13 properties (new `injury-safe`); e2e 31 → **32**;
+  smoke +1. plan.js ceiling 3677, inline styles 1748. Commits b920e6c + baseline regen.
+  Verified live: shoulder injury, 10 days, 50 steps, 0 shoulder-loading.
+- Open (ROADMAP C-B34/C-B35): the running coach and cycling cross-runs still bypass the injury
+  filter; bridges, bird-dog, cat-cow and pelvic tilts now count as lower-back load (owner call).
+
 ### Shipped 2026-11-01 — C-B32: the weekly training-days target places rest days
 
 - `preferences.training_days_per_week` (TRAININGSDAGEN, 1–7, validated in `/api/profile`) is the one
