@@ -117,7 +117,14 @@ function hexToRgbParts(hex) {
   return [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)).join(",");
 }
 
-export function applyAccent(hex) {
+export const DEFAULT_ACCENT = "#10b981";
+/** A stored accent that is not a #rrggbb colour (old format, edited storage) must never break the app. */
+export function safeAccent(value) {
+  return typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value.trim()) ? value.trim() : DEFAULT_ACCENT;
+}
+
+export function applyAccent(value) {
+  const hex = safeAccent(value);
   const rgb = hexToRgbParts(hex);
   const root = document.documentElement;
   root.style.setProperty("--accent",        hex);
