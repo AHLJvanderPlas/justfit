@@ -1517,3 +1517,24 @@ button.jf-today__goal::after { content: "›"; font-size: 14px; }
   width: 100%; min-height: 44px; padding: 10px 14px; border-radius: 14px; box-sizing: border-box; font: inherit; font-size: 16px; font-weight: 700;
   background: rgba(var(--overlay-rgb), 0.06); border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--text);
 }
+
+/* Guest → account modal (GuestConvertModal.jsx) */
+.jf-gc { position: fixed; inset: 0; z-index: 100; display: flex; align-items: center; justify-content: center; padding: 20px; background: rgba(0, 0, 0, 0.65); }
+.jf-gc__card { width: 100%; max-width: 420px; background: var(--sheet); border: 1px solid rgba(var(--overlay-rgb), 0.08); border-radius: 24px; padding: 32px; }
+.jf-gc__title { font-size: 20px; font-weight: 900; letter-spacing: -0.02em; color: var(--text); margin-bottom: 6px; }
+.jf-gc__lead { font-size: 13px; color: var(--muted); margin-bottom: 24px; line-height: 1.5; }
+.jf-gc__input {
+  width: 100%; min-height: 48px; box-sizing: border-box; padding: 12px 14px; border-radius: 14px; border: 1px solid rgba(var(--overlay-rgb), 0.08);
+  background: rgba(var(--overlay-rgb), 0.04); color: var(--text); font-size: 16px; font-family: inherit; margin-bottom: 10px;
+}
+.jf-gc__input--last { margin-bottom: 20px; }
+.jf-gc__error { font-size: 12px; color: var(--danger); margin-bottom: 16px; }
+.jf-gc__save {
+  width: 100%; min-height: 48px; padding: 14px 0; border-radius: 16px; font-size: 15px; font-weight: 900; font-family: inherit;
+  background: var(--accent); border: none; color: var(--on-accent); cursor: pointer; margin-bottom: 10px;
+}
+.jf-gc__save:disabled { cursor: not-allowed; opacity: 0.7; }
+.jf-gc__cancel {
+  width: 100%; min-height: 44px; padding: 12px 0; border-radius: 14px; font-size: 13px; font-weight: 700; font-family: inherit;
+  background: transparent; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted); cursor: pointer;
+}

@@ -119,6 +119,16 @@ test('own training (a) — build, start as an extra, complete a set; plan stays 
   await expect(page.locator('.jf-sb-step')).toHaveCount(1);
   await expect(names.first()).toHaveText('Push-up');
 
+  // UX review E (finding 16): column labels above the row, each a real <label for> of its input, and the
+  // inputs keep their accessible names (the visible word is part of the name).
+  const heads = await page.locator('.jf-sb-step .jf-log-lab').evaluateAll((els) => els.map((l) => ({
+    text: l.textContent.trim(), for: l.htmlFor, target: !!document.getElementById(l.htmlFor), below: l.getBoundingClientRect().bottom <= document.getElementById(l.htmlFor).getBoundingClientRect().top + 1,
+  })));
+  expect(heads.map((h) => h.text)).toEqual(['Sets', 'Reps', 'Rest']);
+  for (const h of heads) { expect(h.target, `label for ${h.for} points at an input`).toBe(true); expect(h.below, `${h.text} sits above its input`).toBe(true); }
+  for (const name of ['Sets · Push-up', 'Reps · Push-up', 'Rest · Push-up']) await expect(page.getByLabel(name, { exact: true })).toHaveCount(1);
+  await expect(page.locator('.jf-sb-step input.jf-log-val:not([aria-label])')).toHaveCount(0);
+
   // v1.4 — the numbers are TYPED into the log sheet's row. A target is one value
   // for all sets: two groups are refused with a hint, and Starten waits.
   const reps = page.getByLabel('Reps · Push-up', { exact: true });
@@ -184,6 +194,8 @@ test('own training (b) — record push-up 3×3 for today; Today shows it complet
   // The log sheet, today: what, then how much.
   await pickExercise(page, 'Push-up');
   await page.getByRole('button', { name: 'Next →' }).click();
+  // Finding 16: the first row of the card has Sets / Reps / Rest labels above it; the next row has none.
+  await expect(page.locator('.jf-log-card .jf-log-lab')).toHaveText(['Sets', 'Reps', 'Rest']);
   await page.getByLabel('Sets 1', { exact: true }).fill('3');
   await page.getByLabel('Reps 1', { exact: true }).fill('3');
   await page.getByRole('button', { name: /^Save for/ }).click();

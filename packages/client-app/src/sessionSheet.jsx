@@ -43,8 +43,12 @@ export function Sheet({ title, sub = null, label, onClose, padded = false, sheet
 // Parsing is the caller's (logSession.js rowGroups / targetRow) — this only shows.
 // onChange(field, text) and onBlur(field) with field "sets" | "value" | "rest";
 // errors = { sets, value, rest } booleans; labels = the three fields' aria-labels.
-export function SetRow({ sets, value, rest, unit, onChange, onBlur = null, errors = {}, showRemove = false, removeDisabled = false, onRemove = null, labels }) {
+export function SetRow({ sets, value, rest, unit, onChange, onBlur = null, errors = {}, showRemove = false, removeDisabled = false, onRemove = null, labels, idBase = null }) {
   const cls = (f, extra = "") => `jf-log-val${extra}${errors[f] ? " jf-log-val--bad" : ""}`;
+  // UX review E (finding 16): the first row of a card carries real column labels (Sets · Herhalingen / Seconden ·
+  // Rust), tied to the input by htmlFor. The accessible name stays the aria-label (visible word + the exercise), so
+  // "label in name" holds and the names the journeys use are unchanged.
+  const heads = idBase ? { sets: t("Sets"), value: unit === "sec" ? t("Seconds") : t("Reps"), rest: t("Rest") } : null;
   const field = (f) => ({
     value: f === "sets" ? sets : f === "rest" ? rest : value,
     onChange: (e) => onChange(f, e.target.value),
@@ -52,18 +56,25 @@ export function SetRow({ sets, value, rest, unit, onChange, onBlur = null, error
     // One tap selects the number, so 10 → 20 is that tap and two digits.
     onFocus: (e) => e.target.select(),
     "aria-label": labels[f],
+    ...(heads ? { id: `${idBase}-${f}` } : {}),
     "aria-invalid": errors[f] ? true : undefined,
   });
+  const col = (f, extra, input) => (
+    <div className={`jf-log-col${f === "value" ? " jf-log-col--value" : ""}`}>
+      {heads && <label className="jf-log-lab" htmlFor={`${idBase}-${f}`}>{heads[f]}</label>}
+      {input}
+    </div>
+  );
   return (
-    <div className="jf-log-row">
-      <input className={cls("sets")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("sets")} />
+    <div className={`jf-log-row${heads ? " jf-log-row--heads" : ""}`}>
+      {col("sets", "", <input className={cls("sets")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("sets")} />)}
       <span className="jf-log-sym" aria-hidden="true">×</span>
       {/* decimal, not numeric: the iOS numeric pad has no comma, and "10, 10, 8" is the shorthand */}
-      <input className={cls("value", " jf-log-val--value")} type="text" inputMode="decimal"
-        placeholder={unit === "sec" ? t("sec (unit)") : t("reps (unit)")} {...field("value")} />
+      {col("value", "", <input className={cls("value", " jf-log-val--value")} type="text" inputMode="decimal"
+        placeholder={unit === "sec" ? t("sec (unit)") : t("reps (unit)")} {...field("value")} />)}
       {unit === "sec" && <span className="jf-log-sym" aria-hidden="true">s</span>}
       <span className="jf-log-sym" aria-hidden="true">@</span>
-      <input className={cls("rest")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("rest")} />
+      {col("rest", "", <input className={cls("rest")} type="text" inputMode="numeric" pattern="[0-9]*" {...field("rest")} />)}
       <span className="jf-log-sym" aria-hidden="true">s</span>
       {showRemove && (
         <button type="button" className="jf-icon-btn" aria-label={labels.remove} disabled={removeDisabled} onClick={onRemove}>×</button>

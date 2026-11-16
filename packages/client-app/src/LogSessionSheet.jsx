@@ -222,6 +222,7 @@ export default function LogSessionSheet({ prefs, pickerContext = null, date, onC
                       const err = st.error;
                       return (
                         <SetRow key={r.key} sets={r.sets} value={r.value} rest={r.rest} unit={x.unit}
+                          idBase={ri === 0 ? `jf-log-${x.key}` : null}
                           errors={{ sets: err === "sets", rest: err === "rest", value: !!err && err !== "sets" && err !== "rest" }}
                           labels={{ sets: `${t("Sets")} ${ri + 1}`, value: `${x.unit === "sec" ? t("Seconds") : t("Reps")} ${ri + 1}`, rest: `${t("Rest")} ${ri + 1}`, remove: t("Remove row") }}
                           onChange={(f, v) => patchRow(x.key, r.key, { [f]: v })}

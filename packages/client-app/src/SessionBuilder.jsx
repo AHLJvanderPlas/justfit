@@ -431,7 +431,7 @@ export default function SessionBuilder({ prefs, pickerContext = null, today, onC
                   <MoveActions first={i === 0} last={i === steps.length - 1} onUp={() => move(i, -1)} onDown={() => move(i, 1)} />
                 )}
                 {s.canToggle && <UnitChips unit={unitOf(s)} onChange={(u) => setUnit(s.key, u)} />}
-                <SetRow sets={s.draft.sets} value={s.draft.value} rest={s.draft.rest} unit={unitOf(s)}
+                <SetRow sets={s.draft.sets} value={s.draft.value} rest={s.draft.rest} unit={unitOf(s)} idBase={`jf-sb-${s.key}`}
                   errors={{ sets: s.err === "sets", rest: s.err === "rest", value: !!s.err && !["sets", "rest", "empty"].includes(s.err) }}
                   labels={{ sets: `${t("Sets")} · ${exerciseName(s.ex)}`, value: `${s.useTime ? t("Seconds") : t("Reps")} · ${exerciseName(s.ex)}`, rest: `${t("Rest")} · ${exerciseName(s.ex)}` }}
                   onChange={(f, v) => typeField(s.key, f, v)} onBlur={() => settleDraft(s.key)} />
