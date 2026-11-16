@@ -11,10 +11,33 @@
  *  (d) v1.2 — Vastzetten from the chooser: a free user pins push-up, today's plan holds it.
  *  (e) v1.5 — Dutch names: switch to nl → the Today card shows a plan step's Dutch name;
  *      Samenstellen → "opdrukken" → Opdrukken → Starten → Als extra → the WorkoutView header is "Opdrukken".
+ *      UX review B (finding 3) — the overview's preview line and the first instruction card are Dutch.
+ *      The e2e D1 is built from migrations/baseline, which holds migration 0126 only after the
+ *      manager regenerates the seeds, so the journey applies 0126's own push-up statement to its
+ *      D1 first (idempotent: json_set writes the same keys again once the baseline has them).
  */
 
 import { test, expect } from '@playwright/test';
 import { signupFresh, pickGeneralPath, waitForStoredPlan } from './helpers.js';
+import { execSync } from 'child_process';
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { dirname, resolve, join } from 'path';
+import { fileURLToPath } from 'url';
+import { PERSIST } from './global-setup.js';
+const CWD = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+
+// Finding 3 — seed one row's Dutch instructions from the generated migration itself.
+function seedDutchInstructions(slug) {
+  const sql = readFileSync(resolve(CWD, 'migrations/0126_exercise_instructions_nl.sql'), 'utf8')
+    .split('\n').find((l) => l.startsWith('UPDATE exercises SET instructions_json') && l.includes(`WHERE slug = '${slug}'`));
+  expect(sql, `0126 has no statement for ${slug}`).toBeTruthy();
+  const dir = mkdtempSync(join(tmpdir(), 'jf-e2e-'));
+  try {
+    writeFileSync(join(dir, 'seed.sql'), sql + '\n');
+    execSync(`npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --file ${join(dir, 'seed.sql')}`, { cwd: CWD, stdio: 'pipe' });
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+}
 
 async function todaysPlan(page) {
   const today = await page.evaluate(() => new Date().toISOString().split('T')[0]);
@@ -250,6 +273,7 @@ test('own training (d) — pin from the chooser: free user, today\'s plan open',
 });
 
 test('own training (e) — Dutch exercise names on Today, in the picker and in WorkoutView', async ({ page }) => {
+  seedDutchInstructions('push-up');
   await signupFresh(page, '-own-e');
   await pickGeneralPath(page);
   await expect(page.getByRole('button', { name: /START SESSION/ })).toBeVisible({ timeout: 30_000 });
@@ -289,6 +313,13 @@ test('own training (e) — Dutch exercise names on Today, in the picker and in W
   // WorkoutView: the overview lists it, the instruction header names it — in Dutch.
   await expect(page.getByText('Opdrukken', { exact: true }).first()).toBeVisible({ timeout: 15_000 });
   await expect(page.getByRole('button', { name: 'Start training', exact: true })).toBeVisible({ timeout: 15_000 });
+  // Finding 3 — the instructions under the Dutch name are Dutch too: the overview's first-step line …
+  const firstStepNl = 'Start in een hoge plank met je handen onder je schouders.';
+  await expect(page.getByText(firstStepNl).first()).toBeVisible();
+  await expect(page.getByText('Start in a high plank with hands under shoulders.')).toHaveCount(0);
   await page.getByRole('button', { name: 'Start training', exact: true }).click();
   await expect(page.locator('h1')).toHaveText('Opdrukken', { timeout: 10_000 });
+  // … and the first instruction card.
+  await expect(page.getByText(firstStepNl).first()).toBeVisible();
+  await expect(page.getByText(/Start in a high plank/)).toHaveCount(0);
 });

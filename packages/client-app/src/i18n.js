@@ -38,6 +38,27 @@ export function exerciseName(ex) {
   return getLang() === 'nl' && ex?.name_nl ? ex.name_nl : (ex?.name ?? '');
 }
 
+// UX review finding 3 — an exercise's instructions in the user's language. Migration 0126
+// stores Dutch next to the English INSIDE instructions_json (steps_nl, cues_nl,
+// pregnancy_note_nl, postnatal_note_nl). Returns the parsed object with steps / cues /
+// notes swapped to Dutch for a Dutch user; English, an untranslated row, unparsable JSON
+// or a Dutch list whose length no longer matches the English (the English was edited
+// after translation) fall back to the English as stored. Null when there is nothing.
+export function exerciseInstructions(ex) {
+  let j = null;
+  try {
+    const raw = ex?.instructions_json;
+    j = raw ? (typeof raw === 'string' ? JSON.parse(raw) : raw) : null;
+  } catch { j = null; }
+  if (!j || typeof j !== 'object') return null;
+  if (getLang() !== 'nl') return j;
+  const list = (en, nl) => (Array.isArray(nl) && Array.isArray(en) && nl.length === en.length ? nl : en);
+  const out = { ...j, steps: list(j.steps, j.steps_nl), cues: list(j.cues, j.cues_nl) };
+  if (j.pregnancy_note && j.pregnancy_note_nl) out.pregnancy_note = j.pregnancy_note_nl;
+  if (j.postnatal_note && j.postnatal_note_nl) out.postnatal_note = j.postnatal_note_nl;
+  return out;
+}
+
 // ─── Translation function ──────────────────────────────────────────────────────
 // English is the key. For lang='en', returns key with variable substitution only.
 // For lang='nl', looks up NL dict, falls back to key.

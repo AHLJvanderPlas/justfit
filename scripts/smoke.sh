@@ -1735,6 +1735,17 @@ else
   fail "UX review A: $UXA_OUT"
 fi
 
+# ── UX review B — labels, one week, Dutch instructions ──────────────────────
+# Dutch instruction data (baseline + 0126 in sqlite: valid JSON, as many Dutch steps/cues as
+# English, 💡 kept, ≥ 60 rows, migration = fixture), instructions only via exerciseInstructions(),
+# one set formatter, Deze week = the ISO week. scripts/uxB.scan.mjs.
+UXB_OUT=$(node scripts/uxB.scan.mjs 2>/dev/null | head -8 | tr "\n" ";")
+if [ -z "$UXB_OUT" ]; then
+  ok "UX review B: Dutch instructions valid and complete (baseline + 0126), one instructions helper"
+else
+  fail "UX review B: $UXB_OUT"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 

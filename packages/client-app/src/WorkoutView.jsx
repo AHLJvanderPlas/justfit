@@ -8,7 +8,7 @@ import { REGION_LABELS_NL, REGION_LABELS_EN } from "../../../functions/api/_shar
 import { ALL_EQUIPMENT } from "./appConstants.js";
 import api from "./apiClient.js";
 import { cacheExercises, getCachedExercises } from "./offlineCache.js";
-import { t, useLang, getLang, exerciseName } from "./i18n.js";
+import { t, useLang, getLang, exerciseName, exerciseInstructions } from "./i18n.js";
 import { maxEffortMeta } from "./dcpUi.js";
 import { stopSummary } from "./sessionOutcome.js";
 import { timerFace, finishedSetValue } from "./timerFace.js";
@@ -658,7 +658,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.emerald, textTransform: "uppercase", marginBottom: 12 }}>{t('Your session')}</div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
                   {exercises.map((s, i) => {
-                    const instr = s.instructions_json ? JSON.parse(s.instructions_json) : null;
+                    const instr = exerciseInstructions(s);
                     const firstStep = instr?.steps?.[0] ?? null;
                     const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
                     const metricsRestSec = s.rest_sec;
@@ -711,7 +711,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       <div style={{ flex: 1, overflow: "auto", display: phase === "overview" ? "none" : undefined }}>
         {/* ── INSTRUCTION PHASE ── */}
         {phase === "instruction" && cur && (() => {
-          const instr = cur.instructions_json ? JSON.parse(cur.instructions_json) : null;
+          const instr = exerciseInstructions(cur);   // finding 3 — Dutch steps/cues/notes when translated
           const rawSteps = instr?.steps ?? [];
           const cues = instr?.cues ?? [];
           const tags = JSON.parse(cur.tags_json || "[]");
