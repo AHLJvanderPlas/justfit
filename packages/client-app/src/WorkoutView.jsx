@@ -20,6 +20,9 @@ import { useDialog, dialogAttrs } from "./useDialog.js";
 import { announce, timerCue } from "./announce.js";
 import ExercisePhotos from "./ExercisePhotos.jsx";
 import ExerciseThumb from "./ExerciseThumb.jsx";
+import ReadAloudButton from "./ReadAloudButton.jsx";
+import { speechSupported, buildSpokenScript, speakScript, stopSpeaking, primeSpeech } from "./speech.js";
+import { autoReadOn } from "./readAloudPref.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 // C-F3 — "why am I doing this?" from the exercise's actual anatomy.
@@ -152,12 +155,59 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const weightLabel = loadType === 'dumbbell_pair' ? t('per hand') : null;
   const targetReps = adjustedReps ?? cur?.target_reps ?? 10;
 
+  // ── Media 1 — read aloud (speech.js). Started by the button or, when the per-device setting is
+  // on, once when a new exercise starts (not every set). Stopped on set finish, exercise change,
+  // rest, the end screen, leaving the workout and page hide. announce.js is a separate channel.
+  const [speaking, setSpeaking] = useState(false);
+  const [autoRead] = useState(autoReadOn);
+  const speechTurnRef = useRef(0);
+  const autoReadKeyRef = useRef(null);
+  const speechOpts = { bodyMode, level: plan?.experience_level ?? "intermediate" };
+  const canReadAloud = speechSupported() && buildSpokenScript(cur, getLang(), speechOpts).length > 0;
+  function stopReading() {
+    speechTurnRef.current += 1;
+    stopSpeaking();
+    setSpeaking(false);
+  }
+  function startReading() {
+    const parts = buildSpokenScript(cur, getLang(), speechOpts);
+    if (!parts.length) return;
+    const turn = ++speechTurnRef.current;
+    setSpeaking(true);
+    const started = speakScript(parts, { onEnd: () => { if (speechTurnRef.current === turn) setSpeaking(false); } });
+    if (!started && speechTurnRef.current === turn) setSpeaking(false);
+  }
+  const toggleReading = () => (speaking ? stopReading() : startReading());
+
   // C-F6 — reseed the load when the exercise changes. Falls back to the prescribed
   // target (itself the athlete's last logged weight), then to 0 for a first attempt.
   useEffect(() => {
     if (!supportsWeight) { setWeightKg(0); return; }
     setWeightKg(cur?.target_weight_kg ?? 0);
   }, [exIdx, supportsWeight, cur?.target_weight_kg]);
+
+  // Media 1 — speech stops when the exercise changes, on rest and the end screen, on page hide and on leaving.
+  useEffect(() => { stopReading(); }, [exIdx]);
+  useEffect(() => {
+    if (phase === "resting" || phase === "sessionFeedback" || phase === "overview") stopReading();
+  }, [phase]);
+  useEffect(() => {
+    const onHide = () => { if (document.visibilityState === "hidden") stopReading(); };
+    window.addEventListener("pagehide", stopReading);
+    document.addEventListener("visibilitychange", onHide);
+    return () => {
+      window.removeEventListener("pagehide", stopReading);
+      document.removeEventListener("visibilitychange", onHide);
+      stopSpeaking();
+    };
+  }, []);
+  useEffect(() => {
+    if (!autoRead || phase !== "instruction" || !cur) return;
+    const key = `${exIdx}:${cur.exercise_id}`;
+    if (autoReadKeyRef.current === key) return;
+    autoReadKeyRef.current = key;
+    startReading();
+  }, [autoRead, phase, exIdx, cur?.exercise_id]);   // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Wake Lock — keep screen on during active workout ─────────────────────────
   const wakeLockRef = useRef(null);
@@ -313,6 +363,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   }
 
   function handleSetDone(repsThisSet) {
+    stopReading();
     const reps = repsThisSet ?? repCount;
     announce(t("Set {n} of {total} done", { n: currentSet, total: totalSets }));
     const actualEntry = stepsActualRef.current[exIdx]?.actual;
@@ -479,6 +530,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   }
 
   function handleChooseAlternative(altEx) {
+    stopReading();
     // Build a replacement step keeping the current sets/reps/rest
     const replacement = {
       ...altEx,
@@ -704,7 +756,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
             <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, padding: `16px 20px max(24px, env(safe-area-inset-bottom))`, background: `linear-gradient(to top, ${C.bg} 70%, transparent)` }}>
               <div style={{ maxWidth: 560, margin: "0 auto" }}>
                 <button
-                  onClick={() => setPhase("instruction")}
+                  onClick={() => { if (autoRead) primeSpeech(); setPhase("instruction"); }}
                   style={{ width: "100%", padding: "18px 0", borderRadius: 18, fontSize: 16, fontWeight: 900, background: C.emerald, border: "none", color: C.onAccent, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 10, boxShadow: "0 8px 30px rgba(var(--accent-rgb),0.35)" }}
                 >
                   <svg aria-hidden="true" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3" /></svg>
@@ -945,7 +997,10 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               {/* ── Card 2: Instructions — highlighted like today card ── */}
               <div style={{ borderRadius: 20, padding: "18px 20px", background: "linear-gradient(135deg, rgba(var(--accent-rgb),0.08) 0%, rgba(var(--bg-rgb),0.6) 100%)", border: `1px solid ${C.emeraldBorder}` }}>
-                <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: "0.15em", color: C.accentText, textTransform: "uppercase", marginBottom: 12 }}>{t('Instructions')}</div>
+                <div className="jf-instr-head">
+                  <div className="jf-instr-head__title">{t('Instructions')}</div>
+                  {canReadAloud && <ReadAloudButton speaking={speaking} onToggle={toggleReading} />}
+                </div>
 
                 {/* Pregnancy / postnatal alert at top of instructions */}
                 {(pregnancyNote || postnatalNote) && (

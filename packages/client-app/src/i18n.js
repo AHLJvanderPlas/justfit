@@ -87,6 +87,11 @@ const NL = {
   'Play the photos': "Foto's afspelen",
   'Hide photos': "Foto's verbergen",
   'Show photos': "Foto's tonen",
+  'Read aloud': 'Voorlezen',
+  'Stop': 'Stop',
+  'During the workout': 'Tijdens de training',
+  'Read each exercise aloud': 'Oefening automatisch voorlezen',
+  'When a new exercise starts, your phone reads the name, sets and steps aloud with its own voice. Nothing is sent anywhere. Saved on this device.': 'Bij elke nieuwe oefening leest je telefoon de naam, de sets en de stappen voor met zijn eigen stem. Er wordt niets verstuurd. Bewaard op dit apparaat.',
   // ── C-F3 — exercise purpose labels (see _shared/exerciseWhy.js) ──
   'Recovery': 'Herstel',
   'Breathwork': 'Ademhaling',

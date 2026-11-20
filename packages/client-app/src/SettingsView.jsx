@@ -12,6 +12,7 @@ import BackLink from "./BackLink.jsx";
 import { takeSettingsStart } from "./settingsStart.js";
 import TrainersPanel from "./settings/TrainersPanel.jsx";
 import NormenBlock from "./settings/NormenBlock.jsx";
+import ReadAloudSetting from "./ReadAloudSetting.jsx";
 import { milLevelLabel, keuringDaysOut } from "./keuringNorms.js";
 import { activeCoachOf, pathTitle } from "./coachPath.js";
 import { advancedRows } from "./settingsAdvanced.js";
@@ -3110,6 +3111,7 @@ function SettingsView({ prefs, onUpdate, onRedoOnboarding, onResetDefaults, onCh
         </Glass>
       </div>
       )}  {/* closes subView === "you" for Appearance */}
+      {subView === "you" && <ReadAloudSetting />}
 
       {subView === "privacy" && (<>
       {/* ── Feedback ── */}
