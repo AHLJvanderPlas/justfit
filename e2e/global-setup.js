@@ -64,6 +64,10 @@ export default async function globalSetup() {
                    'migrations/baseline/1040_seed_military.sql']) {
     execSync(`npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --file ${f}`, { cwd: CWD, stdio: 'pipe' });
   }
+  // Media 1 — migration 0127 (exercise photos, media_json.images) on top of the baseline, so the
+  // journeys see photos before the baseline is regenerated from live. It is a json_patch by slug,
+  // so it stays harmless once the regenerated baseline already carries the photos.
+  execSync(`npx wrangler d1 execute justfit-db --local --persist-to ${PERSIST} --file migrations/0127_exercise_photos.sql`, { cwd: CWD, stdio: 'pipe' });
 
   // ── 2. Seed fixture data ─────────────────────────────────────────────────
   localSql(`

@@ -726,10 +726,10 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       <div key={i} style={{ padding: "14px 16px", borderRadius: 16, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: firstStep ? 8 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <ExerciseThumb ex={s} />
                             <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <span style={{ fontSize: 11, fontWeight: 900, color: C.accentText }}>{i + 1}</span>
                             </div>
+                            <ExerciseThumb ex={s} />
                             <span style={{ fontSize: 14, fontWeight: 800, color: C.text }}>{exerciseName(s)}</span>
                           </div>
                           <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, flexShrink: 0, whiteSpace: "nowrap" }}>
