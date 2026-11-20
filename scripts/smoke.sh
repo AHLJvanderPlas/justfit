@@ -810,7 +810,9 @@ fi
 # card (.jf-weekcard*), the goal link and the back controls (.jf-back) moved to classes; the goal card is gone.
 # 1624 → 1613 (2026-11-16): UX review E — GuestConvertModal (.jf-gc*); the onboarding, builder and login files were
 # already class-based (0 inline styles) and the login page lost every style="" attribute.
-STYLE_CEILING=1613
+# 1613 → 1608 (2026-11-21): media 1 — the unused ExerciseGif (inline styled) became ExercisePhotos (.jf-photos*),
+# the Instructions title row is .jf-instr-head; thumbnails (.jf-thumb), read aloud (.jf-speak, .jf-switch) are classes.
+STYLE_CEILING=1608
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"
@@ -1787,6 +1789,18 @@ if [ -z "$UXE_OUT" ]; then
   ok "UX review E: onboarding scroll area above the footer + fade, length before equipment, one skip; login one path, emerald, no inline styles; builder column labels"
 else
   fail "UX review E: $UXE_OUT"
+fi
+
+# ── Media 1 — exercise photos ───────────────────────────────────────────────
+# Every exercise in scripts/fixtures/exercise-photos.json has 0.jpg + 1.jpg (JPEG, <= 60 KB) in
+# public/exercise-media; migration 0127 and docs/exercise-photos.md equal what the generator renders
+# from the fixture today; no photo folder or file without a fixture entry; one CSP, a long
+# Cache-Control for /exercise-media/*, and the service worker precaches only /assets. scripts/media1.scan.mjs.
+MEDIA1_OUT=$(node --no-warnings scripts/media1.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$MEDIA1_OUT" ]; then
+  ok "Media 1: every curated exercise has both photos (<= 60 KB), migration 0127 + review table in step with the fixture, no orphan photos, photos cached not precached"
+else
+  fail "Media 1: $MEDIA1_OUT"
 fi
 
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
