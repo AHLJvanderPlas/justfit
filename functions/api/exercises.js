@@ -1,4 +1,5 @@
 import { loadAreas } from './_shared/injuryLoad.js';
+import { exerciseImages } from './_shared/exerciseMedia.js';
 
 export async function onRequestGet({ request, env }) {
   try {
@@ -8,7 +9,7 @@ export async function onRequestGet({ request, env }) {
 
     let query = `SELECT id, slug, name, name_nl, category, tags_json, equipment_required_json, 
                         instructions_json, metrics_json, alternatives_json,
-                        primary_muscles_json, secondary_muscles_json
+                        primary_muscles_json, secondary_muscles_json, media_json
                  FROM exercises WHERE is_active = 1
                    -- This endpoint is PUBLIC (no session), so it cannot scope by
                    -- membership: gym-private rows are never served here. Members
@@ -35,8 +36,9 @@ export async function onRequestGet({ request, env }) {
 
     // Finding 0 — each row says which injury areas it loads (the planner's own model), so
     // the workout's alternatives sheet never offers a swap that loads a sore area.
-    exercises = exercises.map(({ primary_muscles_json: _p, secondary_muscles_json: _s, ...ex }) =>
-      ({ ...ex, load_areas: [...loadAreas({ ...ex, primary_muscles_json: _p, secondary_muscles_json: _s })] }));
+    // Media 1 — the two photo paths (or null) instead of the raw media_json.
+    exercises = exercises.map(({ primary_muscles_json: _p, secondary_muscles_json: _s, media_json: _m, ...ex }) =>
+      ({ ...ex, images: exerciseImages(_m), load_areas: [...loadAreas({ ...ex, primary_muscles_json: _p, secondary_muscles_json: _s })] }));
 
     return Response.json({ exercises });
   } catch (e) {

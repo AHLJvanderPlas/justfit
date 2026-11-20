@@ -13,7 +13,7 @@
 //
 // scripts/smoke.sh fails if plan.js spells a step object literal itself again.
 
-const _gifUrl = (ex) => (ex.media_json ? JSON.parse(ex.media_json) : {}).gif_url ?? null;
+import { exerciseGifUrl, exerciseImages } from './exerciseMedia.js';
 
 /**
  * The fields every step carries, from the library row; `overrides` sets the
@@ -35,7 +35,8 @@ export function makePlanStep(ex, overrides = {}) {
     rest_sec:            0,
     instructions_json:   ex.instructions_json ?? null,
     alternatives_json:   ex.alternatives_json ?? null,
-    gif_url:             _gifUrl(ex),
+    gif_url:             exerciseGifUrl(ex.media_json),
+    images:              exerciseImages(ex.media_json),   // media 1 — [start, end] photo paths or null
     ...overrides,
   };
 }

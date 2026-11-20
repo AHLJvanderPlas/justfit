@@ -1,6 +1,7 @@
 // GET /api/exercises/search — unified search returning global + gym custom exercises (P1D)
 // Query params: q, muscle, equipment, type, gymId (optional, adds custom exercises)
 import { getUser } from '../_shared/auth.js';
+import { exerciseGifUrl, exerciseImages } from '../_shared/exerciseMedia.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -30,7 +31,7 @@ export async function onRequest(context) {
 
   const globalRows = await env.DB.prepare(
     `SELECT id, slug, name, category, tags_json, equipment_required_json, instructions_json,
-            metrics_json, alternatives_json, gif_url, NULL AS gym_id, 'global' AS source
+            metrics_json, alternatives_json, media_json, NULL AS gym_id, 'global' AS source
      FROM exercises e WHERE ${whereGlobal} LIMIT 100`
   ).bind(...bindGlobal).all();
 
@@ -61,6 +62,10 @@ export async function onRequest(context) {
     }
   }
 
-  const results = [...(globalRows.results ?? []), ...(customRows.results ?? [])];
+  // exercises has no gif_url column (media lives in media_json): selecting it made every call a 500.
+  // Media 1 — global rows carry gif_url and images from media_json; custom rows keep their R2 key.
+  const globals = (globalRows.results ?? []).map(({ media_json, ...r }) =>
+    ({ ...r, gif_url: exerciseGifUrl(media_json), images: exerciseImages(media_json) }));
+  const results = [...globals, ...(customRows.results ?? []).map((r) => ({ ...r, images: null }))];
   return Response.json(results);
 }
