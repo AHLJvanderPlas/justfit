@@ -18,27 +18,9 @@ import { RATINGS, ratingToExertion, canSaveRating } from "./sessionRating.js";
 import { wakeTipSeenToday, markWakeTipSeen, wakeTipVisible } from "./wakeTip.js";
 import { useDialog, dialogAttrs } from "./useDialog.js";
 import { announce, timerCue } from "./announce.js";
+import ExercisePhotos from "./ExercisePhotos.jsx";
+import ExerciseThumb from "./ExerciseThumb.jsx";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
-
-function ExerciseGif({ gifUrl, name }) {
-  const [loaded, setLoaded] = useState(false);
-  return (
-    <div style={{ position: "relative", width: "100%", maxWidth: 300, margin: "0 auto 24px", borderRadius: 20, overflow: "hidden", background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
-      {/* Loading skeleton */}
-      {!loaded && (
-        <div style={{ width: "100%", height: 200, background: "rgba(var(--overlay-rgb),0.04)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-          <div className="jf-spin" style={{ width: 32, height: 32, border: `2px solid ${C.emeraldBorder}`, borderTopColor: C.emerald, borderRadius: "50%", animation: "spin 0.8s linear infinite" }} />
-        </div>
-      )}
-      <img
-        src={gifUrl}
-        alt={name}
-        onLoad={() => setLoaded(true)}
-        style={{ display: loaded ? "block" : "none", width: "100%", maxHeight: 200, objectFit: "cover" }}
-      />
-    </div>
-  );
-}
 
 // C-F3 — "why am I doing this?" from the exercise's actual anatomy.
 //
@@ -692,6 +674,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                       <div key={i} style={{ padding: "14px 16px", borderRadius: 16, background: "rgba(var(--overlay-rgb),0.04)", border: `1px solid ${C.border}` }}>
                         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, marginBottom: firstStep ? 8 : 0 }}>
                           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <ExerciseThumb ex={s} />
                             <div style={{ width: 22, height: 22, borderRadius: "50%", background: C.emeraldDim, border: `1px solid ${C.emeraldBorder}`, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                               <span style={{ fontSize: 11, fontWeight: 900, color: C.accentText }}>{i + 1}</span>
                             </div>
@@ -903,7 +886,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
 
               {/* Exercise name + target */}
               <div style={{ textAlign: "center", marginBottom: 4 }}>
-                {cur.gif_url && <ExerciseGif gifUrl={cur.gif_url} name={exerciseName(cur)} />}
+                <ExercisePhotos key={`ph-${exIdx}-${cur.exercise_id}`} ex={cur} />
                 <h1 style={{ fontSize: 32, fontWeight: 900, color: C.text, letterSpacing: "-0.03em", marginBottom: 4, lineHeight: 1.1 }}>
                   {exerciseName(cur)}
                 </h1>
@@ -1073,6 +1056,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                 <div className="jf-wo-title__then">{t('then')} {exerciseName(stepAt(groupMembers[posInGroup + 1]))}</div>
               )}
             </div>
+            <ExercisePhotos key={`phw-${exIdx}-${cur.exercise_id}`} ex={cur} compact />
 
             {/* ── Target stepper — quiet; not on a measurement set: it has no target to adjust ── */}
             {!isMaxEffort && <div className="jf-wo-step">
@@ -1389,6 +1373,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
                   const hint = isEasier ? t("Easier") : isHarder ? t("Harder") : t("Similar");
                   return (
                     <div key={alt.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "16px", background: "rgba(var(--overlay-rgb),0.04)", borderRadius: 16, border: `1px solid ${C.border}` }}>
+                      <ExerciseThumb ex={alt} />
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: C.text }}>{exerciseName(alt)}</div>
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{hint}</div>

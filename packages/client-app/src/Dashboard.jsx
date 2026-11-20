@@ -9,6 +9,7 @@ import { Glass } from "./uiComponents.jsx";
 import { GOALS } from "./appConstants.js";
 import { openSettingsAt } from "./settingsStart.js";
 import { Icons, ExerciseIcon, MilitaryIcon } from "./icons.jsx";
+import ExerciseThumb from "./ExerciseThumb.jsx";
 import { milClL, formatExDuration, estimateMins, fmtDayStrip, weekdayLetters } from "./planUtils.js";
 import { milLevelLabel, cooperLevel } from "./keuringNorms.js";
 import api from "./apiClient.js";
@@ -493,9 +494,11 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                   <div style={{ background: "rgba(var(--overlay-rgb),0.03)", borderRadius: 12, overflow: "hidden", marginBottom: 16 }}>
                     {plan.steps.slice(0, 3).map((s, i) => (
                       <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderBottom: i < Math.min(2, plan.steps.length - 1) ? `1px solid ${C.border}` : "none" }}>
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(var(--overlay-rgb),0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                          <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
-                        </div>
+                        <ExerciseThumb ex={s} fallback={
+                          <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(var(--overlay-rgb),0.05)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                            <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
+                          </div>
+                        } />
                         <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
                           {exerciseName(s)}
                           {s.trainer_logo_url && (

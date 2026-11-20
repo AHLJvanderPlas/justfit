@@ -78,6 +78,15 @@ export function t(key, vars) {
 // Training science terms (FTP, TSS, Zone 2, PMC, CTL, ATL, TSB, RPE, VO2max) are
 // intentionally NOT in this dict — they fall back to the English key in both languages.
 const NL = {
+  // ── Media 1 — exercise photos and read-aloud ──
+  'End': 'Einde',
+  '{name} — {position}': '{name} — {position}',
+  'start position': 'startpositie',
+  'end position': 'eindpositie',
+  'Pause the photos': "Foto's pauzeren",
+  'Play the photos': "Foto's afspelen",
+  'Hide photos': "Foto's verbergen",
+  'Show photos': "Foto's tonen",
   // ── C-F3 — exercise purpose labels (see _shared/exerciseWhy.js) ──
   'Recovery': 'Herstel',
   'Breathwork': 'Ademhaling',

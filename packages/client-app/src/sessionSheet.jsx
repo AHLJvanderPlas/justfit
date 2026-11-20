@@ -5,6 +5,7 @@ import { t, exerciseName } from "./i18n.js";
 import { ALWAYS_OWNED, CATEGORY_CHIPS, equipOf, isTest, filterLibrary, emptyMessage, chipsOnFor, sheetKit } from "./exerciseSearch.js";
 import { EQUIPMENT_OPTIONS } from "./appConstants.js";
 import { useDialog } from "./useDialog.js";
+import ExerciseThumb from "./ExerciseThumb.jsx";
 
 // v1.4 — focus moves into the sheet on open (the title, so a screen reader starts at the top),
 // Escape closes it, Tab stays inside it and focus returns to the opener (useDialog, UX review C).
@@ -184,6 +185,7 @@ export function ExercisePicker({ library, loadError, prefs, onPick, mark, inputR
               const m = mark(ex);
               return (
                 <button aria-pressed={!!m.active} key={ex.id} type="button" onClick={() => onPick(ex)} className={`jf-pick__item${m.active ? " jf-pick__item--on" : ""}`}>
+                  <ExerciseThumb ex={ex} />
                   <span className="jf-pick__text">
                     <span className="jf-pick__name">{exerciseName(ex)}</span>
                     <span className="jf-pick__meta">

@@ -1538,3 +1538,57 @@ button.jf-today__goal::after { content: "›"; font-size: 14px; }
   width: 100%; min-height: 44px; padding: 12px 0; border-radius: 14px; font-size: 13px; font-weight: 700; font-family: inherit;
   background: transparent; border: 1px solid rgba(var(--overlay-rgb), 0.08); color: var(--muted); cursor: pointer;
 }
+
+/* ── Media 1 — exercise photos (ExercisePhotos.jsx) and list thumbnails (ExerciseThumb.jsx) ──
+   The photos are shot on light / gym backgrounds, so the stage is a light neutral card in BOTH
+   themes (it reads as a photo print on the dark page instead of a broken box). Fixed 3:2 stage:
+   nothing jumps while the lazy images load. The end frame cross-fades over the start frame,
+   ~1.2 s each; tap = pause. Reduced motion: the two frames side by side, no animation. */
+.jf-photos { display: flex; flex-direction: column; align-items: center; gap: 4px; margin: 0 auto 16px; width: 100%; }
+.jf-photos__stage {
+  position: relative; width: min(100%, 330px); aspect-ratio: 3 / 2; border-radius: 20px; overflow: hidden;
+  background: #eef1f4; border: 1px solid rgba(var(--overlay-rgb), 0.10);
+}
+.jf-photos__frame { position: absolute; inset: 0; margin: 0; }
+.jf-photos__img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.jf-photos__frame--1 { opacity: 0; animation: jfPhotosFade 2.4s ease-in-out infinite; }
+.jf-photos__stage--paused .jf-photos__frame--1 { animation-play-state: paused; }
+@keyframes jfPhotosFade { 0%, 38% { opacity: 0; } 50%, 88% { opacity: 1; } 100% { opacity: 0; } }
+.jf-photos__cap {
+  position: absolute; left: 8px; bottom: 8px; padding: 2px 8px; border-radius: 999px;
+  font-size: 11px; font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase;
+  background: rgba(2, 6, 23, 0.72); color: #f8fafc;
+}
+.jf-photos__tap {
+  position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: none; background: transparent; cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.jf-photos__tap:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -3px; border-radius: 20px; }
+.jf-photos__toggle {
+  min-height: 44px; padding: 0 12px; background: none; border: none; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700;
+  color: var(--muted); text-decoration: underline; text-decoration-style: dotted; text-underline-offset: 3px;
+}
+/* The working screen: a smaller stage so the counter and the tap zone stay in reach. */
+.jf-photos--compact { margin: 0 auto; gap: 0; }
+.jf-photos--compact .jf-photos__stage { width: min(100%, 210px); border-radius: 16px; }
+/* Small phones (an SE is 568 px tall): at most ~170 px of photo on the instruction screen, ~96 px while working. */
+@media (max-height: 700px) {
+  .jf-photos__stage { width: min(100%, 255px); }
+  .jf-photos--compact .jf-photos__stage { width: min(100%, 165px); }
+}
+@media (max-height: 640px) {
+  .jf-photos--compact .jf-photos__stage { width: min(100%, 144px); border-radius: 12px; }
+  .jf-photos--compact .jf-photos__cap { font-size: 11px; left: 4px; bottom: 4px; padding: 1px 6px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jf-photos__stage { aspect-ratio: 3 / 1; width: min(100%, 440px); display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+  .jf-photos--compact .jf-photos__stage { width: min(100%, 300px); }
+  .jf-photos__frame { position: relative; inset: auto; }
+  .jf-photos__frame--1 { opacity: 1; animation: none !important; }
+  .jf-photos__tap { display: none; }
+}
+
+.jf-thumb {
+  display: block; flex-shrink: 0; width: 44px; height: 44px; border-radius: 10px; object-fit: cover;
+  background: #eef1f4; border: 1px solid rgba(var(--overlay-rgb), 0.10);
+}
