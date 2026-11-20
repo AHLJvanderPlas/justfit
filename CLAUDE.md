@@ -1362,6 +1362,37 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-21 (branch media1, NOT deployed) — media 1: exercise photos + read-aloud voice (vitest 815 + 20, smoke 111 checks, e2e 48)
+
+- **Photos (data)**: 144 of 480 active exercises (strength 95, cardio 21, mobility 19, recovery 9) have a start and an end photo from
+  free-exercise-db (public domain, Unlicense), each judged on the image: same movement, equipment and body position, else left out (53
+  candidates turned down with a reason, `rejected` in the fixture). `scripts/fixtures/exercise-photos.json` (slug → source id, `swap` where
+  the source numbers end → start) → `scripts/import-exercise-photos.mjs <free-exercise-db>` copies them with `/usr/bin/sips` (≤ 640 px,
+  ≤ 35 KB) into `packages/client-app/public/exercise-media/<slug>/{0,1}.jpg` (same origin, CSP unchanged; `_headers` 30-day Cache-Control;
+  the service worker does not precache them). **Migration 0127_exercise_photos.sql** (GENERATED: `scripts/generate-exercise-photos-migration.mjs`,
+  review `docs/exercise-photos.md`): `media_json` json_patch `{"images":[…0.jpg, …1.jpg],"source":"free-exercise-db"}` by slug, idempotent,
+  assert table. **Apply with `node scripts/migrate.mjs apply migrations/0127_exercise_photos.sql`, then `npm run baseline:seeds`.** Until then
+  smoke X-28 reports it UNRECORDED (by design); e2e applies it on top of the baseline (global-setup.js).
+- **Server**: `functions/api/_shared/exerciseMedia.js` is the one reader of media_json (never throws; images = two same-origin paths or null).
+  Plan steps carry `images` next to `gif_url` (planStep.js — its JSON.parse used to throw on a malformed row); `/api/exercises` returns
+  `images`; **fix** `/api/exercises/search` selected a non-existent `gif_url` column (every call 500) — now media_json → gif_url + images.
+  Plans stored before 0127 carry no images until they are regenerated.
+- **Client photos**: `ExercisePhotos.jsx` (replaces the unused ExerciseGif): 3:2 light card, lazy, CSS cross-fade ~1.2 s each, tap = pause
+  (aria-pressed), captions Start / Einde, alt = name + position, side by side under reduced motion, hidden on image error. Instruction screen
+  ≤ 170 px tall on small phones; working screen compact with "Foto's verbergen / tonen" (`mediaUi.js`, per device; screens < 640 px tall start
+  folded so the timer Start stays in reach). `ExerciseThumb.jsx` (44 px) in the Today preview (stick figure = fallback), the overview list,
+  the alternatives sheet and the builder picker. Classes `.jf-photos*`, `.jf-thumb`.
+- **Read aloud**: `src/speech.js` — best installed voice per language (Enhanced/Premium/Natural/Google/Siri first, nl-NL > nl-BE, en-GB >
+  en-US, voiceschanged), one sentence per utterance, rate 0.95, `primeSpeech()` in the Start tap (iOS); `buildSpokenScript(step, lang)` = name,
+  "3 sets van 12 herhalingen", body-mode note, steps without numbering, tips; a Dutch app with English-only steps speaks them as a separate
+  English part, dropped when no English voice is installed. `ReadAloudButton.jsx` ("Voorlezen" / "Stop", 44 px, aria-pressed) in the
+  Instructions card; stops on set finish, exercise change/swap, rest, end screen, leaving, page hide. Settings → Jij → "Tijdens de training":
+  "Oefening automatisch voorlezen" (`readAloudPref.js`, per device, off by default) reads once per new exercise. announce.js untouched.
+- Guards: smoke **Media 1** (`scripts/media1.scan.mjs`: both files per fixture row ≤ 60 KB and JPEG, 0127 + review table regenerated in memory
+  and equal, no orphan photo, one CSP + cache rule, SW precaches only /assets — each rule broken once); vitest `exerciseMedia.test.js` (29),
+  `speech.test.js` (38), `mediaUi.test.js` (11); e2e `journey-media.spec.js` (2: photos in a real session, stubbed speechSynthesis — script
+  queued, cancel on set finish; the Settings switch). Inline styles 1613 → **1608** (ceiling lowered); App.jsx 1703, plan.js 3676 unchanged.
+
 ### Shipped 2026-11-16 — UX review release E: onboarding layout, one login path in emerald, builder column labels (vitest 737, smoke 110, e2e 46; **UX review releases 0–E complete**, `docs/UI_UX_REVIEW_2026-11-16.md`)
 
 - **Onboarding (13)** `OnboardingModal.jsx`: the body is a scroll box ABOVE the footer (`.jf-ob__scroll` > `.jf-ob__body`, not an overlay) with a fade

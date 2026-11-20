@@ -30,6 +30,8 @@ GitHub: [github.com/AHLJvanderPlas/justfit](https://github.com/AHLJvanderPlas/ju
 - Consistency score (0–100): active days ×10 + resilience bonus (low PE sessions) + continuity bonus (streaks)
 - **Cross-device session sync** — history reconciled on load; session completed on another device shows as done immediately
 - Wake Lock API — screen stays on during workout
+- **Exercise photos** (media 1) — start/end photos for 144 exercises (public domain, free-exercise-db), a slow cross-fade on the exercise screens and thumbnails in lists; served from `/exercise-media/` (static, no third-party origin). Curated in `scripts/fixtures/exercise-photos.json`; re-import with `node scripts/import-exercise-photos.mjs <free-exercise-db checkout>` (macOS `sips`), regenerate the migration with `node scripts/generate-exercise-photos-migration.mjs --check`
+- **Read aloud** (media 1) — the device's own voice reads the exercise (name, sets, steps); opt-in "Oefening automatisch voorlezen" per device in Settings → Jij
 - Rich `actual_json` tracking per step: reps per set, actual rest taken, target adjustments, substitutions, skip flag
 - Passkey / Face ID (WebAuthn ES256), magic link login, password reset, forgot password flow
 - Bonus sessions — ephemeral plan (not saved to D1), intensity-capped, visible until 23:00
