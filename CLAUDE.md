@@ -1362,7 +1362,7 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-21 (branch media1, NOT deployed) — media 1: exercise photos + read-aloud voice (vitest 815 + 20, smoke 111 checks, e2e 48)
+### Shipped 2026-11-21 — media 1: exercise photos + read-aloud voice (live; migration 0127 applied, ledger 128, baseline seeds regenerated) (vitest 815 + 20, smoke 111 checks, e2e 48)
 
 - **Photos (data)**: 144 of 480 active exercises (strength 95, cardio 21, mobility 19, recovery 9) have a start and an end photo from
   free-exercise-db (public domain, Unlicense), each judged on the image: same movement, equipment and body position, else left out (53
@@ -1371,8 +1371,8 @@ auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js
   ≤ 35 KB) into `packages/client-app/public/exercise-media/<slug>/{0,1}.jpg` (same origin, CSP unchanged; `_headers` 30-day Cache-Control;
   the service worker does not precache them). **Migration 0127_exercise_photos.sql** (GENERATED: `scripts/generate-exercise-photos-migration.mjs`,
   review `docs/exercise-photos.md`): `media_json` json_patch `{"images":[…0.jpg, …1.jpg],"source":"free-exercise-db"}` by slug, idempotent,
-  assert table. **Apply with `node scripts/migrate.mjs apply migrations/0127_exercise_photos.sql`, then `npm run baseline:seeds`.** Until then
-  smoke X-28 reports it UNRECORDED (by design); e2e applies it on top of the baseline (global-setup.js).
+  assert table. Applied 2026-11-21 (144 rows), baseline seeds regenerated. Before that
+  smoke X-28 reported it UNRECORDED (by design); e2e applies it on top of the baseline (global-setup.js).
 - **Server**: `functions/api/_shared/exerciseMedia.js` is the one reader of media_json (never throws; images = two same-origin paths or null).
   Plan steps carry `images` next to `gif_url` (planStep.js — its JSON.parse used to throw on a malformed row); `/api/exercises` returns
   `images`; **fix** `/api/exercises/search` selected a non-existent `gif_url` column (every call 500) — now media_json → gif_url + images.
