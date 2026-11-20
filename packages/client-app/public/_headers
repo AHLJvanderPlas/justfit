@@ -6,6 +6,11 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://www.strava.com https://api.mollie.com https://app.justfit.cc; worker-src 'self'; object-src 'none'; frame-ancestors 'none'
 
+# Exercise photos (release media 1): static, public domain, fetched on demand (the service worker does not
+# precache them). The path names the exercise, not a hash, so 30 days rather than immutable.
+/exercise-media/*
+  Cache-Control: public, max-age=2592000
+
 /dashboard
   Cache-Control: no-cache
 /dashboard.js
