@@ -109,7 +109,7 @@ DROP TABLE _0127_assert;
       const rs = rows.filter((r) => r.row.category === c);
       if (!rs.length) return [];
       return [`## With photos — ${c} (${rs.length})`, '', '| Exercise | Nederlands | Source photo | Tier | Note |', '|---|---|---|---|---|',
-        ...rs.map(({ slug, e, row }) => `| ${cell(row.name)} (\`${slug}\`) | ${cell(row.name_nl)} | ${cell(e.source_name)} (\`${e.source_id}\`) | ${e.tier} | ${cell([e.swap ? 'start/end swapped' : '', e.note].filter(Boolean).join('; '))} |`), ''];
+        ...rs.map(({ slug, e, row }) => `| ${cell(row.name)} (\`${slug}\`) | ${cell(row.name_nl)} | ${cell(e.source_name)} (\`${e.source_id}\`) | ${e.tier} | ${cell([e.swap ? 'start/end swapped' : '', e.hold ? 'hold photo in both frames' : '', e.note].filter(Boolean).join('; '))} |`), ''];
     }),
     `## Without a photo (${without.length})`,
     '',

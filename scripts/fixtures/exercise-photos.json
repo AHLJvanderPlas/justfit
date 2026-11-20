@@ -525,7 +525,8 @@
       "source_id": "Plank",
       "source_name": "Plank",
       "tier": "exact",
-      "note": "start photo kneels (getting into position)"
+      "note": "static hold: the hold photo is used for both frames (the source start photo kneels)",
+      "hold": true
     },
     "pull-up": {
       "source_id": "Pullups",
@@ -734,7 +735,8 @@
       "source_id": "Plank",
       "source_name": "Plank",
       "tier": "weak",
-      "note": "start photo kneels (getting into position)"
+      "note": "static hold: the hold photo is used for both frames (the source start photo kneels)",
+      "hold": true
     },
     "walking-lunge": {
       "source_id": "Bodyweight_Walking_Lunge",

@@ -41,7 +41,8 @@ for (const [slug, e] of rows) {
   if (!SAFE.test(slug) || !SAFE_ID.test(e.source_id)) throw new Error(`refusing an unexpected name: ${slug} / ${e.source_id}`);
   const dir = path.join(OUT, slug);
   mkdirSync(dir, { recursive: true });
-  const order = e.swap ? [1, 0] : [0, 1];
+  // `hold: true` — a static hold whose source start photo shows getting into position: the hold photo fills both frames.
+  const order = e.hold ? [1, 1] : e.swap ? [1, 0] : [0, 1];
   order.forEach((from, to) => {
     const inFile = path.join(src, 'exercises', e.source_id, `${from}.jpg`);
     const outFile = path.join(dir, `${to}.jpg`);

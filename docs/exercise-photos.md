@@ -89,7 +89,7 @@ Tier: `exact` / `strong` / `weak` = the automatic name match picked this photo t
 | Shoulder Press (Machine) (`machine-shoulder-press`) | Schouderpress (machine) | Machine Shoulder (Military) Press (`Machine_Shoulder_Military_Press`) | manual |  |
 | Negative Pull-Up (`negative-pull-up`) | Negatief optrekken | Pullups (`Pullups`) | strong | start/end swapped; swapped: a negative starts at the top |
 | Pec Deck Fly (`pec-deck-fly`) | Pec deck fly | Butterfly (`Butterfly`) | manual | start/end swapped; swapped: start with the arms open |
-| Plank (`plank`) | Plank | Plank (`Plank`) | exact | start photo kneels (getting into position) |
+| Plank (`plank`) | Plank | Plank (`Plank`) | exact | hold photo in both frames; static hold: the hold photo is used for both frames (the source start photo kneels) |
 | Pull-Up (`pull-up`) | Optrekken | Pullups (`Pullups`) | exact |  |
 | Push-up (`push-up`) | Opdrukken | Pushups (`Pushups`) | exact |  |
 | Reverse Crunch (`reverse-crunch`) | Reverse crunch | Reverse Crunch (`Reverse_Crunch`) | exact |  |
@@ -107,7 +107,7 @@ Tier: `exact` / `strong` / `weak` = the automatic name match picked this photo t
 | Straight-Arm Pulldown (`straight-arm-pulldown`) | Straight-arm pulldown | Straight-Arm Pulldown (`Straight-Arm_Pulldown`) | exact |  |
 | Superman Hold (`superman-hold`) | Superman houden | Superman (`Superman`) | weak |  |
 | V-Up (`v-up`) | V-up | Jackknife Sit-Up (`Jackknife_Sit-Up`) | manual |  |
-| Voorwaartse plank (`voorwaartse-plank`) | Voorwaartse plank | Plank (`Plank`) | weak | start photo kneels (getting into position) |
+| Voorwaartse plank (`voorwaartse-plank`) | Voorwaartse plank | Plank (`Plank`) | weak | hold photo in both frames; static hold: the hold photo is used for both frames (the source start photo kneels) |
 | Walking Lunges (`walking-lunges`) | Wandelende uitvalspassen | Bodyweight Walking Lunge (`Bodyweight_Walking_Lunge`) | manual |  |
 | Zijwaartse plank (`zijwaartse-plank`) | Zijwaartse plank | Side Bridge (`Side_Bridge`) | manual |  |
 
