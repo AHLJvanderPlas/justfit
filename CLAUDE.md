@@ -1362,6 +1362,12 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-21 — voice 2: clips without a migration, stored plans refresh their media (vitest 905 + 20, smoke 112, e2e 51)
+
+- 16 exercises have a recorded clip (nl Roos + en Alice). A new clip needs NO migration: `scripts/generate-exercise-voice.mjs` writes `functions/api/_shared/voiceClips.js` from the audio manifest and `exerciseAudio(mediaJson, slug)` reads it. 0128 is frozen to the pilot rows (`in_0128` in the fixture).
+- `refreshPlanMedia` / `refreshPlanRowMedia` (exerciseMedia.js, re-exported by planStep.js so plan.js does not grow): GET /api/plan and the preserved / capped POST answers carry the library's current `images` and `audio` — a plan stored before a photo or clip existed shows it without regenerating.
+- **`npm run release` does not run vitest.** Run `npm test` yourself before every deploy (voice 1 shipped with 3 failing unit tests because of this; fixed here).
+
 ### Shipped 2026-11-21 — voice 1: recorded coach voice per exercise (live; pilot 10 exercises nl Roos + en Alice, migration 0128 applied, ledger 129; vitest 897 + 20, smoke 112, e2e 51)
 
 - Generate more clips: `JUSTFIT_VAULT_FILE=<vault justfit.md> node scripts/generate-exercise-voice.mjs --dry-run` first, then with `--max-credits N`; add slugs + scripts to `scripts/fixtures/exercise-voice.json`. A changed fixture needs a NEW migration number (never edit 0128). e2e journeys pick their own clips through `e2e/planAudio.js` — real clips must not leak into device-voice cases.
