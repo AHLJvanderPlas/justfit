@@ -499,7 +499,8 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                             <ExerciseIcon type={iconKeyFor(s)} size={22} c={C.faint} />
                           </div>
                         } />
-                        <span style={{ flex: 1, fontSize: 13, fontWeight: 600, color: C.text, display: "flex", alignItems: "center", gap: 6 }}>
+                        <span className="jf-steprow__body">
+                        <span className="jf-steprow__name">
                           {exerciseName(s)}
                           {s.trainer_logo_url && (
                             <span style={{ width: 18, height: 18, borderRadius: 4, background: s.trainer_logo_bg ?? '#0a0a0a', overflow: "hidden", flexShrink: 0, display: "inline-flex", border: "1px solid rgba(var(--overlay-rgb),0.1)" }}>
@@ -507,7 +508,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                             </span>
                           )}
                         </span>
-                        <span style={{ ...mono(11), color: C.muted }}>
+                        <span className="jf-steprow__rx">
                           {(() => {
                             if (s.max_effort) return t(...dcpTodayMeta(s));
                             const isRunInterval = JSON.parse(s.tags_json || "[]").includes("run_interval");
@@ -515,6 +516,7 @@ export default function Dashboard({ plan, score, prevScore, onStartWorkout, isGe
                             if (s.target_reps) return `${s.sets} × ${s.target_reps}`;
                             return `${s.sets} × ${formatExDuration(s.target_duration_sec)}`;
                           })()}
+                        </span>
                         </span>
                         <Icons.chevronRight size={14} c={C.subtle} />
                       </div>

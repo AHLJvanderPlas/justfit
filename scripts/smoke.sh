@@ -812,7 +812,7 @@ fi
 # already class-based (0 inline styles) and the login page lost every style="" attribute.
 # 1613 → 1608 (2026-11-21): media 1 — the unused ExerciseGif (inline styled) became ExercisePhotos (.jf-photos*),
 # the Instructions title row is .jf-instr-head; thumbnails (.jf-thumb), read aloud (.jf-speak, .jf-switch) are classes.
-STYLE_CEILING=1608
+STYLE_CEILING=1606
 STYLE_NOW=$(cat packages/client-app/src/*.jsx | grep -o "style={{" | wc -l | tr -d " ")
 if [ "$STYLE_NOW" -le "$STYLE_CEILING" ]; then
   ok "inline-style ratchet holds ($STYLE_NOW ≤ $STYLE_CEILING)"

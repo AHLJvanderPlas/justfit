@@ -1618,3 +1618,10 @@ button.jf-today__goal::after { content: "›"; font-size: 14px; }
 .jf-switch--on { background: var(--accent); }
 .jf-switch__knob { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; border-radius: 10px; background: var(--knob, #fff); transition: left 0.2s; }
 .jf-switch--on .jf-switch__knob { left: 21px; }
+
+/* Today — a step row: name and prescription share a line when they fit; a long
+   prescription ("DCP-meting · max in 2 min") drops under the name instead of
+   squeezing it into a column of syllables. */
+.jf-steprow__body { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; column-gap: 10px; row-gap: 2px; }
+.jf-steprow__name { flex: 1 1 auto; font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 6px; }
+.jf-steprow__rx { font-family: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace; font-size: 11px; letter-spacing: 0.05em; font-variant-numeric: tabular-nums; color: var(--muted); white-space: nowrap; }
