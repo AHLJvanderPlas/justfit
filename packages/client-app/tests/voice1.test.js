@@ -1,7 +1,7 @@
 // Voice 1 — the generator's pure parts and its run with a fake fetch (no network), the 0128
 // builder on the baseline, and the smoke scan on temp directories (each rule broken once).
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, readdirSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -103,6 +103,8 @@ describe('parseArgs', () => {
 });
 
 describe('migration 0128 builder', () => {
+  // The baseline now carries the applied 0128; these tests start from a library without clips.
+  const cleanDb = () => { const db = baselineDb(); db.exec("UPDATE exercises SET media_json = json_remove(media_json, '$.audio') WHERE json_valid(media_json)"); return db; };
   const fx = pilot(['push-up', 'plank']);
   const withBoth = (slug, lang) => ['push-up/nl', 'push-up/en', 'plank/en'].includes(`${slug}/${lang}`);
   it('no file on disk → no SQL; the review table still lists every script', () => {
@@ -117,7 +119,7 @@ describe('migration 0128 builder', () => {
     expect(r.sql).toContain(`'{"audio":{"nl":"/exercise-audio/push-up/nl.mp3","en":"/exercise-audio/push-up/en.mp3"}}'`);
     expect(r.sql).toContain(`'{"audio":{"en":"/exercise-audio/plank/en.mp3"}}'`);
     expect(r.sql).not.toContain('plank/nl.mp3');
-    const db = baselineDb();   // the baseline carries 0127 already; applying it again must be harmless
+    const db = cleanDb();   // the baseline carries 0127 already; applying it again must be harmless
     db.exec(readFileSync(path.join(REPO, 'migrations/0127_exercise_photos.sql'), 'utf8'));
     db.exec(r.sql);
     const snap = () => JSON.stringify(db.prepare("SELECT slug, media_json FROM exercises WHERE json_extract(media_json,'$.audio') IS NOT NULL ORDER BY slug").all());
@@ -131,7 +133,7 @@ describe('migration 0128 builder', () => {
   });
   it('the assert fails the file when a row does not end with its path', () => {
     const r = render(fx, withBoth);
-    const db = baselineDb();
+    const db = cleanDb();
     const broken = r.sql.replace(/UPDATE exercises SET media_json = json_patch\([^\n]*'plank'[^\n]*\n/, '');
     expect(broken).not.toBe(r.sql);
     expect(() => db.exec(broken)).toThrow(/CHECK constraint/);
@@ -141,7 +143,7 @@ describe('migration 0128 builder', () => {
     expect(r.errs.join()).toMatch(/not an active global row/);
   });
   it('a row with no media_json at all gets just the audio', () => {
-    const db = baselineDb();
+    const db = cleanDb();
     db.exec("UPDATE exercises SET media_json = NULL WHERE slug = 'push-up' AND gym_id IS NULL");
     db.exec(render(fx, withBoth).sql);
     expect(JSON.parse(db.prepare("SELECT media_json FROM exercises WHERE slug='push-up' AND gym_id IS NULL").get().media_json)).toEqual({ audio: { nl: '/exercise-audio/push-up/nl.mp3', en: '/exercise-audio/push-up/en.mp3' } });
@@ -273,9 +275,7 @@ describe('smoke scan (voice1.scan.mjs)', () => {
   afterEach(() => rmSync(root, { recursive: true, force: true }));
   const regenDoc = () => run(['--migration-only'], { root, log: () => {}, err: () => {}, env: {} });
 
-  it('the real repository passes today (no audio folder content, no 0128)', () => {
-    expect(existsSync(path.join(REPO, OUT))).toBe(false);
-    expect(readdirSync(path.join(REPO, AUDIO_DIR)).filter((f) => f !== 'manifest.json' && f !== '.gitkeep')).toEqual([]);
+  it('the real repository passes today', () => {
     expect(scan()).toEqual([]);
   });
   it('passes with an empty exercise-audio folder and an absent 0128 once the review table exists', async () => {
@@ -360,8 +360,10 @@ describe('smoke scan (voice1.scan.mjs)', () => {
     for (const [slug, e] of Object.entries(real.exercises)) {
       const r = db.prepare('SELECT name, name_nl FROM exercises WHERE slug = ? AND gym_id IS NULL').get(slug);
       expect(e.nl.startsWith(`${r.name_nl}.`), `${slug} nl starts with name_nl`).toBe(true);
-      expect(e.en.toLowerCase().startsWith(`${r.name.toLowerCase()}.`), `${slug} en starts with the name`).toBe(true);
+      // A bracketed addition in the library name ("Modified Burpee (No Jump)") is not spoken as such.
+      const spoken = r.name.replace(/\s*\(.*\)\s*$/, '').toLowerCase();
+      expect(/^[.,]/.test(e.en.toLowerCase().startsWith(spoken) ? e.en.slice(spoken.length) : ''), `${slug} en starts with the name`).toBe(true);
     }
-    expect(Object.keys(real.exercises)).toHaveLength(10);
+    expect(Object.keys(real.exercises).length).toBeGreaterThanOrEqual(10);
   });
 });

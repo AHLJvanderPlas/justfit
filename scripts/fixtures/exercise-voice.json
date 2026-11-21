@@ -51,6 +51,42 @@
     "cat-cow": {
       "nl": "Kat-koe. Begin op handen en knieën, je handen onder je schouders en je knieën onder je heupen. Adem in, laat je buik zakken en til je borst en staartbeen omhoog. Adem uit, maak je hele rug rond en trek je kin naar je borst. Laat je adem de beweging sturen en ga rustig.",
       "en": "Cat-Cow. Start on your hands and knees, with your hands under your shoulders and your knees under your hips. Breathe in, let your belly drop, and lift your chest and tailbone. Breathe out, round your whole spine and tuck your chin to your chest. Let your breath lead the movement, and go slowly."
+    },
+    "modified-burpee": {
+      "nl": "Burpee zonder sprong. Sta rechtop. Buig door je knieën en zet je handen op de vloer. Stap met je voeten één voor één naar achteren, tot je in een plank staat. Stap dan weer terug naar je handen en kom rustig omhoog. Je springt niet. Span je buik aan in de plank en blijf rustig doorademen.",
+      "en": "Modified burpee, without the jump. Stand tall. Bend your knees and place your hands on the floor. Step your feet back one at a time, until you are in a plank. Step them back to your hands and stand up calmly. There is no jumping. Tighten your belly in the plank and keep breathing steadily."
+    },
+    "squat-pulse": {
+      "nl": "Squat pulseren. Zak in een squat, met je bovenbenen ongeveer horizontaal. Blijf laag en beweeg in kleine stukjes op en neer, een paar centimeter maar. Kom tussendoor niet helemaal omhoog. Houd je borst omhoog en je knieën in lijn met je tenen. Het gaat snel branden, dat hoort erbij. Adem rustig door.",
+      "en": "Squat pulse. Lower into a squat, with your thighs about level with the floor. Stay low and move up and down in small pulses, just a few centimetres. Do not stand all the way up in between. Keep your chest up and your knees in line with your toes. It burns quickly, and that is normal. Keep breathing."
+    },
+    "boxing-combination": {
+      "nl": "Bokscombinatie. Sta met je linkervoet iets naar voren, je knieën los en je handen voor je gezicht. Stoot links recht vooruit, dan rechts. Maak daarna een hoek met links en een opstoot met rechts. Draai je heupen mee, daar komt de kracht vandaan. Blijf licht op je voeten en adem uit bij elke stoot.",
+      "en": "Boxing combination. Stand with your left foot slightly forward, knees soft and hands up in front of your face. Punch straight with your left, then your right. Follow with a left hook and a right uppercut. Turn your hips with each punch, that is where the power comes from. Stay light on your feet and breathe out with every punch."
+    },
+    "jumping-jacks": {
+      "nl": "Jumping jacks. Sta rechtop met je voeten tegen elkaar en je armen langs je lichaam. Spring je voeten uit elkaar en zwaai je armen tegelijk boven je hoofd. Spring terug naar de start en ga door in een vast ritme. Land zacht op de voorkant van je voeten. Blijf rustig doorademen.",
+      "en": "Jumping jacks. Stand tall with your feet together and your arms at your sides. Jump your feet apart and swing your arms overhead at the same time. Jump back to the start and keep going in a steady rhythm. Land softly on the balls of your feet. Keep your breathing steady."
+    },
+    "walking-lunge": {
+      "nl": "Wandelende uitvalspas. Sta rechtop met je voeten bij elkaar. Zet een grote stap naar voren en zak, tot je achterste knie bijna de vloer raakt. Je voorste knie blijft boven je enkel. Stap dan met je achterste been door naar voren, direct in de volgende uitvalspas. Houd je bovenlichaam rechtop, ook als je moe wordt.",
+      "en": "Walking lunge. Stand tall with your feet together. Take a big step forward and lower, until your back knee almost touches the floor. Your front knee stays above your ankle. Then bring your back leg through and step straight into the next lunge. Keep your upper body upright, even when you get tired."
+    },
+    "high-knees": {
+      "nl": "Knieheffen. Ren op de plaats en til je knieën om en om tot heuphoogte. Beweeg je armen mee, zoals bij hardlopen. Blijf lang en rechtop staan en houd het tempo hoog. Land zacht, met je voeten onder je heupen. Span je buik aan en blijf doorademen.",
+      "en": "High knees. Run on the spot and lift your knees one after the other to hip height. Swing your arms as you would when running. Stay tall and upright and keep the pace quick. Land softly, with your feet under your hips. Brace your core and keep breathing."
     }
-  }
+  },
+  "in_0128": [
+    "push-up",
+    "squat",
+    "plank",
+    "glute-bridge",
+    "lunge",
+    "sit-up",
+    "dead-bug",
+    "dumbbell-bicep-curl",
+    "dumbbell-shoulder-press",
+    "cat-cow"
+  ]
 }

@@ -65,7 +65,7 @@ export async function onRequest(context) {
   // exercises has no gif_url column (media lives in media_json): selecting it made every call a 500.
   // Media 1 — global rows carry gif_url and images from media_json; custom rows keep their R2 key.
   const globals = (globalRows.results ?? []).map(({ media_json, ...r }) =>
-    ({ ...r, gif_url: exerciseGifUrl(media_json), images: exerciseImages(media_json), audio: exerciseAudio(media_json) }));
+    ({ ...r, gif_url: exerciseGifUrl(media_json), images: exerciseImages(media_json), audio: exerciseAudio(media_json, r.slug) }));
   const results = [...globals, ...(customRows.results ?? []).map((r) => ({ ...r, images: null, audio: null }))];
   return Response.json(results);
 }

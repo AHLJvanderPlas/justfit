@@ -17,7 +17,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { SRC, OUT, DOC, AUDIO_DIR, MANIFEST, MAX_BYTES, LANGS, allEntries, fileKey, readManifest, render } from './generate-exercise-voice.mjs';
+import { SRC, OUT, DOC, AUDIO_DIR, MANIFEST, MAX_BYTES, LANGS, allEntries, fileKey, readManifest, render, CLIPS_MODULE, clipsModule } from './generate-exercise-voice.mjs';
 
 const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..');
 
@@ -79,6 +79,9 @@ export function scan({ root = REPO, checkHeaders = true } = {}) {
   if (r.sql === null && has) errs.push(`${OUT}: exists but no mp3 is on disk — remove it or regenerate the audio`);
   else if (r.sql !== null && (!has || rd(OUT) !== r.sql)) errs.push(`${OUT}: out of step with the files on disk — run node scripts/generate-exercise-voice.mjs --migration-only (a change after 0128 is applied ships as a NEW migration)`);
   if (!fs.existsSync(at(DOC)) || rd(DOC) !== r.doc) errs.push(`${DOC}: out of step with the fixture — run node scripts/generate-exercise-voice.mjs --migration-only`);
+
+  // 5b — the server's list of deployed clips equals the manifest
+  if (!fs.existsSync(at(CLIPS_MODULE)) || rd(CLIPS_MODULE) !== clipsModule(manifest)) errs.push(`${CLIPS_MODULE}: out of step with the manifest — run node scripts/generate-exercise-voice.mjs --migration-only`);
 
   // 6 — headers and the service worker
   if (checkHeaders) {

@@ -45,8 +45,9 @@ describe('plan steps carry audio next to images', () => {
     expect(prescribedStep(ex, { sets: 3, target_reps: 10, rest_sec: 45 }).audio).toEqual({ nl: NL, en: EN });
   });
   it('a row without audio, or with malformed media, builds a step with audio null', () => {
-    expect(makePlanStep({ ...ex, media_json: null }).audio).toBeNull();
-    expect(() => makePlanStep({ ...ex, media_json: '{broken' })).not.toThrow();
-    expect(makePlanStep({ ...ex, media_json: '{broken' }).audio).toBeNull();
+    const bare = { ...ex, slug: 'no-clip-exercise' };   // push-up itself ships a clip with the app (voiceClips.js)
+    expect(makePlanStep({ ...bare, media_json: null }).audio).toBeNull();
+    expect(() => makePlanStep({ ...bare, media_json: '{broken' })).not.toThrow();
+    expect(makePlanStep({ ...bare, media_json: '{broken' }).audio).toBeNull();
   });
 });

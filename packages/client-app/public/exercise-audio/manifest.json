@@ -1,5 +1,13 @@
 {
   "files": {
+    "boxing-combination/en.mp3": {
+      "sha256": "b9560abff3ffb6dbe7660c344698b4ce3e5b2ca87b140bf34dd230440d009328",
+      "chars": 330
+    },
+    "boxing-combination/nl.mp3": {
+      "sha256": "bef891d00b061f9f38b4bc05b8fb7a074fd6f2712e15fe1e2f598425d171f46c",
+      "chars": 298
+    },
     "cat-cow/en.mp3": {
       "sha256": "91de26e6243acddadb01682a1705a11ade63b9c2d751db6c1e2187fa34c44188",
       "chars": 295
@@ -40,6 +48,22 @@
       "sha256": "9ba371619673839d72ac4da9f8a3e25ef5413e9301596762dfbb97e5b9a737bb",
       "chars": 291
     },
+    "high-knees/en.mp3": {
+      "sha256": "bfac248b3441414ed2b819da26d91dec145ac0b57ecdaa265ab7cae7ce12fea9",
+      "chars": 253
+    },
+    "high-knees/nl.mp3": {
+      "sha256": "2d6a7d9655485602463ec8473afea996509b742d5adb50b347e4da2eda62b8e3",
+      "chars": 245
+    },
+    "jumping-jacks/en.mp3": {
+      "sha256": "61efb6269e1bcce36a3c6ab84ba20b8809474c2d9b58da8f77b17f795ed1003c",
+      "chars": 271
+    },
+    "jumping-jacks/nl.mp3": {
+      "sha256": "556797730520fc6ff2ae61c7fd0764f4802b73054f310b2c01ff620624c66307",
+      "chars": 277
+    },
     "lunge/en.mp3": {
       "sha256": "12573fa4adf99e4278261b56461f83410db122585998af3f9e454b94bb0979b5",
       "chars": 298
@@ -47,6 +71,14 @@
     "lunge/nl.mp3": {
       "sha256": "2efc07b9a0d8f99e8d982e69506a13bcf86587ddf0688342a0bab53e37aa742d",
       "chars": 294
+    },
+    "modified-burpee/en.mp3": {
+      "sha256": "a5a37988feb6bb0d667ce5cfca8c135861597096edde976b836b3c0aa420405c",
+      "chars": 290
+    },
+    "modified-burpee/nl.mp3": {
+      "sha256": "194d3c54e89b4101fd58d13c6884993757a3f6ec7e307a2204d165e46eed3beb",
+      "chars": 289
     },
     "plank/en.mp3": {
       "sha256": "cb2af79be60b470bf13692a8c0b271ba031824e0ee83c3ced10e1409ac5755d5",
@@ -72,6 +104,14 @@
       "sha256": "3ba42e83ff92d89bcd3fa26b7202c185881b6c626465df073fdb1e9d874b82c2",
       "chars": 272
     },
+    "squat-pulse/en.mp3": {
+      "sha256": "a592566ac56298fb23471a7fee385dbf40002fbb3486f648c6156f7aec3cf6c0",
+      "chars": 300
+    },
+    "squat-pulse/nl.mp3": {
+      "sha256": "1cdcb8bd8ee512f93de0ff57e51eeba183b0cf25ebf3473e78126bd62e077081",
+      "chars": 301
+    },
     "squat/en.mp3": {
       "sha256": "0d9e84081356095f710a60958f183b6fac0c742fe0a65d7deee3e14c96fd46ca",
       "chars": 305
@@ -79,6 +119,14 @@
     "squat/nl.mp3": {
       "sha256": "6fcabd79b5dab84f743eb351a26cd930ad9c553aa1db1c16024bc6cf1b7f9c1c",
       "chars": 296
+    },
+    "walking-lunge/en.mp3": {
+      "sha256": "b8b5df850934a4c30c8ce4707116af42f0d97228ee75bab2fc217b8dd347d577",
+      "chars": 299
+    },
+    "walking-lunge/nl.mp3": {
+      "sha256": "ee0cfd0e538f7f9742e22a84f45dc7759a2517d4a2b440297cb2451b7d5ad31a",
+      "chars": 315
     }
   }
 }

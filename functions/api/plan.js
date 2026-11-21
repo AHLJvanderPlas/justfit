@@ -8,7 +8,7 @@ import { computeRecovery, RECOVERY_QUERY, RECOVERY_WINDOW_DAYS, FATIGUE_THRESHOL
 import { getDcpNorms, dcpProgress, dcpAgeFrom, dcpBiasStrength, dcpCardVisible } from './_shared/military.js';
 import { DCP_WINDOW_SEC, dcpMeasurementDue, ensureMeasurementSteps, frontMeasurements, hasBothMeasurements, measurementStep } from './_shared/dcpMeasure.js';
 import { musclesFromJson } from './_shared/muscles.js';
-import { makePlanStep, prescribedStep } from './_shared/planStep.js';
+import { makePlanStep, prescribedStep, refreshPlanMedia, refreshPlanRowMedia } from './_shared/planStep.js';
 import { getDefaultRest, estimateSessionSec, roundTo5Sec } from './_shared/session.js';
 import { applyRestDays, weekTargetApplies, TRAINED_DAYS_SQL, trainedDaysFrom } from './_shared/weekTarget.js';   // C-B32
 import { loadsAny, injuryAreasFor, planLoadsAny } from './_shared/injuryLoad.js';   // finding 0 — R563's one load model
@@ -123,10 +123,10 @@ export async function onRequestPost({ request, env }) {
       : null;
     const existing = decideExistingPlan({ existingRow, body, isPro });
     if (existing.decision === 'preserve') {
-      return Response.json({ ok: true, saved: true, preserved: true, plan: existing.plan });
+      return Response.json({ ok: true, saved: true, preserved: true, plan: await refreshPlanMedia(env, existing.plan) });
     }
     if (existing.decision === 'capped') {
-      return Response.json({ ok: true, saved: true, plan: existing.plan });
+      return Response.json({ ok: true, saved: true, plan: await refreshPlanMedia(env, existing.plan) });
     }
 
     // Merge body profile: prefer request body fields, fall back to DB row
@@ -652,7 +652,7 @@ export async function onRequestGet({ request, env }) {
       `SELECT * FROM day_plans WHERE user_id = ? AND date = ? ORDER BY created_at_ms DESC LIMIT 1`
     ).bind(user_id, date).first();
 
-    return Response.json({ plan: result });
+    return Response.json({ plan: await refreshPlanRowMedia(env, result) });
   } catch (e) {
     console.error(e); return Response.json({ error: "Internal error" }, { status: 500 });
   }
