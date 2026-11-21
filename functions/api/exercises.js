@@ -1,5 +1,5 @@
 import { loadAreas } from './_shared/injuryLoad.js';
-import { exerciseImages } from './_shared/exerciseMedia.js';
+import { exerciseImages, exerciseAudio } from './_shared/exerciseMedia.js';
 
 export async function onRequestGet({ request, env }) {
   try {
@@ -38,7 +38,7 @@ export async function onRequestGet({ request, env }) {
     // the workout's alternatives sheet never offers a swap that loads a sore area.
     // Media 1 — the two photo paths (or null) instead of the raw media_json.
     exercises = exercises.map(({ primary_muscles_json: _p, secondary_muscles_json: _s, media_json: _m, ...ex }) =>
-      ({ ...ex, images: exerciseImages(_m), load_areas: [...loadAreas({ ...ex, primary_muscles_json: _p, secondary_muscles_json: _s })] }));
+      ({ ...ex, images: exerciseImages(_m), audio: exerciseAudio(_m), load_areas: [...loadAreas({ ...ex, primary_muscles_json: _p, secondary_muscles_json: _s })] }));
 
     return Response.json({ exercises });
   } catch (e) {

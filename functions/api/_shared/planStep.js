@@ -13,7 +13,7 @@
 //
 // scripts/smoke.sh fails if plan.js spells a step object literal itself again.
 
-import { exerciseGifUrl, exerciseImages } from './exerciseMedia.js';
+import { exerciseGifUrl, exerciseImages, exerciseAudio } from './exerciseMedia.js';
 
 /**
  * The fields every step carries, from the library row; `overrides` sets the
@@ -37,6 +37,7 @@ export function makePlanStep(ex, overrides = {}) {
     alternatives_json:   ex.alternatives_json ?? null,
     gif_url:             exerciseGifUrl(ex.media_json),
     images:              exerciseImages(ex.media_json),   // media 1 — [start, end] photo paths or null
+    audio:               exerciseAudio(ex.media_json),     // voice 1 — { nl?, en? } clip paths or null
     ...overrides,
   };
 }

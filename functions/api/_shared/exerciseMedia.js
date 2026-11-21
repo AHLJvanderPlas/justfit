@@ -31,6 +31,21 @@ export function exerciseImages(mediaJson) {
   return pair.every((p) => typeof p === 'string' && SAME_ORIGIN.test(p)) ? pair : null;
 }
 
+/**
+ * Recorded coach voice (release voice 1): { nl?: path, en?: path } — same-origin paths only —
+ * or null when the row has no usable clip. Migration 0128 writes {"audio": {"nl": "/exercise-audio/<slug>/nl.mp3", ...}}.
+ */
+export function exerciseAudio(mediaJson) {
+  const a = parseMedia(mediaJson).audio;
+  if (!a || typeof a !== 'object' || Array.isArray(a)) return null;
+  const out = {};
+  for (const lang of ['nl', 'en']) {
+    const p = a[lang];
+    if (typeof p === 'string' && SAME_ORIGIN.test(p)) out[lang] = p;
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 export function exerciseGifUrl(mediaJson) {
   const g = parseMedia(mediaJson).gif_url;
   return typeof g === 'string' && g ? g : null;
