@@ -1362,7 +1362,10 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
-### Built 2026-11-21 — voice 1: recorded coach voice per exercise (branch `voice1`; NOT generated, NOT deployed: no mp3, no migration 0128 yet)
+### Shipped 2026-11-21 — voice 1: recorded coach voice per exercise (live; pilot 10 exercises nl Roos + en Alice, migration 0128 applied, ledger 129; vitest 897 + 20, smoke 112, e2e 51)
+
+- Generate more clips: `JUSTFIT_VAULT_FILE=<vault justfit.md> node scripts/generate-exercise-voice.mjs --dry-run` first, then with `--max-credits N`; add slugs + scripts to `scripts/fixtures/exercise-voice.json`. A changed fixture needs a NEW migration number (never edit 0128). e2e journeys pick their own clips through `e2e/planAudio.js` — real clips must not leak into device-voice cases.
+- Voices: nl `7qdUFMklKPaaAVMsBTBt` (Roos, library voice added to the account), en `Xb7hH8MSUJpSbSDYk0k2` (Alice), model `eleven_v4`. Observed cost 2026-11-21: 2,726 credits for ~6,800 characters.
 
 - **Scripts**: `scripts/fixtures/exercise-voice.json` — pilot of 10 exercises (push-up, squat, plank, glute-bridge, lunge, sit-up, dead-bug,
   dumbbell-bicep-curl, dumbbell-shoulder-press, cat-cow), a Dutch and an English coaching script each (220-320 characters, name first, no
