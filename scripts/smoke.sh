@@ -1803,6 +1803,19 @@ else
   fail "Media 1: $MEDIA1_OUT"
 fi
 
+# ── Voice 1 — recorded coach voice ──────────────────────────────────────────
+# Every manifest entry has its mp3 (<= 400 KB, MP3/ID3 signature); no mp3 without a manifest entry;
+# manifest hashes equal the fixture's (stale audio fails); migration 0128 equals what the generator
+# renders from the files on disk (absent while nothing is generated); every script 150-400 characters
+# without digits or the characters x / ( ) [ ]; one CSP and a long Cache-Control for /exercise-audio/*.
+# Passes while the pilot is not generated yet. scripts/voice1.scan.mjs.
+VOICE1_OUT=$(node --no-warnings scripts/voice1.scan.mjs 2>&1 | head -8 | tr "\n" ";")
+if [ -z "$VOICE1_OUT" ]; then
+  ok "Voice 1: manifest, mp3 files and fixture hashes agree, migration 0128 in step with the files on disk, scripts 150-400 characters without digits or symbols, voice clips cached not precached"
+else
+  fail "Voice 1: $VOICE1_OUT"
+fi
+
 # Rate-limit check — disabled by default (hits live DB, takes ~5s)
 # Run separately before UAT or after auth changes: npm run smoke:ratelimit
 

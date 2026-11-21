@@ -11,6 +11,11 @@
 /exercise-media/*
   Cache-Control: public, max-age=2592000
 
+# Recorded coach voice (release voice 1): one mp3 per exercise and language, same origin, fetched on demand
+# (the service worker does not precache them). Named by exercise, so 30 days rather than immutable.
+/exercise-audio/*
+  Cache-Control: public, max-age=2592000
+
 /dashboard
   Cache-Control: no-cache
 /dashboard.js
