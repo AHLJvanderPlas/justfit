@@ -1362,6 +1362,30 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Built 2026-11-21 — voice 1: recorded coach voice per exercise (branch `voice1`; NOT generated, NOT deployed: no mp3, no migration 0128 yet)
+
+- **Scripts**: `scripts/fixtures/exercise-voice.json` — pilot of 10 exercises (push-up, squat, plank, glute-bridge, lunge, sit-up, dead-bug,
+  dumbbell-bicep-curl, dumbbell-shoulder-press, cat-cow), a Dutch and an English coaching script each (220-320 characters, name first, no
+  numbers or sets/reps), `model: eleven_v4`, `voices` (nl `voice_id` still "TBD" — set it before generating Dutch; en = Alice). Review table
+  `docs/exercise-voice.md` (generated).
+- **Generator** `scripts/generate-exercise-voice.mjs` (the owner runs it; tests use a fake fetch): key read from the file named in env
+  `JUSTFIT_VAULT_FILE` (line `ELEVENLABS_API_KEY=`; never printed, never an argument); `manifest.json` in
+  `packages/client-app/public/exercise-audio/` holds sha256 of script+voice+model per file, so a rerun costs nothing; `--dry-run`,
+  `--max-credits N` (default 5000), `--only`, `--lang`, `--migration-only`. It then writes `migrations/0128_exercise_voice.sql` (json_patch
+  `audio` into media_json, images survive, only files on disk, idempotent, assert) — absent while no mp3 exists. A change after 0128 is applied
+  ships as a NEW migration.
+- **Server**: `exerciseAudio()` in exerciseMedia.js → `{nl?, en?}` same-origin paths or null; plan steps (`audio` next to `images`),
+  `/api/exercises` and `/api/exercises/search` return it.
+- **Client**: `voiceClip.js` (one shared `Audio`, preload none, `play(url)` → 'ended' | 'stopped' | 'failed', `stop()`, `clipFor(step, lang)` =
+  exactly the app language, never another). WorkoutView: "Voorlezen" plays the clip when the step has one in the app language, else the device
+  voice exactly as before; no double reading; the clip has no sets/reps; stopped by the same events as speech (`stopReading`). The service
+  worker does not precache clips; `_headers` has the 30-day rule for `/exercise-audio/*` (no `media-src`, so `default-src 'self'` covers it).
+- Guards: smoke **Voice 1** (`scripts/voice1.scan.mjs`; passes with an empty folder and no 0128), `voice1.test.js`, `voiceClip.test.js`,
+  `exerciseAudio.test.js`; e2e `journey-voice.spec.js` (3). Playwright's `page.route` does not intercept a media element's request in Chromium,
+  so the journey serves `e2e/fixtures/silence.mp3` by copying it into `dist/exercise-audio/e2e-voice/` for the run.
+- Not done on purpose: iOS needs a user gesture to start audio — an auto-read clip that is refused simply resets the button (no device-voice
+  fallback after a refused clip).
+
 ### Shipped 2026-11-21 — media 1: exercise photos + read-aloud voice (live; migration 0127 applied, ledger 128, baseline seeds regenerated) (vitest 815 + 20, smoke 111 checks, e2e 48)
 
 - **Photos (data)**: 144 of 480 active exercises (strength 95, cardio 21, mobility 19, recovery 9) have a start and an end photo from
