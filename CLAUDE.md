@@ -1362,6 +1362,24 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-21 — text 1: every exercise has a complete instruction in English and Dutch (migration 0129 applied, ledger 130; vitest 909 + 20, smoke 112, e2e 51; no Pages deploy — data only)
+
+- **Migration 0129_exercise_instructions_all.sql** (GENERATED: `scripts/generate-instructions-migration.mjs` from
+  `scripts/fixtures/exercise-instructions.json`; review table `docs/exercise-instructions.md`). 480 active global exercises:
+  Dutch `steps_nl`/`cues_nl` new for 411, English `steps`/`cues` rewritten for 157 (fragments, missing start or return,
+  sets/rest bookkeeping as a step, five cues that were notes about the library), 3 `pregnancy_note_nl`. Storage as 0126:
+  keys inside `instructions_json`. Verified live: 480 of 480 rows have aligned Dutch lists. Closes C-B36.
+- **The generator refuses to run again** once the baseline carries Dutch for every exercise (0129 is applied history).
+  A correction is a NEW fixture + generator + migration, as for 0126.
+- **Guard** `tests/instructionsComplete.test.js`: every active global exercise in the baseline seeds has steps, cues and
+  Dutch lists of equal length, 💡 prefixes aligned, a Dutch pregnancy note where an English one exists. It failed on the
+  library before 0129 (2 of 4 tests) and passes after. A new exercise seeded without Dutch fails here.
+- **Do not collapse "💡 💡"**: the number of bulbs is the cue level (level 2 shows for advanced users only).
+- **Dutch term**: "uitvalspas", not "lunge", to match `name_nl`.
+- **Open** (fixture key `open_questions`, 32 slugs, ROADMAP C-B40): source texts that contradict their own name, equipment
+  or numbers. Numbers were kept as found. The text was written by Claude and spot-read by the manager (12 of 480); it is
+  not reviewed by a trainer.
+
 ### Shipped 2026-11-21 — voice 2: clips without a migration, stored plans refresh their media (vitest 905 + 20, smoke 112, e2e 51)
 
 - 16 exercises have a recorded clip (nl Roos + en Alice). A new clip needs NO migration: `scripts/generate-exercise-voice.mjs` writes `functions/api/_shared/voiceClips.js` from the audio manifest and `exerciseAudio(mediaJson, slug)` reads it. 0128 is frozen to the pilot rows (`in_0128` in the fixture).
