@@ -2,8 +2,14 @@
   "note": "Pilot of spoken coaching scripts for the recorded coach voice (release voice 1). Read by scripts/generate-exercise-voice.mjs and checked by scripts/voice1.scan.mjs: 150 to 400 characters, no digits, none of the characters x / ( ) [ ]. Based on the instructions in the baseline seed; no sets or reps (those change per plan).",
   "model": "eleven_v4",
   "voices": {
-    "nl": { "voice_id": "TBD", "name": "TBD" },
-    "en": { "voice_id": "Xb7hH8MSUJpSbSDYk0k2", "name": "Alice" }
+    "nl": {
+      "voice_id": "7qdUFMklKPaaAVMsBTBt",
+      "name": "Roos"
+    },
+    "en": {
+      "voice_id": "Xb7hH8MSUJpSbSDYk0k2",
+      "name": "Alice"
+    }
   },
   "exercises": {
     "push-up": {

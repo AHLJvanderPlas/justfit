@@ -1,0 +1,84 @@
+{
+  "files": {
+    "cat-cow/en.mp3": {
+      "sha256": "91de26e6243acddadb01682a1705a11ade63b9c2d751db6c1e2187fa34c44188",
+      "chars": 295
+    },
+    "cat-cow/nl.mp3": {
+      "sha256": "9e6b3e6ce6d73ed8fa59309d63aab31136af13f0aca5b36f4e2d98a397295a19",
+      "chars": 269
+    },
+    "dead-bug/en.mp3": {
+      "sha256": "66d26192b78e1de041d59abeee8b9258954c28ffd02c3828021d8afb11256c89",
+      "chars": 290
+    },
+    "dead-bug/nl.mp3": {
+      "sha256": "79229c3233c762d43adae324cd41ae97821c4fca1d51b8e06e32230b0ae73bb7",
+      "chars": 280
+    },
+    "dumbbell-bicep-curl/en.mp3": {
+      "sha256": "870fcd9029e7c47477c220064f78f4cd28d897a403ebd5408b2b3af30b25ee72",
+      "chars": 273
+    },
+    "dumbbell-bicep-curl/nl.mp3": {
+      "sha256": "f94cc59d68a34dc482ede620a2b6b12038460ec843d4259f0b822b62064b1073",
+      "chars": 277
+    },
+    "dumbbell-shoulder-press/en.mp3": {
+      "sha256": "1d9f245774a7d4cac3e71af42b46374c8e7d83fc8c6975199ed2731d8fe3f9e8",
+      "chars": 293
+    },
+    "dumbbell-shoulder-press/nl.mp3": {
+      "sha256": "c3f4c88f6bbe196585f0b91937b356d1d1e09752844bba5dcc4ac961bda8c06c",
+      "chars": 302
+    },
+    "glute-bridge/en.mp3": {
+      "sha256": "eb2dbad530cfaf9f8aef37b0f737cf743fa4990530e4b435a6bbab6bf5aa77f5",
+      "chars": 292
+    },
+    "glute-bridge/nl.mp3": {
+      "sha256": "9ba371619673839d72ac4da9f8a3e25ef5413e9301596762dfbb97e5b9a737bb",
+      "chars": 291
+    },
+    "lunge/en.mp3": {
+      "sha256": "12573fa4adf99e4278261b56461f83410db122585998af3f9e454b94bb0979b5",
+      "chars": 298
+    },
+    "lunge/nl.mp3": {
+      "sha256": "2efc07b9a0d8f99e8d982e69506a13bcf86587ddf0688342a0bab53e37aa742d",
+      "chars": 294
+    },
+    "plank/en.mp3": {
+      "sha256": "cb2af79be60b470bf13692a8c0b271ba031824e0ee83c3ced10e1409ac5755d5",
+      "chars": 288
+    },
+    "plank/nl.mp3": {
+      "sha256": "d428a2901eace1e712aa7c00f55a314a9fd420d918e749cf0011f3312b7aec62",
+      "chars": 273
+    },
+    "push-up/en.mp3": {
+      "sha256": "0c50b879aac2a75f3575dc639b1463d5a727454bf3fc2a40e2e082238a252ddb",
+      "chars": 277
+    },
+    "push-up/nl.mp3": {
+      "sha256": "28218faf42dd1daed65f9a9b7bb06e9bc6b0c1bc1ee7696b34a6916825ebe2e0",
+      "chars": 268
+    },
+    "sit-up/en.mp3": {
+      "sha256": "61b2c693a673304877cab97cd42a97977bf8c2256bd7d26611f89d5e3ecec3c7",
+      "chars": 280
+    },
+    "sit-up/nl.mp3": {
+      "sha256": "3ba42e83ff92d89bcd3fa26b7202c185881b6c626465df073fdb1e9d874b82c2",
+      "chars": 272
+    },
+    "squat/en.mp3": {
+      "sha256": "0d9e84081356095f710a60958f183b6fac0c742fe0a65d7deee3e14c96fd46ca",
+      "chars": 305
+    },
+    "squat/nl.mp3": {
+      "sha256": "6fcabd79b5dab84f743eb351a26cd930ad9c553aa1db1c16024bc6cf1b7f9c1c",
+      "chars": 296
+    }
+  }
+}
