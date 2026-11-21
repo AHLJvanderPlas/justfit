@@ -17,6 +17,7 @@ import { test, expect } from '@playwright/test';
 import { readFileSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { signupFresh } from './helpers.js';
+import { patchPlanAudio } from './planAudio.js';
 
 const MP3 = readFileSync(fileURLToPath(new URL('./fixtures/silence.mp3', import.meta.url)));
 const DIST_CLIPS = fileURLToPath(new URL('../packages/client-app/dist/exercise-audio/e2e-voice', import.meta.url));
@@ -49,32 +50,6 @@ function stubMedia() {
   HTMLMediaElement.prototype.pause = function () { log.pauses += 1; return pause.call(this); };
 }
 
-/** Every step of every /api/plan answer gets `audio` for the languages given. */
-async function patchPlanAudio(page, langs) {
-  const requested = [];   // what the media element really asked the server for (status and type included)
-  page.on('response', (r) => { const u = new URL(r.url()); if (u.pathname.startsWith('/exercise-audio/')) requested.push({ path: u.pathname, status: r.status(), type: r.headers()['content-type'] }); });
-  if (langs.length) {
-    await page.route('**/api/plan**', async (route) => {
-      const res = await route.fetch();
-      if (!(res.headers()['content-type'] ?? '').includes('json')) return route.fulfill({ response: res });
-      const json = await res.json();
-      const walk = (o) => {
-        if (Array.isArray(o)) o.forEach(walk);
-        else if (o && typeof o === 'object') {
-          if (typeof o.exercise_slug === 'string') o.audio = Object.fromEntries(langs.map((l) => [l, `/exercise-audio/e2e-voice/${l}.mp3`]));
-          for (const [k, v] of Object.entries(o)) {
-            // GET /api/plan carries the plan as a JSON string (plan_json).
-            if (typeof v === 'string' && v.includes('"exercise_slug"')) { try { const inner = JSON.parse(v); walk(inner); o[k] = JSON.stringify(inner); } catch { /* not JSON */ } }
-            else walk(v);
-          }
-        }
-      };
-      walk(json);
-      return route.fulfill({ response: res, json });
-    });
-  }
-  return requested;
-}
 
 async function toFirstExercise(page) {
   await page.getByRole('button', { name: /START SESSION/ }).click();

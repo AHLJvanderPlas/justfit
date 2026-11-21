@@ -14,6 +14,7 @@
 import { test, expect } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
 import { signupFresh } from './helpers.js';
+import { patchPlanAudio } from './planAudio.js';
 
 const SHOTS = process.env.MEDIA1_SHOTS ? '.uat-out/media1' : null;
 
@@ -51,6 +52,7 @@ async function shot(page, name, { width, height, scheme }) {
 test('exercise photos on the exercise screens, read aloud queued and stopped on set finish', async ({ page }) => {
   if (SHOTS) mkdirSync(SHOTS, { recursive: true });
   await page.addInitScript(stubSpeech);
+  await patchPlanAudio(page, []);   // this journey is about the device voice: no recorded clip on any step
   await signupFresh(page, '-media');
 
   if (SHOTS) {
