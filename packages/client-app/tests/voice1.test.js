@@ -5,7 +5,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { DatabaseSync } from 'node:sqlite';
+import { Buffer } from 'node:buffer';
 import {
   entryHash, parseKeyLine, readManifest, allEntries, selectPending, sumCredits, parseArgs, render, run,
   SRC, OUT, DOC, AUDIO_DIR, MANIFEST, audioPath,
