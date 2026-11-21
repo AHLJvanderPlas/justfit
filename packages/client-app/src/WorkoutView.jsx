@@ -23,6 +23,7 @@ import ExerciseThumb from "./ExerciseThumb.jsx";
 import ReadAloudButton from "./ReadAloudButton.jsx";
 import { speechSupported, buildSpokenScript, speakScript, stopSpeaking, primeSpeech } from "./speech.js";
 import { autoReadOn } from "./readAloudPref.js";
+import { clipFor, clipSupported, play as playClip, stop as stopClip } from "./voiceClip.js";
 const MuscleMap = lazy(() => import("./MuscleMap.jsx").then(m => ({ default: m.MuscleMap })));
 
 // C-F3 — "why am I doing this?" from the exercise's actual anatomy.
@@ -163,13 +164,24 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
   const speechTurnRef = useRef(0);
   const autoReadKeyRef = useRef(null);
   const speechOpts = { bodyMode, level: plan?.experience_level ?? "intermediate" };
-  const canReadAloud = speechSupported() && buildSpokenScript(cur, getLang(), speechOpts).length > 0;
+  // Voice 1 — a recorded clip in the app language wins; without one the device voice reads as before.
+  // The clip holds name, setup, movement and one cue — not the sets and reps (those change per plan).
+  const clipUrl = clipSupported() ? clipFor(cur, getLang()) : null;
+  const canReadAloud = !!clipUrl || (speechSupported() && buildSpokenScript(cur, getLang(), speechOpts).length > 0);
   function stopReading() {
     speechTurnRef.current += 1;
     stopSpeaking();
+    stopClip();
     setSpeaking(false);
   }
   function startReading() {
+    if (clipUrl) {
+      stopSpeaking();
+      const turn = ++speechTurnRef.current;
+      setSpeaking(true);
+      playClip(clipUrl).then(() => { if (speechTurnRef.current === turn) setSpeaking(false); });
+      return;
+    }
     const parts = buildSpokenScript(cur, getLang(), speechOpts);
     if (!parts.length) return;
     const turn = ++speechTurnRef.current;
@@ -199,6 +211,7 @@ export default function WorkoutView({ plan, onComplete, onBack, cycle, prefs }) 
       window.removeEventListener("pagehide", stopReading);
       document.removeEventListener("visibilitychange", onHide);
       stopSpeaking();
+      stopClip();
     };
   }, []);
   useEffect(() => {
