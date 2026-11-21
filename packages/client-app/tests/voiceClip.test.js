@@ -1,15 +1,18 @@
 // Voice 1 — the shared clip player: one Audio element, never two clips at once, a rejected
 // play() resets, and a clip is only chosen for exactly the app language.
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { clipFor, clipSupported, play, stop } from '../src/voiceClip.js';
 
-let made, rejectPlay;
+let made, rejectPlay, clipFor, clipSupported, play, stop;
 class FakeAudio {
   constructor() { made.push(this); this.preload = 'auto'; this.src = ''; this.paused = true; this.pauses = 0; this.onended = null; this.onerror = null; }
   play() { this.paused = false; return rejectPlay ? Promise.reject(new Error('NotAllowedError')) : Promise.resolve(); }
   pause() { this.paused = true; this.pauses += 1; }
 }
-beforeEach(() => { made = []; rejectPlay = false; vi.stubGlobal('Audio', FakeAudio); });
+beforeEach(async () => {
+  made = []; rejectPlay = false; vi.stubGlobal('Audio', FakeAudio);
+  vi.resetModules();   // a fresh module = a fresh shared element per test
+  ({ clipFor, clipSupported, play, stop } = await import('../src/voiceClip.js'));
+});
 afterEach(() => { stop(); vi.unstubAllGlobals(); });
 const flush = () => new Promise((r) => setTimeout(r, 0));
 
