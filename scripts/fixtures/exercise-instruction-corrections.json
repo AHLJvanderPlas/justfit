@@ -1,0 +1,1101 @@
+{
+ "_about": "Text 2 (2026-11-22): corrections to the instruction text of 0129 — the 32 open questions of text 1 (26 corrected here, 6 already settled in 0129: see resolved_as_is) and 18 cues or steps that made a health or injury claim. Each entry is the full text after the correction; `why` says what was wrong. Source for migration 0130 via scripts/generate-instruction-corrections-migration.mjs. Equipment tags were not changed: the text now works with the equipment the planner assumes.",
+ "resolved_as_is": {
+  "easy-run-outdoor": "the outdoor rewrite of 0129 stands (the treadmill has its own exercise)",
+  "band-pallof-press": "library note replaced in 0129",
+  "cable-woodchop": "wrong anti-rotation cue replaced in 0129",
+  "kettlebell-row": "free-hand support and coaching cue from 0129 stand",
+  "tibialis-raise": "library note replaced in 0129",
+  "dumbbell-single-arm-row": "split-stance support from 0129 stands; it needs no bench"
+ },
+ "exercises": {
+  "ankle-mobility-circles": {
+   "why": "medical claim",
+   "steps": [
+    "Sit or stand, lift one foot off the floor",
+    "Draw large circles with your foot clockwise 10 times",
+    "Reverse 10 times",
+    "Switch feet"
+   ],
+   "cues": [
+    "Point and flex through the full range",
+    "Feels good when your ankles are swollen in pregnancy",
+    "Also do toe spells (trace letters with toes) for variety"
+   ],
+   "steps_nl": [
+    "Ga zitten of staan en til één voet van de vloer.",
+    "Maak 10 keer grote cirkels met je voet, met de klok mee.",
+    "Draai 10 keer de andere kant op.",
+    "Wissel van voet."
+   ],
+   "cues_nl": [
+    "Strek en buig je voet door de volle bewegingsuitslag.",
+    "Voelt prettig als je enkels gezwollen zijn tijdens de zwangerschap",
+    "Schrijf voor de afwisseling ook letters met je tenen."
+   ]
+  },
+  "ankle-pumps": {
+   "why": "medical claim (prevents DVT)",
+   "steps": [
+    "Sit or lie with legs extended, or elevate feet on a pillow",
+    "Flex feet — pull toes toward you",
+    "Point feet — push toes away",
+    "Alternate in steady rhythm, 20 to 30 pumps",
+    "Then do ankle circles in each direction"
+   ],
+   "cues": [
+    "Stimulates the calf muscle pump",
+    "Keeps the blood moving in your lower legs when you sit or lie down for long",
+    "Do this every 30 to 60 minutes when sitting for long periods"
+   ],
+   "steps_nl": [
+    "Ga zitten of liggen met gestrekte benen, of leg je voeten omhoog op een kussen",
+    "Buig je voeten — trek je tenen naar je toe",
+    "Strek je voeten — duw je tenen van je af",
+    "Wissel af in een rustig ritme, 20 tot 30 keer",
+    "Draai daarna met je enkels cirkels in beide richtingen"
+   ],
+   "cues_nl": [
+    "Zet de kuitspierpomp aan het werk",
+    "Houdt het bloed in je onderbenen in beweging als je lang zit of ligt",
+    "Doe dit elke 30 tot 60 minuten als je lang zit"
+   ]
+  },
+  "barbell-calf-raise": {
+   "why": "injury-prevention claim",
+   "steps": [
+    "Rest the bar on your upper back and stand tall, on a step if you have one",
+    "Rise onto the balls of your feet as high as you can",
+    "Pause at the top",
+    "Lower slowly until you feel a stretch"
+   ],
+   "cues": [
+    "Slow on the way down — that is where the work is",
+    "Do not bounce",
+    "💡 Strong calves take much of the load when you run"
+   ],
+   "steps_nl": [
+    "Leg de stang op je bovenrug en sta rechtop, op een opstapje als je er een hebt",
+    "Kom zo hoog mogelijk omhoog op de bal van je voeten",
+    "Houd bovenin even vast",
+    "Zak langzaam tot je rek voelt"
+   ],
+   "cues_nl": [
+    "Zak langzaam — daar zit het echte werk",
+    "Niet veren",
+    "💡 Sterke kuiten vangen bij het hardlopen een groot deel van de belasting op"
+   ]
+  },
+  "clean-pull": {
+   "why": "equipment is none but the text led with a bar",
+   "steps": [
+    "Start standing, feet hip-width; hinge at the hips with a flat back to reach your hands to mid-shin height",
+    "Drive through your legs and extend your hips explosively — think of jumping straight up",
+    "As your hips fully extend, shrug your shoulders aggressively and pull your elbows high and wide",
+    "Your hands rise to upper-chest height; lower under control and reset"
+   ],
+   "cues": [
+    "Power comes from the legs and hips — the arms guide, not pull",
+    "Keep your hands close to your body throughout (the same goes for a bar, if you use one)",
+    "💡 This is the first pull of a clean — it builds the explosive hip extension needed for military physical tests"
+   ],
+   "steps_nl": [
+    "Begin staand, voeten op heupbreedte. Scharnier vanuit je heupen met een vlakke rug tot je handen op scheenhoogte zijn",
+    "Duw door je benen en strek je heupen explosief — alsof je recht omhoog springt",
+    "Trek zodra je heupen gestrekt zijn krachtig je schouders op en trek je ellebogen hoog en breed",
+    "Je handen komen tot bovenborsthoogte; laat gecontroleerd zakken en begin opnieuw"
+   ],
+   "cues_nl": [
+    "De kracht komt uit je benen en heupen — je armen begeleiden, ze trekken niet",
+    "Houd je handen de hele tijd dicht bij je lichaam (dat geldt ook voor een stang, als je die gebruikt)",
+    "💡 Dit is de eerste trek van een clean — het bouwt de explosieve heupstrekking op die je nodig hebt voor militaire fysieke testen"
+   ]
+  },
+  "copenhagen-plank": {
+   "why": "injury-prevention claim",
+   "steps": [
+    "Lie on your side with your top foot resting on a chair or bench.",
+    "Prop up on your forearm and lift your hips so your body is straight.",
+    "Hold, keeping the bottom leg off the floor if you can.",
+    "Change sides."
+   ],
+   "cues": [
+    "Start with the bottom knee down — it is much easier",
+    "Stop the moment the hips drop",
+    "💡 Widely used in football and running programmes to strengthen the groin"
+   ],
+   "steps_nl": [
+    "Ga op je zij liggen met je bovenste voet op een stoel of bank",
+    "Steun op je onderarm en til je heupen op tot je lichaam een rechte lijn vormt",
+    "Houd vast en houd je onderste been van de vloer als dat lukt",
+    "Wissel van kant"
+   ],
+   "cues_nl": [
+    "Begin met je onderste knie op de vloer — dat is veel makkelijker",
+    "Stop zodra je heupen zakken",
+    "💡 Veel gebruikt in voetbal- en hardloopprogramma's om de liezen sterker te maken"
+   ]
+  },
+  "couch-stretch": {
+   "why": "promise of results",
+   "steps": [
+    "Kneel with your back to a wall or sofa. Slide your rear foot up the wall so the top of your foot and shin are resting against it — this stretches the hip flexor of that rear leg.",
+    "Bring your front foot forward and plant it flat on the floor so your front knee is directly over your ankle, thigh roughly parallel to the floor.",
+    "Squeeze the glute of the rear leg firmly and tuck your pelvis slightly. This activates the stretch — without the glute squeeze you will just feel it in your knee, not your hip flexor.",
+    "Hold for 60-90 seconds, breathing steadily. Switch sides."
+   ],
+   "cues": [
+    "Squeezing the glute of the rear leg is not optional — it is what moves the stretch from the knee to the hip flexor where it belongs.",
+    "Upright torso throughout — if you are leaning forward, bring your front foot further out.",
+    "💡 💡 One of the most effective hip flexor stretches — valuable for runners, cyclists and anyone who sits a lot. Hold at least 60–90 seconds per side"
+   ],
+   "steps_nl": [
+    "Kniel met je rug naar een muur of bank. Schuif je achterste voet omhoog langs de muur tot je wreef en scheen ertegenaan liggen — zo rek je de heupbuiger van dat achterste been",
+    "Zet je voorste voet naar voren, plat op de vloer, met je voorste knie recht boven je enkel en je bovenbeen ongeveer evenwijdig aan de vloer",
+    "Span de bilspier van je achterste been stevig aan en kantel je bekken iets. Dat zet de rek aan — zonder aangespannen bil voel je het alleen in je knie en niet in je heupbuiger",
+    "Houd 60-90 seconden vast en adem rustig door. Wissel van kant"
+   ],
+   "cues_nl": [
+    "De bilspier van je achterste been aanspannen is geen extraatje: het verplaatst de rek van je knie naar je heupbuiger, waar hij hoort",
+    "Houd je bovenlichaam de hele tijd rechtop — leun je naar voren, zet dan je voorste voet verder naar voren",
+    "💡 💡 Een van de effectiefste stretches voor je heupbuigers — waardevol voor hardlopers, fietsers en iedereen die veel zit. Houd minimaal 60–90 seconden per kant vast"
+   ]
+  },
+  "cycling-intervals-indoor": {
+   "why": "injury-risk claim",
+   "steps": [
+    "Warm up at 70–90W for 5 minutes at 80 RPM — HR should reach 110–120 bpm before the intervals begin.",
+    "Effort interval: increase resistance to your maximum sustainable output. Target 150–250W at 90–110 RPM. This should feel like 8–9 out of 10 effort — HR target 160–175 bpm.",
+    "Recovery interval: drop to 60–90W at 70–80 RPM. Let HR fall back to 120–130 bpm before the next effort begins. Full recovery makes HIIT effective.",
+    "Repeat the effort/recovery pattern. Final 5 minutes: cool down at 60–80W, 75 RPM."
+   ],
+   "cues": [
+    "💡 Watt targets: beginners 120–160W effort / 60–80W recovery. Intermediate 160–220W / 70–90W. Advanced 200–280W+ / 80–100W.",
+    "💡 RPM during efforts: 90–110 revolutions per minute. High cadence maximises cardiovascular stimulus.",
+    "💡 HIIT on a bike is easy on your joints — you can push hard without the impact of running intervals",
+    "💡 HR 165–175 bpm during effort is the target. If you cannot reach 160 bpm, increase resistance."
+   ],
+   "steps_nl": [
+    "Doe een warming-up van 5 minuten op 70–90 W en 80 rpm — je hartslag hoort op 110–120 slagen per minuut te zitten voordat de intervallen beginnen",
+    "Inspanningsinterval: verhoog de weerstand tot het maximale vermogen dat je kunt volhouden. Mik op 150–250 W bij 90–110 rpm. Dit voelt als een 8–9 op 10 — streefhartslag 160–175 slagen per minuut",
+    "Herstelinterval: zak terug naar 60–90 W bij 70–80 rpm. Laat je hartslag dalen tot 120–130 slagen per minuut voordat de volgende inspanning begint. Volledig herstel maakt HIIT effectief",
+    "Herhaal het patroon van inspanning en herstel. Laatste 5 minuten: cooling-down op 60–80 W en 75 rpm"
+   ],
+   "cues_nl": [
+    "💡 Wattages: beginners 120–160 W inspanning / 60–80 W herstel. Gemiddeld 160–220 W / 70–90 W. Gevorderd 200–280 W of meer / 80–100 W",
+    "💡 Trapfrequentie tijdens de inspanning: 90–110 omwentelingen per minuut. Een hoge trapfrequentie prikkelt hart en longen maximaal",
+    "💡 HIIT op de fiets is vriendelijk voor je gewrichten — je kunt hard gaan zonder de klappen van loopintervallen",
+    "💡 Een hartslag van 165–175 slagen per minuut tijdens de inspanning is het doel. Haal je de 160 niet, verhoog dan de weerstand"
+   ]
+  },
+  "deadlift": {
+   "why": "steps were telegraphic and \"3 sets of sustained effort\" was vague",
+   "steps": [
+    "Stand with your feet hip-width apart and the barbell (or a weighted rucksack or box) over your mid-foot",
+    "Hinge at your hips and grip it firmly",
+    "Brace your core, keep your back straight and push the floor away to lift",
+    "Stand tall with your hips and knees fully extended",
+    "Lower with control"
+   ],
+   "cues": [
+    "Do 3 sets with 30 s rest between sets; keep every rep controlled",
+    "You can swap the barbell for a filled rucksack or a sturdy box",
+    "Keep a flat back throughout — do not round it"
+   ],
+   "steps_nl": [
+    "Sta met je voeten op heupbreedte en de barbell (of een gevulde rugzak of kist) boven het midden van je voeten",
+    "Scharnier vanuit je heupen en pak hem stevig vast",
+    "Span je core aan, houd je rug recht en duw de vloer weg om te tillen",
+    "Kom helemaal rechtop met gestrekte heupen en knieën",
+    "Laat gecontroleerd zakken"
+   ],
+   "cues_nl": [
+    "Doe 3 sets met 30 s rust tussen de sets; voer elke herhaling gecontroleerd uit",
+    "Je kunt de barbell vervangen door een gevulde rugzak of een stevige doos",
+    "Houd je rug de hele tijd vlak — maak hem niet bol"
+   ]
+  },
+  "dumbbell-chest-press-floor": {
+   "why": "step 1 had the dumbbells above the chest and the upper arms on the floor at once",
+   "steps": [
+    "Lie on your back on the floor with your knees bent, holding the dumbbells above your chest with straight arms, palms facing forward.",
+    "Lower the dumbbells until your upper arms touch the floor, pausing briefly. Keep your wrists stacked over your elbows throughout.",
+    "Press back up explosively, stopping just before full elbow lockout to keep tension in the chest."
+   ],
+   "cues": [
+    "💡 The pause at the bottom removes stored elastic energy — every rep starts from nothing, making this harder and more effective than a bench press.",
+    "Keep your lower back flat on the floor throughout. No arching."
+   ],
+   "steps_nl": [
+    "Ga op je rug op de vloer liggen met gebogen knieën en houd de dumbbells met gestrekte armen boven je borst, handpalmen naar voren.",
+    "Laat de dumbbells zakken tot je bovenarmen de vloer raken en houd even vast. Houd je polsen de hele tijd recht boven je ellebogen",
+    "Druk explosief terug omhoog en stop net voordat je ellebogen helemaal gestrekt zijn, zodat de spanning op je borst blijft"
+   ],
+   "cues_nl": [
+    "💡 Door de pauze onderin verdwijnt de opgeslagen veerkracht — elke herhaling begint vanuit stilstand, wat dit zwaarder en effectiever maakt dan een bench press",
+    "Houd je onderrug de hele tijd plat op de vloer. Niet hol trekken"
+   ]
+  },
+  "dumbbell-hip-thrust": {
+   "why": "the text needed a bench that the equipment does not list; a sofa or fixed chair now works too",
+   "steps": [
+    "Sit on the floor with your upper back against a bench, sofa or sturdy chair that cannot slide, shoulder blades on the edge. Place a dumbbell across your hips. Feet flat, hip-width apart.",
+    "Drive through your heels to push your hips up until your body forms a straight line from knees to shoulders. Squeeze your glutes hard at the top.",
+    "Lower your hips back toward the floor with control. That is one rep."
+   ],
+   "cues": [
+    "💡 The glute squeeze at the top is the whole exercise — a half-contracted glute produces half the benefit.",
+    "Tuck your chin slightly and brace your core to avoid over-extending your lower back."
+   ],
+   "steps_nl": [
+    "Ga op de vloer zitten met je bovenrug tegen een bank of stevige stoel die niet kan wegschuiven, schouderbladen op de rand. Leg een dumbbell dwars over je heupen. Voeten plat, op heupbreedte.",
+    "Duw door je hielen om je heupen omhoog te brengen tot je lichaam een rechte lijn vormt van knieën tot schouders. Span bovenin je bilspieren hard aan",
+    "Laat je heupen gecontroleerd terugzakken richting de vloer. Dat is één herhaling"
+   ],
+   "cues_nl": [
+    "💡 Het aanspannen van je bilspieren bovenin ís de oefening — half aanspannen levert de helft op",
+    "Trek je kin iets in en span je core aan, zodat je je onderrug niet overstrekt"
+   ]
+  },
+  "dumbbell-incline-chest-press": {
+   "why": "equipment lists a chair and the Dutch name an incline bench; the text named neither",
+   "steps": [
+    "Sit leaning back at an incline: on an incline bench, in a sturdy chair with a slanted back, or against a sofa arm",
+    "Hold dumbbells at chest height, palms forward",
+    "Press dumbbells up and slightly in until arms nearly straight",
+    "Lower slowly to start"
+   ],
+   "cues": [
+    "Incline targets upper chest",
+    "More comfortable than flat press for many people",
+    "Avoid flat supine press after 16 weeks pregnancy"
+   ],
+   "steps_nl": [
+    "Ga schuin achterover zitten: op een schuine bank, in een stevige stoel met schuine rugleuning of tegen de armleuning van een bank",
+    "Houd de dumbbells op borsthoogte, handpalmen naar voren",
+    "Druk de dumbbells omhoog en iets naar binnen tot je armen bijna gestrekt zijn",
+    "Laat langzaam zakken naar de beginpositie"
+   ],
+   "cues_nl": [
+    "Schuin drukken traint het bovenste deel van je borst",
+    "Voor veel mensen prettiger dan plat drukken",
+    "Druk na 16 weken zwangerschap niet meer plat op je rug"
+   ]
+  },
+  "dumbbell-tricep-kickback": {
+   "why": "the text did not say one arm or both; the exercise is loaded as a pair of dumbbells",
+   "steps": [
+    "Hold a dumbbell in each hand, hinge forward about 45° with a flat back and tuck your upper arms along your sides, elbows bent",
+    "Extend both forearms back until your arms are straight",
+    "Squeeze your triceps at the top",
+    "Return slowly to the start"
+   ],
+   "cues": [
+    "Keep your upper arms still",
+    "Straighten your arms fully"
+   ],
+   "steps_nl": [
+    "Houd in elke hand een dumbbell, buig met een vlakke rug ongeveer 45° voorover en houd je bovenarmen langs je romp, ellebogen gebogen",
+    "Strek beide onderarmen naar achteren tot je armen recht zijn",
+    "Span je triceps aan in de eindpositie",
+    "Kom langzaam terug naar de start"
+   ],
+   "cues_nl": [
+    "Houd je bovenarmen stil",
+    "Strek je armen helemaal"
+   ]
+  },
+  "eccentric-calf-raise-step": {
+   "why": "evidence claim",
+   "steps": [
+    "Stand with the balls of both feet on a step, heels hanging off.",
+    "Rise onto both toes.",
+    "Shift your weight to one leg and lower that heel slowly below the step over 3-5 seconds.",
+    "Use both legs to rise again."
+   ],
+   "cues": [
+    "Up with two, down with one",
+    "The slow lowering is the whole exercise",
+    "💡 Slow lowering is a widely used way to build calf and Achilles strength"
+   ],
+   "steps_nl": [
+    "Sta met de bal van beide voeten op een trede en laat je hielen over de rand hangen",
+    "Kom op beide voeten omhoog op je tenen",
+    "Breng je gewicht naar één been en laat die hiel in 3–5 seconden langzaam tot onder de trede zakken",
+    "Gebruik beide benen om weer omhoog te komen"
+   ],
+   "cues_nl": [
+    "Met twee omhoog, met één omlaag",
+    "Het langzame zakken is de hele oefening",
+    "💡 Langzaam zakken is een veelgebruikte manier om je kuit en achillespees sterker te maken"
+   ]
+  },
+  "eye-palming": {
+   "why": "medical claim (relieves eye strain)",
+   "steps": [
+    "Rub palms together briskly for 10 seconds until warm",
+    "Cup warm palms gently over closed eyes — no pressure on eyeballs",
+    "Breathe slowly and let eyes completely relax in the darkness",
+    "Hold for 60–90 seconds",
+    "Repeat 2–3 times"
+   ],
+   "cues": [
+    "A rest for your eyes after screen work",
+    "The warmth and darkness are very soothing",
+    "Add a couple drops of lavender to palms for added calm"
+   ],
+   "steps_nl": [
+    "Wrijf je handpalmen 10 seconden stevig tegen elkaar tot ze warm zijn",
+    "Leg je warme handpalmen als een kommetje over je gesloten ogen — geen druk op je oogbollen",
+    "Adem rustig en laat je ogen in het donker helemaal ontspannen",
+    "Houd 60–90 seconden vast",
+    "Herhaal 2–3 keer"
+   ],
+   "cues_nl": [
+    "Rust voor je ogen na schermwerk",
+    "De warmte en het donker werken heel rustgevend",
+    "Doe een paar druppels lavendel op je handpalmen voor extra rust"
+   ]
+  },
+  "forearm-wrist-stretch": {
+   "why": "medical claim (carpal tunnel)",
+   "steps": [
+    "Extend your right arm straight in front of you with your palm facing up",
+    "Use your left hand to gently pull your fingers down toward the floor",
+    "Hold for 20 seconds and feel the stretch along the underside of your forearm",
+    "Turn your palm down, gently pull your fingers up and hold for 20 seconds",
+    "Switch arms and repeat"
+   ],
+   "cues": [
+    "Gentle pressure only",
+    "Can feel good when your wrists are swollen or stiff in pregnancy",
+    "Essential for new parents carrying a baby"
+   ],
+   "steps_nl": [
+    "Strek je rechterarm recht voor je uit met je handpalm naar boven",
+    "Trek met je linkerhand je vingers zachtjes omlaag richting de vloer",
+    "Houd 20 seconden vast en voel de rek aan de onderkant van je onderarm",
+    "Draai je handpalm naar beneden, trek je vingers zachtjes omhoog en houd 20 seconden vast",
+    "Wissel van arm en herhaal"
+   ],
+   "cues_nl": [
+    "Alleen zachte druk",
+    "Kan prettig zijn als je polsen gezwollen of stijf zijn tijdens de zwangerschap",
+    "Onmisbaar voor kersverse ouders die veel een baby dragen"
+   ]
+  },
+  "front-squat": {
+   "why": "equipment is none but the text mixed in a bar",
+   "steps": [
+    "Stand with your feet shoulder-width apart and cross your arms in front of your chest, elbows high",
+    "Keeping your elbows high and torso upright, push your hips back and squat",
+    "Descend until thighs are parallel — the front-loaded position demands a more upright torso than a back squat",
+    "Drive through your heels to stand, maintaining elbow height throughout"
+   ],
+   "cues": [
+    "Dropping elbows tip you forward and break your form. To add load, hold a dumbbell or kettlebell at your chest",
+    "More quad-dominant than back squat — great for military preparation",
+    "💡 The same high elbows carry over to a barbell front squat later"
+   ],
+   "steps_nl": [
+    "Sta met je voeten op schouderbreedte en kruis je armen voor je borst, ellebogen hoog",
+    "Houd je ellebogen hoog en je romp rechtop, duw je heupen naar achteren en zak in de squat",
+    "Zak tot je bovenbenen horizontaal zijn — met het gewicht voor je moet je romp rechter blijven dan bij een back squat",
+    "Duw via je hielen omhoog en houd je ellebogen de hele tijd hoog"
+   ],
+   "cues_nl": [
+    "Als je ellebogen zakken, kantel je naar voren en verlies je je houding. Zwaarder maken: houd een dumbbell of kettlebell voor je borst",
+    "Belast je quadriceps meer dan de back squat — sterk voor militaire voorbereiding",
+    "💡 Dezelfde hoge ellebogen heb je later nodig bij een front squat met barbell"
+   ]
+  },
+  "glute-piriformis-stretch": {
+   "why": "medical claim (sciatic nerve)",
+   "steps": [
+    "Lie on your back with your knees bent",
+    "Cross your right ankle over your left knee",
+    "Flex your right foot",
+    "Stay here, or reach through your legs to hold your left thigh",
+    "Gently draw your left leg toward your chest",
+    "Hold for 30–60 seconds, then switch sides"
+   ],
+   "cues": [
+    "Flex the top foot to protect the knee",
+    "A figure-four stretch lying down",
+    "Often feels good when your buttock or the back of your leg is tight"
+   ],
+   "steps_nl": [
+    "Lig op je rug met je knieën gebogen",
+    "Leg je rechterenkel over je linkerknie",
+    "Trek de tenen van je rechtervoet naar je toe",
+    "Blijf zo liggen, of reik tussen je benen door en pak je linkerdij vast",
+    "Trek je linkerbeen rustig naar je borst",
+    "Houd 30–60 seconden vast en wissel dan van kant"
+   ],
+   "cues_nl": [
+    "Houd je bovenste voet aangespannen om je knie te beschermen",
+    "Een figuur-4 stretch, maar dan liggend",
+    "Voelt vaak prettig als je bil of de achterkant van je been gespannen is"
+   ]
+  },
+  "graaftest": {
+   "why": "a cue claimed how the test is scored, which is not verified, and the equipment cue did not match the dumbbell tag",
+   "steps": [
+    "Stand with feet shoulder-width apart, weight held in both hands",
+    "Lower the weight diagonally to hip height on one side — start position",
+    "In one explosive movement, rotate and lift the weight diagonally to shoulder height on the opposite side",
+    "Reverse under control back to start position — this is one repetition",
+    "Alternate sides each set or complete all reps on one side first"
+   ],
+   "cues": [
+    "Hold one dumbbell with both hands; a kettlebell or medicine ball works too",
+    "Drive the movement from your hips and core, not your arms",
+    "Keep a neutral spine throughout",
+    "Aim for power and control in the rotation"
+   ],
+   "steps_nl": [
+    "Sta met je voeten op schouderbreedte en houd het gewicht met beide handen vast",
+    "Laat het gewicht aan één kant diagonaal zakken tot heuphoogte — dit is de startpositie",
+    "Draai in één explosieve beweging en til het gewicht diagonaal naar schouderhoogte aan de andere kant",
+    "Ga gecontroleerd terug naar de startpositie — dit is één herhaling",
+    "Wissel elke set van kant of doe eerst alle herhalingen aan één kant"
+   ],
+   "cues_nl": [
+    "Houd één dumbbell met beide handen vast; een kettlebell of medicijnbal kan ook",
+    "Zet de beweging in vanuit je heupen en core, niet vanuit je armen",
+    "Houd je rug de hele tijd neutraal",
+    "Let op kracht en controle in de draaiing"
+   ]
+  },
+  "hardlopen-zone-3-2700-meter": {
+   "why": "the text described 3 x 2 minutes, which cannot cover 2700 m; the name and the stored duration (810 s) describe one continuous 2700 m run",
+   "steps": [
+    "Run 2700 meters at zone 3 intensity without stopping"
+   ],
+   "cues": [
+    "Zone 3 = threshold: comfortably hard, short phrases only",
+    "About 13:30 at a typical zone 3 pace (12 km/h)",
+    "Start controlled so you can hold the pace to the end"
+   ],
+   "steps_nl": [
+    "Loop 2700 meter in zone 3 zonder te stoppen"
+   ],
+   "cues_nl": [
+    "Zone 3 = drempeltempo: stevig maar vol te houden, praten lukt alleen in korte zinnetjes",
+    "Ongeveer 13:30 in een gangbaar zone 3-tempo (12 km/u)",
+    "Begin beheerst, zodat je het tempo tot het einde volhoudt"
+   ]
+  },
+  "hardlopen-zone-4-2700-meter": {
+   "why": "the text described 4 x 1 minute, which cannot cover 2700 m; the name and the stored duration (729 s) describe one continuous 2700 m run",
+   "steps": [
+    "Run 2700 meters at zone 4 intensity without stopping"
+   ],
+   "cues": [
+    "Zone 4 = very hard: you can only say a word or two",
+    "About 12:10 at a typical zone 4 pace (13.3 km/h)",
+    "Start controlled so you can hold the pace to the end"
+   ],
+   "steps_nl": [
+    "Loop 2700 meter in zone 4 zonder te stoppen"
+   ],
+   "cues_nl": [
+    "Zone 4 = heel zwaar: je kunt hooguit een paar woorden zeggen",
+    "Ongeveer 12:10 in een gangbaar zone 4-tempo (13,3 km/u)",
+    "Begin beheerst, zodat je het tempo tot het einde volhoudt"
+   ]
+  },
+  "hardlopen-zone-5-2700-meter": {
+   "why": "the text described 6 x 30 seconds, which cannot cover 2700 m; the name and the stored duration (648 s) describe one continuous 2700 m run",
+   "steps": [
+    "Run 2700 meters at the fastest pace you can hold for the whole distance"
+   ],
+   "cues": [
+    "Zone 5 here = all-out for the distance, not a sprint from the start",
+    "About 10:50 at this pace (15 km/h)",
+    "Very demanding — only when you are well trained and warmed up"
+   ],
+   "steps_nl": [
+    "Loop 2700 meter in het hoogste tempo dat je de hele afstand kunt volhouden"
+   ],
+   "cues_nl": [
+    "Zone 5 betekent hier: alles geven over de hele afstand, niet sprinten vanaf de start",
+    "Ongeveer 10:50 in dit tempo (15 km/u)",
+    "Heel zwaar — alleen als je goed getraind en goed opgewarmd bent"
+   ]
+  },
+  "hardlopen-zone-5-6x30-seconden": {
+   "why": "the rest was given as \"30 seconds or 2 minutes\" and a cue was an authoring note; the rest now follows the session",
+   "steps": [
+    "Sprint at maximum effort for 30 seconds",
+    "Recover by walking or jogging very easily for the rest time the session gives you",
+    "Repeat for 6 sets total"
+   ],
+   "cues": [
+    "Zone 5 = maximal sprint",
+    "Use the whole rest: every sprint should be as fast as the first"
+   ],
+   "steps_nl": [
+    "Sprint 30 seconden op maximale inspanning",
+    "Herstel wandelend of heel rustig dravend, zo lang als de sessie aangeeft",
+    "Herhaal tot je in totaal 6 sets hebt gedaan"
+   ],
+   "cues_nl": [
+    "Zone 5 = maximale sprint",
+    "Gebruik de hele rust: elke sprint moet even snel zijn als de eerste"
+   ]
+  },
+  "heup-brug": {
+   "why": "steps were telegraphic and \"hold briefly\" contradicted the 10 s hold in the cue",
+   "steps": [
+    "Lie on your back with your knees bent and your feet flat on the floor, hip-width apart",
+    "Press through your heels and lift your hips until your body forms a straight line from shoulders to knees",
+    "Squeeze your glutes at the top and hold for 10 seconds",
+    "Lower with control"
+   ],
+   "cues": [
+    "Do 4 holds of 10 s with 30 s rest between them",
+    "Do not hyperextend the lower back at top",
+    "Keep core braced throughout"
+   ],
+   "steps_nl": [
+    "Ga op je rug liggen met gebogen knieën en je voeten plat op de vloer, op heupbreedte",
+    "Duw vanuit je hielen en til je heupen op tot je lichaam een rechte lijn vormt van schouders tot knieën",
+    "Span je bilspieren aan en houd 10 seconden vast",
+    "Laat gecontroleerd zakken"
+   ],
+   "cues_nl": [
+    "Doe 4 keer 10 s vasthouden, met 30 s rust ertussen",
+    "Overstrek je onderrug bovenin niet",
+    "Houd je core de hele tijd aangespannen"
+   ]
+  },
+  "high-pull": {
+   "why": "unclear whether one dumbbell or two; the exercise is loaded as a pair",
+   "steps": [
+    "Stand with your feet hip-width apart, holding a dumbbell in each hand with an overhand grip at thigh height",
+    "Bend your knees slightly, then drive your hips forward and shrug your shoulders hard",
+    "Pull your elbows high and wide as momentum carries the weight up to chin height",
+    "Lower under control back to thigh height and repeat"
+   ],
+   "cues": [
+    "This is a power movement — drive from the lower body, don't muscle it up with your arms",
+    "Elbows stay above wrists throughout the pull",
+    "💡 Simpler than a clean pull — great entry point to Olympic-style lifting"
+   ],
+   "steps_nl": [
+    "Sta met je voeten op heupbreedte en houd in elke hand een dumbbell met bovenhandse greep op dijhoogte",
+    "Buig je knieën licht, duw dan je heupen naar voren en trek je schouders krachtig op",
+    "Trek je ellebogen hoog en wijd terwijl de vaart het gewicht tot kinhoogte brengt",
+    "Laat gecontroleerd zakken tot dijhoogte en herhaal"
+   ],
+   "cues_nl": [
+    "Dit is een explosieve beweging — de kracht komt uit je onderlichaam, niet uit je armen",
+    "Je ellebogen blijven de hele beweging boven je polsen",
+    "💡 Eenvoudiger dan een clean pull — een mooie eerste stap naar olympisch gewichtheffen"
+   ]
+  },
+  "inner-thigh-squeeze": {
+   "why": "equipment is none; the text now names household items first",
+   "steps": [
+    "Sit upright on a chair or other firm seat with a rolled towel, pillow or soft ball between your knees",
+    "Exhale and gently squeeze your knees together",
+    "Contract your pelvic floor at the same time as you squeeze",
+    "Hold for 5 seconds, then release fully",
+    "Repeat 10 times"
+   ],
+   "cues": [
+    "No ball? Just imagine squeezing",
+    "Coordinate with pelvic floor lift",
+    "Good seated desk-break exercise"
+   ],
+   "steps_nl": [
+    "Ga rechtop zitten op een stoel of andere stevige zitplek, met een opgerolde handdoek, kussen of zachte bal tussen je knieën",
+    "Adem uit en knijp je knieën zachtjes naar elkaar toe",
+    "Span tegelijk met het knijpen je bekkenbodem aan",
+    "Houd 5 seconden vast en laat dan helemaal los",
+    "Herhaal 10 keer"
+   ],
+   "cues_nl": [
+    "Geen bal? Doe dan alsof je knijpt",
+    "Combineer het met het optillen van je bekkenbodem",
+    "Goede oefening voor een pauze achter je bureau"
+   ]
+  },
+  "lying-hamstring-stretch": {
+   "why": "nerve-stretch claim",
+   "steps": [
+    "Lie on your back. Bend one knee with foot flat. Extend the other leg and lift it, clasping behind the thigh.",
+    "Gently pull the leg toward you until you feel a comfortable stretch along the back of the thigh.",
+    "Flex your foot (toes toward your shin) to add a calf stretch. Hold and switch sides."
+   ],
+   "cues": [
+    "💡 Keep your lower back flat — don't let it arch off the floor.",
+    "Breathing into the stretch and relaxing on the exhale helps the muscle release further."
+   ],
+   "steps_nl": [
+    "Lig op je rug. Buig één knie met je voet plat. Strek je andere been, til het op en pak het achter je dij vast.",
+    "Trek je been rustig naar je toe tot je een prettige rek achter in je dij voelt.",
+    "Trek je tenen naar je scheen om ook je kuit te rekken. Houd vast en wissel van kant."
+   ],
+   "cues_nl": [
+    "💡 Houd je onderrug plat: laat hem niet van de vloer komen.",
+    "Adem naar de rek toe en ontspan bij het uitademen, dan geeft de spier verder mee."
+   ]
+  },
+  "marsen-6-km-u-6-minuten-rugzak-45kg": {
+   "why": "a rest after a single march had no context",
+   "steps": [
+    "March at 6 km/h for 6 minutes with 45 kg rucksack",
+    "Then rest for 2 minutes before the next block"
+   ],
+   "cues": [
+    "Maximum loaded march — 45 kg pack",
+    "Monitor posture carefully under this load"
+   ],
+   "steps_nl": [
+    "Marcheer 6 minuten op 6 km/u met een rugzak van 45 kg",
+    "Rust daarna 2 minuten voor het volgende blok"
+   ],
+   "cues_nl": [
+    "Zwaarste mars met rugzak — 45 kg",
+    "Let goed op je houding onder deze last"
+   ]
+  },
+  "nordic-hamstring-curl": {
+   "why": "equipment lists a chair that the text never used; it now serves as a shorter-range catch",
+   "steps": [
+    "Kneel on a mat with a partner holding your ankles — or hook your heels under a heavy sofa or secured bar.",
+    "With your body upright, lower your torso toward the floor as slowly as you can.",
+    "Catch yourself with your hands — on the floor, or on a chair seat in front of you to shorten the range — then push back up to kneeling."
+   ],
+   "cues": [
+    "💡 The eccentric (lowering) phase is where the hamstring strength is built — make it slow.",
+    "This is hard. Even 3–5 slow reps builds significant hamstring resilience."
+   ],
+   "steps_nl": [
+    "Kniel op een mat terwijl een partner je enkels vasthoudt — of haak je hielen onder een zware bank of een vastgezette stang",
+    "Houd je lichaam rechtop en laat je bovenlichaam zo langzaam mogelijk naar de vloer zakken",
+    "Vang jezelf op met je handen — op de vloer, of op de zitting van een stoel voor je om de beweging korter te maken — en duw jezelf terug naar de kniezit."
+   ],
+   "cues_nl": [
+    "💡 In de excentrische fase (het zakken) bouw je de kracht in je hamstrings op — doe het langzaam",
+    "Dit is zwaar. Zelfs 3–5 langzame herhalingen maken je hamstrings al een stuk weerbaarder"
+   ]
+  },
+  "outdoor-bike-zone2": {
+   "why": "zone 2 power was 50–65% of FTP in a step and 55–75% in a cue; 55–75% is the usual definition and matches the worked example",
+   "steps": [
+    "Choose a flat-to-gently-rolling route. Settle into Zone 2 within the first 10 minutes: HR 125–135 bpm, cadence 80–90 RPM.",
+    "Speed target on flat terrain: 20–28 km/h. If you have a power meter, hold 55–75% of your FTP (Functional Threshold Power). Both are Zone 2 markers.",
+    "Climbs: shift down and maintain cadence (80–90 RPM) rather than grinding. If HR exceeds 138 bpm on climbs, accept slower speed — HR governs.",
+    "Descents: recover actively. Let HR drop back toward 120 bpm on long descents, then re-engage at Zone 2 effort on the flat."
+   ],
+   "cues": [
+    "💡 Talk test at 25 km/h: if you cannot speak in phrases, you are above Zone 2 — ease off the power",
+    "💡 Cadence 80–90 RPM is more efficient than grinding at 60–70 RPM at the same wattage",
+    "💡 Power meter riders: Zone 2 = 55–75% FTP (e.g. if FTP is 200W, Zone 2 = 110–150W)",
+    "💡 Outdoor Zone 2: terrain variability is fine — manage HR to stay in zone across hills and flats"
+   ],
+   "steps_nl": [
+    "Kies een vlakke tot licht glooiende route. Kom binnen de eerste 10 minuten in zone 2: hartslag 125–135 bpm, cadans 80–90 RPM",
+    "Richtsnelheid op vlak terrein: 20–28 km/u. Heb je een vermogensmeter, houd dan 55–75% van je FTP (Functional Threshold Power) aan. Beide zijn kenmerken van zone 2",
+    "Klimmen: schakel terug en houd je cadans vast (80–90 RPM) in plaats van zwaar te stampen. Komt je hartslag op een klim boven 138 bpm, accepteer dan een lagere snelheid — je hartslag bepaalt",
+    "Afdalingen: herstel actief. Laat je hartslag op lange afdalingen zakken richting 120 bpm en pak op het vlakke je zone 2-inspanning weer op"
+   ],
+   "cues_nl": [
+    "💡 Praattest bij 25 km/u: kun je niet meer in korte zinnen praten, dan zit je boven zone 2 — trap wat minder hard",
+    "💡 Een cadans van 80–90 RPM is efficiënter dan zwaar trappen op 60–70 RPM bij hetzelfde wattage",
+    "💡 Rijd je met een vermogensmeter: zone 2 = 55–75% FTP (bijv. bij een FTP van 200 W is zone 2 110–150 W)",
+    "💡 Zone 2 buiten: wisselend terrein is prima — stuur op je hartslag om op heuvels en vlakke stukken in je zone te blijven"
+   ]
+  },
+  "pistol-squat-assist": {
+   "why": "the front leg was \"slightly bent\" in step 1 and \"straight\" in step 2",
+   "steps": [
+    "Stand in front of a chair or next to a wall for balance. Lift one leg in front of you, just off the floor.",
+    "Lower yourself slowly on the standing leg until you tap the chair or reach your comfortable depth, keeping the front leg off the floor and as straight as you can.",
+    "Drive through the standing heel to rise back to standing."
+   ],
+   "cues": [
+    "💡 Holding a counterweight (light dumbbell) actually makes balancing easier.",
+    "This is a skill as much as a strength exercise — patience with the progression."
+   ],
+   "steps_nl": [
+    "Ga voor een stoel of naast een muur staan voor balans. Til één been voor je op, net van de vloer.",
+    "Zak langzaam op je standbeen tot je de stoel aantikt of je comfortabele diepte bereikt; houd je voorste been van de vloer en zo recht als je kunt.",
+    "Duw door de hiel van je standbeen om weer rechtop te komen"
+   ],
+   "cues_nl": [
+    "💡 Met een tegengewicht (een lichte dumbbell) in je handen houd je juist makkelijker je balans",
+    "Dit is net zo goed een vaardigheid als een krachtoefening — heb geduld met de opbouw"
+   ]
+  },
+  "power-step-up-jump": {
+   "why": "equipment is a chair but the text named a step or box, and the jump in the name was not described",
+   "steps": [
+    "Stand in front of a sturdy step, low box or bottom stair — use a chair only if it cannot slide or tip. Place your right foot on it.",
+    "Drive through your right heel to step up explosively, leaving the step in a small jump with your left knee high.",
+    "Land softly on the step, lower your left foot back to the floor and repeat. Alternate lead legs."
+   ],
+   "cues": [
+    "💡 The drive comes from the heel of the working leg — not a toe push.",
+    "Land with bent knees to absorb impact — quiet landings protect joints."
+   ],
+   "steps_nl": [
+    "Ga voor een stevige step, lage box of onderste traptrede staan — gebruik alleen een stoel als die niet kan wegschuiven of kantelen. Zet je rechtervoet erop.",
+    "Zet af vanuit je rechterhiel en stap explosief omhoog, met een klein sprongetje los van de step en je linkerknie hoog.",
+    "Land zacht op de step, zet je linkervoet terug op de vloer en herhaal. Wissel steeds van voorste been."
+   ],
+   "cues_nl": [
+    "💡 De kracht komt uit de hiel van je werkende been — niet afzetten met je tenen.",
+    "Land met gebogen knieën om de klap op te vangen — stille landingen sparen je gewrichten."
+   ]
+  },
+  "seated-calf-raise": {
+   "why": "equipment is a bench; the text did not say what to sit on",
+   "steps": [
+    "Sit on a bench or chair with your knees bent at 90° and the balls of your feet on a step, block or thick book.",
+    "Rest a weight on your thighs if you have one.",
+    "Rise onto the toes, pause, lower into a stretch."
+   ],
+   "cues": [
+    "Bent knee targets the soleus — the calf muscle that matters most to running",
+    "Slow lowering is the point",
+    "💡 The bent knee shifts the work to the deeper calf muscle (soleus)"
+   ],
+   "steps_nl": [
+    "Ga op een bank of stoel zitten met je knieën 90° gebogen en je voorvoeten op een step, blok of dik boek.",
+    "Leg een gewicht op je bovenbenen als je dat hebt",
+    "Kom omhoog op je tenen, pauzeer en zak tot je rek voelt"
+   ],
+   "cues_nl": [
+    "Met gebogen knie train je de soleus — de kuitspier die bij hardlopen het zwaarst telt",
+    "Het gaat om het langzame zakken",
+    "💡 Door de gebogen knie verschuift het werk naar de diepe kuitspier (soleus)"
+   ]
+  },
+  "side-lying-full-stretch": {
+   "why": "medical claim (sciatic relief)",
+   "steps": [
+    "Lie on your side with your hips and knees gently stacked",
+    "Reach your bottom arm long overhead",
+    "Reach your top arm overhead to meet it",
+    "Feel the full length of your body stretch",
+    "Hold for 30 seconds on each side"
+   ],
+   "cues": [
+    "Use a pillow between knees for comfort",
+    "Perfect with a pregnancy body pillow",
+    "Often eases a tight lower back and hip"
+   ],
+   "steps_nl": [
+    "Lig op je zij met je heupen en knieën losjes boven elkaar",
+    "Strek je onderste arm lang boven je hoofd",
+    "Breng je bovenste arm ernaartoe, ook boven je hoofd",
+    "Voel je lichaam over de hele lengte rekken",
+    "Houd 30 seconden per kant vast"
+   ],
+   "cues_nl": [
+    "Leg voor het comfort een kussen tussen je knieën",
+    "Ideaal met een zwangerschapskussen",
+    "Maakt een gespannen onderrug en heup vaak losser"
+   ]
+  },
+  "single-leg-calf-raise": {
+   "why": "medical claim (circulation)",
+   "steps": [
+    "Stand on one foot (hold wall for balance)",
+    "Rise onto the ball of your foot",
+    "Hold 1 second at the top",
+    "Lower slowly",
+    "15 reps each side"
+   ],
+   "cues": [
+    "Full range of motion",
+    "Slow descent for maximum effect",
+    "Calf work keeps the blood moving in your lower legs, which is welcome in pregnancy"
+   ],
+   "steps_nl": [
+    "Sta op één voet (houd een muur vast voor balans)",
+    "Kom omhoog op je voorvoet",
+    "Houd bovenin 1 seconde vast",
+    "Zak langzaam terug",
+    "15 herhalingen per kant"
+   ],
+   "cues_nl": [
+    "Maak de volledige beweging",
+    "Zak langzaam voor het meeste effect",
+    "Kuitoefeningen houden het bloed in je onderbenen in beweging; prettig tijdens de zwangerschap"
+   ]
+  },
+  "sphinx-hold": {
+   "why": "medical claim (disc health)",
+   "steps": [
+    "Lie face down, prop on forearms, elbows under shoulders",
+    "Press forearms into floor and lift chest slightly",
+    "Look forward, neck neutral",
+    "Hold the position, breathe normally"
+   ],
+   "cues": [
+    "Gentle backbend — not aggressive",
+    "A gentle way to extend your lower back after sitting",
+    "Avoid if prone position is uncomfortable"
+   ],
+   "steps_nl": [
+    "Lig op je buik en steun op je onderarmen, ellebogen onder je schouders.",
+    "Duw je onderarmen in de vloer en til je borst iets op.",
+    "Kijk naar voren, nek neutraal.",
+    "Houd de positie vast en adem normaal."
+   ],
+   "cues_nl": [
+    "Een zachte achteroverbuiging, niet geforceerd.",
+    "Een rustige manier om je onderrug te strekken na het zitten",
+    "Sla over als op je buik liggen oncomfortabel is."
+   ]
+  },
+  "stair-climb-simulation": {
+   "why": "equipment is a chair but the text named a step or stair",
+   "steps": [
+    "Stand in front of a step, low box or bottom stair. Use a chair only if it is sturdy and cannot slide.",
+    "Step up with your right foot, then your left, so you're standing on the step. Step down right, then left.",
+    "Increase pace progressively. Lead with the opposite foot each round."
+   ],
+   "cues": [
+    "💡 Drive through the heel of the stepping foot — not the toe.",
+    "Adding a knee drive as you step up turns this into a full lower-body challenge."
+   ],
+   "steps_nl": [
+    "Ga voor een step, lage box of onderste traptrede staan. Gebruik alleen een stoel als die stevig staat en niet kan wegschuiven.",
+    "Stap op met rechts, dan met links, zodat je op de tree staat. Stap af met rechts, dan met links.",
+    "Voer het tempo geleidelijk op. Begin elke ronde met de andere voet."
+   ],
+   "cues_nl": [
+    "💡 Duw af via de hiel van je opstappende voet, niet via je tenen.",
+    "Breng bij het opstappen je knie omhoog en het wordt een volledige uitdaging voor je onderlichaam."
+   ]
+  },
+  "standing-figure-four": {
+   "why": "medical claim (sciatic discomfort)",
+   "steps": [
+    "Stand on your right foot and hold a wall for balance",
+    "Cross your left ankle over your right knee to form a 4 shape",
+    "Sit back as if sitting down in a chair",
+    "Feel the stretch in your left glute",
+    "Hold for 20–30 seconds, then switch sides"
+   ],
+   "cues": [
+    "Stand tall — don't hunch forward",
+    "Great alternative to pigeon pose during pregnancy",
+    "Targets the piriformis, a muscle deep in your buttock"
+   ],
+   "steps_nl": [
+    "Sta op je rechtervoet en houd je vast aan een muur voor balans",
+    "Leg je linkerenkel over je rechterknie, zodat je benen een 4 vormen",
+    "Zak naar achteren alsof je op een stoel gaat zitten",
+    "Voel de rek in je linkerbil",
+    "Houd 20–30 seconden vast en wissel dan van kant"
+   ],
+   "cues_nl": [
+    "Blijf lang — krom je rug niet naar voren",
+    "Goed alternatief voor de duif tijdens de zwangerschap",
+    "Gericht op de piriformis, een spier diep in je bil"
+   ]
+  },
+  "standing-hamstring-stretch": {
+   "why": "equipment is none; any support works",
+   "steps": [
+    "Stand next to a chair, table or wall and hold it for support",
+    "Extend one leg forward with your heel on the floor and your foot flexed",
+    "Hinge forward gently from your hips with a flat back",
+    "Feel the stretch behind your thigh",
+    "Hold for 20–30 seconds, then stand up and switch legs"
+   ],
+   "cues": [
+    "Don't round the back",
+    "Keep hips square",
+    "Great when bending to floor becomes uncomfortable in pregnancy"
+   ],
+   "steps_nl": [
+    "Ga naast een stoel, tafel of muur staan en houd je eraan vast",
+    "Zet één been gestrekt naar voren met je hiel op de vloer en je tenen omhoog",
+    "Buig rustig naar voren vanuit je heupen met een rechte rug",
+    "Voel de rek aan de achterkant van je bovenbeen",
+    "Houd 20–30 seconden vast, kom omhoog en wissel van been"
+   ],
+   "cues_nl": [
+    "Maak je rug niet bol",
+    "Houd je heupen recht naar voren",
+    "Fijn als bukken naar de vloer lastig wordt tijdens de zwangerschap"
+   ]
+  },
+  "standing-pelvic-rock": {
+   "why": "pain-relief claim",
+   "steps": [
+    "Stand with your feet hip-width apart, knees slightly bent and hands on your hips",
+    "Gently rock your pelvis forward (arch your lower back slightly)",
+    "Then rock your pelvis backward (flatten your lower back)",
+    "Find a slow, rhythmic motion",
+    "Repeat for 30 to 60 seconds"
+   ],
+   "cues": [
+    "Think of a gentle rocking motion",
+    "Good for lower back tension in pregnancy",
+    "Many women also use this movement during labour"
+   ],
+   "steps_nl": [
+    "Sta met je voeten op heupbreedte, knieën licht gebogen en handen op je heupen",
+    "Kantel je bekken rustig naar voren (je onderrug wordt iets hol)",
+    "Kantel je bekken daarna naar achteren (je onderrug wordt vlak)",
+    "Zoek een langzame, ritmische beweging",
+    "Herhaal 30 tot 60 seconden"
+   ],
+   "cues_nl": [
+    "Denk aan een zachte wiegende beweging",
+    "Goed bij een gespannen onderrug tijdens de zwangerschap",
+    "Veel vrouwen gebruiken deze beweging ook tijdens de bevalling"
+   ]
+  },
+  "til-draagtest-full-exercise": {
+   "why": "equipment is none but a crate and table are needed; a training substitute is now named",
+   "steps": [
+    "Stand in front of the munitiekist (ammunition crate) on the floor and grip the handles",
+    "Lift the crate from the floor and carry it 25 metres to the lift table",
+    "Place the crate on the table at shoulder height (115-135 cm, adjusted to body height)",
+    "Lift the crate from the table and carry it 25 metres back",
+    "Lower the crate to the floor — this completes one repetition",
+    "Start a new repetition every 25 seconds; do 2 sets of 10 reps with 30 s rest between sets"
+   ],
+   "cues": [
+    "Test weights: 20 kg (Basis/K1), 20+30 kg (K2/K4), 20+30+40 kg (K3/K5/K6)",
+    "Arms horizontal at shoulder height when gripping handles",
+    "Train with the weight appropriate for your cluster target",
+    "Training without the official kit: use a sturdy crate with handles and a table or shelf at shoulder height"
+   ],
+   "steps_nl": [
+    "Ga voor de munitiekist op de vloer staan en pak de handgrepen vast",
+    "Til de kist van de vloer en draag hem 25 meter naar de tiltafel",
+    "Zet de kist op de tafel op schouderhoogte (115-135 cm, afgestemd op je lichaamslengte)",
+    "Til de kist van de tafel en draag hem 25 meter terug",
+    "Zet de kist op de vloer — dat is één herhaling",
+    "Start elke 25 seconden een nieuwe herhaling; doe 2 sets van 10 herhalingen met 30 s rust tussen de sets"
+   ],
+   "cues_nl": [
+    "Testgewichten: 20 kg (Basis/K1), 20+30 kg (K2/K4), 20+30+40 kg (K3/K5/K6)",
+    "Armen horizontaal op schouderhoogte als je de handgrepen vastpakt",
+    "Train met het gewicht dat past bij je clusterdoel",
+    "Trainen zonder het officiële materiaal: gebruik een stevige kist met handgrepen en een tafel of plank op schouderhoogte"
+   ]
+  },
+  "til-draagtest-gewicht-plaatsen-naar-heupen": {
+   "why": "the name says \"to the hips\" but the steps lifted straight to shoulder height; the lift now passes the hips, with every number kept",
+   "steps": [
+    "Stand in front of the munitiekist (ammunition crate) on the floor",
+    "Grip the handles firmly — arms horizontal at shoulder height when extended",
+    "Explosively lift the crate from the floor to hip height in one fast movement",
+    "From your hips, place the crate on the lift table at shoulder height (115-135 cm, adjusted to body height)",
+    "Lower the crate with control",
+    "Do 5 sets of 10 s with 2 min rest"
+   ],
+   "cues": [
+    "Fast explosive execution",
+    "Test weights: 20 kg (Basis/K1), 30 kg (K2/K4), 40 kg (K3/K5/K6)",
+    "New repetition every 25 seconds in the actual test",
+    "Training without the official kit: use a sturdy crate with handles and a table or shelf at shoulder height"
+   ],
+   "steps_nl": [
+    "Ga voor de munitiekist op de vloer staan",
+    "Pak de handgrepen stevig vast — armen horizontaal op schouderhoogte als ze gestrekt zijn",
+    "Til de kist explosief in één snelle beweging van de vloer tot heuphoogte",
+    "Zet de kist vanaf je heupen op de tiltafel op schouderhoogte (115-135 cm, afgestemd op je lichaamslengte)",
+    "Laat de kist gecontroleerd zakken",
+    "Doe 5 sets van 10 s met 2 min rust"
+   ],
+   "cues_nl": [
+    "Snel en explosief uitvoeren",
+    "Testgewichten: 20 kg (Basis/K1), 30 kg (K2/K4), 40 kg (K3/K5/K6)",
+    "In de echte test start elke 25 seconden een nieuwe herhaling",
+    "Trainen zonder het officiële materiaal: gebruik een stevige kist met handgrepen en een tafel of plank op schouderhoogte"
+   ]
+  },
+  "weighted-march": {
+   "why": "equipment is none but the text required a pack; the unloaded version is now named in the step",
+   "steps": [
+    "Load your rucksack or vest to the prescribed weight and tighten the straps so the pack sits high and snug; without a pack, march unloaded",
+    "Set your pace: 5.5 km/h (military standard) or 6 km/h (advanced)",
+    "March with upright posture — chest up, shoulders back, core braced throughout",
+    "Swing your arms naturally; short, quick steps are more efficient than long strides",
+    "Monitor your pace with a GPS watch or app; stay within ±0.3 km/h of target speed"
+   ],
+   "cues": [
+    "The load accumulates — what feels easy at minute 5 feels heavy at minute 20",
+    "Heel-to-toe foot strike at march pace — don't shuffle",
+    "💡 Beginner (0 kg): focus on pace and posture. Progress: +5–10 kg every 2 weeks",
+    "💡 Intermediate (25 kg): standard Defensie preparation load",
+    "💡 Advanced (35–45 kg): matches Cluster 4–6 Opleiding targets"
+   ],
+   "steps_nl": [
+    "Vul je rugzak of vest tot het voorgeschreven gewicht en trek de banden aan zodat de rugzak hoog en strak zit; zonder rugzak marcheer je onbelast",
+    "Bepaal je tempo: 5,5 km/u (militaire norm) of 6 km/u (gevorderd)",
+    "Marcheer met een rechte houding — borst omhoog, schouders naar achteren, core de hele tijd aangespannen",
+    "Laat je armen vanzelf meezwaaien; korte, snelle passen zijn efficiënter dan lange passen",
+    "Houd je tempo bij met een gps-horloge of app; blijf binnen ±0,3 km/u van je doelsnelheid"
+   ],
+   "cues_nl": [
+    "Het gewicht telt op — wat in minuut 5 licht voelt, voelt in minuut 20 zwaar",
+    "Rol je voet af van hiel naar teen op marstempo — niet sloffen",
+    "💡 Beginner (0 kg): let op tempo en houding. Opbouw: elke 2 weken +5–10 kg",
+    "💡 Gemiddeld (25 kg): standaardgewicht voor de voorbereiding op Defensie",
+    "💡 Gevorderd (35–45 kg): komt overeen met de doelen van Cluster 4–6 Opleiding"
+   ]
+  },
+  "wrist-ankle-circles": {
+   "why": "physiological claim",
+   "steps": [
+    "Extend your arms and rotate your wrists in circles, 10 times in each direction",
+    "Lift one foot and rotate your ankle 10 times in each direction",
+    "Switch feet and repeat"
+   ],
+   "cues": [
+    "Good office break movement",
+    "Gets your joints moving before you load them"
+   ],
+   "steps_nl": [
+    "Strek je armen en draai cirkels met je polsen, 10 keer in elke richting",
+    "Til één voet op en draai je enkel 10 keer in elke richting",
+    "Wissel van voet en herhaal"
+   ],
+   "cues_nl": [
+    "Goede beweegpauze op kantoor",
+    "Brengt je gewrichten in beweging voordat je ze belast"
+   ]
+  },
+  "yawn-sigh-breath": {
+   "why": "medical claim (anxiety)",
+   "steps": [
+    "Take a big exaggerated yawn — open mouth as wide as possible, inhale fully",
+    "At the top, hold for a moment",
+    "Release with a long audible sigh — ahhh or haaa",
+    "Let the face and shoulders completely drop on the sigh",
+    "Repeat 5 times"
+   ],
+   "cues": [
+    "Yes, fake yawns often trigger real ones",
+    "One of the fastest ways to release jaw and neck tension",
+    "Calming when you feel tense; also useful as labour preparation"
+   ],
+   "steps_nl": [
+    "Geeuw groot en overdreven — open je mond zo wijd mogelijk en adem volledig in",
+    "Houd bovenaan even vast",
+    "Laat los met een lange, hoorbare zucht — ahhh of haaa",
+    "Laat bij de zucht je gezicht en schouders helemaal zakken",
+    "Herhaal 5 keer"
+   ],
+   "cues_nl": [
+    "Ja, van een nepgeeuw moet je vaak echt geeuwen",
+    "Een van de snelste manieren om spanning in je kaak en nek los te laten",
+    "Kalmerend als je gespannen bent; ook bruikbaar als voorbereiding op de bevalling"
+   ]
+  }
+ }
+}

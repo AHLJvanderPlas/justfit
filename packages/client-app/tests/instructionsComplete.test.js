@@ -6,6 +6,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { DatabaseSync } from 'node:sqlite';
 import { textErrors } from '../../../scripts/generate-instructions-migration.mjs';
+import { claimErrors } from '../../../scripts/generate-instruction-corrections-migration.mjs';
 
 const ROOT = new URL('../../../', import.meta.url);
 function library() {
@@ -26,6 +27,12 @@ describe('exercise instructions are complete in both languages', () => {
   it('a pregnancy note has its Dutch version', () => {
     const missing = rows.filter((r) => { const j = JSON.parse(r.instructions_json); return j.pregnancy_note && !j.pregnancy_note_nl; }).map((r) => r.slug);
     expect(missing).toEqual([]);
+  });
+  it('no instruction makes a medical or injury-prevention promise, or talks about the library', () => {
+    expect(rows.flatMap((r) => claimErrors(r.slug, JSON.parse(r.instructions_json)))).toEqual([]);
+    expect(claimErrors('x', { steps: ['Go'], cues: ['Essential during pregnancy to prevent DVT'] })).toHaveLength(1);
+    expect(claimErrors('x', { steps: ['Go'], cues: ['The library had no calf work'] })).toHaveLength(1);
+    expect(claimErrors('x', { steps: ['Brace your core to prevent swinging'], cues: ['Keep hips square'] })).toEqual([]);
   });
   it('the check itself fails on a row without Dutch, a short Dutch list and a lost 💡', () => {
     expect(textErrors('x', { steps: ['Go'], cues: ['Tip'] }, {})).not.toEqual([]);
