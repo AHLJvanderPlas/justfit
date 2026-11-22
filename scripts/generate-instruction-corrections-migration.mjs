@@ -85,7 +85,9 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     + ` WHERE slug = ${q(slug)} AND gym_id IS NULL AND is_active = 1 AND json_valid(instructions_json)`
     + ` AND json_array_length(instructions_json, '$.steps') = ${base.steps.length} AND json_array_length(instructions_json, '$.cues') = ${base.cues.length}`
     + ` AND json_extract(instructions_json, '$.steps[0]') = ${q(base.steps[0])};`;
-  const landed = rows.map(({ slug, fx }) => `(slug = ${q(slug)} AND json_extract(instructions_json, '$.steps') = ${jarr(fx.steps)} AND json_extract(instructions_json, '$.cues_nl') = ${jarr(fx.cues_nl)})`).join('\n    OR ');
+  // One flat IN list: D1 rejects an OR chain this long ("Expression tree is too large"), which a
+  // node:sqlite dry run does not catch. The stamp is unique to this migration.
+  const slugList = rows.map((r) => q(r.slug)).join(', ');
 
   const sql = `-- 0130 — corrections to the exercise instruction text of 0129 (text 2).
 --
@@ -102,8 +104,7 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 ${rows.map(update).join('\n')}
 
 CREATE TABLE _0130_assert (ok INTEGER NOT NULL CHECK (ok = 1)) STRICT;
-INSERT INTO _0130_assert (ok) SELECT CASE WHEN (SELECT COUNT(*) FROM exercises WHERE gym_id IS NULL AND is_active = 1 AND (
-    ${landed})) = ${rows.length}
+INSERT INTO _0130_assert (ok) SELECT CASE WHEN (SELECT COUNT(*) FROM exercises WHERE gym_id IS NULL AND is_active = 1 AND slug IN (${slugList}) AND updated_at_ms = ${STAMP}) = ${rows.length}
   AND (SELECT COUNT(*) FROM exercises WHERE gym_id IS NULL AND is_active = 1
     AND NOT (json_valid(instructions_json)
       AND COALESCE(json_array_length(instructions_json, '$.steps_nl'), -1) = json_array_length(instructions_json, '$.steps')
