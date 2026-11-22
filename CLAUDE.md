@@ -1362,6 +1362,23 @@ None open. 🟢 UAT releases 1–6 are live. The five UAT defects (D1–D5, `doc
 auto-injected Web Analytics beacon (`static.cloudflareinsights.com/beacon.min.js`) is blocked by our
 `script-src 'self'` on every production load (ROADMAP C-B30).
 
+### Shipped 2026-11-22 — text 2: 44 instruction corrections (migration 0130 applied, ledger 131; vitest 910 + 20, smoke 112, e2e 51; no Pages deploy — data only)
+
+- **Migration 0130_exercise_instruction_corrections.sql** (GENERATED: `scripts/generate-instruction-corrections-migration.mjs`
+  from `scripts/fixtures/exercise-instruction-corrections.json`; every entry carries its reason in `why`). 26 of the 32
+  open questions of text 1 corrected, 6 were already settled in 0129 (`resolved_as_is`), plus 18 cues or steps that made a
+  health or injury claim. English and Dutch together. Closes C-B40.
+- **Equipment tags were not changed.** Where text and tag disagreed, the text now works with the equipment the planner
+  assumes (a household alternative is named, or the tagged item got a role). Changing tags changes who is prescribed what.
+- **The three "2700 meter" runs (zone 3, 4, 5) are one continuous run**, as the name and `base_duration_sec` say; the
+  interval text (3 x 2 min etc.) could not cover the distance. Target times in the cues are derived from the stored duration.
+- **Guard** in `tests/instructionsComplete.test.js`: `claimErrors` (exported by the generator) fails on medical or
+  injury-prevention wording and on notes about "the library". It failed before 0130 and passes after.
+- **D1 lesson:** a 44-branch `OR` in the final assert passed the node:sqlite dry run and was rejected by D1
+  ("Expression tree is too large (maximum depth 100)"); nothing was applied. Asserts use a flat `IN (...)` list.
+- **Review table** `docs/exercise-instructions.md` is now rebuilt from the baseline: `node scripts/generate-instruction-corrections-migration.mjs --table`.
+- Not verified against an official source: the Defensie test drills (graaftest, til-draagtest weights and heights).
+
 ### Shipped 2026-11-21 — text 1: every exercise has a complete instruction in English and Dutch (migration 0129 applied, ledger 130; vitest 909 + 20, smoke 112, e2e 51; no Pages deploy — data only)
 
 - **Migration 0129_exercise_instructions_all.sql** (GENERATED: `scripts/generate-instructions-migration.mjs` from
